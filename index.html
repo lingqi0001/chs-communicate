@@ -2882,16 +2882,6 @@
             setTimeout(() => document.getElementById('postPage').classList.add('hidden'), 400);
         };
 
-        async function globalDataSync() {
-            for (const tab of ['school', 'club']) {
-                const snap = await get(ref(db, `news/${tab}`));
-                const data = snap.val() || {};
-                const posts = Object.keys(data).map(k => ({ key: k, ...data[k] }));
-                const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
-                renderNewsContentFromData(posts, containerId, tab);
-                for (const p of posts) await saveNewsLocal(tab, p.key, p);
-            }
-        }
 
         window.submitPost = () => {
             const now = Date.now();
