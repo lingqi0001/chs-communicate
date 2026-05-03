@@ -706,7 +706,7 @@
                         </div>
                     </div>
                     <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHTML(post.desc)}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</p>
                     ${post.image ? `<img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
                 </div>
             `).join('');
@@ -5269,7 +5269,6 @@
                 </button>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- Post Detail & Comments Page -->
