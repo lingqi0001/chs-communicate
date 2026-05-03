@@ -2103,8 +2103,12 @@
                 return true;
             }
             try {
-                console.log("Moderation: Checking content safety...");
-                const response = await fetch('https://api.openai.com/v1/moderations', {
+                console.log("Moderation: Checking content safety via Proxy...");
+                // Use a CORS proxy to bypass OpenAI's browser restriction
+                const proxyUrl = 'https://corsproxy.io/?';
+                const apiUrl = 'https://api.openai.com/v1/moderations';
+
+                const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
