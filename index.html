@@ -2103,12 +2103,11 @@
                 return true;
             }
             try {
-                console.log("Moderation: Checking content safety via Proxy...");
-                // Use a CORS proxy to bypass OpenAI's browser restriction
-                const proxyUrl = 'https://corsproxy.io/?';
+                console.log("Moderation: Checking content safety via AllOrigins...");
                 const apiUrl = 'https://api.openai.com/v1/moderations';
-
-                const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                
+                const response = await fetch(proxyUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2116,6 +2115,7 @@
                     },
                     body: JSON.stringify({ input: text })
                 });
+
                 if (!response.ok) {
                     const errBody = await response.text();
                     console.error("Moderation API Error Response:", errBody);
