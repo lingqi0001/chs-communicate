@@ -2882,6 +2882,17 @@
             setTimeout(() => document.getElementById('postPage').classList.add('hidden'), 400);
         };
 
+        async function globalDataSync() {
+            for (const tab of ['school', 'club']) {
+                const snap = await get(ref(db, `news/${tab}`));
+                const data = snap.val() || {};
+                const posts = Object.keys(data).map(k => ({ key: k, ...data[k] }));
+                const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+                renderNewsContentFromData(posts, containerId, tab);
+                for (const p of posts) await saveNewsLocal(tab, p.key, p);
+            }
+        }
+
         window.submitPost = () => {
             const now = Date.now();
             if (now - lastPostSentTime < POST_COOLDOWN) {
@@ -2893,21 +2904,18 @@
             const desc = document.getElementById('postInputDesc').value.trim();
             if (!title || !desc) { alert("Title and description are required."); return; }
 
-            // --- Moderation Check ---
-            const combinedText = `Title: ${title}\nDescription: ${desc}`;
-            checkModeration(combinedText).then(isSafe => {
+            checkModeration(`Title: ${title}\nDesc: ${desc}`).then(isSafe => {
                 if (!isSafe) {
-                    showCustomAlert("Submission Blocked", "Your post contains content that violates our community safety guidelines. Please review and revise.");
+                    showCustomAlert("Submission Blocked", "Your post contains content that violates our community safety guidelines.");
                     return;
                 }
 
                 const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
                 const isAnonymous = config.anonymous || false;
-
                 lastPostSentTime = now;
                 const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
-                const newPostRef = push(ref(db, dbRefStr));
-                set(newPostRef, {
+
+                set(push(ref(db, dbRefStr)), {
                     title, desc,
                     image: currentPostBase64 || null,
                     authorId: isAnonymous ? 'anonymous' : currentUser.id,
@@ -2915,13 +2923,12 @@
                     timestamp: Date.now(),
                     likes: {}
                 }).then(() => {
-                    showCustomAlert("Success", "Announcement published successfully!");
+                    showCustomAlert("Success", "Published successfully!");
                     closePostForm();
-                    if (isPostingNews) globalDataSync(); // Force refresh news
+                    if (isPostingNews) globalDataSync();
                 }).catch(err => {
-                    lastPostSentTime = 0; // Reset on failure
-                    console.error(err);
-                    alert("Failed to post");
+                    lastPostSentTime = 0;
+                    alert("Failed to post: " + err.message);
                 });
             });
         };
@@ -2937,31 +2944,22 @@
                 } else {
                     await set(postRef, true);
                 }
-            } catch (err) {
-                alert("Action failed: " + err.message);
-                console.error(err);
-            }
+            } catch (err) { console.error(err); }
         };
 
         window.openPostDetail = (postId) => {
             currentPostId = postId;
             const page = document.getElementById('detailPage');
-            page.classList.add('translate-x-full');
             page.classList.remove('hidden');
-            requestAnimationFrame(() => requestAnimationFrame(() => page.classList.remove('translate-x-full')));
+            requestAnimationFrame(() => page.classList.remove('translate-x-full'));
 
             const config = MODULE_CONFIG[currentModule];
-            if (config.hasComments) {
-                document.getElementById('commentInputArea').classList.remove('hidden');
-            } else {
-                document.getElementById('commentInputArea').classList.add('hidden');
-            }
+            document.getElementById('commentInputArea').classList.toggle('hidden', !config.hasComments);
 
             if (postDetailListener) postDetailListener();
             postDetailListener = onValue(ref(db, `modules/${currentModule}/${postId}`), (snap) => {
                 const post = snap.val();
-                if (!post) return;
-                renderPostDetail(postId, post);
+                if (post) renderPostDetail(postId, post);
             });
         };
 
@@ -2979,120 +2977,80 @@
             const likesCount = Object.keys(post.likes || {}).length;
             const isLiked = post.likes && auth.currentUser && post.likes[auth.currentUser.uid];
 
-            const authorName = config.anonymous ? 'Anonymous User' : (post.authorName || 'Unknown');
+            const authorName = config.anonymous ? 'Anonymous' : (post.authorName || 'Unknown');
             const author = !config.anonymous ? await fetchUser(post.authorId) : null;
-            const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anonymous&background=random' : (author?.avatar || 'https://ui-avatars.com/api/?name=' + authorName + '&background=random');
+            const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (author?.avatar || 'https://ui-avatars.com/api/?name=' + authorName);
 
             let html = `
                 <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5">
                     <div class="flex items-center gap-4 mb-5">
-                        <img src="${authorAvatar}" class="w-14 h-14 rounded-full object-cover shadow-sm">
+                        <img src="${authorAvatar}" class="w-14 h-14 rounded-full object-cover">
                         <div>
-                            <div class="font-bold text-lg leading-tight text-black dark:text-white">${authorName}</div>
-                            <div class="text-sm text-gray-500 font-medium mt-1">${new Date(post.timestamp).toLocaleString()}</div>
+                            <div class="font-bold text-lg text-black dark:text-white">${authorName}</div>
+                            <div class="text-sm text-gray-400 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
                         </div>
                     </div>
-                    <div class="font-extrabold text-2xl mb-3 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</div>
-                    <div class="text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHTML(post.desc)}</div>
-                    ${post.image ? `<img src="${post.image}" class="w-full h-auto rounded-2xl mt-5 cursor-pointer border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                    <div class="font-extrabold text-2xl mb-3 text-black dark:text-white">${escapeHTML(post.title)}</div>
+                    <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHTML(post.desc)}</div>
+                    ${post.image ? `<img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
                     ${getSuggestionVotingHtml({ ...post, id: postId })}
                     <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
-                        <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'} transition-colors group">
-                            <svg class="w-7 h-7 ${isLiked ? 'fill-current scale-110' : 'fill-none group-active:scale-90'} transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
+                            <svg class="w-7 h-7 ${isLiked ? 'fill-current' : 'fill-none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                             <span class="text-base font-medium">${likesCount}</span>
                         </button>
-                        <button onclick="reportPost('${postId}')" class="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95" title="Report Post">
-                            <svg class="w-7 h-7 fill-none transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        </button>
+                        <button onclick="reportPost('${postId}')" class="text-gray-400 hover:text-gray-600"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>
                     </div>
-                </div>
-            `;
+                </div>`;
 
             if (config.hasComments) {
-                html += `<div class="mt-8 font-bold text-[20px] mb-5 px-2 text-black dark:text-white">Comments</div>`;
                 const comments = post.comments || {};
-                const sortedComments = Object.keys(comments).map(k => ({ id: k, ...comments[k] })).sort((a, b) => a.timestamp - b.timestamp);
-
-                if (sortedComments.length === 0) {
-                    html += `<div class="text-center text-gray-400 text-sm mt-10">No comments yet. Be the first to reply!</div>`;
+                const sorted = Object.keys(comments).map(k => ({ id: k, ...comments[k] })).sort((a, b) => a.timestamp - b.timestamp);
+                html += `<div class="mt-8 font-bold text-xl mb-5 px-2 text-black dark:text-white">Comments (${sorted.length})</div>`;
+                if (sorted.length === 0) {
+                    html += `<div class="text-center text-gray-400 text-sm mt-5">No comments yet.</div>`;
                 } else {
-                    html += `<div class="space-y-5">`;
-                    for (const c of sortedComments) {
+                    html += `<div class="space-y-4">`;
+                    for (const c of sorted) {
                         const cAuthorName = config.anonymous ? 'Anonymous' : (c.authorName || 'Unknown');
                         const cAuthor = !config.anonymous ? await fetchUser(c.authorId) : null;
-                        const cAuthorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anonymous&background=random' : (cAuthor?.avatar || 'https://ui-avatars.com/api/?name=' + cAuthorName + '&background=random');
-                        html += `
-                            <div class="flex gap-4">
-                                <img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full flex-shrink-0 shadow-sm mt-1">
-                                <div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl px-5 py-3 shadow-sm">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span>
-                                        <span class="font-medium text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    </div>
-                                    <div class="text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHTML(c.text)}</div>
-                                </div>
-                            </div>
-                        `;
+                        const cAuthorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (cAuthor?.avatar || 'https://ui-avatars.com/api/?name=' + cAuthorName);
+                        html += `<div class="flex gap-4"><img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full mt-1"><div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm"><div class="flex justify-between mb-1"><span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span><span class="text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div class="text-base text-gray-700 dark:text-gray-300">${escapeHTML(c.text)}</div></div></div>`;
                     }
                     html += `</div>`;
                 }
             }
-
             contentEl.innerHTML = html;
         }
 
         window.submitComment = () => {
             const now = Date.now();
             if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
-
             const input = document.getElementById('commentInput');
             const text = input.value.trim();
-            if (!text || !currentPostId || !auth.currentUser) return;
+            if (!text || !currentPostId) return;
 
-            // --- Moderation Check ---
             checkModeration(text).then(isSafe => {
                 if (!isSafe) {
-                    showCustomAlert("Comment Blocked", "Your comment contains content that violates our community safety guidelines. Please keep it respectful.");
-                    input.value = '';
+                    showCustomAlert("Blocked", "Inappropriate content detected.");
                     return;
                 }
-
-                const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
+                const config = MODULE_CONFIG[currentModule] || {};
                 const isAnonymous = config.anonymous || false;
-
                 lastCommentSentTime = now;
-                const commentRef = push(ref(db, `modules/${currentModule}/${currentPostId}/comments`));
-                set(commentRef, {
+                set(push(ref(db, `modules/${currentModule}/${currentPostId}/comments`)), {
                     text,
                     authorId: isAnonymous ? 'anonymous' : currentUser.id,
                     authorName: isAnonymous ? 'Anonymous' : currentUser.name,
-                    authUid: auth.currentUser.uid,
                     timestamp: Date.now()
-                }).then(() => {
-                    input.value = '';
-                });
+                }).then(() => { input.value = ''; }).catch(e => alert(e.message));
             });
         };
-            }).catch ((err) => {
-            alert("Comment failed: " + err.message);
-            lastCommentSentTime = 0;
-        });
-        };
 
-        // Fix: Listen for window resize to manually clear/restore panel visibility at the 1024px breakpoint
-        // Resolves bug where Tailwind CDN hidden class sometimes overrides lg:flex on desktop
-
-        // CHS Eagle Time Logic
         window.openEagleTime = () => {
             currentModule = 'eagle_time';
-            const addBtn = document.getElementById('eagleAddBtn');
-            if (addBtn) {
-                if (isStaff()) {
-                    addBtn.classList.remove('hidden');
-                } else {
-                    addBtn.classList.add('hidden');
-                }
-            }
+            const btn = document.getElementById('eagleAddBtn');
+            if (btn) btn.classList.toggle('hidden', !isStaff());
             openOverlayPage('eagleTimePage', renderEagleTime);
         };
 
