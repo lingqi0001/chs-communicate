@@ -529,6 +529,17 @@
                 console.log('App: globalDataSync...');
                 globalDataSync();
 
+                // Load Global AI Security Configuration (PII/Moderation Defense)
+                onValue(ref(db, 'config/openai_key'), (snap) => {
+                    const val = snap.val() || '';
+                    if (val) {
+                        SYSTEM_OPENAI_KEY = val;
+                        console.log('App: AI Moderation System Active.');
+                    } else {
+                        console.warn('App: AI Moderation System is idle (Key missing in cloud config).');
+                    }
+                });
+
                 console.log('App: All components initialized. Hiding loading.');
                 hideLoading();
             } else {
@@ -720,11 +731,7 @@
                 renderSidebar();
                 initGlobalNotificationMonitor();
 
-                // Load Global AI Security Configuration
-                onValue(ref(db, 'config/openai_key'), (snap) => {
-                    SYSTEM_OPENAI_KEY = snap.val() || '';
-                    console.log('App: AI Moderation System Active.');
-                });
+
 
                 if (window.innerWidth >= 1024 && !activeTargetId) {
                     const sorted = chatIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0));
@@ -2092,10 +2099,11 @@
 
         async function checkModeration(text) {
             if (!SYSTEM_OPENAI_KEY) {
-                console.warn("Moderation: System API Key not yet loaded or missing.");
+                console.warn("Moderation: System API Key not yet loaded or missing. Bypassing check.");
                 return true;
             }
             try {
+                console.log("Moderation: Checking content safety...");
                 const response = await fetch('https://api.openai.com/v1/moderations', {
                     method: 'POST',
                     headers: {
@@ -2104,23 +2112,33 @@
                     },
                     body: JSON.stringify({ input: text })
                 });
+                if (!response.ok) {
+                    const errBody = await response.text();
+                    console.error("Moderation API Error Response:", errBody);
+                    return true;
+                }
                 const data = await response.json();
                 if (!data.results || data.results.length === 0) return true;
 
                 const result = data.results[0];
-                if (result.flagged) return false;
+                console.log("Moderation Result:", result);
 
-                // Custom threshold check
+                if (result.flagged) {
+                    console.warn("Moderation: Content flagged by OpenAI as unsafe.");
+                    return false;
+                }
+
+                // Custom threshold check for extra safety
                 for (const category in result.category_scores) {
                     if (result.category_scores[category] > MODERATION_THRESHOLD) {
-                        console.warn(`Moderation: ${category} score (${result.category_scores[category]}) exceeds threshold.`);
+                        console.warn(`Moderation: ${category} score (${result.category_scores[category]}) exceeds manual threshold.`);
                         return false;
                     }
                 }
                 return true;
             } catch (err) {
-                console.error("Moderation API Error:", err);
-                return true; // Fail open on network error to not block users
+                console.error("Moderation API Critical Failure:", err);
+                return true; // Fail open to maintain availability
             }
         }
 
