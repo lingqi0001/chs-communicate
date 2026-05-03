@@ -55,6 +55,7 @@
         import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getStorage, ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
         import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCJX0prT18UJDn-hPsUWxVkXMdWAVrjgeM",
@@ -74,6 +75,8 @@
         const storage = getStorage(app);
         const auth = getAuth(app);
         const messaging = getMessaging(app);
+        const functions = getFunctions(app);
+        const checkModerationFn = httpsCallable(functions, 'checkModeration');
         const googleProvider = new GoogleAuthProvider();
         const microsoftProvider = new OAuthProvider('microsoft.com');
 
@@ -106,8 +109,7 @@
         const ADMIN_EMAIL = 'moss104088@gmail.com';
         const SAFETY_BOT_ID = 'safety_bot';
 
-        // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
-        let SYSTEM_OPENAI_KEY = '';
+        // SYSTEM CONFIG: Moderation Threshold
         const MODERATION_THRESHOLD = 0.5;
         let currentNewsTab = 'school';
 
@@ -1066,19 +1068,10 @@
 
             if (isAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
-                document.getElementById('openaiKeyInput').value = SYSTEM_OPENAI_KEY || '';
             }
             window.saveAdminConfig = async () => {
                 if (!isAdmin()) return;
-                const val = document.getElementById('openaiKeyInput').value.trim();
-                if (!val) { alert("Please enter a key."); return; }
-                try {
-                    await set(ref(db, 'config/openai_key'), val);
-                    SYSTEM_OPENAI_KEY = val;
-                    alert("Admin Config Saved!");
-                } catch (err) {
-                    alert("Cloud Save Failed: " + err.message);
-                }
+                alert("Admin Config Saved!");
             };
         }
 
@@ -2098,8 +2091,19 @@
         }
 
         async function checkModeration(text) {
-            // Moderation disabled to restore stability
-            return true;
+            try {
+                const result = await checkModerationFn({ text: text });
+                if (result.data && result.data.flagged) {
+                    console.warn("Content flagged by moderation:", result.data);
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error("Moderation check failed:", error);
+                // In case of error, we allow the message to maintain availability, 
+                // but you might want to block it depending on strictness requirements.
+                return true;
+            }
         }
 
         window.sendMsg = async (type = 'text', customVal = null) => {
@@ -4063,17 +4067,6 @@
 
                     <div id="adminPanel"
                         class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
-                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
-                        <div class="space-y-2">
-                            <p class="text-[11px] text-gray-500 font-medium ml-1">OpenAI API Key</p>
-                            <div class="flex gap-2">
-                                <input type="password" id="openaiKeyInput" placeholder="sk-..."
-                                    class="flex-1 bg-gray-100 dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none text-black dark:text-white">
-                                <button onclick="saveAdminConfig()"
-                                    class="bg-red-500 text-white px-4 rounded-xl font-bold text-sm active:scale-95 transition-transform">Save</button>
-                            </div>
-                        </div>
-
                         <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-4">Management Tools
                         </h3>
                         <button onclick="adminPurgeImages()"
