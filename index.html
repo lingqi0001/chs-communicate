@@ -3056,7 +3056,66 @@
             contentEl.innerHTML = html;
         }
 
+
+        window.openBatchImport = () => {
+            document.getElementById('batchJsonInput').value = '';
+            document.getElementById('batchImportModal').classList.remove('hidden');
+        };
+
+        window.closeBatchImport = () => {
+            document.getElementById('batchImportModal').classList.add('hidden');
+        };
+
+        window.processBatchImport = async () => {
+            const raw = document.getElementById('batchJsonInput').value.trim();
+            if (!raw) return;
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (e) {
+                alert("Invalid JSON format. Please check the template.");
+                return;
+            }
+
+            if (!Array.isArray(data)) {
+                alert("Data must be an array of announcements.");
+                return;
+            }
+
+            const btn = document.querySelector('#batchImportModal button[onclick="processBatchImport()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "Publishing...";
+            btn.disabled = true;
+
+            try {
+                const promises = data.map(item => {
+                    const type = (item.type === 'club' || item.type === 'club_news') ? 'club' : 'school';
+                    return set(push(ref(db, `news/${type}`)), {
+                        title: item.title || "Untitled",
+                        desc: item.desc || "",
+                        image: null,
+                        authorId: currentUser.id,
+                        authorName: currentUser.name,
+                        timestamp: Date.now(),
+                        likes: {}
+                    });
+                });
+
+                await Promise.all(promises);
+                showCustomAlert("Success", `Successfully imported ${data.length} announcements!`);
+                closeBatchImport();
+                closePostForm();
+                globalDataSync();
+            } catch (err) {
+                alert("Import failed: " + err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        };
+
         window.submitComment = () => {
+
             const now = Date.now();
             if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
             const input = document.getElementById('commentInput');
@@ -3877,6 +3936,34 @@
 </head>
 
 <body class="overflow-hidden bg-[#f2f2f7] dark:bg-black text-black dark:text-white transition-colors duration-300">
+
+    <!-- Batch Import Modal -->
+    <div id="batchImportModal"
+        class="hidden fixed inset-0 z-[2001] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-all duration-300">
+        <div
+            class="bg-white dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col scale-100 transition-all">
+            <div class="p-5 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
+                <h3 class="font-bold text-lg">Batch Import</h3>
+                <button onclick="closeBatchImport()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-500 leading-relaxed">Paste your AI-generated JSON array below. It should
+                    include <b>title</b>, <b>desc</b>, and <b>type</b> (school or club) for each item.</p>
+                <textarea id="batchJsonInput" rows="10"
+                    placeholder='[{"title": "Morning Meeting", "desc": "Join us at 8am...", "type": "school"}]'
+                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border-none resize-none focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
+                <button onclick="processBatchImport()"
+                    class="w-full bg-[#007AFF] text-white py-3.5 rounded-xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20">Import
+                    & Publish All</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom Confirmation Modal -->
     <div id="customModal"
         class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
@@ -5150,6 +5237,7 @@
                     <img id="postImagePreview"
                         class="hidden w-full h-auto max-h-[300px] object-cover rounded-xl z-20 shadow-sm">
 
+
                     <button id="postImageClearBtn" onclick="clearPostImage(event)"
                         class="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hidden hover:bg-black/80 transition-colors z-30">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -5158,8 +5246,18 @@
                         </svg>
                     </button>
                 </div>
+
+                <button id="batchImportBtn" onclick="openBatchImport()"
+                    class="w-full py-3 mt-1 text-[#007AFF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Batch Import Announcements (JSON)
+                </button>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- Post Detail & Comments Page -->
