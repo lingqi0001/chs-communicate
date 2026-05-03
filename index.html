@@ -189,73 +189,87 @@
         async function saveMessageLocal(chatId, key, msg) {
             if (!localDB) await dbReady;
             if (!localDB) return;
-            const tx = localDB.transaction("messages", "readwrite");
-            const store = tx.objectStore("messages");
-            store.put({ compositeId: `${chatId}_${key}`, chatId, key, ...msg });
+            try {
+                const tx = localDB.transaction("messages", "readwrite");
+                const store = tx.objectStore("messages");
+                store.put({ compositeId: `${chatId}_${key}`, chatId, key, ...msg });
+            } catch (e) { console.warn("DB Save failed:", e); }
         }
 
         async function getLocalMessages(chatId) {
             if (!localDB) await dbReady;
             return new Promise((resolve) => {
-                if (!localDB) return resolve([]);
-                const tx = localDB.transaction("messages", "readonly");
-                const store = tx.objectStore("messages");
-                const index = store.index("chatId");
-                const request = index.getAll(IDBKeyRange.only(chatId));
-                request.onsuccess = () => {
-                    const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                    resolve(msgs);
-                };
-                request.onerror = () => resolve([]);
+                try {
+                    if (!localDB) return resolve([]);
+                    const tx = localDB.transaction("messages", "readonly");
+                    const store = tx.objectStore("messages");
+                    const index = store.index("chatId");
+                    const request = index.getAll(IDBKeyRange.only(chatId));
+                    request.onsuccess = () => {
+                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                        resolve(msgs);
+                    };
+                    request.onerror = () => resolve([]);
+                } catch (e) {
+                    console.warn("DB Transaction failed:", e);
+                    resolve([]);
+                }
             });
         }
 
         async function saveModulePostLocal(moduleName, key, post) {
             if (!localDB) await dbReady;
             if (!localDB) return;
-            const tx = localDB.transaction("modules", "readwrite");
-            const store = tx.objectStore("modules");
-            store.put({ compositeId: `${moduleName}_${key}`, moduleName, key, ...post });
+            try {
+                const tx = localDB.transaction("modules", "readwrite");
+                const store = tx.objectStore("modules");
+                store.put({ compositeId: `${moduleName}_${key}`, moduleName, key, ...post });
+            } catch (e) { console.warn("DB Save failed:", e); }
         }
 
         async function saveNewsItemLocal(tabType, key, item) {
             if (!localDB) await dbReady;
             if (!localDB) return;
-            const tx = localDB.transaction("news", "readwrite");
-            const store = tx.objectStore("news");
-            store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...item });
+            try {
+                const tx = localDB.transaction("news", "readwrite");
+                const store = tx.objectStore("news");
+                store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...item });
+            } catch (e) { console.warn("DB Save failed:", e); }
         }
 
         async function getLocalNews(tabType) {
             if (!localDB) await dbReady;
             return new Promise((resolve) => {
-                if (!localDB) return resolve([]);
-                const tx = localDB.transaction("news", "readonly");
-                const store = tx.objectStore("news");
-                const index = store.index("tabType");
-                const request = index.getAll(IDBKeyRange.only(tabType));
-                request.onsuccess = () => {
-                    const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                    resolve(msgs);
-                };
-                request.onerror = () => resolve([]);
+                try {
+                    if (!localDB) return resolve([]);
+                    const tx = localDB.transaction("news", "readonly");
+                    const store = tx.objectStore("news");
+                    const index = store.index("tabType");
+                    const request = index.getAll(IDBKeyRange.only(tabType));
+                    request.onsuccess = () => {
+                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                        resolve(msgs);
+                    };
+                    request.onerror = () => resolve([]);
+                } catch (e) { resolve([]); }
             });
         }
 
         async function getLastKey(storeName, indexName, indexValue) {
             if (!localDB) await dbReady;
             return new Promise((resolve) => {
-                if (!localDB) return resolve(null);
-                const tx = localDB.transaction(storeName, "readonly");
-                const store = tx.objectStore(storeName);
-                const index = store.index(indexName);
-                const request = index.getAll(IDBKeyRange.only(indexValue));
-                request.onsuccess = () => {
-                    // Use key sorting to match Firebase orderByKey for the handshake
-                    const items = request.result.sort((a, b) => a.key.localeCompare(b.key));
-                    resolve(items.length > 0 ? items[items.length - 1].key : null);
-                };
-                request.onerror = () => resolve(null);
+                try {
+                    if (!localDB) return resolve(null);
+                    const tx = localDB.transaction(storeName, "readonly");
+                    const store = tx.objectStore(storeName);
+                    const index = store.index(indexName);
+                    const request = index.getAll(IDBKeyRange.only(indexValue));
+                    request.onsuccess = () => {
+                        const items = request.result.sort((a, b) => a.key.localeCompare(b.key));
+                        resolve(items.length > 0 ? items[items.length - 1].key : null);
+                    };
+                    request.onerror = () => resolve(null);
+                } catch (e) { resolve(null); }
             });
         }
 
@@ -1043,26 +1057,22 @@
                 });
             }
 
-            // Show Admin Panel if applicable
-            const isAdmin = currentUser?.email === ADMIN_EMAIL;
-            const adminPanel = document.getElementById('adminPanel');
-            window.saveApiKey = async () => {
-                if (currentUser.email !== ADMIN_EMAIL) return;
-                const val = document.getElementById('apiKeyInput').value.trim();
-                if (!val) { alert("Please enter a valid key."); return; }
-
+            if (isAdmin()) {
+                document.getElementById('adminPanel')?.classList.remove('hidden');
+                document.getElementById('openaiKeyInput').value = SYSTEM_OPENAI_KEY || '';
+            }
+            window.saveAdminConfig = async () => {
+                if (!isAdmin()) return;
+                const val = document.getElementById('openaiKeyInput').value.trim();
+                if (!val) { alert("Please enter a key."); return; }
                 try {
                     await set(ref(db, 'config/openai_key'), val);
                     SYSTEM_OPENAI_KEY = val;
-                    showCustomAlert("Cloud Updated", "OpenAI Key has been saved to Firebase and is now active for all users.");
+                    alert("Admin Config Saved!");
                 } catch (err) {
-                    alert("Cloud Save Failed: Check your Firebase Rules. " + err.message);
+                    alert("Cloud Save Failed: " + err.message);
                 }
             };
-            if (adminPanel) {
-                adminPanel.classList.toggle('hidden', !isAdmin);
-                console.log('App: Admin Panel visibility updated. isAdmin:', isAdmin);
-            }
         }
 
         function updateSettingsLabels() {
@@ -2846,10 +2856,11 @@
         let isPostingNews = false;
 
         window.openNewsPostForm = () => {
+            console.log('App: Opening News Post Form');
             isPostingNews = true;
             document.getElementById('postInputTitle').value = '';
             document.getElementById('postInputDesc').value = '';
-            clearPostImage();
+            window.clearPostImage();
             document.getElementById('postPageTitle').innerText = 'New Announcement';
 
             const page = document.getElementById('postPage');
@@ -2861,10 +2872,11 @@
         };
 
         window.openPostForm = () => {
+            console.log('App: Opening Module Post Form. Module:', currentModule);
             isPostingNews = false;
             document.getElementById('postInputTitle').value = '';
             document.getElementById('postInputDesc').value = '';
-            clearPostImage();
+            window.clearPostImage();
             const postBtnLabel = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule].postBtn : 'Post';
             document.getElementById('postPageTitle').innerText = 'New ' + (postBtnLabel || 'Post');
 
@@ -4071,12 +4083,24 @@
                         </button>
                     </div>
 
-                    <div id="adminPanel" class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden">
-                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-3">Admin Storage Tools
+                    <div id="adminPanel"
+                        class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
+                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
+                        <div class="space-y-2">
+                            <p class="text-[11px] text-gray-500 font-medium ml-1">OpenAI API Key</p>
+                            <div class="flex gap-2">
+                                <input type="password" id="openaiKeyInput" placeholder="sk-..."
+                                    class="flex-1 bg-gray-100 dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none text-black dark:text-white">
+                                <button onclick="saveAdminConfig()"
+                                    class="bg-red-500 text-white px-4 rounded-xl font-bold text-sm active:scale-95 transition-transform">Save</button>
+                            </div>
+                        </div>
+
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-4">Management Tools
                         </h3>
                         <button onclick="adminPurgeImages()"
                             class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
-                            Global Reset: Expire All Private Images
+                            Purge Private Image Storage
                         </button>
                     </div>
                 </div>
@@ -5049,7 +5073,7 @@
     </div>
 
     <!-- Post Form Full Screen Page -->
-    <div id="postPage" class="hidden fixed inset-0 lg:left-80 z-[110] flex flex-col justify-end pointer-events-none">
+    <div id="postPage" class="hidden fixed inset-0 lg:left-80 z-[500] flex flex-col justify-end pointer-events-none">
         <div id="postPageBackdrop"
             class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-[400ms] pointer-events-auto"
             onclick="closePostForm()"></div>
@@ -5109,7 +5133,7 @@
 
     <!-- Post Detail & Comments Page -->
     <div id="detailPage"
-        class="hidden fixed inset-0 lg:left-80 z-[105] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 lg:left-80 z-[510] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
             <button onclick="closeDetail()"
