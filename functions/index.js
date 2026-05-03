@@ -15,56 +15,61 @@ exports.checkModeration = onCall({
     }
 
     const text = request.data.text;
-    if (!text) {
-        throw new HttpsError('invalid-argument', 'The function must be called with a "text" argument.');
+
+// Secure Moderation Function (Firebase Cloud Function)
+exports.checkModeration = functions.runWith({
+    secrets: ["OPENAI_API_KEY"]
+}).https.onCall(async (data, context) => {
+    // 1. Authentication check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
 
-    // Accessing the secret
-    // Note: The user must deploy with --set-secrets OPENAI_API_KEY=YOUR_KEY
-    // Or set it in the Firebase Console.
+    const text = data.text;
     const apiKey = process.env.OPENAI_API_KEY;
-    
+
+    if (!text) {
+        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "text" argument.');
+    }
+
     if (!apiKey) {
-        logger.error("OpenAI API key is not set. Use 'firebase functions:secrets:set OPENAI_API_KEY' and deploy.");
-        // Return false (don't block) if service is misconfigured, or throw error.
-        // Let's return a safe response to not break the app.
-        return { flagged: false, error: "Moderation service misconfigured" };
+        throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key is not configured on the server.');
     }
 
     try {
         const response = await axios.post(
-            "https://api.openai.com/v1/moderations",
+            'https://api.openai.com/v1/moderations',
             { input: text },
             {
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`,
-                },
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                }
             }
         );
 
-        const result = response.data.results[0];
-        
-        // Custom threshold check as requested by user (0.5)
-        const THRESHOLD = 0.5;
-        let customFlagged = result.flagged;
-        
-        const categoryScores = result.category_scores;
-        for (const category in categoryScores) {
-            if (categoryScores[category] > THRESHOLD) {
-                customFlagged = true;
+        const results = response.data.results[0];
+        const scores = results.category_scores;
+
+        // Use a 0.5 threshold for all categories
+        let isFlagged = results.flagged;
+        const threshold = 0.5;
+
+        for (const key in scores) {
+            if (scores[key] > threshold) {
+                isFlagged = true;
                 break;
             }
         }
 
         return {
-            flagged: customFlagged,
-            categories: result.categories,
-            category_scores: result.category_scores
+            flagged: isFlagged,
+            categories: results.categories,
+            category_scores: scores
         };
+
     } catch (error) {
-        logger.error("OpenAI Moderation API error:", error.response ? error.response.data : error.message);
-        // Fallback: don't block if API is down, or return error.
-        return { flagged: false, error: "Moderation check failed" };
+        console.error("OpenAI API Error:", error.response ? error.response.data : error.message);
+        throw new functions.https.HttpsError('internal', 'Error calling OpenAI Moderation API.');
     }
 });
