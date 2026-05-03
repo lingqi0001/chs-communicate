@@ -147,44 +147,52 @@
 
         // IndexedDB for Message Caching
         let localDB;
-        const dbReady = new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-                console.warn("DB Ready timeout (10s) - Falling back to no-cache mode");
-                resolve(null);
-            }, 10000);
+        function initLocalDB() {
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    console.warn("DB Ready timeout (10s) - Falling back to no-cache mode");
+                    resolve(null);
+                }, 10000);
 
-            const dbReq = indexedDB.open("CHSChatCache", 2);
-            dbReq.onblocked = () => {
-                console.warn("DB Open Blocked. Please close other tabs.");
-                clearTimeout(timeout);
-                resolve(null);
-            };
-            dbReq.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains("messages")) {
-                    const store = db.createObjectStore("messages", { keyPath: "compositeId" });
-                    store.createIndex("chatId", "chatId", { unique: false });
-                }
-                if (!db.objectStoreNames.contains("modules")) {
-                    const store = db.createObjectStore("modules", { keyPath: "compositeId" });
-                    store.createIndex("moduleName", "moduleName", { unique: false });
-                }
-                if (!db.objectStoreNames.contains("news")) {
-                    const store = db.createObjectStore("news", { keyPath: "compositeId" });
-                    store.createIndex("tabType", "tabType", { unique: false });
-                }
-            };
-            dbReq.onsuccess = (e) => {
-                clearTimeout(timeout);
-                localDB = e.target.result;
-                resolve(localDB);
-            };
-            dbReq.onerror = (e) => {
-                console.error("DB Open Error:", e.target.error);
-                clearTimeout(timeout);
-                resolve(null);
-            };
-        });
+                const dbReq = indexedDB.open("CHSChatCache", 2);
+                dbReq.onblocked = () => {
+                    console.warn("DB Open Blocked. Please close other tabs.");
+                    clearTimeout(timeout);
+                    resolve(null);
+                };
+                dbReq.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains("messages")) {
+                        const store = db.createObjectStore("messages", { keyPath: "compositeId" });
+                        store.createIndex("chatId", "chatId", { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains("modules")) {
+                        const store = db.createObjectStore("modules", { keyPath: "compositeId" });
+                        store.createIndex("moduleName", "moduleName", { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains("news")) {
+                        const store = db.createObjectStore("news", { keyPath: "compositeId" });
+                        store.createIndex("tabType", "tabType", { unique: false });
+                    }
+                };
+                dbReq.onsuccess = (e) => {
+                    clearTimeout(timeout);
+                    localDB = e.target.result;
+                    localDB.onversionchange = () => {
+                        localDB.close();
+                        localDB = null;
+                        dbReady = initLocalDB();
+                    };
+                    resolve(localDB);
+                };
+                dbReq.onerror = (e) => {
+                    console.error("DB Open Error:", e.target.error);
+                    clearTimeout(timeout);
+                    resolve(null);
+                };
+            });
+        }
+        let dbReady = initLocalDB();
 
         async function saveMessageLocal(chatId, key, msg) {
             if (!localDB) await dbReady;
@@ -193,7 +201,13 @@
                 const tx = localDB.transaction("messages", "readwrite");
                 const store = tx.objectStore("messages");
                 store.put({ compositeId: `${chatId}_${key}`, chatId, key, ...msg });
-            } catch (e) { console.warn("DB Save failed:", e); }
+            } catch (e) {
+                console.warn("DB Save failed (Message):", e);
+                if (e.name === 'InvalidStateError') {
+                    localDB = null;
+                    dbReady = initLocalDB();
+                }
+            }
         }
 
         async function getLocalMessages(chatId) {
@@ -211,7 +225,11 @@
                     };
                     request.onerror = () => resolve([]);
                 } catch (e) {
-                    console.warn("DB Transaction failed:", e);
+                    console.warn("DB Transaction failed (Messages):", e);
+                    if (e.name === 'InvalidStateError') {
+                        localDB = null;
+                        dbReady = initLocalDB();
+                    }
                     resolve([]);
                 }
             });
@@ -224,7 +242,13 @@
                 const tx = localDB.transaction("modules", "readwrite");
                 const store = tx.objectStore("modules");
                 store.put({ compositeId: `${moduleName}_${key}`, moduleName, key, ...post });
-            } catch (e) { console.warn("DB Save failed:", e); }
+            } catch (e) {
+                console.warn("DB Save failed (Module Post):", e);
+                if (e.name === 'InvalidStateError') {
+                    localDB = null;
+                    dbReady = initLocalDB();
+                }
+            }
         }
 
         async function saveNewsItemLocal(tabType, key, item) {
@@ -234,7 +258,13 @@
                 const tx = localDB.transaction("news", "readwrite");
                 const store = tx.objectStore("news");
                 store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...item });
-            } catch (e) { console.warn("DB Save failed:", e); }
+            } catch (e) {
+                console.warn("DB Save failed (News Item):", e);
+                if (e.name === 'InvalidStateError') {
+                    localDB = null;
+                    dbReady = initLocalDB();
+                }
+            }
         }
 
         async function getLocalNews(tabType) {
@@ -251,7 +281,14 @@
                         resolve(msgs);
                     };
                     request.onerror = () => resolve([]);
-                } catch (e) { resolve([]); }
+                } catch (e) {
+                    console.warn("DB Transaction failed (News):", e);
+                    if (e.name === 'InvalidStateError') {
+                        localDB = null;
+                        dbReady = initLocalDB();
+                    }
+                    resolve([]);
+                }
             });
         }
 
@@ -269,7 +306,14 @@
                         resolve(items.length > 0 ? items[items.length - 1].key : null);
                     };
                     request.onerror = () => resolve(null);
-                } catch (e) { resolve(null); }
+                } catch (e) {
+                    console.warn("DB Transaction failed (LastKey):", e);
+                    if (e.name === 'InvalidStateError') {
+                        localDB = null;
+                        dbReady = initLocalDB();
+                    }
+                    resolve(null);
+                }
             });
         }
 
@@ -2436,15 +2480,24 @@
             if (!localDB) await dbReady;
             return new Promise((resolve) => {
                 if (!localDB) return resolve([]);
-                const tx = localDB.transaction("modules", "readonly");
-                const store = tx.objectStore("modules");
-                const index = store.index("moduleName");
-                const request = index.getAll(IDBKeyRange.only(moduleName));
-                request.onsuccess = () => {
-                    const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                    resolve(msgs);
-                };
-                request.onerror = () => resolve([]);
+                try {
+                    const tx = localDB.transaction("modules", "readonly");
+                    const store = tx.objectStore("modules");
+                    const index = store.index("moduleName");
+                    const request = index.getAll(IDBKeyRange.only(moduleName));
+                    request.onsuccess = () => {
+                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                        resolve(msgs);
+                    };
+                    request.onerror = () => resolve([]);
+                } catch (e) {
+                    console.warn("DB Transaction failed (Module Posts):", e);
+                    if (e.name === 'InvalidStateError') {
+                        localDB = null;
+                        dbReady = initLocalDB();
+                    }
+                    resolve([]);
+                }
             });
         }
 
