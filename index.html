@@ -1762,6 +1762,18 @@
             });
         }
 
+        function linkify(text) {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, function (url) {
+                return `<a href="${url}" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-[#007AFF] rounded-md font-bold hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors no-underline">
+                    Link 
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>`;
+            });
+        }
+
         async function loadChatThread(chatId) {
             const chatBox = document.getElementById('chatBox');
             chatBox.innerHTML = '<div class="text-center text-gray-400 text-xs mt-4 mb-4 font-medium">iMessage</div>';
@@ -2120,7 +2132,7 @@
                 }
             } else {
                 const bS = isMe ? 'bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
-                content = `<div class="px-3.5 py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${escapeHTML(msg.text)}</div>`;
+                content = `<div class="px-3.5 py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${linkify(escapeHTML(msg.text))}</div>`;
             }
             const wrapper = document.createElement('div');
             wrapper.innerHTML = content;
@@ -2731,7 +2743,7 @@
                                 ${adminDeleteBtn}
                             </div>
                             <div class="font-bold text-lg mb-2 text-black dark:text-white leading-snug cursor-pointer" ${config.hasComments ? `onclick="openPostDetail('${post.id}')"` : ''}>${escapeHTML(post.title)}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHTML(post.desc)}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
                             ${post.image ? `<img src="${post.image}" class="w-full aspect-square object-cover rounded-2xl mt-3 cursor-pointer border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
                             ${getSuggestionVotingHtml(post)}
                             ${interactions}
@@ -3024,7 +3036,7 @@
                         </div>
                     </div>
                     <div class="font-extrabold text-2xl mb-3 text-black dark:text-white">${escapeHTML(post.title)}</div>
-                    <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHTML(post.desc)}</div>
+                    <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
                     ${post.image ? `<img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
                     ${getSuggestionVotingHtml({ ...post, id: postId })}
                     <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
@@ -3048,7 +3060,7 @@
                         const cAuthorName = config.anonymous ? 'Anonymous' : (c.authorName || 'Unknown');
                         const cAuthor = !config.anonymous ? await fetchUser(c.authorId) : null;
                         const cAuthorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (cAuthor?.avatar || 'https://ui-avatars.com/api/?name=' + cAuthorName);
-                        html += `<div class="flex gap-4"><img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full mt-1"><div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm"><div class="flex justify-between mb-1"><span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span><span class="text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div class="text-base text-gray-700 dark:text-gray-300">${escapeHTML(c.text)}</div></div></div>`;
+                        html += `<div class="flex gap-4"><img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full mt-1"><div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm"><div class="flex justify-between mb-1"><span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span><span class="text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div class="text-base text-gray-700 dark:text-gray-300">${linkify(escapeHTML(c.text))}</div></div></div>`;
                     }
                     html += `</div>`;
                 }
