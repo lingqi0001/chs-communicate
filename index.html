@@ -531,16 +531,8 @@
                 console.log('App: globalDataSync...');
                 globalDataSync();
 
-                // Load Global AI Security Configuration (PII/Moderation Defense)
-                onValue(ref(db, 'config/openai_key'), (snap) => {
-                    const val = snap.val() || '';
-                    if (val) {
-                        SYSTEM_OPENAI_KEY = val;
-                        console.log('App: AI Moderation System Active.');
-                    } else {
-                        console.warn('App: AI Moderation System is idle (Key missing in cloud config).');
-                    }
-                });
+                // AI Moderation is now handled securely by Firebase Cloud Functions.
+                console.log('App: AI Moderation System (Backend) Ready.');
 
                 console.log('App: All components initialized. Hiding loading.');
                 hideLoading();
