@@ -147,6 +147,7 @@
 
         // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
         let SYSTEM_OPENAI_KEY = '';
+        window.isPhotoDisabled = false;
         const MODERATION_THRESHOLD = 0.5;
         let currentNewsTab = 'school';
 
@@ -591,6 +592,21 @@
             SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
             document.getElementById('soundToggle').checked = SETTINGS.soundEnabled;
 
+            onValue(ref(db, 'settings'), (snap) => {
+                const s = snap.val() || {};
+                window.isPhotoDisabled = s.isPhotoDisabled || false;
+                const toggle = document.getElementById('globalPhotoToggle');
+                if (toggle) toggle.checked = window.isPhotoDisabled;
+
+                // Hide/Show camera icon in chat input
+                const cameraBtn = document.getElementById('chatCameraBtn');
+                if (cameraBtn) cameraBtn.style.display = window.isPhotoDisabled ? 'none' : 'block';
+
+                // Re-render current views to reflect the change
+                if (activeTargetId) renderMessages(activeTargetId);
+                if (currentModule) renderModuleList();
+            });
+
             // Update UI with donations and ToS from DB
             // Show Admin Panel in settings if applicable
             if (user.email === ADMIN_EMAIL) {
@@ -788,7 +804,8 @@
                         </div>
                         <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</p>
-                        ${post.image ? `<img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                        ${(post.image && !window.isPhotoDisabled) ? `<img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                        ${(post.image && window.isPhotoDisabled) ? `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled by Admin</div>` : ''}
                     </div>
                 `).join('');
             }
@@ -2191,23 +2208,27 @@
             else if (msg.type === 'image' || (msg.text && msg.text.includes('data:image'))) images = [msg.text];
 
             if (images.length > 0) {
-                const enc = encodeURIComponent(JSON.stringify(images));
-                if (images.length === 1) {
-                    content = `<img src="${images[0]}" 
-                                    onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\\'flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic\\\'>📷 Image Expired</div>';" 
-                                    onclick="openGallery('${enc}', 0)" 
-                                    class="rounded-2xl w-36 h-48 object-cover shadow-sm cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}">`;
+                if (window.isPhotoDisabled) {
+                    content = `<div class="px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-200 dark:border-white/10"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>`;
                 } else {
-                    let sH = '';
-                    for (let i = images.length - 1; i >= 0; i--) {
-                        let tX = isMe ? (i * 12) : -(i * 12);
-                        sH += `<img id="img-${key}-${i}" src="${images[i]}" 
-                                    onerror="this.onerror=null; this.src=''; this.style.display='none';"
-                                    onclick="openGallery('${enc}', ${i})" 
-                                    class="absolute left-0 w-36 h-48 object-cover rounded-2xl shadow-md transition-all duration-300 ${isMe ? 'origin-left' : 'origin-right'} cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}" 
-                                    style="top:0px; z-index:${30 - i}; transform:translateX(${tX}px) scale(${1 - (i * 0.05)}); opacity:${i > 3 ? 0 : 1};">`;
+                    const enc = encodeURIComponent(JSON.stringify(images));
+                    if (images.length === 1) {
+                        content = `<img src="${images[0]}" 
+                                        onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\\'flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic\\\'>📷 Image Expired</div>';" 
+                                        onclick="openGallery('${enc}', 0)" 
+                                        class="rounded-2xl w-36 h-48 object-cover shadow-sm cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}">`;
+                    } else {
+                        let sH = '';
+                        for (let i = images.length - 1; i >= 0; i--) {
+                            let tX = isMe ? (i * 12) : -(i * 12);
+                            sH += `<img id="img-${key}-${i}" src="${images[i]}" 
+                                        onerror="this.onerror=null; this.src=''; this.style.display='none';"
+                                        onclick="openGallery('${enc}', ${i})" 
+                                        class="absolute left-0 w-36 h-48 object-cover rounded-2xl shadow-md transition-all duration-300 ${isMe ? 'origin-left' : 'origin-right'} cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}" 
+                                        style="top:0px; z-index:${30 - i}; transform:translateX(${tX}px) scale(${1 - (i * 0.05)}); opacity:${i > 3 ? 0 : 1};">`;
+                        }
+                        content = `<div id="stack-${key}" class="relative w-36 h-48 ${isMe ? 'ml-24 mr-8' : 'mr-24 ml-8'} mb-2 mt-1 transition-all duration-300"><button id="btn-${key}" onclick="toggleStack('${key}', ${images.length}, ${isMe})" class="absolute ${isMe ? '-left-24' : '-right-24'} top-20 bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white text-xs px-3.5 py-1.5 rounded-full z-40 font-medium">Expand ${images.length}</button>${sH}</div>`;
                     }
-                    content = `<div id="stack-${key}" class="relative w-36 h-48 ${isMe ? 'ml-24 mr-8' : 'mr-24 ml-8'} mb-2 mt-1 transition-all duration-300"><button id="btn-${key}" onclick="toggleStack('${key}', ${images.length}, ${isMe})" class="absolute ${isMe ? '-left-24' : '-right-24'} top-20 bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white text-xs px-3.5 py-1.5 rounded-full z-40 font-medium">Expand ${images.length}</button>${sH}</div>`;
                 }
             } else {
                 const bS = isMe ? 'bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
@@ -2433,6 +2454,15 @@
                 await showCustomAlert("Success", `Global purge complete. ${count} images expired and quotas reset.`);
             } catch (err) {
                 await showCustomAlert("Error", "Purge failed: " + err.message);
+            }
+        };
+
+        window.toggleGlobalPhotos = async (enabled) => {
+            if (currentUser.email !== ADMIN_EMAIL) return;
+            try {
+                await update(ref(db, 'settings'), { isPhotoDisabled: enabled });
+            } catch (err) {
+                alert("Failed to update setting: " + err.message);
             }
         };
         window.selectSound = (val, e) => { if (e) e.stopPropagation(); updateSound(val); updateSettingsLabels(); toggleDropdown('soundDropdown'); };
@@ -2823,7 +2853,8 @@
                             </div>
                             <div class="font-bold text-lg mb-2 text-black dark:text-white leading-snug cursor-pointer" ${config.hasComments ? `onclick="openPostDetail('${post.id}')"` : ''}>${escapeHTML(post.title)}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                            ${post.image ? `<img src="${post.image}" class="w-full aspect-square object-cover rounded-2xl mt-3 cursor-pointer border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                            ${(post.image && !window.isPhotoDisabled) ? `<img src="${post.image}" class="w-full aspect-square object-cover rounded-2xl mt-3 cursor-pointer border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                            ${(post.image && window.isPhotoDisabled) ? `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-100 dark:border-white/5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>` : ''}
                             ${getSuggestionVotingHtml(post)}
                             ${interactions}
                         </div>
@@ -2985,6 +3016,9 @@
             window.clearPostImage();
             document.getElementById('postPageTitle').innerText = 'New Announcement';
 
+            const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
+            if (imgArea) imgArea.style.display = window.isPhotoDisabled ? 'none' : 'flex';
+
             const page = document.getElementById('postPage');
             page.classList.remove('hidden');
             requestAnimationFrame(() => {
@@ -3116,7 +3150,8 @@
                     </div>
                     <div class="font-extrabold text-2xl mb-3 text-black dark:text-white">${escapeHTML(post.title)}</div>
                     <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                    ${post.image ? `<img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                    ${(post.image && !window.isPhotoDisabled) ? `<img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
+                    ${(post.image && window.isPhotoDisabled) ? `<div class="mt-5 px-5 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-gray-100 dark:border-white/5"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Blocked by Administrator</div>` : ''}
                     ${getSuggestionVotingHtml({ ...post, id: postId })}
                     <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
                         <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
@@ -4311,6 +4346,17 @@
                             class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
                             Purge Private Image Storage
                         </button>
+
+                        <div
+                            class="flex items-center justify-between p-3.5 bg-red-50 dark:bg-red-500/5 rounded-xl border border-red-100 dark:border-red-500/20">
+                            <div>
+                                <label class="font-bold text-red-600 dark:text-red-400 text-sm">Disable All
+                                    Photos</label>
+                                <p class="text-[10px] text-gray-500">Hide/Block all images to save data</p>
+                            </div>
+                            <input type="checkbox" id="globalPhotoToggle" onchange="toggleGlobalPhotos(this.checked)"
+                                class="w-6 h-6 accent-red-500">
+                        </div>
                     </div>
                 </div>
 
@@ -5100,7 +5146,8 @@
             <div
                 class="px-3 pt-2 pb-safe bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t dark:border-gray-800 z-10 w-full">
                 <div class="flex gap-2 items-end max-w-4xl mx-auto">
-                    <label class="p-[6px] mb-[2px] cursor-pointer">
+                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer"
+                        style="${window.isPhotoDisabled ? 'display:none' : 'display:block'}">
                         <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
                             <path
                                 d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
