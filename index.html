@@ -580,23 +580,47 @@
             ALL_USERS[currentUser.id] = currentUser;
 
             // 2. Fetch required global data concurrently
-            const [settingsSnap, donationsSnap, tosSnap, privateSnap] = await Promise.all([
-                get(ref(db, 'settings')),
-                get(ref(db, 'donations')),
-                get(ref(db, 'tos_content')),
-                get(ref(db, `user_private/${user.uid}`))
-            ]);
+            console.log('App: Fetching global data...');
+            let dataFetchResult;
+            try {
+                dataFetchResult = await Promise.all([
+                    get(ref(db, 'settings')),
+                    get(ref(db, 'donations')),
+                    get(ref(db, 'tos_content')),
+                    get(ref(db, `user_private/${user.uid}`))
+                ]);
+            } catch (err) {
+                console.error('App: Global data fetch failed:', err);
+                // Continue with defaults if fetch fails to avoid blocking startup
+                dataFetchResult = [null, null, null, null];
+            }
+            const [settingsSnap, donationsSnap, tosSnap, privateSnap] = dataFetchResult;
 
             // Populate settings
-            const settingsData = settingsSnap.val() || {};
+            const settingsData = settingsSnap?.val() || {};
             SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
-            document.getElementById('soundToggle').checked = SETTINGS.soundEnabled;
+            const soundToggle = document.getElementById('soundToggle');
+            if (soundToggle) soundToggle.checked = SETTINGS.soundEnabled;
 
             onValue(ref(db, 'settings'), (snap) => {
                 const s = snap.val() || {};
                 window.isPhotoDisabled = s.isPhotoDisabled || false;
                 const toggle = document.getElementById('globalPhotoToggle');
                 if (toggle) toggle.checked = window.isPhotoDisabled;
+
+                // 1. Photo Status Notification (Delayed to ensure UI is ready)
+                if (!window._settingsInit) {
+                    window._settingsInit = true;
+                    setTimeout(() => {
+                        const statusTitle = window.isPhotoDisabled ? "⚠️ Photos Temporarily Disabled" : "✅ Photos Available";
+                        const statusMsg = window.isPhotoDisabled
+                            ? "Image sharing is currently disabled to ensure platform stability during high traffic. You can still send text messages. Contact administrator for details."
+                            : "Image sharing is now enabled. You can upload and view photos normally.";
+
+                        if (window.showCustomAlert) window.showCustomAlert(statusTitle, statusMsg);
+                        else console.log('App Notice:', statusTitle, statusMsg);
+                    }, 2500);
+                }
 
                 // Hide/Show camera icon in chat input
                 const cameraBtn = document.getElementById('chatCameraBtn');
@@ -615,72 +639,46 @@
                     getLocalNews(tab).then(posts => {
                         const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                         renderNewsContentFromData(posts, containerId, tab);
-                    });
+                    }).catch(e => console.warn('Sync news error:', e));
                 });
             });
 
             // Update UI with donations and ToS from DB
-            // Show Admin Panel in settings if applicable
-            if (user.email === ADMIN_EMAIL) {
+            if (isAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             } else {
                 document.getElementById('adminPanel')?.classList.add('hidden');
             }
 
-            const tosContent = tosSnap.val() || "";
-            const userData = privateSnap.val() || {};
-
-            window.toggleGlobalPhotos = async (disabled) => {
-                if (!isAdmin()) return;
-                try {
-                    await set(ref(db, 'settings/isPhotoDisabled'), disabled);
-                } catch (err) {
-                    alert("Failed to update setting: " + err.message);
-                    const toggle = document.getElementById('globalPhotoToggle');
-                    if (toggle) toggle.checked = !disabled;
-                }
-            };
-
-            window.adminPurgeImages = async () => {
-                if (!isAdmin()) return;
-                const pin = prompt("DANGER: This will delete all base64 data from the database. Type 'PURGE' to confirm.");
-                if (pin !== 'PURGE') return;
-                alert("Purge started. This is a background task. It won't finish instantly but will process as nodes are accessed.");
-            };
+            const tosContent = tosSnap?.val() || "";
+            const userData = privateSnap?.val() || {};
 
             if (userData.isNew) {
-                alert(`Welcome to CHS iMessage, ${userData.name}!\n\nCheck out the 'More' section to browse school activities and start chatting!`);
-                // Clear the flag so they don't see it every time
-                await update(ref(db, `user_private/${user.uid}`), { isNew: null });
+                setTimeout(() => {
+                    if (window.showCustomAlert) {
+                        window.showCustomAlert(`Welcome to CHS iMessage`, `Check out the 'More' section to browse school activities and start chatting!`);
+                    }
+                }, 3000);
+                // Clear the flag in background
+                update(ref(db, `user_private/${user.uid}`), { isNew: null }).catch(e => console.warn('Flag clear fail:', e));
             }
 
-            console.log('App: setupUser complete. hasAcceptedTerms:', currentUser.hasAcceptedTerms);
+            console.log('App: setupUser finalizing. hasAcceptedTerms:', currentUser.hasAcceptedTerms);
 
             if (currentUser.hasAcceptedTerms) {
                 document.getElementById('loginPage').classList.add('hidden');
                 document.getElementById('mainPage').classList.remove('hidden');
                 initUserObserver();
                 initSettingsUI();
-                console.log('App: updateNewsAccess...');
                 updateNewsAccess();
-                console.log('App: initNewsObserver...');
                 initNewsObserver();
-                console.log('App: showSidebar...');
                 showSidebar();
-                console.log('App: requestNotificationPermission...');
                 requestNotificationPermission();
-                console.log('App: globalDataSync...');
                 globalDataSync();
 
-                // Load Global AI Security Configuration (PII/Moderation Defense)
                 onValue(ref(db, 'config/openai_key'), (snap) => {
                     const val = snap.val() || '';
-                    if (val) {
-                        SYSTEM_OPENAI_KEY = val;
-                        console.log('App: AI Moderation System Active.');
-                    } else {
-                        console.warn('App: AI Moderation System is idle (Key missing in cloud config).');
-                    }
+                    if (val) SYSTEM_OPENAI_KEY = val;
                 });
 
                 console.log('App: All components initialized. Hiding loading.');
@@ -993,12 +991,11 @@
                     // Thorough local filter on the complete hot index
                     const matchedIds = Object.keys(ALL_USERS).filter(id => {
                         if (id === currentUser.id) return false;
-                        // Only block the obvious ghost ID patterns (e.g. email_at_domain_com)
-                        if (id.includes('_gmail_com') || id.includes('_inst_hcpss_org')) return false;
                         const u = ALL_USERS[id];
                         const n = (u.name || '').toLowerCase();
                         const e = (u.email || '').toLowerCase();
                         const i = id.toLowerCase();
+                        // Search in name, email, or ID
                         return n.includes(termLower) || e.includes(termLower) || i.includes(termLower);
                     });
 
@@ -4177,6 +4174,64 @@
                 setTimeout(() => lp.classList.add('hidden'), 500);
             }
         };
+
+        window.showCustomAlert = (title, body) => {
+            return new Promise(resolve => {
+                const modal = document.getElementById('customModal');
+                const tEl = modal.querySelector('#modalTitle');
+                const bEl = modal.querySelector('#modalBody');
+                const confirmBtn = document.getElementById('modalConfirm');
+                const cancelBtn = document.getElementById('modalCancel');
+
+                tEl.innerText = title;
+                bEl.innerText = body;
+                cancelBtn.classList.add('hidden');
+                confirmBtn.innerText = "OK";
+                confirmBtn.onclick = () => {
+                    modal.classList.add('opacity-0');
+                    modal.querySelector('div').classList.add('scale-90');
+                    setTimeout(() => { modal.classList.add('hidden'); resolve(true); }, 300);
+                };
+
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.querySelector('div').classList.remove('scale-90');
+                });
+            });
+        };
+
+        window.showCustomConfirm = (title, body, confirmText = "Continue") => {
+            return new Promise(resolve => {
+                const modal = document.getElementById('customModal');
+                const tEl = modal.querySelector('#modalTitle');
+                const bEl = modal.querySelector('#modalBody');
+                const confirmBtn = document.getElementById('modalConfirm');
+                const cancelBtn = document.getElementById('modalCancel');
+
+                tEl.innerText = title;
+                bEl.innerText = body;
+                cancelBtn.classList.remove('hidden');
+                cancelBtn.innerText = "Cancel";
+                confirmBtn.innerText = confirmText;
+
+                confirmBtn.onclick = () => {
+                    modal.classList.add('opacity-0');
+                    setTimeout(() => { modal.classList.add('hidden'); resolve(true); }, 300);
+                };
+                cancelBtn.onclick = () => {
+                    modal.classList.add('opacity-0');
+                    setTimeout(() => { modal.classList.add('hidden'); resolve(false); }, 300);
+                };
+
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.querySelector('div').classList.remove('scale-90');
+                });
+            });
+        };
+
         // Catch all uncaught errors
         window.addEventListener('error', function (e) { showError(e.error || e.message); });
         window.addEventListener('unhandledrejection', function (e) { showError(e.reason); });
