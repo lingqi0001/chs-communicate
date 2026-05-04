@@ -562,7 +562,9 @@
             else if (email.endsWith('@hcpss.org')) role = 'teacher';
             else if (email.endsWith('@inst.hcpss.org')) role = 'student';
 
-            currentUser = { name: email.split('@')[0], id: idPrefix, role: role, email: email };
+            const defaultName = email.split('@')[0];
+            const capitalizedDefaultName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
+            currentUser = { name: capitalizedDefaultName, id: idPrefix, role: role, email: email };
 
             const userRef = ref(db, `users/${idPrefix}`);
             const snapshot = await get(userRef);
@@ -739,8 +741,10 @@
                 // Pre-fill if auth provided a name
                 if (currentUser.name) {
                     const parts = currentUser.name.split(' ');
-                    document.getElementById('setupFirstName').value = parts[0] || '';
-                    document.getElementById('setupLastName').value = parts.slice(1).join(' ') || '';
+                    const first = parts[0] || '';
+                    const last = parts.slice(1).join(' ') || '';
+                    document.getElementById('setupFirstName').value = first.charAt(0).toUpperCase() + first.slice(1);
+                    document.getElementById('setupLastName').value = last.charAt(0).toUpperCase() + last.slice(1);
                 }
                 return;
             }
@@ -762,8 +766,10 @@
         };
 
         window.saveInitialProfile = async () => {
-            const first = document.getElementById('setupFirstName').value.trim();
-            const last = document.getElementById('setupLastName').value.trim();
+            const rawFirst = document.getElementById('setupFirstName').value.trim();
+            const rawLast = document.getElementById('setupLastName').value.trim();
+            const first = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1);
+            const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
             const newName = [first, last].filter(Boolean).join(' ');
 
             if (!newName || !first || !last) {
@@ -997,8 +1003,10 @@
         }
 
         window.saveProfileName = async (e) => {
-            const first = document.getElementById('firstNameInput').value.trim();
-            const last = document.getElementById('lastNameInput').value.trim();
+            const rawFirst = document.getElementById('firstNameInput').value.trim();
+            const rawLast = document.getElementById('lastNameInput').value.trim();
+            const first = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1);
+            const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
             const newName = [first, last].filter(Boolean).join(' ');
 
             if (!newName) return alert("Please enter a valid name");
@@ -4059,21 +4067,76 @@
         window.scanUserIssues = () => {
             const status = document.getElementById('scanStatus');
             status.classList.remove('hidden');
-            status.innerText = "Scanning for missing emails or invalid formats...";
+            status.innerText = "Analyzing accounts for integrity issues...";
 
-            const filtered = {};
+            const emailMap = {};
+            const problematic = {};
+
             Object.keys(adminAllUsers).forEach(id => {
                 const u = adminAllUsers[id];
-                const noEmail = !u.email;
-                const invalidEmail = u.email && (!u.email.includes('@') || u.email.length < 5);
-                if (noEmail || invalidEmail) filtered[id] = u;
+                const email = (u.email || '').toLowerCase().trim();
+                const issues = [];
+
+                // 1. Ghost ID Check (Legacy formats)
+                if (id.includes('_gmail_') || id.includes('_inst_')) {
+                    issues.push("Ghost ID");
+                }
+
+                // 2. Missing or invalid email
+                if (!email) {
+                    issues.push("Missing Email");
+                } else if (!email.includes('@') || email.length < 5) {
+                    issues.push("Invalid Email");
+                }
+
+                // 3. Empty Name
+                if (!(u.name || '').trim()) {
+                    issues.push("Empty Name");
+                }
+
+                // 4. Role Consistency Check
+                if (email) {
+                    const domain = email.split('@')[1];
+                    if (domain === 'hcpss.org' && u.role !== 'teacher' && u.role !== 'admin') issues.push("Role Conflict (Staff)");
+                    if (domain === 'inst.hcpss.org' && u.role !== 'student') issues.push("Role Conflict (Student)");
+                }
+
+                if (issues.length > 0) {
+                    problematic[id] = { ...u, scanIssues: issues };
+                }
+
+                // Track emails for duplicate detection
+                if (email) {
+                    if (!emailMap[email]) emailMap[email] = [];
+                    emailMap[email].push(id);
+                }
             });
 
-            renderAdminUserList(filtered);
-            status.innerText = `Scan Complete: Found ${Object.keys(filtered).length} problematic accounts.`;
+            // 5. Duplicate emails detection
+            Object.keys(emailMap).forEach(email => {
+                if (emailMap[email].length > 1) {
+                    emailMap[email].forEach(id => {
+                        if (!problematic[id]) problematic[id] = { ...adminAllUsers[id], scanIssues: [] };
+                        if (!problematic[id].scanIssues.includes("Duplicate Email")) {
+                            problematic[id].scanIssues.push("Duplicate Email");
+                        }
+                    });
+                }
+            });
+
+            renderAdminUserList(problematic, true);
+            status.innerText = `Scan Complete: Found ${Object.keys(problematic).length} accounts with potential issues.`;
+            document.getElementById('adminShowAllBtn').classList.remove('hidden');
         };
 
-        function renderAdminUserList(users) {
+        window.resetAdminList = () => {
+            document.getElementById('adminUserSearch').value = '';
+            document.getElementById('scanStatus').classList.add('hidden');
+            document.getElementById('adminShowAllBtn').classList.add('hidden');
+            renderAdminUserList(adminAllUsers);
+        };
+
+        function renderAdminUserList(users, isScanResult = false) {
             const container = document.getElementById('adminUserList');
             const ids = Object.keys(users);
             if (ids.length === 0) {
@@ -4083,17 +4146,21 @@
 
             container.innerHTML = ids.map(id => {
                 const u = users[id];
-                const noEmail = !u.email;
-                const isIssue = noEmail || (u.email && !u.email.includes('@'));
+                const issues = u.scanIssues || [];
+                const issuesHtml = issues.map(issue =>
+                    `<span class="bg-red-500/10 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-500/20 uppercase tracking-tighter">${issue}</span>`
+                ).join(' ');
+
                 return `
                     <div class="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
                         <div class="flex justify-between items-start gap-4">
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
                                     <span class="font-bold text-black dark:text-white truncate">${escapeHTML(u.name || 'No Name')}</span>
-                                    ${isIssue ? '<span class="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase">Issue</span>' : ''}
+                                    <span class="bg-gray-100 dark:bg-white/5 text-gray-500 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">${u.role || 'user'}</span>
+                                    ${issuesHtml}
                                 </div>
-                                <div class="text-xs text-gray-400 truncate mt-0.5 font-medium">${escapeHTML(u.email || 'NO EMAIL')}</div>
+                                <div class="text-xs text-gray-400 truncate font-medium">${escapeHTML(u.email || 'NO EMAIL')}</div>
                                 <div class="text-[10px] text-gray-500 font-mono mt-1 opacity-50 select-all">ID: ${id}</div>
                             </div>
                             <button onclick="confirmDeleteUser('${id}')" 
@@ -4108,24 +4175,24 @@
             }).join('');
         }
 
-        window.confirmDeleteUser = (userId) => {
+        window.confirmDeleteUser = async (userId) => {
             const u = adminAllUsers[userId] || { name: userId };
             if (window.showCustomConfirm) {
-                window.showCustomConfirm(
+                const firstOk = await window.showCustomConfirm(
                     "Destroy User Account?",
-                    `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs across the platform. This action is irreversible.`,
-                    async () => {
-                        // Second confirmation
-                        window.showCustomConfirm(
-                            "FINAL WARNING",
-                            "Are you absolutely certain? This will wipe their messages and database record entirely.",
-                            () => deleteUserFully(userId),
-                            () => { },
-                            "YES, WIPE DATA",
-                            "Cancel"
-                        );
-                    }
+                    `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs. Irreversible action.`,
+                    "DELETE ACCOUNT"
                 );
+                if (!firstOk) return;
+
+                const secondOk = await window.showCustomConfirm(
+                    "FINAL WARNING",
+                    `Are you absolutely sure? You are about to wipe all data for ${escapeHTML(u.name || userId)}.`,
+                    "YES, WIPE EVERYTHING"
+                );
+                if (secondOk) {
+                    deleteUserFully(userId);
+                }
             } else {
                 if (confirm(`Delete ${u.name}? ALL chat history will be lost.`)) {
                     if (confirm("FINAL CONFIRMATION: Wipe all data?")) {
@@ -5365,65 +5432,6 @@
                 <div id="moreMainContent"
                     class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
                     <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <div onclick="openModule('lost_and_found')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Lost and Found</h3>
-                                <p class="text-sm text-gray-500">Report or find lost items.</p>
-                            </div>
-                        </div>
-                        <div onclick="openModule('marketplace')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Marketplace</h3>
-                                <p class="text-sm text-gray-500">Buy and sell within the school.</p>
-                            </div>
-                        </div>
-                        <div onclick="openModule('peer_tutoring')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Peer Tutoring</h3>
-                                <p class="text-sm text-gray-500">Get or offer academic help.</p>
-                            </div>
-                        </div>
-                        <div onclick="openModule('suggestions')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Suggestions</h3>
-                                <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
-                            </div>
-                        </div>
-
                         <div onclick="openEagleTime()"
                             class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                             <div
@@ -5455,21 +5463,6 @@
                             </div>
                         </div>
 
-                        <div onclick="openModule('info')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
-                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">CHS Info</h3>
-                                <p class="text-sm text-gray-500">School links and resources.</p>
-                            </div>
-                        </div>
-
                         <div onclick="openCafeteria()"
                             class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                             <div
@@ -5485,6 +5478,83 @@
                             <div>
                                 <h3 class="font-semibold text-base">Cafeteria Menu</h3>
                                 <p class="text-sm text-gray-500">View today's and tomorrow's menus.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openModule('peer_tutoring')"
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                            <div
+                                class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-base">Peer Tutoring</h3>
+                                <p class="text-sm text-gray-500">Get or offer academic help.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openModule('suggestions')"
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                            <div
+                                class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-base">Suggestions</h3>
+                                <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openModule('lost_and_found')"
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                            <div
+                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-base">Lost and Found</h3>
+                                <p class="text-sm text-gray-500">Report or find lost items.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openModule('info')"
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                            <div
+                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-base">CHS Info</h3>
+                                <p class="text-sm text-gray-500">School links and resources.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openModule('marketplace')"
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                            <div
+                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-base">Marketplace</h3>
+                                <p class="text-sm text-gray-500">Buy and sell within the school.</p>
                             </div>
                         </div>
                     </div>
@@ -6252,7 +6322,10 @@
             </div>
             <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Database Console
             </div>
-            <div class="w-20 flex justify-end">
+            <div class="w-20 flex justify-end gap-2">
+                <button id="adminShowAllBtn" onclick="resetAdminList()"
+                    class="hidden text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Show
+                    All</button>
                 <button onclick="scanUserIssues()"
                     class="text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Scan Issues</button>
             </div>
