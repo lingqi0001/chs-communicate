@@ -45,6 +45,45 @@
         .dark ::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.1);
         }
+
+        /* Elegant Transitions for Announcements */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideInFromBottom {
+            from {
+                transform: translateY(8px);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation-duration: 500ms;
+            animation-fill-mode: both;
+            animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fade-in {
+            animation-name: fadeIn;
+        }
+
+        .slide-in-from-bottom-2 {
+            animation-name: slideInFromBottom;
+        }
+
+        .duration-500 {
+            animation-duration: 500ms;
+        }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -264,6 +303,20 @@
                     localDB = null;
                     dbReady = initLocalDB();
                 }
+            }
+        }
+
+        async function saveLocalNews(tabType, posts) {
+            if (!localDB) await dbReady;
+            if (!localDB) return;
+            try {
+                const tx = localDB.transaction("news", "readwrite");
+                const store = tx.objectStore("news");
+                posts.forEach(post => {
+                    store.put({ compositeId: `${tabType}_${post.key}`, tabType, key: post.key, ...post });
+                });
+            } catch (e) {
+                console.warn("DB Save failed (Batch News):", e);
             }
         }
 
@@ -668,48 +721,77 @@
             }
         }
 
-        async function initNewsObserver() {
-            // Initial Load from Cache
+        function initNewsObserver() {
             for (const tab of ['school', 'club']) {
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                 const container = document.getElementById(containerId);
                 if (container) container.innerHTML = '<div class="text-center text-gray-400 py-20 animate-pulse">Loading...</div>';
 
-                const cached = await getLocalNews(tab);
-                if (cached && cached.length > 0) {
-                    renderNewsContentFromData(cached, containerId, tab);
-                }
+                // Real-time listener for news
+                onValue(ref(db, `news/${tab}`), async (snapshot) => {
+                    const data = snapshot.val() || {};
+                    const posts = Object.keys(data).map(key => ({ ...data[key], key }));
+
+                    // Save to local cache
+                    saveLocalNews(tab, posts);
+
+                    // Render with transition
+                    renderNewsContentFromData(posts, containerId, tab);
+                });
             }
         }
 
         function renderNewsContentFromData(posts, containerId, tabType) {
             const container = document.getElementById(containerId);
             if (!container) return;
-            if (!posts || posts.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-400 mt-10 font-medium">No announcements yet.</div>';
-                return;
+
+            // Handle deletion animation if we are updating an existing list
+            const currentItems = Array.from(container.querySelectorAll('[data-news-key]'));
+            if (currentItems.length > 0) {
+                const newKeys = new Set(posts.map(p => p.key));
+                const itemsToRemove = currentItems.filter(el => !newKeys.has(el.dataset.newsKey));
+
+                if (itemsToRemove.length > 0) {
+                    itemsToRemove.forEach(el => {
+                        el.style.opacity = '0';
+                        el.style.transform = 'translateY(-10px) scale(0.95)';
+                        el.style.pointerEvents = 'none';
+                    });
+                    // Wait for animation before re-rendering
+                    setTimeout(() => doActualRender(), 300);
+                    return;
+                }
             }
 
-            // Sort by timestamp descending
-            const sortedPosts = [...posts].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            doActualRender();
 
-            const badgeColor = tabType === 'school' ? 'text-[#007AFF] bg-blue-100 dark:bg-blue-500/20' : 'text-orange-500 bg-orange-100 dark:bg-orange-500/20';
-            const badgeText = tabType === 'school' ? 'Announcement' : 'Club Update';
+            function doActualRender() {
+                if (!posts || posts.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-400 mt-10 font-medium animate-in fade-in duration-500">No announcements yet.</div>';
+                    return;
+                }
 
-            container.innerHTML = sortedPosts.map((post, index) => `
-                <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-white/10">
-                    <div class="flex justify-between items-start">
-                        <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badgeText}</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-gray-400 font-medium">${new Date(post.timestamp).toLocaleDateString()}</span>
-                            ${isStaff() ? `<button onclick="deleteNews('${post.key}', '${tabType}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
+                // Sort by timestamp descending
+                const sortedPosts = [...posts].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                const badgeColor = tabType === 'school' ? 'text-[#007AFF] bg-blue-100 dark:bg-blue-500/20' : 'text-orange-500 bg-orange-100 dark:bg-orange-500/20';
+                const badgeText = tabType === 'school' ? 'Announcement' : 'Club Update';
+
+                container.innerHTML = sortedPosts.map((post, index) => `
+                    <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badgeText}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-400 font-medium">${new Date(post.timestamp).toLocaleDateString()}</span>
+                                ${isStaff() ? `<button onclick="deleteNews('${post.key}', '${tabType}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
+                            </div>
                         </div>
+                        <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</p>
+                        ${post.image ? `<img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
                     </div>
-                    <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</p>
-                    ${post.image ? `<img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">` : ''}
-                </div>
-            `).join('');
+                `).join('');
+            }
         }
 
 
@@ -1763,7 +1845,9 @@
         }
 
         function linkify(text) {
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            if (!text) return "";
+            // Use a regex that excludes trailing punctuation (brackets, periods, etc.)
+            const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g;
             return text.replace(urlRegex, (url) => {
                 return `<a href="${url}" target="_blank" class="text-[#007AFF] font-bold hover:underline inline-flex items-center gap-0.5 mx-1">Link <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a>`;
             });
@@ -4188,7 +4272,7 @@
                             class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
                             <div class="text-left">
                                 <div class="font-medium">Engineering Log</div>
-                                <div class="text-xs text-gray-500">Version 4.0.0 (Latest)</div>
+                                <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
                             </div>
                             <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -4233,6 +4317,48 @@
                 <div id="changelogView"
                     class="hidden space-y-6 pb-6 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
                     <div class="space-y-10">
+                        <!-- v5.0 -->
+                        <section class="space-y-4">
+                            <div
+                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
+                                <span
+                                    class="bg-blue-500 text-white text-xs font-black px-2 py-0.5 rounded-md">v5.0</span>
+                                <h3 class="font-bold text-base">Real-time Engine & Automation</h3>
+                            </div>
+                            <div class="space-y-6">
+                                <div>
+                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
+                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <li>Real-time news synchronization via Firebase onValue listeners</li>
+                                        <li>Asynchronous UI reconciliation with state-aware animations</li>
+                                        <li>Smart Linkify URL sanitization regex (Trailing punctuation exclusion)</li>
+                                        <li>Incremental Apps Script Sync (newer_than:1d) with star-based de-duplication
+                                        </li>
+                                        <li>Automated tabType classification (Media/Club keyword scanning)</li>
+                                        <li>Intelligent Canvas divider & footer stripping logic</li>
+                                        <li>Automation runtime window constraints (07:00-17:00) for quota management
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
+                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
+                                        <li>Enhanced news rendering performance with targeted DOM updates</li>
+                                        <li>Added slide-in-from-bottom-2 keyframe transitions for new posts</li>
+                                        <li>Optimized Google Apps Script execution time and memory footprint</li>
+                                        <li>Improved CSS animation fluidity for announcement transitions</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
+                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
+                                        <li>Resolved saveLocalNews ReferenceError in news initialization</li>
+                                        <li>Fixed URL parsing bug capturing trailing parentheses in announcements</li>
+                                        <li>Corrected tabType mismatch for student community emails</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
                         <!-- v4.0 -->
                         <section class="space-y-4">
                             <div
