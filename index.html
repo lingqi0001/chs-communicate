@@ -176,7 +176,7 @@
 
         const OVERLAY_PAGE_IDS = [
             'lostFoundPage', 'marketplacePage', 'tutoringPage', 'suggestionsPage', 'infoPage',
-            'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage'
+            'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage', 'adminConsolePage'
         ];
 
         const MODULE_PAGE_MAP = {
@@ -958,6 +958,10 @@
                     if (data.name) currentUser.name = data.name;
                     currentUser.hasAcceptedTerms = data.hasAcceptedTerms || false;
                     ALL_USERS[currentUser.id] = data;
+                } else {
+                    // User was deleted from database - force immediate logout and cache clear
+                    console.warn('App: User account no longer exists in database. Forcing logout.');
+                    clearAllLocalData();
                 }
             });
 
@@ -4017,6 +4021,159 @@
             }
         };
 
+        let adminAllUsers = {};
+        window.openAdminConsole = async () => {
+            if (!isAdmin()) return;
+            openOverlayPage('adminConsolePage');
+            const listEl = document.getElementById('adminUserList');
+            listEl.innerHTML = '<div class="text-center text-gray-400 mt-20 animate-pulse">Fetching all users...</div>';
+            try {
+                const snap = await get(ref(db, 'users'));
+                adminAllUsers = snap.val() || {};
+                renderAdminUserList(adminAllUsers);
+            } catch (err) {
+                listEl.innerHTML = `<div class="text-center text-red-500 mt-20 p-4 font-bold">Error: ${err.message}</div>`;
+            }
+        };
+
+        window.closeAdminConsole = () => {
+            closeOverlayPage('adminConsolePage');
+            document.getElementById('adminUserSearch').value = '';
+            document.getElementById('scanStatus').classList.add('hidden');
+        };
+
+        window.filterAdminUsers = () => {
+            const term = document.getElementById('adminUserSearch').value.toLowerCase().trim();
+            if (!term) { renderAdminUserList(adminAllUsers); return; }
+            const filtered = {};
+            Object.keys(adminAllUsers).forEach(id => {
+                const u = adminAllUsers[id];
+                const match = (u.name || '').toLowerCase().includes(term) ||
+                    (u.email || '').toLowerCase().includes(term) ||
+                    id.toLowerCase().includes(term);
+                if (match) filtered[id] = u;
+            });
+            renderAdminUserList(filtered);
+        };
+
+        window.scanUserIssues = () => {
+            const status = document.getElementById('scanStatus');
+            status.classList.remove('hidden');
+            status.innerText = "Scanning for missing emails or invalid formats...";
+
+            const filtered = {};
+            Object.keys(adminAllUsers).forEach(id => {
+                const u = adminAllUsers[id];
+                const noEmail = !u.email;
+                const invalidEmail = u.email && (!u.email.includes('@') || u.email.length < 5);
+                if (noEmail || invalidEmail) filtered[id] = u;
+            });
+
+            renderAdminUserList(filtered);
+            status.innerText = `Scan Complete: Found ${Object.keys(filtered).length} problematic accounts.`;
+        };
+
+        function renderAdminUserList(users) {
+            const container = document.getElementById('adminUserList');
+            const ids = Object.keys(users);
+            if (ids.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 mt-20">No users found.</div>';
+                return;
+            }
+
+            container.innerHTML = ids.map(id => {
+                const u = users[id];
+                const noEmail = !u.email;
+                const isIssue = noEmail || (u.email && !u.email.includes('@'));
+                return `
+                    <div class="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
+                        <div class="flex justify-between items-start gap-4">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-black dark:text-white truncate">${escapeHTML(u.name || 'No Name')}</span>
+                                    ${isIssue ? '<span class="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded uppercase">Issue</span>' : ''}
+                                </div>
+                                <div class="text-xs text-gray-400 truncate mt-0.5 font-medium">${escapeHTML(u.email || 'NO EMAIL')}</div>
+                                <div class="text-[10px] text-gray-500 font-mono mt-1 opacity-50 select-all">ID: ${id}</div>
+                            </div>
+                            <button onclick="confirmDeleteUser('${id}')" 
+                                class="bg-red-50 dark:bg-red-500/10 text-red-500 p-2.5 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 active:scale-95 transition-all flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.confirmDeleteUser = (userId) => {
+            const u = adminAllUsers[userId] || { name: userId };
+            if (window.showCustomConfirm) {
+                window.showCustomConfirm(
+                    "Destroy User Account?",
+                    `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs across the platform. This action is irreversible.`,
+                    async () => {
+                        // Second confirmation
+                        window.showCustomConfirm(
+                            "FINAL WARNING",
+                            "Are you absolutely certain? This will wipe their messages and database record entirely.",
+                            () => deleteUserFully(userId),
+                            () => { },
+                            "YES, WIPE DATA",
+                            "Cancel"
+                        );
+                    }
+                );
+            } else {
+                if (confirm(`Delete ${u.name}? ALL chat history will be lost.`)) {
+                    if (confirm("FINAL CONFIRMATION: Wipe all data?")) {
+                        deleteUserFully(userId);
+                    }
+                }
+            }
+        };
+
+        window.deleteUserFully = async (userId) => {
+            const listEl = document.getElementById('adminUserList');
+            const status = document.getElementById('scanStatus');
+            status.classList.remove('hidden');
+            status.innerText = `Purging ${userId} from system...`;
+
+            try {
+                // 1. Delete user record
+                await set(ref(db, `users/${userId}`), null);
+                await set(ref(db, `user_private/${userId}`), null); // If exists
+
+                // 2. Delete user chats index
+                const userChatsRef = ref(db, `user_chats/${userId.toLowerCase()}`);
+                const chatsSnap = await get(userChatsRef);
+                const chats = chatsSnap.val() || {};
+
+                // 3. Cascade delete: iterate all people this user chatted with
+                const otherUserIds = Object.keys(chats);
+                for (const otherId of otherUserIds) {
+                    // Remove current user from other person's list
+                    await set(ref(db, `user_chats/${otherId.toLowerCase()}/${userId.toLowerCase()}`), null);
+                    // Delete the message thread
+                    const chatId = getChatId(userId, otherId);
+                    await set(ref(db, `messages/${chatId}`), null);
+                }
+
+                // Delete the user's own chat index
+                await set(userChatsRef, null);
+
+                // Success
+                delete adminAllUsers[userId];
+                renderAdminUserList(adminAllUsers);
+                status.innerText = `User ${userId} successfully purged from database.`;
+                setTimeout(() => status.classList.add('hidden'), 3000);
+            } catch (err) {
+                alert("Purge failed: " + err.message);
+                status.innerText = "Error during purge sequence.";
+            }
+        };
     </script>
     <style>
         /* Enhanced four-way transition animations to ensure clean exits */
@@ -4628,6 +4785,10 @@
                     <div id="adminPanel"
                         class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
                         <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
+                        <button onclick="openAdminConsole()"
+                            class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all mb-4">
+                            Open Database Console (Advanced)
+                        </button>
                         <div class="space-y-2">
                             <p class="text-[11px] text-gray-500 font-medium ml-1">OpenAI API Key</p>
                             <div class="flex gap-2">
@@ -6073,6 +6234,48 @@
                     <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-7.4</span></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Database Admin Console -->
+    <div id="adminConsolePage"
+        class="hidden fixed inset-0 lg:left-80 z-[160] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        <div
+            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
+            <div class="w-20">
+                <button onclick="closeAdminConsole()"
+                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                    </svg> Back
+                </button>
+            </div>
+            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Database Console
+            </div>
+            <div class="w-20 flex justify-end">
+                <button onclick="scanUserIssues()"
+                    class="text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Scan Issues</button>
+            </div>
+        </div>
+
+        <div
+            class="flex-shrink-0 px-5 py-3 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5 space-y-3">
+            <div class="relative">
+                <input type="text" id="adminUserSearch" placeholder="Search by name, email or ID..."
+                    oninput="filterAdminUsers()"
+                    class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 rounded-xl px-10 py-2.5 text-[15px] outline-none">
+                <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <div id="scanStatus" class="hidden text-xs text-red-500 font-bold px-2 animate-pulse">Scanning database for
+                corrupted accounts...</div>
+        </div>
+
+        <div id="adminUserList" class="flex-1 overflow-y-auto p-4 space-y-3 pb-[90px] lg:pb-safe">
+            <div class="text-center text-gray-400 mt-20">Enter search or scan to list users</div>
         </div>
     </div>
 
