@@ -4191,8 +4191,21 @@
             const lp = document.getElementById('loadingPage');
             if (lp) {
                 lp.classList.add('opacity-0');
-                setTimeout(() => lp.classList.add('hidden'), 500);
+                setTimeout(function() { 
+                    lp.classList.add('hidden'); 
+                    // Show compatibility info for first-time users
+                    if (!localStorage.getItem('compatibility_dismissed')) {
+                        var cp = document.getElementById('compatibilityPage');
+                        if (cp) cp.classList.remove('hidden');
+                    }
+                }, 500);
             }
+        };
+
+        window.dismissCompatibility = function () {
+            localStorage.setItem('compatibility_dismissed', 'true');
+            var cp = document.getElementById('compatibilityPage');
+            if (cp) cp.classList.add('hidden');
         };
 
         window.showCustomAlert = (title, body) => {
@@ -4281,6 +4294,35 @@
             <div class="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6">
                 <div class="w-full h-full bg-[#007AFF] animate-progress origin-left"></div>
             </div>
+        </div>
+    </div>
+    <!-- Device Compatibility Page -->
+    <div id="compatibilityPage"
+        class="hidden fixed inset-0 z-[195] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-8 text-center">
+        <div class="bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl max-w-sm w-full space-y-6">
+            <h2 class="text-2xl font-black text-black dark:text-white">Device Support</h2>
+            <div class="space-y-4 text-left">
+                <div class="space-y-1">
+                    <p class="text-xs font-bold text-[#007AFF] uppercase tracking-widest">Supported</p>
+                    <ul class="text-[14px] space-y-1.5 text-gray-600 dark:text-gray-300 font-medium">
+                        <li>• iPhone 6s or newer</li>
+                        <li>• iPads (iPadOS 13+)</li>
+                        <li>• School Chrome Books</li>
+                        <li>• Samsung S8 / Google Pixel 2+</li>
+                        <li>• PC & Mac: Chrome, Edge, Safari 13.1+</li>
+                    </ul>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold text-red-500 uppercase tracking-widest">Not Supported</p>
+                    <ul class="text-[14px] space-y-1.5 text-gray-400 font-medium">
+                        <li>• iPhone 6 and older</li>
+                        <li>• Internet Explorer / Old Firefox</li>
+                    </ul>
+                </div>
+            </div>
+            <button onclick="dismissCompatibility()"
+                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-blue-500/20">Got
+                it</button>
         </div>
     </div>
 
