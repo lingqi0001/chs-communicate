@@ -2278,25 +2278,27 @@
                     const menu = document.getElementById('messageContextMenu');
                     const touch = e.touches ? e.touches[0] : e;
 
-                    // Show briefly to measure
+                    // 1. Position it invisibly first to prevent sliding transition
+                    menu.style.transition = 'none';
+                    menu.style.opacity = '0';
                     menu.classList.remove('hidden');
+
                     const menuHeight = menu.offsetHeight || 200;
                     const menuWidth = menu.offsetWidth || 180;
 
                     let top = touch.clientY;
                     let left = touch.clientX;
 
-                    // Boundary checks
-                    if (top + menuHeight > window.innerHeight) {
-                        top = window.innerHeight - menuHeight - 15; // 15px safe margin
-                    }
-                    if (left + menuWidth > window.innerWidth) {
-                        left = window.innerWidth - menuWidth - 15;
-                    }
+                    if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 15;
+                    if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 15;
 
-                    // Ensure it doesn't go off the top/left either
                     menu.style.top = `${Math.max(15, top)}px`;
                     menu.style.left = `${Math.max(15, left)}px`;
+
+                    // 2. Force reflow and restore animations
+                    void menu.offsetHeight;
+                    menu.style.transition = '';
+                    menu.style.opacity = '';
                     if (menu._hideListener) {
                         document.removeEventListener('mousedown', menu._hideListener);
                         document.removeEventListener('touchstart', menu._hideListener);
@@ -2400,6 +2402,11 @@
             const input = document.getElementById('u-msg');
             const val = customVal || input.value;
             if (!val.trim() || !activeTargetId) return;
+
+            if (val.length > 1000) {
+                await showCustomAlert("Message Too Long", "Messages are limited to 1000 characters. Please shorten your message.");
+                return;
+            }
 
             // --- Moderation Check Start ---
             if (type === 'text') {
@@ -3098,6 +3105,11 @@
         };
 
         window.handlePostImageSelect = (e) => {
+            if (window.isPhotoDisabled) {
+                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
+                e.target.value = '';
+                return;
+            }
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -3168,6 +3180,9 @@
             const postBtnLabel = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule].postBtn : 'Post';
             document.getElementById('postPageTitle').innerText = 'New ' + (postBtnLabel || 'Post');
 
+            const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
+            if (imgArea) imgArea.style.display = window.isPhotoDisabled ? 'none' : 'flex';
+
             const page = document.getElementById('postPage');
             page.classList.remove('hidden');
             requestAnimationFrame(() => {
@@ -3193,6 +3208,17 @@
             const title = document.getElementById('postInputTitle').value.trim();
             const desc = document.getElementById('postInputDesc').value.trim();
             if (!title || !desc) { alert("Title and description are required."); return; }
+
+            if (title.length > 200 || desc.length > 1000) {
+                showCustomAlert("Content Too Long", "Titles are limited to 200 characters and descriptions to 1000 characters.");
+                return;
+            }
+
+            if (currentPostBase64 && window.isPhotoDisabled) {
+                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
+                window.clearPostImage();
+                return;
+            }
 
             checkModeration(`Title: ${title}\nDesc: ${desc}`).then(isSafe => {
                 if (!isSafe) {
@@ -5434,14 +5460,14 @@
                     </label>
                     <div
                         class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-full pl-[14px] pr-[4px] py-[4px] min-h-[36px] mb-1.5">
-                        <input id="u-msg" type="text" onkeydown="if(event.key==='Enter') sendMsg()"
+                        <input id="u-msg" type="text" maxlength="1000" onkeydown="if(event.key==='Enter') sendMsg()"
                             placeholder="iMessage"
                             class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93]">
                         <button onclick="sendMsg()"
                             class="ml-2 w-[28px] h-[28px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0">
                             <svg class="h-[14px] w-[14px] text-white" viewBox="0 0 20 20" fill="currentColor">
                                 <path
-                                    d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" />
+                                    d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" />
                             </svg>
                         </button>
                     </div>
@@ -5670,9 +5696,9 @@
                     class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Post</button>
             </div>
             <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-safe">
-                <input id="postInputTitle" type="text" placeholder="Subject"
+                <input id="postInputTitle" type="text" placeholder="Subject" maxlength="200"
                     class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base font-medium outline-none border-none placeholder-gray-400">
-                <textarea id="postInputDesc" placeholder="What's on your mind?" rows="6"
+                <textarea id="postInputDesc" placeholder="What's on your mind?" rows="6" maxlength="1000"
                     class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base outline-none border-none resize-none placeholder-gray-400"></textarea>
 
                 <div id="postImagePreviewContainer"
