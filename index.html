@@ -158,11 +158,21 @@
         const ADMIN_EMAIL = 'moss104088@gmail.com';
         const SAFETY_BOT_ID = 'safety_bot';
 
+        const isAdmin = () => currentUser && currentUser.email === ADMIN_EMAIL;
+        const isTeacher = () => currentUser && currentUser.role === 'teacher';
+        const isStaff = () => isAdmin() || isTeacher();
+
         // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
         let SYSTEM_OPENAI_KEY = '';
         window.isPhotoDisabled = false;
         const MODERATION_THRESHOLD = 0.5;
         let currentNewsTab = 'school';
+        let currentClassId = null; // Track currently selected class in sidebar Level 2
+        let sidebarClasses = {}; // Cache for classes user is part of
+
+        const EAGLE_ICON = `<svg class="w-10 h-10" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+            <polygon fill="white" points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 233.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
+            <path fill="#ED2129" d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" /></svg>`;
 
         const MODULE_CONFIG = {
             lost_and_found: { title: 'Lost and Found', postBtn: 'Report', hasComments: false, anonymous: false },
@@ -788,7 +798,7 @@
                 try {
                     const adminId = 'moss104088';
                     const chatId = getChatId(currentUser.id, adminId);
-                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "I'm a new user", type: 'text', timestamp: serverTimestamp() };
+                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "[Auto Sent By System] I'm a new user", type: 'text', timestamp: serverTimestamp() };
                     await push(ref(db, `messages/${chatId}`), msg);
                     await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
                     await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
@@ -1613,7 +1623,7 @@
         }
 
         let isRenderingSidebar = false;
-        window.sidebarMode = 'recent'; // 'recent' or 'all'
+        window.sidebarMode = 'recent'; // 'recent', 'all', or 'class'
 
         window.renderSidebar = async function (isTabSwitch = false) {
             if (isRenderingSidebar) return;
@@ -1622,100 +1632,42 @@
 
             isRenderingSidebar = true;
 
+            // 1. Level 2 (Class Detail) View - Only if we have a currentClassId and are in 'class' mode
+            if (window.sidebarMode === 'class' && currentClassId) {
+                await renderClassLevel2(container, isTabSwitch);
+                isRenderingSidebar = false;
+                return;
+            }
+
+            // 2. Level 1 (Tabs) View
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
                     <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 px-2 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button onclick="window.sidebarMode='recent'; window.renderSidebar(true);" class="flex-1 text-xs font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent Chats</button>
+                        <button onclick="window.sidebarMode='recent'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.sidebarMode='all'; window.renderSidebar(true);" class="flex-1 text-xs font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">My Contacts</button>
+                        <button onclick="window.sidebarMode='all'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
+                        <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
+                        <button onclick="window.sidebarMode='class'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
                     </div>
                     <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                 `;
             } else {
                 const btns = container.querySelectorAll('.sidebar-tabs button');
-                btns[0].className = `flex-1 text-xs font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
-                btns[1].className = `flex-1 text-xs font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
             }
 
             const subList = document.getElementById('sidebarSubList');
+            subList.innerHTML = '<div class="p-8 text-center"><div class="inline-block w-6 h-6 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div></div>';
 
             try {
-                // 1. Fetch chatted users from user_chats (lowercase path for consistency)
-                const chatSnap = await get(ref(db, `user_chats/${currentUser.id.toLowerCase()}`));
-                const chatMap = chatSnap.val() || {};
-                let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
-
-                // 2. Fetch 10 most recent registered users to keep sidebar alive
-                try {
-                    const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
-                    if (recentSnap.exists()) {
-                        const recents = recentSnap.val();
-                        Object.keys(recents).forEach(rid => {
-                            if (rid !== currentUser.id && !chatIds.includes(rid)) {
-                                chatIds.push(rid);
-                                if (!ALL_USERS[rid]) ALL_USERS[rid] = recents[rid];
-                            }
-                        });
-                    }
-                } catch (e) { }
-
-                // 3. Fetch user data & Filter out invalid/legacy IDs
-                const validIds = [];
-                await Promise.all(chatIds.map(async id => {
-                    let u = ALL_USERS[id];
-                    if (!u) u = await fetchUser(id); // Final cloud check
-                    if (u && u.name) validIds.push(id);
-                }));
-
-                // 4. Sort and Limit
-                let sortedIds = [];
-                if (window.sidebarMode === 'recent') {
-                    sortedIds = validIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0)).slice(0, 50);
+                if (window.sidebarMode === 'class') {
+                    await renderClassLevel1(subList);
                 } else {
-                    sortedIds = validIds.sort((a, b) => {
-                        const nameA = (ALL_USERS[a]?.name || a).toLowerCase();
-                        const nameB = (ALL_USERS[b]?.name || b).toLowerCase();
-                        return nameA.localeCompare(nameB);
-                    }).slice(0, 50);
+                    // Existing Recent/All logic
+                    await renderUserSidebarItems(subList);
                 }
-
-                const fragment = document.createDocumentFragment();
-                for (const id of sortedIds) {
-                    if (id.toLowerCase() === currentUser.id.toLowerCase()) continue;
-                    // Filter out legacy ghost IDs (those containing _gmail_com or similar) to clean up UI
-                    if (id.includes('_gmail_') || id.includes('_inst_')) continue;
-
-                    const user = ALL_USERS[id];
-                    const displayName = user.name;
-                    const displayEmail = user.email || id;
-
-                    const isActive = activeTargetId === id;
-                    const div = document.createElement('div');
-                    div.id = `item-${id}`;
-                    div.className = `p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-gray-50/50 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
-                    div.onclick = () => switchChat(id);
-
-                    let badge = '';
-                    if (user && user.email === ADMIN_EMAIL) badge = ' <span class="text-xs text-red-500 font-bold ml-1">Admin</span>';
-                    else if (user && user.role === 'teacher') badge = ' <span class="text-xs text-[#007AFF] font-bold ml-1">Teacher</span>';
-
-                    div.innerHTML = `
-                        <div class="flex flex-col flex-1">
-                            <span class="font-semibold text-base text-black dark:text-white tracking-tight flex items-center">${escapeHTML(displayName)}${badge}</span>
-                            <span class="text-xs text-gray-400 mt-0.5">${escapeHTML(displayEmail)}</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span id="dot-${id}" class="w-2.5 h-2.5 bg-[#007AFF] rounded-full ${UNREAD_CHATS.has(id) ? '' : 'hidden'}"></span>
-                            <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                        </div>
-                    `;
-                    fragment.appendChild(div);
-                }
-                // 5. Final Render
-                subList.innerHTML = '';
-                subList.appendChild(fragment);
 
                 if (isTabSwitch) {
                     subList.classList.add('slide-up');
@@ -1728,24 +1680,236 @@
             }
         };
 
+        // Helper: Level 1 Class List
+        async function renderClassLevel1(container) {
+            try {
+                const snap = await get(ref(db, 'classes'));
+                const classes = snap.val() || {};
+                const myClasses = Object.keys(classes).filter(id => {
+                    const c = classes[id];
+                    return c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]);
+                }).map(id => ({ id, ...classes[id] }));
+
+                if (myClasses.length === 0) {
+                    container.innerHTML = `<div class="p-10 text-center text-gray-400 text-sm font-medium">You are not enrolled in any classes yet.</div>`;
+                    return;
+                }
+
+                container.innerHTML = myClasses.map(c => `
+                    <div onclick="window.currentClassId='${c.id}'; window.renderSidebar();" class="p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-[#007AFF]">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                            </div>
+                            <div>
+                                <div class="font-bold text-base text-black dark:text-white leading-tight">${escapeHTML(c.name)}</div>
+                                <div class="text-xs text-gray-400 mt-0.5">Click to view members</div>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-300 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                `).join('');
+            } catch (e) { container.innerHTML = `<div class="p-10 text-center text-red-500 text-xs">Failed to load classes.</div>`; }
+        }
+
+        // Helper: Level 2 Class Member List
+        async function renderClassLevel2(container, isTabSwitch) {
+            try {
+                const snap = await get(ref(db, `classes/${currentClassId}`));
+                const c = snap.val();
+                if (!c) { currentClassId = null; window.renderSidebar(); return; }
+
+                container.innerHTML = `
+                    <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
+                        <div class="flex items-center px-4 h-12 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+                            <button onclick="window.currentClassId=null; window.renderSidebar();" class="text-[#007AFF] flex items-center text-sm font-bold">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 19l-7-7 7-7"/></svg>
+                                Back
+                            </button>
+                            <div class="flex-1 text-center font-bold text-sm truncate px-2">${escapeHTML(c.name)}</div>
+                            ${(isAdmin() || c.teacherId === currentUser.id) ? `<button onclick="openClassEdit('${currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>` : '<div class="w-10"></div>'}
+                        </div>
+                        <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
+                    </div>
+                `;
+
+                const subList = document.getElementById('sidebarSubList');
+                const teacher = await fetchUser(c.teacherId);
+                const students = c.students ? Object.keys(c.students) : [];
+
+                let html = `
+                    <div class="p-3 px-5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/30 dark:bg-white/5">Group Chat</div>
+                    <div onclick="switchChat('group_${currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-all border-b border-gray-100 dark:border-gray-800 group">
+                        <div class="w-10 h-10 bg-[#ED2129]/10 rounded-full flex items-center justify-center p-2">
+                            ${EAGLE_ICON}
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-bold text-base text-black dark:text-white">Class Group Chat</div>
+                            <div class="text-xs text-gray-400">Tap to start messaging</div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 px-5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/30 dark:bg-white/5">Teacher</div>
+                    <div onclick="switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-all border-b border-gray-100 dark:border-gray-800">
+                        <img src="${teacher?.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(teacher?.name || 'Teacher')}" class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <div class="font-bold text-base text-black dark:text-white">${escapeHTML(teacher?.name || 'Teacher')}</div>
+                            <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 px-5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/30 dark:bg-white/5">Students (${students.length})</div>
+                `;
+
+                const studentData = await Promise.all(students.map(uid => fetchUser(uid)));
+                html += studentData.map(u => u ? `
+                    <div onclick="switchChat('${u.id}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-all border-b border-gray-100 dark:border-gray-800">
+                        <img src="${u.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(u.name)}" class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div>
+                            <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
+                        </div>
+                    </div>
+                ` : '').join('');
+
+                subList.innerHTML = html;
+            } catch (e) { console.error(e); }
+        }
+
+        // Helper: Existing User Sidebar Logic (Extracted)
+        async function renderUserSidebarItems(subList) {
+            // 1. Fetch chatted users from user_chats (lowercase path for consistency)
+            const chatSnap = await get(ref(db, `user_chats/${currentUser.id.toLowerCase()}`));
+            const chatMap = chatSnap.val() || {};
+            // Filter out legacy ghost IDs but KEEP group IDs
+            let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
+
+            // 2. Fetch 10 most recent registered users to keep sidebar alive (for individual chats)
+            try {
+                const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                if (recentSnap.exists()) {
+                    const recents = recentSnap.val();
+                    Object.keys(recents).forEach(rid => {
+                        if (rid !== currentUser.id && !chatIds.includes(rid)) {
+                            chatIds.push(rid);
+                            if (!ALL_USERS[rid]) ALL_USERS[rid] = recents[rid];
+                        }
+                    });
+                }
+            } catch (e) { }
+
+            // 3. Fetch user data & Filter out invalid/legacy IDs
+            const validIds = [];
+            await Promise.all(chatIds.map(async id => {
+                if (id.startsWith('group_')) {
+                    validIds.push(id);
+                    return;
+                }
+                let u = ALL_USERS[id];
+                if (!u) u = await fetchUser(id); // Final cloud check
+                if (u && u.name) validIds.push(id);
+            }));
+
+            // 4. Sort and Limit
+            let sortedIds = [];
+            if (window.sidebarMode === 'recent') {
+                sortedIds = validIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0)).slice(0, 50);
+            } else {
+                sortedIds = validIds.sort((a, b) => {
+                    if (a.startsWith('group_') && !b.startsWith('group_')) return -1;
+                    if (!a.startsWith('group_') && b.startsWith('group_')) return 1;
+                    const nameA = (a.startsWith('group_') ? 'Group' : (ALL_USERS[a]?.name || a)).toLowerCase();
+                    const nameB = (b.startsWith('group_') ? 'Group' : (ALL_USERS[b]?.name || b)).toLowerCase();
+                    return nameA.localeCompare(nameB);
+                }).slice(0, 50);
+            }
+
+            const fragment = document.createDocumentFragment();
+            for (const id of sortedIds) {
+                if (id.toLowerCase() === currentUser.id.toLowerCase()) continue;
+                if (!id.startsWith('group_') && (id.includes('_gmail_') || id.includes('_inst_'))) continue;
+
+                let displayName = id;
+                let displayEmail = id;
+                let avatarHtml = '';
+                let badge = '';
+
+                if (id.startsWith('group_')) {
+                    const classId = id.replace('group_', '');
+                    // For group chats, we might need class name. We'll try to get it from cache or fetch.
+                    // For simplicity in list, we show classId if not loaded yet
+                    displayName = "Class Group Chat";
+                    displayEmail = "Multi-person conversation";
+                    avatarHtml = `<div class="w-10 h-10 bg-[#ED2129]/10 rounded-full flex items-center justify-center p-2">${EAGLE_ICON}</div>`;
+                } else {
+                    const user = ALL_USERS[id];
+                    displayName = user.name;
+                    displayEmail = user.email || id;
+                    avatarHtml = `<img src="${user.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName)}" class="w-10 h-10 rounded-full object-cover">`;
+                    if (user && user.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                    else if (user && user.role === 'teacher') badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                }
+
+                const isActive = activeTargetId === id;
+                const div = document.createElement('div');
+                div.id = `item-${id}`;
+                div.className = `p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-gray-50/50 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                div.onclick = () => switchChat(id);
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 overflow-hidden">
+                        ${avatarHtml}
+                        <div class="flex flex-col overflow-hidden">
+                            <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(displayName)}${badge}</span>
+                            <span class="text-xs text-gray-400 truncate">${escapeHTML(displayEmail)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${UNREAD_CHATS.has(id) ? '' : 'hidden'}"></span>
+                        <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                `;
+                fragment.appendChild(div);
+            }
+            subList.innerHTML = '';
+            subList.appendChild(fragment);
+        }
+
+        window.renderSidebarOld = async function (isTabSwitch = false) {
+            // Deleted in favor of refactored version above
+        };
+
         window.switchChat = async (targetId) => {
             if (!targetId || targetId === currentUser.id) return;
             activeTargetId = targetId;
             UNREAD_CHATS.delete(targetId);
             window.updateGlobalUnreadStatus();
             document.getElementById(`dot-${targetId}`)?.classList.add('hidden');
-            const chatId = getChatId(currentUser.id, targetId);
-
-            // Set initial title (fallback to ID)
+            
             const titleEl = document.getElementById('chatTitle');
-            titleEl.innerText = ALL_USERS[targetId]?.name || targetId;
+            let chatId = '';
 
-            // Re-fetch user to ensure we get the latest name if it was just an ID
-            fetchUser(targetId).then(user => {
-                if (user && user.name && activeTargetId === targetId) {
-                    titleEl.innerText = user.name;
-                }
-            });
+            if (targetId.startsWith('group_')) {
+                chatId = targetId; // It's already the chatId
+                const classId = targetId.replace('group_', '');
+                titleEl.innerText = "Class Group Chat"; // Default
+                // Fetch real name
+                get(ref(db, `classes/${classId}/name`)).then(snap => {
+                    if (snap.exists() && activeTargetId === targetId) titleEl.innerText = snap.val();
+                });
+            } else {
+                chatId = getChatId(currentUser.id, targetId);
+                // Set initial title (fallback to ID)
+                titleEl.innerText = ALL_USERS[targetId]?.name || targetId;
+                // Re-fetch user to ensure we get the latest name if it was just an ID
+                fetchUser(targetId).then(user => {
+                    if (user && user.name && activeTargetId === targetId) {
+                        titleEl.innerText = user.name;
+                    }
+                });
+            }
 
             const newsSec = document.getElementById('newsSection');
             const sidePanel = document.getElementById('sidePanel');
@@ -2435,11 +2599,26 @@
             const msgObj = { senderId: currentUser.id, senderName: currentUser.name, text: val, type: type, timestamp: serverTimestamp() };
             if (currentQuote) { msgObj.quote = currentQuote; clearQuote(); }
 
-            const chatId = getChatId(currentUser.id, activeTargetId);
-            push(ref(db, `messages/${chatId}`), msgObj);
+            if (activeTargetId.startsWith('group_')) {
+                const chatId = activeTargetId;
+                const classId = chatId.replace('group_', '');
+                push(ref(db, `messages/${chatId}`), msgObj);
+                
+                // Update class last activity
+                update(ref(db, `classes/${classId}`), { lastActivity: serverTimestamp() });
+                
+                // Update sender's recent list
+                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [chatId]: serverTimestamp() });
+                
+                // Ideally update all participants, but let's stick to sender + class node activity for now
+                // Participants' sidebars can listen to classes they are in.
+            } else {
+                const chatId = getChatId(currentUser.id, activeTargetId);
+                push(ref(db, `messages/${chatId}`), msgObj);
 
-            update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [activeTargetId.toLowerCase()]: serverTimestamp() });
-            update(ref(db, `user_chats/${activeTargetId.toLowerCase()}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
+                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [activeTargetId.toLowerCase()]: serverTimestamp() });
+                update(ref(db, `user_chats/${activeTargetId.toLowerCase()}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
+            }
 
             if (!customVal) input.value = '';
         };
@@ -4241,6 +4420,84 @@
                 status.innerText = "Error during purge sequence.";
             }
         };
+
+        // Class Management Functions
+        window.openClassEdit = async (classId) => {
+            const snap = await get(ref(db, `classes/${classId}`));
+            const c = snap.val();
+            if (!c) return;
+
+            const name = prompt("Edit Class Name:", c.name);
+            if (name === null) return;
+            
+            if (name.trim() !== c.name) {
+                await update(ref(db, `classes/${classId}`), { name: name.trim() });
+            }
+
+            const action = await showCustomConfirm("Manage Roster", "Would you like to add or remove students?", "Yes");
+            if (!action) { window.renderSidebar(); return; }
+
+            const subAction = await showCustomConfirm("Action", "Click 'Continue' to Add a student, or 'Cancel' to Remove one.", "Add Student");
+            if (subAction) {
+                const email = prompt("Enter Student Email to add:");
+                if (!email) return;
+                const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase())));
+                if (!usersSnap.exists()) {
+                    alert("User not found.");
+                } else {
+                    const uid = Object.keys(usersSnap.val())[0];
+                    await update(ref(db, `classes/${classId}/students`), { [uid]: true });
+                    alert("Student added.");
+                }
+            } else {
+                const students = c.students ? Object.keys(c.students) : [];
+                if (students.length === 0) { alert("No students to remove."); return; }
+                
+                let list = "Enter the number of the student to remove:\n";
+                const studentData = await Promise.all(students.map(uid => fetchUser(uid)));
+                studentData.forEach((u, i) => {
+                    list += `${i + 1}. ${u.name} (${u.email})\n`;
+                });
+                
+                const idx = prompt(list);
+                if (idx && studentData[parseInt(idx) - 1]) {
+                    const uid = studentData[parseInt(idx) - 1].id;
+                    await set(ref(db, `classes/${classId}/students/${uid}`), null);
+                    alert("Student removed.");
+                }
+            }
+            window.renderSidebar();
+        };
+
+        // Initialize user interaction records for groups
+        async function syncGroupChats() {
+            if (!currentUser) return;
+            try {
+                const snap = await get(ref(db, 'classes'));
+                const classes = snap.val() || {};
+                const myClasses = Object.keys(classes).filter(id => {
+                    const c = classes[id];
+                    return c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]);
+                });
+
+                // For each class, ensure the group chat timestamp exists in user_chats if it has activity
+                for (const cid of myClasses) {
+                    const classData = classes[cid];
+                    if (classData.lastActivity) {
+                        const chatId = `group_${cid}`;
+                        const localPath = `user_chats/${currentUser.id.toLowerCase()}/${chatId}`;
+                        const localSnap = await get(ref(db, localPath));
+                        if (!localSnap.exists() || localSnap.val() < classData.lastActivity) {
+                            await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [chatId]: classData.lastActivity });
+                        }
+                    }
+                }
+            } catch (e) { console.warn("Group sync failed:", e); }
+        }
+
+        // Run sync periodically
+        setInterval(syncGroupChats, 30000);
+        setTimeout(syncGroupChats, 5000);
     </script>
     <style>
         /* Enhanced four-way transition animations to ensure clean exits */
