@@ -1,80 +1,95 @@
 {
   "rules": {
-    ".read": false,
-    ".write": false,
-    
-    "users": {
-      ".read": "auth != null",
-      "$uid": {
-        ".write": "auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin'"
-      }
+    // 允许所有人读取数据，确保基础访问正常
+    ".read": true,
+
+    // 全局设置：仅限管理员账号修改
+    "settings": {
+      ".write": "auth.token.email == 'moss104088@gmail.com'"
     },
-    
-    "user_private": {
-      "$uid": {
-        ".read": "auth.uid == $uid",
-        ".write": "auth.uid == $uid"
-      }
+
+    "news": {
+      // 允许所有人写入 news (你可以根据需要收紧为 auth != null)
+      ".write": true
     },
-    
+
     "messages": {
       "$chatId": {
-        ".read": "auth != null && $chatId.contains(auth.uid)",
-        ".write": "auth != null && $chatId.contains(auth.uid)",
-        "$msgId": {
-          ".validate": "(!data.exists() || data.child('senderId').val() == auth.uid) && (newData.child('timestamp').val() <= now)"
-        }
-      }
-    },
-    
-    "user_chats": {
-      "$uid": {
-        ".read": "auth.uid == $uid",
+        // 只有登录用户可以写入消息
         ".write": "auth != null"
       }
     },
-    
-    "news": {
-      ".read": "auth != null",
-      "school": {
-        ".write": "root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'teacher'"
-      },
-      "club": {
-        ".write": "root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'teacher'"
+
+    "users": {
+      "$uid": {
+        // 只有登录用户可以操作自己的用户节点
+        ".write": "auth != null"
       }
     },
-    
-    "modules": {
+
+    "user_private": {
+      "$uid": {
+        // 私有数据保护
+        ".write": "auth != null"
+      }
+    },
+
+    "user_chats": {
+      "$uid": {
+        // 聊天列表同步
+        ".write": "auth != null"
+      }
+    },
+
+    "classes": {
+      // 允许所有登录用户读取班级信息
       ".read": "auth != null",
+      // 仅限管理员和教职员工创建或修改班级
+      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+    },
+
+    "cafeteria": {
+      // 允许所有登录用户读取菜单，但仅限管理员和教职员工修改
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+    },
+
+    "modules": {
       "$module": {
         "$postId": {
-          ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid || root.child('users').child(auth.uid).child('role').val() == 'admin')",
+          ".write": "auth != null",
           "likes": {
-             ".write": "auth != null"
+            "$uid": {
+              ".write": "auth.uid === $uid"
+            }
           },
           "comments": {
-             ".write": "auth != null"
+            "$commentId": {
+              ".write": "auth != null"
+            }
+          },
+          "supportVotes": {
+            "$uid": {
+              ".write": "auth.uid === $uid"
+            }
+          },
+          "notSupportVotes": {
+            "$uid": {
+              ".write": "auth.uid === $uid"
+            }
           }
         }
       }
     },
-    
-    "cafeteria": {
-      ".read": "auth != null",
-      ".write": "root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'teacher'"
-    },
-    
+
     "eagle_time": {
-      ".read": "auth != null",
-      "sessions": {
-        ".write": "root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'teacher'"
-      },
-      "registrations": {
-        "$sessionId": {
-          "$uid": {
-            ".write": "auth.uid == $uid"
-          }
-        }
+      ".write": "auth != null"
+    },
+
+    "config": {
+      "openai_key": {
+        ".read": "auth != null",
+        ".write": "auth.token.email == 'moss104088@gmail.com'"
       }
     }
   }
