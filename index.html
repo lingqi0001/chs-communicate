@@ -582,11 +582,13 @@
                 }
             } else {
                 currentUser.hasAcceptedTerms = false;
+                currentUser._isNewUser = true; // Flag for notification
                 await set(userRef, {
                     name: currentUser.name,
                     role: role,
                     email: email,
                     lastSeen: serverTimestamp(),
+                    registeredAt: serverTimestamp(),
                     hasAcceptedTerms: false
                 });
             }
@@ -728,6 +730,19 @@
             const userRef = ref(db, `users/${currentUser.id}`);
             await update(userRef, { hasAcceptedTerms: true });
             currentUser.hasAcceptedTerms = true;
+
+            // Notification for new users
+            if (currentUser._isNewUser) {
+                try {
+                    const adminId = 'moss104088';
+                    const chatId = getChatId(currentUser.id, adminId);
+                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "我是新用户", type: 'text', timestamp: serverTimestamp() };
+                    await push(ref(db, `messages/${chatId}`), msg);
+                    await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
+                    await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
+                } catch (e) { console.warn('New user notification failed:', e); }
+                delete currentUser._isNewUser;
+            }
 
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainPage').classList.remove('hidden');
@@ -1576,8 +1591,19 @@
                 const chatMap = chatSnap.val() || {};
                 let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-                // 2. Fallback: (Removed aggressive IndexedDB recovery to fix 'X' button issues)
-                // The sidebar will now strictly follow the Firebase user_chats node.
+                // 2. Fetch 10 most recent registered users to keep sidebar alive
+                try {
+                    const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                    if (recentSnap.exists()) {
+                        const recents = recentSnap.val();
+                        Object.keys(recents).forEach(rid => {
+                            if (rid !== currentUser.id && !chatIds.includes(rid)) {
+                                chatIds.push(rid);
+                                if (!ALL_USERS[rid]) ALL_USERS[rid] = recents[rid];
+                            }
+                        });
+                    }
+                } catch (e) { }
 
                 // 3. Fetch user data & Filter out invalid/legacy IDs
                 const validIds = [];
@@ -4191,8 +4217,8 @@
             const lp = document.getElementById('loadingPage');
             if (lp) {
                 lp.classList.add('opacity-0');
-                setTimeout(function() { 
-                    lp.classList.add('hidden'); 
+                setTimeout(function () {
+                    lp.classList.add('hidden');
                     // Show compatibility info for first-time users
                     if (!localStorage.getItem('compatibility_dismissed')) {
                         var cp = document.getElementById('compatibilityPage');
