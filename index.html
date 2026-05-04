@@ -158,9 +158,7 @@
         const ADMIN_EMAIL = 'moss104088@gmail.com';
         const SAFETY_BOT_ID = 'safety_bot';
 
-        const isAdmin = () => currentUser && currentUser.email === ADMIN_EMAIL;
-        const isTeacher = () => currentUser && currentUser.role === 'teacher';
-        const isStaff = () => isAdmin() || isTeacher();
+
 
         // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
         let SYSTEM_OPENAI_KEY = '';
@@ -497,9 +495,9 @@
         // --- SECURE AUTHORIZATION HELPERS ---
         // These rely on the immutable Firebase Auth state, making them harder to spoof than global objects.
         // REAL security is enforced by the database.rules.json on the server.
-        const isAdmin = () => auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
-        const isTeacher = () => auth.currentUser && auth.currentUser.email && auth.currentUser.email.endsWith('@hcpss.org');
-        const isStaff = () => isAdmin() || isTeacher();
+        var isAppAdmin = () => auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
+        var isAppTeacher = () => auth.currentUser && auth.currentUser.email && auth.currentUser.email.endsWith('@hcpss.org');
+        var isAppStaff = () => isAppAdmin() || isAppTeacher();
 
 
         console.log('App: Setting up onAuthStateChanged...');
@@ -672,7 +670,7 @@
             });
 
             // Update UI with donations and ToS from DB
-            if (isAdmin()) {
+            if (isAppAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             } else {
                 document.getElementById('adminPanel')?.classList.add('hidden');
@@ -850,7 +848,7 @@
         function updateNewsAccess() {
             const btn = document.getElementById('addAnnouncementBtn');
             if (btn) {
-                if (isStaff()) {
+                if (isAppStaff()) {
                     btn.classList.remove('hidden');
                 } else {
                     btn.classList.add('hidden');
@@ -920,7 +918,7 @@
                             <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badgeText}</span>
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-gray-400 font-medium">${new Date(post.timestamp).toLocaleDateString()}</span>
-                                ${isStaff() ? `<button onclick="deleteNews('${post.key}', '${tabType}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
+                                ${isAppStaff() ? `<button onclick="deleteNews('${post.key}', '${tabType}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
                             </div>
                         </div>
                         <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${escapeHTML(post.title)}</h3>
@@ -1333,12 +1331,12 @@
                 });
             }
 
-            if (isAdmin()) {
+            if (isAppAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
                 document.getElementById('openaiKeyInput').value = SYSTEM_OPENAI_KEY || '';
             }
             window.saveAdminConfig = async () => {
-                if (!isAdmin()) return;
+                if (!isAppAdmin()) return;
                 const val = document.getElementById('openaiKeyInput').value.trim();
                 if (!val) { alert("Please enter a key."); return; }
                 try {
@@ -1727,7 +1725,7 @@
                                 Back
                             </button>
                             <div class="flex-1 text-center font-bold text-sm truncate px-2">${escapeHTML(c.name)}</div>
-                            ${(isAdmin() || c.teacherId === currentUser.id) ? `<button onclick="openClassEdit('${currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>` : '<div class="w-10"></div>'}
+                            ${(isAppAdmin() || c.teacherId === currentUser.id) ? `<button onclick="openClassEdit('${currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>` : '<div class="w-10"></div>'}
                         </div>
                         <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                     </div>
@@ -1762,19 +1760,41 @@
                 `;
 
                 const studentData = await Promise.all(students.map(uid => fetchUser(uid)));
+                const canEdit = (isAppAdmin() || c.teacherId === currentUser.id);
+
                 html += studentData.map(u => u ? `
-                    <div onclick="switchChat('${u.id}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-all border-b border-gray-100 dark:border-gray-800">
-                        <img src="${u.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(u.name)}" class="w-10 h-10 rounded-full object-cover">
-                        <div>
-                            <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div>
-                            <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
+                    <div class="p-3 px-5 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-all border-b border-gray-100 dark:border-gray-800 group relative">
+                        <div onclick="switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer">
+                            <img src="${u.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(u.name)}" class="w-10 h-10 rounded-full object-cover">
+                            <div>
+                                <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal">(You)</span>' : ''}</div>
+                                <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
+                            </div>
                         </div>
+                        ${canEdit && u.id !== c.teacherId ? `
+                            <button onclick="removeStudentFromClass('${currentClassId}', '${u.id}', '${escapeHTML(u.name)}')" 
+                                class="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all" title="Remove from class">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        ` : ''}
                     </div>
                 ` : '').join('');
 
                 subList.innerHTML = html;
             } catch (e) { console.error(e); }
         }
+
+        window.removeStudentFromClass = async (classId, studentId, studentName) => {
+            const confirmed = await showCustomConfirm("Remove Student", `Are you sure you want to remove <b>${studentName}</b> from this class?`, "Remove");
+            if (confirmed) {
+                try {
+                    await set(ref(db, `classes/${classId}/students/${studentId}`), null);
+                    window.renderSidebar();
+                } catch (e) {
+                    showCustomAlert("Error", "Failed to remove student: " + e.message);
+                }
+            }
+        };
 
         // Helper: Existing User Sidebar Logic (Extracted)
         async function renderUserSidebarItems(subList) {
@@ -3167,7 +3187,7 @@
                     interactions += `</div>`;
 
                     let adminDeleteBtn = '';
-                    if (isAdmin() || isTeacher()) {
+                    if (isAppAdmin() || isAppTeacher()) {
                         adminDeleteBtn = `<button onclick="deletePost('${post.id}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 active:scale-95 transition-transform p-1 ml-2" title="Delete Post"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
                     }
 
@@ -3617,7 +3637,7 @@
         window.openEagleTime = () => {
             currentModule = 'eagle_time';
             const btn = document.getElementById('eagleAddBtn');
-            if (btn) btn.classList.toggle('hidden', !isStaff());
+            if (btn) btn.classList.toggle('hidden', !isAppStaff());
             openOverlayPage('eagleTimePage', renderEagleTime);
         };
 
@@ -3696,7 +3716,7 @@
                                 class="w-full bg-[#007AFF] text-white py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-transform">
                                 Join Session
                             </button>
-                            ${(isAdmin() || currentUser.id === s.teacherId) ? `
+                            ${(isAppAdmin() || currentUser.id === s.teacherId) ? `
                                 <div class="pt-2 border-t border-gray-100 dark:border-white/5">
                                     <p class="text-xs font-bold text-gray-400 uppercase mb-2">Roster</p>
                                     <div class="space-y-1 max-h-32 overflow-y-auto">
@@ -4005,7 +4025,7 @@
             currentModule = 'cafeteria';
             const btn = document.getElementById('cafeteriaEditBtn');
             if (btn) {
-                btn.classList.toggle('hidden', !isStaff());
+                btn.classList.toggle('hidden', !isAppStaff());
             }
 
             document.getElementById('cafeteriaTodayDate').innerText = getLocalDateString(0);
@@ -4210,7 +4230,7 @@
 
         let adminAllUsers = {};
         window.openAdminConsole = async () => {
-            if (!isAdmin()) return;
+            if (!isAppAdmin()) return;
             openOverlayPage('adminConsolePage');
             const listEl = document.getElementById('adminUserList');
             listEl.innerHTML = '<div class="text-center text-gray-400 mt-20 animate-pulse">Fetching all users...</div>';
@@ -4427,46 +4447,65 @@
             const c = snap.val();
             if (!c) return;
 
-            const name = prompt("Edit Class Name:", c.name);
-            if (name === null) return;
+            // 1. Edit Name via custom prompt (we'll use a simple modal for this)
+            const newName = await showCustomPrompt("Edit Class Name", "Enter the new name for this class:", c.name);
+            if (newName === null) return;
             
-            if (name.trim() !== c.name) {
-                await update(ref(db, `classes/${classId}`), { name: name.trim() });
+            if (newName.trim() && newName.trim() !== c.name) {
+                await update(ref(db, `classes/${classId}`), { name: newName.trim() });
             }
 
-            const action = await showCustomConfirm("Manage Roster", "Would you like to add or remove students?", "Yes");
-            if (!action) { window.renderSidebar(); return; }
-
-            const subAction = await showCustomConfirm("Action", "Click 'Continue' to Add a student, or 'Cancel' to Remove one.", "Add Student");
-            if (subAction) {
-                const email = prompt("Enter Student Email to add:");
+            // 2. Manage Roster
+            const action = await showCustomConfirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
+            if (action) {
+                const email = await showCustomPrompt("Add Student", "Enter the student's HCPSS email address:");
                 if (!email) return;
-                const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase())));
+
+                const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase().trim())));
                 if (!usersSnap.exists()) {
-                    alert("User not found.");
+                    await showCustomAlert("Error", "No registered user found with that email.");
                 } else {
                     const uid = Object.keys(usersSnap.val())[0];
                     await update(ref(db, `classes/${classId}/students`), { [uid]: true });
-                    alert("Student added.");
-                }
-            } else {
-                const students = c.students ? Object.keys(c.students) : [];
-                if (students.length === 0) { alert("No students to remove."); return; }
-                
-                let list = "Enter the number of the student to remove:\n";
-                const studentData = await Promise.all(students.map(uid => fetchUser(uid)));
-                studentData.forEach((u, i) => {
-                    list += `${i + 1}. ${u.name} (${u.email})\n`;
-                });
-                
-                const idx = prompt(list);
-                if (idx && studentData[parseInt(idx) - 1]) {
-                    const uid = studentData[parseInt(idx) - 1].id;
-                    await set(ref(db, `classes/${classId}/students/${uid}`), null);
-                    alert("Student removed.");
+                    await showCustomAlert("Success", "Student added to the class roster.");
                 }
             }
             window.renderSidebar();
+        };
+
+        // Helper: Custom Prompt using the existing modal structure
+        window.showCustomPrompt = (title, body, defaultValue = "") => {
+            return new Promise(resolve => {
+                const modal = document.getElementById('customModal');
+                const tEl = modal.querySelector('#modalTitle');
+                const bEl = modal.querySelector('#modalBody');
+                const confirmBtn = document.getElementById('modalConfirm');
+                const cancelBtn = document.getElementById('modalCancel');
+
+                tEl.innerText = title;
+                bEl.innerHTML = `${body}<br/><input type="text" id="modalInput" class="w-full mt-4 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${escapeHTML(defaultValue)}">`;
+                
+                cancelBtn.classList.remove('hidden');
+                cancelBtn.innerText = "Cancel";
+                confirmBtn.innerText = "Save";
+
+                const close = (val) => {
+                    modal.classList.add('opacity-0');
+                    setTimeout(() => { modal.classList.add('hidden'); resolve(val); }, 300);
+                };
+
+                confirmBtn.onclick = () => {
+                    const val = document.getElementById('modalInput').value;
+                    close(val);
+                };
+                cancelBtn.onclick = () => close(null);
+
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    document.getElementById('modalInput').focus();
+                }, 10);
+            });
         };
 
         // Initialize user interaction records for groups
