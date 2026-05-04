@@ -731,19 +731,24 @@
             await update(userRef, { hasAcceptedTerms: true });
             currentUser.hasAcceptedTerms = true;
 
-            // Notification for new users
+            // If new user, show name setup instead of entering app
             if (currentUser._isNewUser) {
-                try {
-                    const adminId = 'moss104088';
-                    const chatId = getChatId(currentUser.id, adminId);
-                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "我是新用户", type: 'text', timestamp: serverTimestamp() };
-                    await push(ref(db, `messages/${chatId}`), msg);
-                    await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
-                    await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
-                } catch (e) { console.warn('New user notification failed:', e); }
-                delete currentUser._isNewUser;
+                document.getElementById('tosPage').classList.add('hidden');
+                document.getElementById('nameSetupPage').classList.remove('hidden');
+
+                // Pre-fill if auth provided a name
+                if (currentUser.name) {
+                    const parts = currentUser.name.split(' ');
+                    document.getElementById('setupFirstName').value = parts[0] || '';
+                    document.getElementById('setupLastName').value = parts.slice(1).join(' ') || '';
+                }
+                return;
             }
 
+            enterApp();
+        };
+
+        window.enterApp = () => {
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainPage').classList.remove('hidden');
             initUserObserver();
@@ -754,6 +759,43 @@
             requestNotificationPermission();
             closeTos();
             hideLoading();
+        };
+
+        window.saveInitialProfile = async () => {
+            const first = document.getElementById('setupFirstName').value.trim();
+            const last = document.getElementById('setupLastName').value.trim();
+            const newName = [first, last].filter(Boolean).join(' ');
+
+            if (!newName || !first || !last) {
+                return showCustomAlert("Name Required", "Please enter both your first and last name to continue.");
+            }
+
+            const btn = document.getElementById('setupSubmitBtn');
+            btn.disabled = true;
+            btn.innerText = "Setting up...";
+
+            try {
+                await update(ref(db, `users/${currentUser.id}`), { name: newName });
+                currentUser.name = newName;
+
+                // Send the admin notification NOW with the real name
+                try {
+                    const adminId = 'moss104088';
+                    const chatId = getChatId(currentUser.id, adminId);
+                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "I'm a new user", type: 'text', timestamp: serverTimestamp() };
+                    await push(ref(db, `messages/${chatId}`), msg);
+                    await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
+                    await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
+                } catch (e) { console.warn('Notification failed:', e); }
+
+                delete currentUser._isNewUser;
+                document.getElementById('nameSetupPage').classList.add('hidden');
+                enterApp();
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerText = "Start Chatting";
+                showCustomAlert("Error", "Failed to save profile: " + err.message);
+            }
         };
 
         async function requestNotificationPermission() {
@@ -2235,9 +2277,26 @@
                 longPressTimer = setTimeout(() => {
                     const menu = document.getElementById('messageContextMenu');
                     const touch = e.touches ? e.touches[0] : e;
-                    menu.style.left = `${Math.min(touch.clientX, window.innerWidth - 180)}px`;
-                    menu.style.top = `${Math.min(touch.clientY, window.innerHeight - 150)}px`;
+
+                    // Show briefly to measure
                     menu.classList.remove('hidden');
+                    const menuHeight = menu.offsetHeight || 200;
+                    const menuWidth = menu.offsetWidth || 180;
+
+                    let top = touch.clientY;
+                    let left = touch.clientX;
+
+                    // Boundary checks
+                    if (top + menuHeight > window.innerHeight) {
+                        top = window.innerHeight - menuHeight - 15; // 15px safe margin
+                    }
+                    if (left + menuWidth > window.innerWidth) {
+                        left = window.innerWidth - menuWidth - 15;
+                    }
+
+                    // Ensure it doesn't go off the top/left either
+                    menu.style.top = `${Math.max(15, top)}px`;
+                    menu.style.left = `${Math.max(15, left)}px`;
                     if (menu._hideListener) {
                         document.removeEventListener('mousedown', menu._hideListener);
                         document.removeEventListener('touchstart', menu._hideListener);
@@ -4138,7 +4197,7 @@
 
     <!-- Batch Import Modal -->
     <div id="batchImportModal"
-        class="hidden fixed inset-0 z-[2001] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-all duration-300">
+        class="hidden fixed inset-0 z-[4001] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-all duration-300">
         <div
             class="bg-white dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col scale-100 transition-all">
             <div class="p-5 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
@@ -4165,7 +4224,7 @@
 
     <!-- Custom Confirmation Modal -->
     <div id="customModal"
-        class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
+        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
         <div
             class="bg-white/80 dark:bg-gray-900/80 w-full max-w-[280px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
             <div class="p-5 text-center">
@@ -4322,6 +4381,46 @@
             </div>
         </div>
     </div>
+    <!-- Name Setup Overlay -->
+    <div id="nameSetupPage"
+        class="hidden fixed inset-0 z-[192] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-6">
+        <div class="w-full max-w-sm bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl space-y-6 slide-up">
+            <div class="flex flex-col items-center">
+                <div class="w-20 h-20 bg-blue-50 dark:bg-blue-500/10 rounded-3xl flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-black text-black dark:text-white">Profile Setup</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">Please use your <b>real name</b> so
+                    classmates can recognize you.</p>
+            </div>
+
+            <div class="space-y-3">
+                <div
+                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">First
+                        Name</label>
+                    <input type="text" id="setupFirstName" placeholder="Required"
+                        class="w-full bg-transparent outline-none text-base font-medium">
+                </div>
+                <div
+                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Last
+                        Name</label>
+                    <input type="text" id="setupLastName" placeholder="Required"
+                        class="w-full bg-transparent outline-none text-base font-medium">
+                </div>
+            </div>
+
+            <button onclick="saveInitialProfile()" id="setupSubmitBtn"
+                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:pointer-events-none">
+                Start Chatting
+            </button>
+        </div>
+    </div>
+
     <!-- Device Compatibility Page -->
     <div id="compatibilityPage"
         class="hidden fixed inset-0 z-[195] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-8 text-center">
@@ -4965,8 +5064,8 @@
     </div>
 
     <div id="galleryModal" onclick="if(event.target === this) closeGallery()"
-        class="hidden fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
-        <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[155] relative">
+        class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
+        <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
             <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity"
                 onclick="window.downloadImage(); event.stopPropagation();">Save</button>
             <button onclick="closeGallery(); event.stopPropagation();"
