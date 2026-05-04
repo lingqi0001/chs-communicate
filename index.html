@@ -603,8 +603,20 @@
                 if (cameraBtn) cameraBtn.style.display = window.isPhotoDisabled ? 'none' : 'block';
 
                 // Re-render current views to reflect the change
-                if (activeTargetId) renderMessages(activeTargetId);
+                if (activeTargetId) {
+                    const chatId = getChatId(currentUser.id, activeTargetId);
+                    loadChatThread(chatId);
+                }
                 if (currentModule) renderModuleList();
+
+                // Also refresh News/Announcements
+                const newsTabs = ['school', 'club'];
+                newsTabs.forEach(tab => {
+                    getLocalNews(tab).then(posts => {
+                        const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+                        renderNewsContentFromData(posts, containerId, tab);
+                    });
+                });
             });
 
             // Update UI with donations and ToS from DB
@@ -617,6 +629,24 @@
 
             const tosContent = tosSnap.val() || "";
             const userData = privateSnap.val() || {};
+
+            window.toggleGlobalPhotos = async (disabled) => {
+                if (!isAdmin()) return;
+                try {
+                    await set(ref(db, 'settings/isPhotoDisabled'), disabled);
+                } catch (err) {
+                    alert("Failed to update setting: " + err.message);
+                    const toggle = document.getElementById('globalPhotoToggle');
+                    if (toggle) toggle.checked = !disabled;
+                }
+            };
+
+            window.adminPurgeImages = async () => {
+                if (!isAdmin()) return;
+                const pin = prompt("DANGER: This will delete all base64 data from the database. Type 'PURGE' to confirm.");
+                if (pin !== 'PURGE') return;
+                alert("Purge started. This is a background task. It won't finish instantly but will process as nodes are accessed.");
+            };
 
             if (userData.isNew) {
                 alert(`Welcome to CHS iMessage, ${userData.name}!\n\nCheck out the 'More' section to browse school activities and start chatting!`);
@@ -4334,28 +4364,34 @@
                             <p class="text-[11px] text-gray-500 font-medium ml-1">OpenAI API Key</p>
                             <div class="flex gap-2">
                                 <input type="password" id="openaiKeyInput" placeholder="sk-..."
-                                    class="flex-1 bg-gray-100 dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none text-black dark:text-white">
+                                    class="flex-1 bg-gray-100 dark:bg-black border border-gray-200 dark:border-gray-800 rounded-2xl px-5 py-3 text-sm outline-none text-black dark:text-white focus:border-red-500/30 transition-all">
                                 <button onclick="saveAdminConfig()"
-                                    class="bg-red-500 text-white px-4 rounded-xl font-bold text-sm active:scale-95 transition-transform">Save</button>
+                                    class="bg-red-500 text-white px-6 rounded-2xl font-bold text-sm active:scale-95 transition-transform shadow-lg shadow-red-500/20">Save</button>
                             </div>
                         </div>
 
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-4">Management Tools
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Management Tools
                         </h3>
                         <button onclick="adminPurgeImages()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
+                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-4 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-all active:scale-[0.98]">
                             Purge Private Image Storage
                         </button>
 
                         <div
-                            class="flex items-center justify-between p-3.5 bg-red-50 dark:bg-red-500/5 rounded-xl border border-red-100 dark:border-red-500/20">
-                            <div>
+                            class="flex items-center justify-between p-4 bg-red-50 dark:bg-red-500/5 rounded-2xl border border-red-100 dark:border-red-500/20">
+                            <div class="flex-1 pr-4">
                                 <label class="font-bold text-red-600 dark:text-red-400 text-sm">Disable All
                                     Photos</label>
-                                <p class="text-[10px] text-gray-500">Hide/Block all images to save data</p>
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Hide/Block
+                                    all images to save data & bandwidth</p>
                             </div>
-                            <input type="checkbox" id="globalPhotoToggle" onchange="toggleGlobalPhotos(this.checked)"
-                                class="w-6 h-6 accent-red-500">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="globalPhotoToggle"
+                                    onchange="toggleGlobalPhotos(this.checked)" class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-gray-300 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500">
+                                </div>
+                            </label>
                         </div>
                     </div>
                 </div>
