@@ -613,9 +613,10 @@
                     window._settingsInit = true;
                     setTimeout(() => {
                         const statusTitle = window.isPhotoDisabled ? "⚠️ Photos Temporarily Disabled" : "✅ Photos Available";
-                        const statusMsg = window.isPhotoDisabled
+                        const searchHint = "\n\n💡 Tip: Use the Global Search bar at the top to find and chat with any registered user in the school!";
+                        const statusMsg = (window.isPhotoDisabled
                             ? "Image sharing is currently disabled to ensure platform stability during high traffic. You can still send text messages. Contact administrator for details."
-                            : "Image sharing is now enabled. You can upload and view photos normally.";
+                            : "Image sharing is now enabled. You can upload and view photos normally.") + searchHint;
 
                         if (window.showCustomAlert) window.showCustomAlert(statusTitle, statusMsg);
                         else console.log('App Notice:', statusTitle, statusMsg);
