@@ -2055,38 +2055,47 @@
                     const currentUserIdLower = currentUser.id.toLowerCase();
                     const filtered = allMsgs.filter(m => {
                         if (!m.text || !m.chatId) return false;
-                        // SECURITY: Only show messages where the current user is a participant
-                        const participants = m.chatId.toLowerCase().split('_');
-                        if (!participants.includes(currentUserIdLower)) return false;
 
-                        // Filter out ghost IDs
-                        if (m.chatId.includes('_gmail_com') || m.chatId.includes('_inst_hcpss_org')) return false;
+                        // PERFORMANCE: Never search through Base64 photo data
+                        if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
+
+                        // SECURITY: Only show messages from chats the user is currently in
+                        if (m.chatId.startsWith('group_')) {
+                            const classId = m.chatId.replace('group_', '');
+                            if (!sidebarClasses[classId]) return false;
+                        } else {
+                            const participants = m.chatId.toLowerCase().split('_');
+                            if (!participants.includes(currentUserIdLower)) return false;
+                            // Filter out ghost IDs
+                            if (m.chatId.includes('_gmail_com') || m.chatId.includes('_inst_hcpss_org')) return false;
+                        }
 
                         return m.text.toLowerCase().includes(term.toLowerCase());
-                    }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 10);
+                    }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15);
 
                     if (filtered.length > 0) {
                         html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
                         filtered.forEach(m => {
-                            let chatName = m.chatId;
-                            const parts = m.chatId.split('_');
-                            let otherId = m.chatId;
-                            if (parts.length >= 2) {
-                                otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
-                                chatName = ALL_USERS[otherId]?.name || otherId;
+                            let chatName = "Chat";
+                            let jumpId = m.chatId;
+
+                            if (m.chatId.startsWith('group_')) {
+                                const classId = m.chatId.replace('group_', '');
+                                chatName = cnCache[classId] || "Class Chat";
+                            } else {
+                                const parts = m.chatId.split('_');
+                                if (parts.length >= 2) {
+                                    const otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
+                                    chatName = ALL_USERS[otherId]?.name || otherId;
+                                    jumpId = otherId;
+                                }
                             }
 
-                            // Prettify Message Text (Avoid Base64 spam)
-                            let previewText = m.text;
-                            if (m.type === 'image' || m.type === 'image_group' || m.text.includes('data:image')) {
-                                previewText = "📷 [Photo Message]";
-                            }
-
-                            const escapedOtherId = otherId.replace(/'/g, "\\'");
+                            const escapedJumpId = jumpId.replace(/'/g, "\\'");
                             const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
-                            html += `<div onclick="switchChat('${escapedOtherId}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                            html += `<div onclick="switchChat('${escapedJumpId}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                 <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(chatName)}</div>
-                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(previewText)}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
                             </div>`;
                         });
                     }
@@ -2565,6 +2574,19 @@
                 return;
             }
 
+            // 1b. Level 2 (Recently Joined) View
+            if (window.sidebarMode === 'recent_joined') {
+                try {
+                    await renderRecentlyJoinedLevel2(container, isTabSwitch);
+                } catch (err) {
+                    console.error('renderRecentlyJoinedLevel2 error:', err);
+                    container.innerHTML = '<div class="p-8 text-center text-red-500 text-xs">Failed to load new members.</div>';
+                } finally {
+                    isRenderingSidebar = false;
+                }
+                return;
+            }
+
             // 2. Level 1 (Tabs) View
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
@@ -2694,6 +2716,54 @@
             } catch (err) {
                 console.error('renderClassLevel1 error:', err);
                 container.innerHTML = '<div class="p-10 text-center text-red-500 text-xs">Failed to load classes.</div>';
+            }
+        }
+
+        // Helper: Level 2 Recently Joined List
+        async function renderRecentlyJoinedLevel2(container, isTabSwitch) {
+            try {
+                container.innerHTML = `
+                    <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
+                        <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
+                            <button onclick="window.sidebarMode='recent'; window.renderSidebar();" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
+                                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                                Back
+                            </button>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
+                            </div>
+                        </div>
+                        <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
+                    </div>
+                `;
+
+                const subList = document.getElementById('sidebarSubList');
+                const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                if (recentSnap.exists()) {
+                    const users = recentSnap.val();
+                    const sortedIds = Object.keys(users).reverse();
+
+                    sortedIds.forEach(id => {
+                        if (id === currentUser.id) return;
+                        const u = users[id];
+                        if (!ALL_USERS[id]) ALL_USERS[id] = u;
+
+                        const div = document.createElement('div');
+                        div.className = "p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors";
+                        div.onclick = () => switchChat(id);
+                        div.innerHTML = `
+                            <div class="flex flex-col overflow-hidden">
+                                <span class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(u.name || id)}</span>
+                                <span class="text-xs text-gray-400 truncate">${escapeHTML(u.email || id)}</span>
+                            </div>
+                            <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        `;
+                        subList.appendChild(div);
+                    });
+                }
+            } catch (err) {
+                console.error('renderRecentlyJoinedLevel2 error:', err);
+                container.innerHTML = '<div class="p-8 text-center text-red-500 text-xs">Failed to load new members.</div>';
             }
         }
 
@@ -2980,19 +3050,21 @@
             // Filter out legacy ghost IDs but KEEP group IDs
             let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-            // 2. Fetch 10 most recent registered users to keep sidebar alive (for individual chats)
-            try {
-                const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
-                if (recentSnap.exists()) {
-                    const recents = recentSnap.val();
-                    Object.keys(recents).forEach(rid => {
-                        if (rid !== currentUser.id && !chatIds.includes(rid)) {
-                            chatIds.push(rid);
-                            if (!ALL_USERS[rid]) ALL_USERS[rid] = recents[rid];
-                        }
-                    });
-                }
-            } catch (e) { }
+            // 2. New User Onboarding: Fetch most recent users ONLY if the user has no history
+            if (Object.keys(chatMap).length === 0) {
+                try {
+                    const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                    if (recentSnap.exists()) {
+                        const recents = recentSnap.val();
+                        Object.keys(recents).forEach(rid => {
+                            if (rid !== currentUser.id && !chatIds.includes(rid)) {
+                                chatIds.push(rid);
+                                if (!ALL_USERS[rid]) ALL_USERS[rid] = recents[rid];
+                            }
+                        });
+                    }
+                } catch (e) { }
+            }
 
             // 3. Fetch user data & Filter out invalid/legacy IDs
             const validIds = [];
@@ -3021,6 +3093,27 @@
             }
 
             const fragment = document.createDocumentFragment();
+
+            // Insert "Recently Joined" entry if in Recent mode
+            if (window.sidebarMode === 'recent') {
+                const entry = document.createElement('div');
+                entry.className = "p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5";
+                entry.onclick = () => { window.sidebarMode = 'recent_joined'; window.renderSidebar(); };
+                entry.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 overflow-hidden">
+                        <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center p-2 text-[#007AFF]">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                        </div>
+                        <div class="flex flex-col overflow-hidden">
+                            <span class="font-bold text-sm text-[#007AFF] truncate">Recently Joined</span>
+                            <span class="text-xs text-gray-400 truncate">Meet new community members</span>
+                        </div>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                `;
+                fragment.appendChild(entry);
+            }
+
             for (const id of sortedIds) {
                 if (id.toLowerCase() === currentUser.id.toLowerCase()) continue;
                 if (!id.startsWith('group_') && (id.includes('_gmail_') || id.includes('_inst_'))) continue;
@@ -3156,14 +3249,14 @@
                 const classId = targetId.replace('group_', '');
                 titleEl.innerText = cnCache[classId] || "Class Group Chat";
                 statusEl.innerText = ctCache[classId] || "Group Chat";
-                
+
                 if (!cnCache[classId] || !ctCache[classId]) {
                     get(ref(db, `classes/${classId}`)).then(async snap => {
                         if (snap.exists()) {
                             const cData = snap.val();
                             cnCache[classId] = cData.name;
                             if (activeTargetId === targetId) titleEl.innerText = cData.name;
-                            
+
                             // Fetch teacher name
                             if (cData.teacherId) {
                                 const teacher = await fetchUser(cData.teacherId);
@@ -3179,7 +3272,7 @@
                 // Set initial title (fallback to ID)
                 const u = ALL_USERS[targetId];
                 titleEl.innerText = u?.name || targetId;
-                
+
                 const statusText = u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || "");
                 statusEl.innerText = statusText;
                 if (statusText === "online") {
@@ -7299,7 +7392,8 @@
                 </div>
 
                 <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
-                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">...</div>
+                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">
+                        ...</div>
                     <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
                 </div>
 
