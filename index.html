@@ -315,16 +315,26 @@
         }
 
         @keyframes tour-ping {
-            0% { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(2); opacity: 0; }
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
         }
-    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-            pointer-events: auto;
+
+        transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        pointer-events: auto;
         }
+
         .tour-tooltip.active {
             opacity: 1;
             transform: translateY(0);
         }
+
         .dark .tour-tooltip {
             background: rgba(28, 28, 30, 0.9);
             border-color: rgba(255, 255, 255, 0.1);
@@ -344,7 +354,10 @@
             border: none;
             width: 100%;
         }
-        .tour-btn:active { transform: scale(0.95); }
+
+        .tour-btn:active {
+            transform: scale(0.95);
+        }
 
         .tour-dot-nav {
             display: flex;
@@ -352,14 +365,19 @@
             margin-top: 15px;
             justify-content: center;
         }
+
         .tour-dot {
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: rgba(0,0,0,0.1);
+            background: rgba(0, 0, 0, 0.1);
             transition: all 0.3s;
         }
-        .dark .tour-dot { background: rgba(255,255,255,0.2); }
+
+        .dark .tour-dot {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         .tour-dot.active {
             background: #007AFF;
             width: 16px;
@@ -768,7 +786,7 @@
 
             inject() {
                 if (document.getElementById('tour-container')) return;
-                
+
                 // Pre-initialize music here to start loading earlier
                 this.initMusic();
 
@@ -820,16 +838,16 @@
             skipSequence() {
                 const cin = document.getElementById('tourCinematicOverlay');
                 const credits = document.getElementById('tourCreditsSlide');
-                
+
                 if (!credits.classList.contains('hidden')) {
-                    this.end(); 
+                    this.end();
                     return;
                 }
 
                 this.clearSequence();
                 cin.classList.replace('opacity-100', 'opacity-0');
                 cin.classList.add('pointer-events-none');
-                
+
                 setTimeout(() => {
                     document.getElementById('tourOverlay').classList.add('active');
                     if (this.currentStep === 0) this.showStep();
@@ -838,16 +856,31 @@
             },
 
             async askMusic(auto) {
-                const music = await window.showCustomConfirm("🎵 Background Music", "Would you like to enable background music for this tour?");
-                this.start(auto, music);
+                const choice = await window.showTourConfirm("Welcome to CHS-Communicate! 🎬", "Would you like a quick 45-second interactive tour of the app's features?");
+                if (choice === 'yes') {
+                    this.start(auto, true);
+                } else if (choice === 'no') {
+                    this.start(auto, false);
+                } else {
+                    if (window.showCustomAlert) {
+                        window.showCustomAlert(`Welcome!`, `Check out the 'More' section to browse school activities and start chatting!`);
+                    }
+                }
             },
 
             initMusic() {
                 if (!this.bgMusic) {
+                    // Using a slightly different URL as fallback if needed, but sticking to SoundHelix
                     this.bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
                     this.bgMusic.loop = true;
                     this.bgMusic.volume = 0.4;
                     this.bgMusic.preload = 'auto';
+                    this.bgMusic.onerror = () => {
+                        console.warn("Music load failed, trying fallback...");
+                        this.bgMusic.src = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
+                        this.bgMusic.load();
+                    };
+                    this.bgMusic.load();
                 }
             },
 
@@ -858,6 +891,7 @@
             },
 
             start(auto = true, music = true) {
+                this.initMusic();
                 // PC Only Check
                 if (window.innerWidth < 1024) {
                     if (window.showCustomAlert) {
@@ -880,7 +914,7 @@
                 this.inject();
                 this.musicEnabled = music;
                 if (this.musicEnabled) this.tryPlayMusic();
-                
+
                 this.isAutoPlaying = auto;
                 this.currentStep = 0;
 
@@ -894,12 +928,12 @@
                 const cin = document.getElementById('tourCinematicOverlay');
                 const narrative = document.getElementById('tourNarrative');
                 const title = document.getElementById('tourTitleSlide');
-                
+
                 if (cin) {
                     cin.classList.remove('opacity-0', 'pointer-events-none');
                     cin.classList.add('opacity-100');
                 }
-                
+
                 if (narrative) {
                     this.sequenceTimeouts.push(setTimeout(() => {
                         narrative.classList.remove('opacity-0', 'translate-y-4');
@@ -1115,10 +1149,10 @@
 
             handleUserInteraction() {
                 if (!this.isAutoPlaying) return;
-                
+
                 this.stopAutoPlay();
                 if (this.autoResumeTimeout) clearTimeout(this.autoResumeTimeout);
-                
+
                 this.autoResumeTimeout = setTimeout(() => {
                     this.startAutoPlay();
                     this.next(true);
@@ -1127,7 +1161,7 @@
 
             next(auto = false) {
                 if (!auto) this.handleUserInteraction();
-                
+
                 this.currentStep++;
                 if (this.currentStep >= this.steps.length) return this.showCredits();
                 this.showStep();
@@ -1155,7 +1189,7 @@
                 `;
 
                 if (step.action) {
-                    try { step.action(); } catch(e) { console.warn("Tour action failed", e); }
+                    try { step.action(); } catch (e) { console.warn("Tour action failed", e); }
                 }
 
                 if (!step.target) {
@@ -1187,7 +1221,7 @@
             focusElement(el) {
                 // Ensure the element is visible and centered
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
+
                 const rect = el.getBoundingClientRect();
                 this.updateHighlight(rect);
                 const pointer = document.getElementById('tourPointer');
@@ -1248,16 +1282,16 @@
                 const credits = document.getElementById('tourCreditsSlide');
                 const tooltip = document.getElementById('tourTooltip');
                 const overlay = document.getElementById('tourOverlay');
-                
+
                 if (!cin || !title || !credits) return this.end();
 
                 if (tooltip) tooltip.classList.remove('active');
                 if (overlay) overlay.classList.remove('active');
-                
+
                 // 1. Show Cinematic Backdrop again
                 cin.classList.remove('opacity-0', 'pointer-events-none');
                 cin.classList.add('opacity-100');
-                
+
                 // 2. Repeat chschat.xyz animation (Small -> Big)
                 title.classList.remove('hidden');
                 credits.classList.add('hidden');
@@ -1267,7 +1301,7 @@
                     title.classList.add('hidden');
                     credits.classList.remove('hidden');
                     credits.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-8', 'duration-1000');
-                    
+
                     // Add a Finish button to the credits slide
                     if (!document.getElementById('tourFinishBtn')) {
                         const finishBtn = document.createElement('button');
@@ -1443,6 +1477,14 @@
                 });
             }
             ALL_USERS[currentUser.id] = currentUser;
+
+            // Heartbeat for "Online" status
+            if (window._heartbeat) clearInterval(window._heartbeat);
+            window._heartbeat = setInterval(() => {
+                if (auth.currentUser) {
+                    update(ref(db, `users/${idPrefix}`), { lastSeen: serverTimestamp() });
+                }
+            }, 60000); // Update every minute
 
             // 2. Fetch required global data concurrently
             console.log('App: Fetching global data...');
@@ -1644,17 +1686,11 @@
             // Product Tour Invitation - ONLY after entering app
             const userEmail = auth.currentUser?.email?.toLowerCase() || "";
             const isAlwaysNewUser = userEmail.includes('moss932888');
-            
-            // We use a flag to prevent duplicate prompts in same session
+
             if ((window._isNewUserFlag || isAlwaysNewUser) && !window._tourPrompted) {
                 window._tourPrompted = true;
                 setTimeout(async () => {
-                    const wantTour = await window.showCustomConfirm("Welcome to CHS-Communicate! 🎬", "Would you like a quick 45-second interactive tour of the app's features?");
-                    if (wantTour) {
-                        ProductTour.askMusic(true);
-                    } else if (window.showCustomAlert) {
-                        window.showCustomAlert(`Welcome!`, `Check out the 'More' section to browse school activities and start chatting!`);
-                    }
+                    ProductTour.askMusic(true);
                 }, 1000);
             }
         };
@@ -1999,9 +2035,15 @@
                             if (u.email === ADMIN_EMAIL) avatar = sushiAvatar;
 
                             const escapedId = id.replace(/'/g, "\\'");
+                            const status = u.lastSeen ? formatLastSeen(u.lastSeen) : "";
+                            const statusHtml = status ? `<div class="text-[10px] text-gray-400 mt-0.5">${status}</div>` : `<div class="text-[10px] text-gray-400 mt-0.5">${escapeHTML(u.email || id)}</div>`;
+
                             html += `<div onclick="switchChat('${escapedId}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                 <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
-                                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email || id)}</div></div>
+                                <div>
+                                    <div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div>
+                                    ${statusHtml}
+                                </div>
                             </div>`;
                         }
                     }
@@ -2569,6 +2611,11 @@
             }
         };
 
+        // Refresh sidebar every minute to keep "last seen" times fresh
+        setInterval(() => {
+            if (window.renderSidebar && !isRenderingSidebar) window.renderSidebar();
+        }, 60000);
+
         // Helper: Level 1 Class List
         async function renderClassLevel1(container) {
             try {
@@ -2681,7 +2728,10 @@
                     <div id="item-${c.teacherId}" onclick="switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div>
                             <div class="font-bold text-base text-black dark:text-white">${escapeHTML(teacher?.name || 'Teacher')}</div>
-                            <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
+                            <div class="text-xs flex items-center gap-2">
+                                <span class="text-[#007AFF] font-bold">Class Teacher</span>
+                                ${teacher?.lastSeen ? `<span class="text-gray-400 font-normal">• ${formatLastSeen(teacher.lastSeen)}</span>` : ''}
+                            </div>
                         </div>
                     </div>
 
@@ -2713,7 +2763,7 @@
                             <div onclick="switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div>
                                     <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal">(You)</span>' : ''}</div>
-                                    <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
+                                    <div class="text-xs text-gray-400">${u.lastSeen ? formatLastSeen(u.lastSeen) : escapeHTML(u.email || u.id)}</div>
                                 </div>
                             </div>
                             ${canEdit && u.id !== c.teacherId ? `
@@ -2809,7 +2859,7 @@
                     <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
                         <div class="flex flex-col overflow-hidden mr-4">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(u.name)}</span>
-                            <span class="text-xs text-gray-400 truncate">${escapeHTML(u.email || u.id)}</span>
+                            <span class="text-xs text-gray-400 truncate">${u.lastSeen ? formatLastSeen(u.lastSeen) : escapeHTML(u.email || u.id)}</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" class="sr-only peer" ${selectedIds.has(u.id) ? 'checked' : ''} onchange="toggleStudentSelection('${u.id}', this.checked)">
@@ -2969,9 +3019,9 @@
                     const classId = id.replace('group_', '');
                     const isDisbanded = isSyncDone && !cnCache[classId];
                     const isParticipant = sidebarClasses[classId];
-                    
+
                     displayName = cnCache[classId] || "Class Group Chat";
-                    
+
                     if (isDisbanded) {
                         displayEmail = "Class disbanded";
                     } else if (isSyncDone && !isParticipant) {
@@ -2979,7 +3029,7 @@
                     } else {
                         displayEmail = ctCache[classId] || "Multi-person conversation";
                     }
-                    
+
                     const bgClass = isDisbanded || (isSyncDone && !isParticipant) ? "bg-gray-100 dark:bg-white/10" : "bg-[#ED2129]/10";
                     const iconToUse = isDisbanded || (isSyncDone && !isParticipant) ? EAGLE_ICON_BW : EAGLE_ICON;
                     avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-full flex items-center justify-center p-2">${iconToUse}</div>`;
@@ -3004,7 +3054,7 @@
                             ${avatarHtml}
                     <div class="flex flex-col overflow-hidden">
                         <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(displayName)}${badge}</span>
-                        <span class="text-xs text-gray-400 truncate">${escapeHTML(displayEmail)}</span>
+                        <span class="text-xs text-gray-400 truncate">${id.startsWith('group_') ? escapeHTML(displayEmail) : (ALL_USERS[id]?.lastSeen ? formatLastSeen(ALL_USERS[id].lastSeen) : escapeHTML(displayEmail))}</span>
                     </div>
                     </div>
                         <div class="flex items-center gap-2">
@@ -3026,7 +3076,7 @@
 
         window.switchChat = async (targetId) => {
             if (!targetId || targetId === currentUser.id) return;
-            
+
             activeTargetId = targetId;
 
             // Handle UI for disbanded classes
@@ -3078,14 +3128,14 @@
                 chatId = targetId;
                 const classId = targetId.replace('group_', '');
                 titleEl.innerText = cnCache[classId] || "Class Group Chat";
-                
+
                 if (!cnCache[classId] || !ctCache[classId]) {
                     get(ref(db, `classes/${classId}`)).then(async snap => {
                         if (snap.exists()) {
                             const cData = snap.val();
                             cnCache[classId] = cData.name;
                             if (activeTargetId === targetId) titleEl.innerText = cData.name;
-                            
+
                             // Fetch teacher name
                             if (cData.teacherId) {
                                 const teacher = await fetchUser(cData.teacherId);
@@ -3357,6 +3407,23 @@
             });
         }
 
+        function formatLastSeen(timestamp) {
+            if (!timestamp) return "";
+            const now = Date.now();
+            const diff = now - timestamp;
+            const mins = Math.floor(diff / 60000);
+
+            if (mins < 2) return "online";
+            if (mins < 60) return `${mins}min ago`;
+
+            const hours = Math.floor(mins / 60);
+            const remMins = mins % 60;
+            if (hours < 24) return `${hours}hour${remMins}min ago`;
+
+            const days = Math.floor(hours / 24);
+            return `${days} day${days > 1 ? 's' : ''} ago`;
+        }
+
         async function loadChatThread(chatId) {
             const chatBox = document.getElementById('chatBox');
             chatBox.innerHTML = '<div class="text-center text-gray-400 text-xs mt-4 mb-4 font-medium">Chat History</div>';
@@ -3449,6 +3516,7 @@
                 const mTitle = document.getElementById('modalTitle');
                 const mBody = document.getElementById('modalBody');
                 const btnCancel = document.getElementById('modalCancel');
+                const btnAlt = document.getElementById('modalAlt');
                 const btnConfirm = document.getElementById('modalConfirm');
                 const inner = modal.querySelector('div');
 
@@ -3456,6 +3524,7 @@
                 mBody.innerText = body;
                 btnConfirm.innerText = confirmText;
                 btnCancel.classList.remove('hidden');
+                btnAlt.classList.add('hidden');
 
                 modal.classList.remove('hidden');
                 setTimeout(() => {
@@ -3471,6 +3540,7 @@
                     setTimeout(() => {
                         modal.classList.add('hidden');
                         btnCancel.onclick = null;
+                        btnAlt.onclick = null;
                         btnConfirm.onclick = null;
                         resolve(res);
                     }, 300);
@@ -3487,6 +3557,7 @@
                 const mTitle = document.getElementById('modalTitle');
                 const mBody = document.getElementById('modalBody');
                 const btnCancel = document.getElementById('modalCancel');
+                const btnAlt = document.getElementById('modalAlt');
                 const btnConfirm = document.getElementById('modalConfirm');
                 const inner = modal.querySelector('div');
 
@@ -3494,6 +3565,7 @@
                 mBody.innerText = body;
                 btnConfirm.innerText = btnText;
                 btnCancel.classList.add('hidden');
+                btnAlt.classList.add('hidden');
 
                 modal.classList.remove('hidden');
                 setTimeout(() => {
@@ -3513,6 +3585,52 @@
                     }, 300);
                 };
                 btnConfirm.onclick = close;
+            });
+        };
+
+        window.showTourConfirm = (title, body) => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customModal');
+                const mTitle = document.getElementById('modalTitle');
+                const mBody = document.getElementById('modalBody');
+                const btnCancel = document.getElementById('modalCancel');
+                const btnAlt = document.getElementById('modalAlt');
+                const btnConfirm = document.getElementById('modalConfirm');
+                const inner = modal.querySelector('div');
+
+                mTitle.innerText = title;
+                mBody.innerText = body;
+                btnCancel.innerText = "Cancel";
+                btnAlt.innerText = "No Music";
+                btnConfirm.innerText = "Yes (Music)";
+
+                btnCancel.classList.remove('hidden');
+                btnAlt.classList.remove('hidden');
+                btnConfirm.classList.remove('hidden');
+
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.add('opacity-100');
+                    inner.classList.add('scale-100');
+                    inner.classList.remove('scale-90');
+                }, 10);
+
+                const close = (res) => {
+                    modal.classList.remove('opacity-100');
+                    inner.classList.remove('scale-100');
+                    inner.classList.add('scale-90');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        btnCancel.onclick = null;
+                        btnAlt.onclick = null;
+                        btnConfirm.onclick = null;
+                        resolve(res);
+                    }, 300);
+                };
+
+                btnCancel.onclick = () => close('cancel');
+                btnAlt.onclick = () => close('no');
+                btnConfirm.onclick = () => close('yes');
             });
         };
 
@@ -5717,7 +5835,7 @@
         async function syncGroupChats() {
             if (!currentUser) return;
             try {
-            const snap = await get(ref(db, 'classes'));
+                const snap = await get(ref(db, 'classes'));
                 const classes = snap.val() || {};
                 const myClasses = Object.keys(classes).filter(id => {
                     const c = classes[id];
@@ -5732,7 +5850,7 @@
                 for (const cid of myClasses) {
                     const c = classes[cid];
                     cnCache[cid] = c.name;
-                    
+
                     // Pre-fetch teacher name for sidebar
                     if (c.teacherId) {
                         fetchUser(c.teacherId).then(u => {
@@ -5965,6 +6083,8 @@
             <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
                 <button id="modalCancel"
                     class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
+                <button id="modalAlt"
+                    class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">No</button>
                 <button id="modalConfirm"
                     class="flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Continue</button>
             </div>
@@ -6030,10 +6150,12 @@
                 const bEl = modal.querySelector('#modalBody');
                 const confirmBtn = document.getElementById('modalConfirm');
                 const cancelBtn = document.getElementById('modalCancel');
+                const altBtn = document.getElementById('modalAlt');
 
                 tEl.innerText = title;
                 bEl.innerText = body;
                 cancelBtn.classList.add('hidden');
+                altBtn.classList.add('hidden');
                 confirmBtn.innerText = "OK";
                 confirmBtn.onclick = () => {
                     modal.classList.add('opacity-0');
@@ -6056,10 +6178,12 @@
                 const bEl = modal.querySelector('#modalBody');
                 const confirmBtn = document.getElementById('modalConfirm');
                 const cancelBtn = document.getElementById('modalCancel');
+                const altBtn = document.getElementById('modalAlt');
 
                 tEl.innerText = title;
                 bEl.innerText = body;
                 cancelBtn.classList.remove('hidden');
+                altBtn.classList.add('hidden');
                 cancelBtn.innerText = "Cancel";
                 confirmBtn.innerText = confirmText;
 
@@ -7049,14 +7173,16 @@
                 <div class="flex justify-between items-end h-9">
                     <h2 class="text-3xl font-bold tracking-tight leading-none">Messages</h2>
                     <div class="flex items-center gap-3 mb-1">
-                        <button id="donationBtn" onclick="toggleDonation()" class="text-[#007AFF] active:scale-90 transition-transform">
+                        <button id="donationBtn" onclick="toggleDonation()"
+                            class="text-[#007AFF] active:scale-90 transition-transform">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </button>
 
-                        <button id="settingsBtn" onclick="toggleSettings()" class="text-[#007AFF] active:scale-90 transition-transform">
+                        <button id="settingsBtn" onclick="toggleSettings()"
+                            class="text-[#007AFF] active:scale-90 transition-transform">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
