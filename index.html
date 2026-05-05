@@ -159,11 +159,11 @@
         }
 
         .sidebar-push {
-            animation: sidebarPush 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation: sidebarPush 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
         }
 
         .sidebar-pop {
-            animation: sidebarPop 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation: sidebarPop 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
         }
 
         @keyframes sidebarPush {
@@ -180,7 +180,7 @@
 
         @keyframes sidebarPop {
             from {
-                transform: translateX(-30px);
+                transform: translateX(-20px);
                 opacity: 0;
             }
 
@@ -204,6 +204,25 @@
 
         .tab-pop-animation {
             animation: tabPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Simple Highlight (Matches Hover State) */
+        @keyframes simpleHighlight {
+            0% { background-color: #F3F4F6; }
+            40% { background-color: #F3F4F6; }
+            100% { background-color: transparent; }
+        }
+        @keyframes simpleHighlightDark {
+            0% { background-color: rgba(255, 255, 255, 0.1); }
+            40% { background-color: rgba(255, 255, 255, 0.1); }
+            100% { background-color: transparent; }
+        }
+
+        .target-highlight {
+            animation: simpleHighlight 2.5s ease-out forwards;
+        }
+        .dark .target-highlight {
+            animation: simpleHighlightDark 2.5s ease-out forwards;
         }
 
         /* --- PRODUCT TOUR STYLES --- */
@@ -1517,7 +1536,7 @@
 
                 // 1. Photo Status Notification (Delayed to ensure UI is ready)
                 // SILENCE for new/test users to avoid overlapping with Tour
-                const isNewOrTest = (user && user.email && user.email.toLowerCase().includes('moss932888')) || (userData && userData.isNew);
+                const isNewOrTest = (user && user.email && user.email.toLowerCase().includes('moss932888')) || (currentUser && currentUser._isNewUser);
                 if (!window._settingsInit && !isNewOrTest) {
                     window._settingsInit = true;
                     setTimeout(() => {
@@ -2148,8 +2167,11 @@
                         const target = items.find(it => it.innerHTML.includes(itemId) || it.innerText.includes(itemId));
                         if (target) {
                             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            target.classList.add('ring-2', 'ring-[#007AFF]', 'ring-offset-2');
-                            setTimeout(() => target.classList.remove('ring-2', 'ring-[#007AFF]', 'ring-offset-2'), 2000);
+                            // Wait for scroll to settle before highlighting
+                            setTimeout(() => {
+                                target.classList.add('target-highlight');
+                                setTimeout(() => target.classList.remove('target-highlight'), 2600);
+                            }, 600);
                         }
                     }
                 }, 500);
@@ -2168,10 +2190,13 @@
             const target = messages.find(m => m.innerText.includes(text));
             if (target) {
                 target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const bubble = target.querySelector('.px-\\[14px\\], img');
+                // Apply simple highlight to the main bubble or image after scroll
+                const bubble = target.querySelector('.bg-\\[\\#007AFF\\], .bg-\\[\\#E9E9EB\\], .dark\\:bg-gray-700, img');
                 if (bubble) {
-                    bubble.classList.add('ring-4', 'ring-[#007AFF]/30');
-                    setTimeout(() => bubble.classList.remove('ring-4', 'ring-[#007AFF]/30'), 2000);
+                    setTimeout(() => {
+                        bubble.classList.add('target-highlight');
+                        setTimeout(() => bubble.classList.remove('target-highlight'), 2600);
+                    }, 600);
                 }
             } else {
                 // Fallback to internal search if not found in current loaded view
@@ -2607,11 +2632,9 @@
             }
 
             const subList = document.getElementById('sidebarSubList');
-            if (isTabSwitch) {
-                subList.innerHTML = ''; // Clear immediately on tab switch
-                subList.classList.remove('tab-pop-animation');
-                void subList.offsetWidth; // Trigger reflow
-                subList.classList.add('tab-pop-animation');
+            if (isTabSwitch || window._isPopNav) {
+                // Don't clear here to avoid flash, let renderers handle it
+                subList.classList.remove('sidebar-pop', 'sidebar-push');
             }
 
             try {
@@ -2619,6 +2642,15 @@
                     await renderClassLevel1(subList);
                 } else {
                     await renderUserSidebarItems(subList);
+                }
+
+                // TRIGGER ANIMATION AFTER CONTENT IS LOADED
+                if (isTabSwitch || window._isPopNav) {
+                    void subList.offsetWidth; // Trigger reflow
+                    requestAnimationFrame(() => {
+                        subList.classList.add('sidebar-pop');
+                        window._isPopNav = false;
+                    });
                 }
             } catch (err) {
                 console.error('renderSidebar error:', err);
@@ -2661,7 +2693,6 @@
 
                 container.innerHTML = '';
                 const wrapper = document.createElement('div');
-                if (window._isPopNav) wrapper.className = 'sidebar-pop';
 
                 if (isAppStaff()) {
                     const createBtn = document.createElement('div');
@@ -2705,7 +2736,6 @@
                                     <div class="text-xs text-gray-400 mt-0.5">Click to view members</div>
                                 </div>
                             </div>
-                            <svg class="w-5 h-5 text-gray-300 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         `;
                         wrapper.appendChild(item);
                     });
@@ -2754,15 +2784,19 @@
                         const u = users[id];
                         if (!ALL_USERS[id]) ALL_USERS[id] = u;
 
+                        // Check for Teacher badge logic (unified with main sidebar)
+                        let badge = '';
+                        if (u.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                        else if (u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+
                         const div = document.createElement('div');
-                        div.className = "p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group";
+                        div.className = "p-3 pl-5 cursor-pointer flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group";
                         div.onclick = () => switchChat(id);
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
-                                <span class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(u.name || id)}</span>
+                                <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(u.name || id)}${badge}</span>
                                 <span class="text-xs text-gray-400 truncate">${escapeHTML(u.email || id)}</span>
                             </div>
-                            <svg class="w-4 h-4 text-gray-200 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         `;
                         subList.appendChild(div);
                     });
@@ -2849,18 +2883,23 @@
                 html += studentData.map(u => {
                     if (!u) return '';
                     const isActive = activeTargetId === u.id;
+                    // Unified badge logic
+                    let badge = '';
+                    if (u.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                    else if (u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+
                     return `
-                        <div id="item-${u.id}" class="flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                        <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                             <div onclick="switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
-                                <div>
-                                    <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal">(You)</span>' : ''}</div>
-                                    <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
+                                <div class="flex flex-col overflow-hidden">
+                                    <div class="font-bold text-sm text-black dark:text-white flex items-center">${escapeHTML(u.name)}${badge} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}</div>
+                                    <div class="text-xs text-gray-400 truncate">${escapeHTML(u.email || u.id)}</div>
                                 </div>
                             </div>
                             ${canEdit && u.id !== c.teacherId ? `
                                 <button onclick="removeStudentFromClass('${window.currentClassId}', '${u.id}', '${escapeHTML(u.name)}')" 
                                     class="opacity-0 group-hover:opacity-100 p-2 mr-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all" title="Remove from class">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
                             ` : ''}
                         </div>
@@ -3045,13 +3084,13 @@
         window.goBackToClassList = () => {
             window.currentClassId = null;
             window._isPopNav = true;
-            window.renderSidebar();
+            window.renderSidebar(true);
         };
 
         window.goBackToRecent = () => {
             window.sidebarMode = 'recent';
             window._isPopNav = true;
-            window.renderSidebar();
+            window.renderSidebar(true);
         };
 
         // Helper: Existing User Sidebar Logic (Extracted)
@@ -3109,7 +3148,7 @@
             // Insert "Recently Joined" entry if in Recent mode
             if (window.sidebarMode === 'recent') {
                 const entry = document.createElement('div');
-                entry.className = "p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5";
+                entry.className = "p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5";
                 entry.onclick = () => { window.sidebarMode = 'recent_joined'; window.renderSidebar(); };
                 entry.innerHTML = `
                     <div class="flex items-center gap-3 flex-1 overflow-hidden">
@@ -3121,7 +3160,6 @@
                             <span class="text-xs text-gray-400 truncate">Meet new community members</span>
                         </div>
                     </div>
-                    <svg class="w-4 h-4 text-gray-200 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 `;
                 fragment.appendChild(entry);
             }
@@ -3159,24 +3197,25 @@
                     displayEmail = user?.email || id;
                     avatarHtml = ''; // Individual users have no avatar as per request
                     if (user && user.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
-                    else if (user && user.role === 'teacher') badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                    else if (user && (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org')))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
                 }
 
                 const isDisbandedGroup = id.startsWith('group_') && !cnCache[id.replace('group_', '')];
                 const isActive = activeTargetId === id;
                 const div = document.createElement('div');
                 div.id = `item-${id}`;
-                div.className = `p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                div.className = `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                div.style.paddingRight = "60px";
                 div.onclick = () => switchChat(id);
 
                 div.innerHTML = `
                         <div class="flex items-center gap-3 flex-1 overflow-hidden">
                             ${avatarHtml}
-                    <div class="flex flex-col overflow-hidden">
-                        <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(displayName)}${badge}</span>
-                        <span class="text-xs text-gray-400 truncate">${escapeHTML(displayEmail)}</span>
-                    </div>
-                    </div>
+                            <div class="flex flex-col overflow-hidden">
+                                <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(displayName)}${badge}</span>
+                                <span class="text-xs text-gray-400 truncate">${escapeHTML(displayEmail)}</span>
+                            </div>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${UNREAD_CHATS.has(id) ? '' : 'hidden'}"></span>
                             <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
