@@ -2231,7 +2231,7 @@
                     if (textDiv.innerText.toLowerCase().includes(term)) {
                         hasResults = true;
                         const item = document.createElement('div');
-                        item.className = "p-3 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 transition-colors";
+                        item.className = "p-3 pl-5 pr-10 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-white/5 transition-all group hover:bg-gray-50 dark:hover:bg-white/5";
                         const escapedSnippet = escapeHTML(textDiv.innerText);
                         item.innerHTML = `<div class="text-[14px] line-clamp-2 text-black dark:text-white">${escapedSnippet.replace(new RegExp(`(${term})`, 'gi'), '<span class="text-[#007AFF] font-bold">$1</span>')}</div>`;
                         item.onclick = () => {
@@ -2722,20 +2722,26 @@
         // Helper: Level 2 Recently Joined List
         async function renderRecentlyJoinedLevel2(container, isTabSwitch) {
             try {
-                container.innerHTML = `
-                    <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
-                        <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
-                            <button onclick="window.sidebarMode='recent'; window.renderSidebar();" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
-                                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                                Back
-                            </button>
-                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
+                // Optimization: If already in Recently Joined level 2, don't re-render shell
+                const existingSubList = document.getElementById('sidebarSubList');
+                const isAlreadyInRecentJoined = existingSubList && container.querySelector('.uppercase.tracking-widest')?.innerText.toUpperCase() === "NEW MEMBERS";
+
+                if (!isAlreadyInRecentJoined) {
+                    container.innerHTML = `
+                        <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
+                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
+                                <button onclick="goBackToRecent()" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
+                                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                                    Back
+                                </button>
+                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
+                                </div>
                             </div>
+                            <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                         </div>
-                        <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
-                    </div>
-                `;
+                    `;
+                }
 
                 const subList = document.getElementById('sidebarSubList');
                 const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
@@ -2749,14 +2755,14 @@
                         if (!ALL_USERS[id]) ALL_USERS[id] = u;
 
                         const div = document.createElement('div');
-                        div.className = "p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors";
+                        div.className = "p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group";
                         div.onclick = () => switchChat(id);
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
                                 <span class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(u.name || id)}</span>
                                 <span class="text-xs text-gray-400 truncate">${escapeHTML(u.email || id)}</span>
                             </div>
-                            <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            <svg class="w-4 h-4 text-gray-200 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         `;
                         subList.appendChild(div);
                     });
@@ -3042,6 +3048,12 @@
             window.renderSidebar();
         };
 
+        window.goBackToRecent = () => {
+            window.sidebarMode = 'recent';
+            window._isPopNav = true;
+            window.renderSidebar();
+        };
+
         // Helper: Existing User Sidebar Logic (Extracted)
         async function renderUserSidebarItems(subList) {
             // 1. Fetch chatted users from user_chats (lowercase path for consistency)
@@ -3097,7 +3109,7 @@
             // Insert "Recently Joined" entry if in Recent mode
             if (window.sidebarMode === 'recent') {
                 const entry = document.createElement('div');
-                entry.className = "p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5";
+                entry.className = "p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5";
                 entry.onclick = () => { window.sidebarMode = 'recent_joined'; window.renderSidebar(); };
                 entry.innerHTML = `
                     <div class="flex items-center gap-3 flex-1 overflow-hidden">
@@ -3109,7 +3121,7 @@
                             <span class="text-xs text-gray-400 truncate">Meet new community members</span>
                         </div>
                     </div>
-                    <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    <svg class="w-4 h-4 text-gray-200 group-hover:text-[#007AFF] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 `;
                 fragment.appendChild(entry);
             }
@@ -3154,7 +3166,7 @@
                 const isActive = activeTargetId === id;
                 const div = document.createElement('div');
                 div.id = `item-${id}`;
-                div.className = `p-3 px-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                div.className = `p-3 pl-5 pr-12 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
                 div.onclick = () => switchChat(id);
 
                 div.innerHTML = `
