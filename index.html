@@ -3101,7 +3101,18 @@
                 isRemoved = isSyncDone && !sidebarClasses[classId];
             }
 
-            if (isDisbanded || isRemoved) {
+            if (targetId === 'safety_bot') {
+                msgInput.disabled = true;
+                msgInput.placeholder = "System notifications only. Messaging is disabled.";
+                if (sendBtn) {
+                    sendBtn.style.opacity = '0';
+                    sendBtn.style.pointerEvents = 'none';
+                }
+                if (cameraBtn) {
+                    cameraBtn.style.opacity = '0';
+                    cameraBtn.style.pointerEvents = 'none';
+                }
+            } else if (isDisbanded || isRemoved) {
                 msgInput.disabled = true;
                 msgInput.placeholder = isDisbanded ? "This class has been disbanded. Messaging is disabled." : "You have been removed from this chat. Messaging is disabled.";
                 if (sendBtn) {
@@ -3810,6 +3821,13 @@
 
                     const menuHeight = menu.offsetHeight || 200;
                     const menuWidth = menu.offsetWidth || 180;
+
+                    // Hide report button if message is from safety_bot
+                    const reportBtn = menu.querySelector('button[onclick="handleMsgReport()"]');
+                    if (reportBtn) {
+                        if (msg.senderId === 'safety_bot') reportBtn.classList.add('hidden');
+                        else reportBtn.classList.remove('hidden');
+                    }
 
                     let top = touch.clientY;
                     let left = touch.clientX;
