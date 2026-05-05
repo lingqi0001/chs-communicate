@@ -2035,15 +2035,9 @@
                             if (u.email === ADMIN_EMAIL) avatar = sushiAvatar;
 
                             const escapedId = id.replace(/'/g, "\\'");
-                            const status = u.lastSeen ? formatLastSeen(u.lastSeen) : "";
-                            const statusHtml = status ? `<div class="text-[10px] text-gray-400 mt-0.5">${status}</div>` : `<div class="text-[10px] text-gray-400 mt-0.5">${escapeHTML(u.email || id)}</div>`;
-
                             html += `<div onclick="switchChat('${escapedId}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                 <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
-                                <div>
-                                    <div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div>
-                                    ${statusHtml}
-                                </div>
+                                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email || id)}</div></div>
                             </div>`;
                         }
                     }
@@ -2611,9 +2605,17 @@
             }
         };
 
-        // Refresh sidebar every minute to keep "last seen" times fresh
+        // Refresh sidebar and active chat status every minute to keep "last seen" times fresh
         setInterval(() => {
             if (window.renderSidebar && !isRenderingSidebar) window.renderSidebar();
+            // Update active chat status if it's an individual chat
+            if (activeTargetId && !activeTargetId.startsWith('group_')) {
+                const u = ALL_USERS[activeTargetId];
+                if (u && u.lastSeen) {
+                    const statusEl = document.getElementById('chatStatus');
+                    if (statusEl) statusEl.innerText = formatLastSeen(u.lastSeen);
+                }
+            }
         }, 60000);
 
         // Helper: Level 1 Class List
@@ -2728,10 +2730,7 @@
                     <div id="item-${c.teacherId}" onclick="switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div>
                             <div class="font-bold text-base text-black dark:text-white">${escapeHTML(teacher?.name || 'Teacher')}</div>
-                            <div class="text-xs flex items-center gap-2">
-                                <span class="text-[#007AFF] font-bold">Class Teacher</span>
-                                ${teacher?.lastSeen ? `<span class="text-gray-400 font-normal">• ${formatLastSeen(teacher.lastSeen)}</span>` : ''}
-                            </div>
+                            <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
                         </div>
                     </div>
 
@@ -2763,7 +2762,7 @@
                             <div onclick="switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div>
                                     <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal">(You)</span>' : ''}</div>
-                                    <div class="text-xs text-gray-400">${u.lastSeen ? formatLastSeen(u.lastSeen) : escapeHTML(u.email || u.id)}</div>
+                                    <div class="text-xs text-gray-400">${escapeHTML(u.email || u.id)}</div>
                                 </div>
                             </div>
                             ${canEdit && u.id !== c.teacherId ? `
@@ -2859,7 +2858,7 @@
                     <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
                         <div class="flex flex-col overflow-hidden mr-4">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(u.name)}</span>
-                            <span class="text-xs text-gray-400 truncate">${u.lastSeen ? formatLastSeen(u.lastSeen) : escapeHTML(u.email || u.id)}</span>
+                            <span class="text-xs text-gray-400 truncate">${escapeHTML(u.email || u.id)}</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" class="sr-only peer" ${selectedIds.has(u.id) ? 'checked' : ''} onchange="toggleStudentSelection('${u.id}', this.checked)">
@@ -3054,7 +3053,7 @@
                             ${avatarHtml}
                     <div class="flex flex-col overflow-hidden">
                         <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(displayName)}${badge}</span>
-                        <span class="text-xs text-gray-400 truncate">${id.startsWith('group_') ? escapeHTML(displayEmail) : (ALL_USERS[id]?.lastSeen ? formatLastSeen(ALL_USERS[id].lastSeen) : escapeHTML(displayEmail))}</span>
+                        <span class="text-xs text-gray-400 truncate">${escapeHTML(displayEmail)}</span>
                     </div>
                     </div>
                         <div class="flex items-center gap-2">
@@ -3122,24 +3121,27 @@
             document.getElementById(`dot-${targetId}`)?.classList.add('hidden');
 
             const titleEl = document.getElementById('chatTitle');
+            const statusEl = document.getElementById('chatStatus');
             let chatId = '';
 
             if (targetId.startsWith('group_')) {
                 chatId = targetId;
                 const classId = targetId.replace('group_', '');
                 titleEl.innerText = cnCache[classId] || "Class Group Chat";
-
+                statusEl.innerText = ctCache[classId] || "Group Chat";
+                
                 if (!cnCache[classId] || !ctCache[classId]) {
                     get(ref(db, `classes/${classId}`)).then(async snap => {
                         if (snap.exists()) {
                             const cData = snap.val();
                             cnCache[classId] = cData.name;
                             if (activeTargetId === targetId) titleEl.innerText = cData.name;
-
+                            
                             // Fetch teacher name
                             if (cData.teacherId) {
                                 const teacher = await fetchUser(cData.teacherId);
                                 ctCache[classId] = teacher?.name || "Teacher";
+                                if (activeTargetId === targetId) statusEl.innerText = teacher?.name || "Teacher";
                             }
                             window.renderSidebar();
                         }
@@ -3148,11 +3150,15 @@
             } else {
                 chatId = getChatId(currentUser.id, targetId);
                 // Set initial title (fallback to ID)
-                titleEl.innerText = ALL_USERS[targetId]?.name || targetId;
+                const u = ALL_USERS[targetId];
+                titleEl.innerText = u?.name || targetId;
+                statusEl.innerText = u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || "");
+
                 // Re-fetch user to ensure we get the latest name if it was just an ID
                 fetchUser(targetId).then(user => {
-                    if (user && user.name && activeTargetId === targetId) {
-                        titleEl.innerText = user.name;
+                    if (user && activeTargetId === targetId) {
+                        if (user.name) titleEl.innerText = user.name;
+                        if (user.lastSeen) statusEl.innerText = formatLastSeen(user.lastSeen);
                     }
                 });
             }
@@ -7235,9 +7241,9 @@
                     </button>
                 </div>
 
-                <div class="flex-1 flex justify-center text-center">
-                    <div class="font-semibold text-base tracking-tight text-black dark:text-white" id="chatTitle">...
-                    </div>
+                <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
+                    <div class="font-semibold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">...</div>
+                    <div id="chatStatus" class="text-xs text-gray-400 font-medium leading-tight truncate"></div>
                 </div>
 
                 <div class="flex-1 flex justify-end items-center relative h-full">
