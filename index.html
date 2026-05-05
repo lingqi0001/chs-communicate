@@ -2613,7 +2613,17 @@
                 const u = ALL_USERS[activeTargetId];
                 if (u && u.lastSeen) {
                     const statusEl = document.getElementById('chatStatus');
-                    if (statusEl) statusEl.innerText = formatLastSeen(u.lastSeen);
+                    if (statusEl) {
+                        const statusText = formatLastSeen(u.lastSeen);
+                        statusEl.innerText = statusText;
+                        if (statusText === "online") {
+                            statusEl.classList.add('text-[#007AFF]');
+                            statusEl.classList.remove('text-gray-400');
+                        } else {
+                            statusEl.classList.remove('text-[#007AFF]');
+                            statusEl.classList.add('text-gray-400');
+                        }
+                    }
                 }
             }
         }, 60000);
@@ -3152,13 +3162,32 @@
                 // Set initial title (fallback to ID)
                 const u = ALL_USERS[targetId];
                 titleEl.innerText = u?.name || targetId;
-                statusEl.innerText = u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || "");
+                
+                const statusText = u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || "");
+                statusEl.innerText = statusText;
+                if (statusText === "online") {
+                    statusEl.classList.add('text-[#007AFF]');
+                    statusEl.classList.remove('text-gray-400');
+                } else {
+                    statusEl.classList.remove('text-[#007AFF]');
+                    statusEl.classList.add('text-gray-400');
+                }
 
                 // Re-fetch user to ensure we get the latest name if it was just an ID
                 fetchUser(targetId).then(user => {
                     if (user && activeTargetId === targetId) {
                         if (user.name) titleEl.innerText = user.name;
-                        if (user.lastSeen) statusEl.innerText = formatLastSeen(user.lastSeen);
+                        if (user.lastSeen) {
+                            const updatedText = formatLastSeen(user.lastSeen);
+                            statusEl.innerText = updatedText;
+                            if (updatedText === "online") {
+                                statusEl.classList.add('text-[#007AFF]');
+                                statusEl.classList.remove('text-gray-400');
+                            } else {
+                                statusEl.classList.remove('text-[#007AFF]');
+                                statusEl.classList.add('text-gray-400');
+                            }
+                        }
                     }
                 });
             }
@@ -3420,14 +3449,14 @@
             const mins = Math.floor(diff / 60000);
 
             if (mins < 2) return "online";
-            if (mins < 60) return `${mins}min ago`;
+            if (mins < 60) return `last seen ${mins} minute${mins > 1 ? 's' : ''} ago`;
 
             const hours = Math.floor(mins / 60);
-            const remMins = mins % 60;
-            if (hours < 24) return `${hours}hour${remMins}min ago`;
+            if (hours < 24) return `last seen ${hours} hour${hours > 1 ? 's' : ''} ago`;
 
             const days = Math.floor(hours / 24);
-            return `${days} day${days > 1 ? 's' : ''} ago`;
+            if (days === 1) return "last seen yesterday";
+            return `last seen ${days} days ago`;
         }
 
         async function loadChatThread(chatId) {
@@ -7242,8 +7271,8 @@
                 </div>
 
                 <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
-                    <div class="font-semibold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">...</div>
-                    <div id="chatStatus" class="text-xs text-gray-400 font-medium leading-tight truncate"></div>
+                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">...</div>
+                    <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
                 </div>
 
                 <div class="flex-1 flex justify-end items-center relative h-full">
