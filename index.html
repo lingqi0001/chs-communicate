@@ -1166,6 +1166,9 @@
             },
 
             focusElement(el) {
+                // Ensure the element is visible and centered
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
                 const rect = el.getBoundingClientRect();
                 this.updateHighlight(rect);
                 const pointer = document.getElementById('tourPointer');
@@ -1178,6 +1181,8 @@
                 const highlight = document.getElementById('tourHighlight');
                 const tooltip = document.getElementById('tourTooltip');
                 const overlay = document.getElementById('tourOverlay');
+
+                if (!highlight || !tooltip || !overlay) return;
 
                 highlight.style.opacity = '1';
                 highlight.style.left = (rect.left - 10) + 'px';
@@ -1194,25 +1199,48 @@
                     0% 0%, 0% 100%, ${L}px 100%, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px 100%, 100% 100%, 100% 0%
                 )`;
 
-                const tooltipWidth = 480;
-                const margin = 40;
+                const isMobile = window.innerWidth < 768;
+                const tooltipWidth = Math.min(480, window.innerWidth * 0.9);
+                const margin = isMobile ? 20 : 40;
                 let tLeft, tTop;
 
-                if (rect.right + tooltipWidth + margin * 2 < window.innerWidth) {
-                    tLeft = rect.right + margin;
-                } else if (rect.left - tooltipWidth - margin * 2 > 0) {
-                    tLeft = rect.left - tooltipWidth - margin;
+                // Horizontal Positioning
+                if (isMobile) {
+                    tLeft = (window.innerWidth - tooltipWidth) / 2;
                 } else {
-                    tLeft = Math.max(margin, (window.innerWidth - tooltipWidth) / 2);
+                    if (rect.right + tooltipWidth + margin * 2 < window.innerWidth) {
+                        tLeft = rect.right + margin;
+                    } else if (rect.left - tooltipWidth - margin * 2 > 0) {
+                        tLeft = rect.left - tooltipWidth - margin;
+                    } else {
+                        tLeft = (window.innerWidth - tooltipWidth) / 2;
+                    }
                 }
 
-                tTop = rect.top + rect.height / 2 - 150;
-                if (tTop < margin) tTop = margin;
-                if (tTop + 350 > window.innerHeight) tTop = window.innerHeight - 350 - margin;
+                // Vertical Positioning
+                if (isMobile) {
+                    // On mobile, if target is in bottom half, show tooltip at top, and vice versa
+                    if (rect.top > window.innerHeight / 2) {
+                        tTop = margin + 60; // Leave space for header
+                    } else {
+                        tTop = window.innerHeight - 350 - margin;
+                    }
+                } else {
+                    tTop = rect.top + rect.height / 2 - 150;
+                    if (tTop < margin) tTop = margin;
+                    if (tTop + 350 > window.innerHeight) tTop = window.innerHeight - 350 - margin;
+                }
 
+                tooltip.style.width = tooltipWidth + 'px';
                 tooltip.style.left = tLeft + 'px';
                 tooltip.style.top = tTop + 'px';
                 tooltip.style.transform = 'translateY(0)';
+                
+                // Adjust font sizes for mobile
+                const titleEl = tooltip.querySelector('h3');
+                const contentEl = tooltip.querySelector('p');
+                if (titleEl) titleEl.style.fontSize = isMobile ? '24px' : '32px';
+                if (contentEl) contentEl.style.fontSize = isMobile ? '16px' : '20px';
             },
 
             showCredits() {
