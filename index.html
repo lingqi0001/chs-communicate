@@ -858,6 +858,25 @@
             },
 
             start(auto = true, music = true) {
+                // PC Only Check
+                if (window.innerWidth < 1024) {
+                    if (window.showCustomAlert) {
+                        window.showCustomAlert("PC Required", "The Product Tour is optimized for computer screens. Please view on a desktop or laptop for the best experience.");
+                    } else {
+                        alert("The Product Tour is optimized for computer screens.");
+                    }
+                    return;
+                }
+
+                // Auto Fullscreen for Immersion
+                try {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen();
+                    }
+                } catch (e) {
+                    console.warn("Fullscreen request blocked or failed", e);
+                }
+
                 this.inject();
                 this.musicEnabled = music;
                 if (this.musicEnabled) this.tryPlayMusic();
@@ -1199,48 +1218,27 @@
                     0% 0%, 0% 100%, ${L}px 100%, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px 100%, 100% 100%, 100% 0%
                 )`;
 
-                const isMobile = window.innerWidth < 768;
-                const tooltipWidth = Math.min(480, window.innerWidth * 0.9);
-                const margin = isMobile ? 20 : 40;
+                const tooltipWidth = 480;
+                const margin = 40;
                 let tLeft, tTop;
 
-                // Horizontal Positioning
-                if (isMobile) {
-                    tLeft = (window.innerWidth - tooltipWidth) / 2;
+                // Standard Desktop Positioning
+                if (rect.right + tooltipWidth + margin * 2 < window.innerWidth) {
+                    tLeft = rect.right + margin;
+                } else if (rect.left - tooltipWidth - margin * 2 > 0) {
+                    tLeft = rect.left - tooltipWidth - margin;
                 } else {
-                    if (rect.right + tooltipWidth + margin * 2 < window.innerWidth) {
-                        tLeft = rect.right + margin;
-                    } else if (rect.left - tooltipWidth - margin * 2 > 0) {
-                        tLeft = rect.left - tooltipWidth - margin;
-                    } else {
-                        tLeft = (window.innerWidth - tooltipWidth) / 2;
-                    }
+                    tLeft = (window.innerWidth - tooltipWidth) / 2;
                 }
 
-                // Vertical Positioning
-                if (isMobile) {
-                    // On mobile, if target is in bottom half, show tooltip at top, and vice versa
-                    if (rect.top > window.innerHeight / 2) {
-                        tTop = margin + 60; // Leave space for header
-                    } else {
-                        tTop = window.innerHeight - 350 - margin;
-                    }
-                } else {
-                    tTop = rect.top + rect.height / 2 - 150;
-                    if (tTop < margin) tTop = margin;
-                    if (tTop + 350 > window.innerHeight) tTop = window.innerHeight - 350 - margin;
-                }
+                tTop = rect.top + rect.height / 2 - 150;
+                if (tTop < margin) tTop = margin;
+                if (tTop + 350 > window.innerHeight) tTop = window.innerHeight - 350 - margin;
 
                 tooltip.style.width = tooltipWidth + 'px';
                 tooltip.style.left = tLeft + 'px';
                 tooltip.style.top = tTop + 'px';
                 tooltip.style.transform = 'translateY(0)';
-                
-                // Adjust font sizes for mobile
-                const titleEl = tooltip.querySelector('h3');
-                const contentEl = tooltip.querySelector('p');
-                if (titleEl) titleEl.style.fontSize = isMobile ? '24px' : '32px';
-                if (contentEl) contentEl.style.fontSize = isMobile ? '16px' : '20px';
             },
 
             showCredits() {
