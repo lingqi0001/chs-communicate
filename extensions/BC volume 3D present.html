@@ -8,129 +8,212 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     
-    <style>
-        :root {
-            --bg: #000000;
-            --sidebar: #0C0C0E;
-            --accent: #F59E0B;
-            --border: #27272A;
-            --input: #151518;
-            --text: #F4F4F5;
-            --muted: #71717A;
-            --error: #EF4444;
-            --plot-bg: #000000;
-            --transition: 0.25s ease;
-        }
+<style>
+    :root {
+        --bg: #000000;
+        --sidebar: #0C0C0E;
+        --accent: #F59E0B;
+        --border: #27272A;
+        --input: #151518;
+        --text: #F4F4F5;
+        --muted: #71717A;
+        --error: #EF4444;
+        --plot-bg: #000000;
+        --transition: 0.25s ease;
+    }
 
-        [data-theme="light"] {
-            --bg: #FFFFFF;
-            --sidebar: #F8F8FA;
-            --border: #E4E4E7;
-            --input: #FFFFFF;
-            --text: #09090B;
-            --muted: #71717A;
-            --plot-bg: #FFFFFF;
-            --accent: #B45309;
-        }
+    [data-theme="light"] {
+        --bg: #FFFFFF;
+        --sidebar: #F8F8FA;
+        --border: #E4E4E7;
+        --input: #FFFFFF;
+        --text: #09090B;
+        --muted: #71717A;
+        --plot-bg: #FFFFFF;
+        --accent: #B45309;
+    }
 
-        body { 
-            font-family: 'Inter', sans-serif; 
-            margin: 0; padding: 0; 
-            background: var(--bg); 
-            color: var(--text);
-            display: flex; height: 100vh; overflow: hidden;
-            transition: background var(--transition);
-        }
+    body { 
+        font-family: 'Inter', sans-serif; 
+        margin: 0; padding: 0; 
+        background: var(--bg); 
+        color: var(--text);
+        display: flex; height: 100vh; overflow: hidden;
+        transition: background var(--transition);
+    }
 
+    #sidebar { 
+        width: 440px; min-width: 440px;
+        background: var(--sidebar); 
+        padding: 32px; 
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: 24px;
+        z-index: 20; overflow-y: auto;
+    }
+
+    #sidebar::-webkit-scrollbar { width: 5px; }
+    #sidebar::-webkit-scrollbar-track { background: transparent; }
+    #sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    #sidebar::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    header .title-area { flex: 1; }
+    header h1 { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.02em; color: var(--accent); margin: 0; text-transform: uppercase; line-height: 1.2; }
+    header p { font-size: 0.8rem; color: var(--muted); margin-top: 6px; font-weight: 500; }
+
+    #theme-toggle {
+        background: var(--input); border: 1px solid var(--border); 
+        padding: 6px 12px; border-radius: 6px; color: var(--text);
+        font-size: 0.65rem; font-weight: 800; cursor: pointer;
+        text-transform: uppercase; letter-spacing: 0.05em;
+        transition: all var(--transition); white-space: nowrap;
+    }
+    #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    .group-title { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 0.95rem; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+    
+    input[type="text"], input[type="number"], select { 
+        width: 100%; background: var(--input); 
+        border: 1px solid var(--border); 
+        border-radius: 10px; padding: 14px;
+        color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
+        box-sizing: border-box; outline: none; transition: all var(--transition);
+    }
+    input:focus { border-color: var(--accent); }
+    input.invalid { border-color: var(--error); background: rgba(239, 68, 68, 0.05); }
+
+    .math-preview { font-size: 1.1rem; color: var(--accent); margin-top: 10px; min-height: 1.5em; font-weight: 500; }
+
+    .math-kb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+    .kb-btn { 
+        background: var(--input); color: var(--text); border: 1px solid var(--border); padding: 10px 4px; 
+        border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; 
+        cursor: pointer; transition: all 0.2s;
+    }
+    .kb-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+    .action-btn { 
+        background: var(--text); color: var(--bg); border: none; 
+        padding: 18px; width: 100%; border-radius: 10px; 
+        font-weight: 900; font-size: 1rem; text-transform: uppercase; 
+        cursor: pointer; transition: all 0.2s; margin-top: 8px;
+    }
+    .action-btn:hover { background: var(--accent); color: white; }
+    .action-btn.shake { animation: shake 0.4s ease-in-out; background: var(--error); color: white; }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-8px); }
+        75% { transform: translateX(8px); }
+    }
+
+    .footer { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border); }
+    .vol-val { font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; color: var(--accent); font-weight: 700; margin-top: 8px; }
+
+    #main { flex: 1; position: relative; background: var(--plot-bg); }
+    #plot { width: 100%; height: 100%; }
+    .error-log { color: var(--error); font-size: 0.9rem; margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2); display: none; }
+
+    /* Mobile Interaction Logic */
+    #mobile-tabs { display: none; }
+    #float-res { display: none; }
+
+    @media (max-width: 1024px) {
+        body { flex-direction: column; overflow: hidden; }
+        #main { height: 45vh; width: 100%; flex: none; position: relative; }
         #sidebar { 
-            width: 440px; min-width: 440px;
-            background: var(--sidebar); 
-            padding: 32px; 
-            border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 24px;
-            z-index: 20; overflow-y: auto;
+            width: 100%; min-width: 0; height: 55vh; 
+            padding: 0; border-right: none; border-top: 1px solid var(--border);
+            gap: 0; overflow-y: auto;
         }
-
-        #sidebar::-webkit-scrollbar { width: 5px; }
-        #sidebar::-webkit-scrollbar-track { background: transparent; }
-        #sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        #sidebar::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-        header .title-area { flex: 1; }
-        header h1 { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.02em; color: var(--accent); margin: 0; text-transform: uppercase; line-height: 1.2; }
-        header p { font-size: 0.8rem; color: var(--muted); margin-top: 6px; font-weight: 500; }
-
-        #theme-toggle {
-            background: var(--input); border: 1px solid var(--border); 
-            padding: 6px 12px; border-radius: 6px; color: var(--text);
-            font-size: 0.65rem; font-weight: 800; cursor: pointer;
-            text-transform: uppercase; letter-spacing: 0.05em;
-            transition: all var(--transition); white-space: nowrap;
-        }
-        #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
-
-        .group-title { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
         
-        .field { margin-bottom: 16px; }
-        .field label { display: block; font-size: 0.95rem; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+        #float-res { 
+            display: flex; align-items: center; gap: 12px;
+            position: absolute; top: 16px; right: 16px; 
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); 
+            padding: 10px 16px; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; z-index: 30;
+        }
+        [data-theme="light"] #float-res { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); }
         
-        input[type="text"], input[type="number"], select { 
-            width: 100%; background: var(--input); 
-            border: 1px solid var(--border); 
-            border-radius: 10px; padding: 14px;
-            color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
-            box-sizing: border-box; outline: none; transition: all var(--transition);
+        #float-res .m-toggle {
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.1); border-radius: 10px; cursor: pointer; border: none; color: var(--accent);
         }
-        input:focus { border-color: var(--accent); }
-        input.invalid { border-color: var(--error); background: rgba(239, 68, 68, 0.05); }
+        [data-theme="light"] #float-res .m-toggle { background: rgba(0,0,0,0.05); }
 
-        .math-preview { font-size: 1.1rem; color: var(--accent); margin-top: 10px; min-height: 1.5em; font-weight: 500; }
+        #float-res .res-info { pointer-events: none; }
+        #float-res .label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; opacity: 0.7; letter-spacing: 0.05em; line-height: 1; }
+        #float-res .val { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 800; color: var(--accent); line-height: 1.2; margin-top: 2px; }
 
-        .math-kb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
-        .kb-btn { 
-            background: var(--input); color: var(--text); border: 1px solid var(--border); padding: 10px 4px; 
-            border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; 
-            cursor: pointer; transition: all 0.2s;
+        #mobile-tabs { 
+            display: flex; background: var(--sidebar); 
+            border-bottom: 1px solid var(--border); 
+            position: sticky; top: 0; z-index: 40;
         }
-        .kb-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
-
-        .action-btn { 
-            background: var(--text); color: var(--bg); border: none; 
-            padding: 18px; width: 100%; border-radius: 10px; 
-            font-weight: 900; font-size: 1rem; text-transform: uppercase; 
-            cursor: pointer; transition: all 0.2s; margin-top: 8px;
+        .m-tab { 
+            flex: 1; padding: 14px; text-align: center; font-size: 0.75rem; 
+            font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.2s;
         }
-        .action-btn:hover { background: var(--accent); color: white; }
-        .action-btn.shake { animation: shake 0.4s ease-in-out; background: var(--error); color: white; }
+        .m-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(245, 158, 11, 0.05); }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
+        .s-section { padding: 20px; display: none; }
+        .s-section.active { display: block; }
+
+        header { padding: 20px 20px 10px 20px; position: relative; border-bottom: 1px solid var(--border); }
+        header h1 { font-size: 1rem; }
+        header p { display: none; }
+        #theme-toggle { position: absolute; top: 18px; right: 20px; padding: 4px 8px; font-size: 0.6rem; }
+
+        .math-kb { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+        .kb-btn { padding: 8px 2px; font-size: 0.7rem; }
+        
+        #mainBtn { 
+            position: fixed; bottom: 20px; right: 20px; width: auto; 
+            padding: 16px 24px; border-radius: 50px; font-size: 0.8rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 100;
         }
-
-        .footer { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border); }
-        .vol-val { font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; color: var(--accent); font-weight: 700; margin-top: 8px; }
-
-        #main { flex: 1; position: relative; background: var(--plot-bg); }
-        #plot { width: 100%; height: 100%; }
-        .error-log { color: var(--error); font-size: 0.9rem; margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2); display: none; }
-    </style>
+        .footer { display: none; }
+    }
+</style>
 </head>
 <body>
+
+<div id="float-res">
+    <button class="m-toggle" onclick="toggleTheme()" title="Toggle Theme">
+        <svg id="m-sun" class="hidden" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+        </svg>
+        <svg id="m-moon" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+    </button>
+    <div class="res-info">
+        <div class="label">Volume</div>
+        <div id="float-val" class="val">--</div>
+    </div>
+</div>
 
 <div id="sidebar">
     <header>
         <div class="title-area">
-            <h1 style="font-size: 1.5rem;">AP Calculus</h1>
+            <h1>AP Calculus</h1>
             <h1 style="font-size: 1rem; color: var(--muted); margin-top: 4px;">Volumes w Cross Sections</h1>
             <p style="margin-top: 8px;">Made by Lingqi Mo with Google Gemini</p>
         </div>
         <button id="theme-toggle" onclick="toggleTheme()">Light Mode</button>
     </header>
 
-    <div>
+    <div id="mobile-tabs">
+        <div class="m-tab active" onclick="switchTab('eq', this)">Equations</div>
+        <div class="m-tab" onclick="switchTab('param', this)">Parameters</div>
+    </div>
+
+    <div id="sec-eq" class="s-section active">
         <div class="group-title">1. Functions</div>
         <div class="field">
             <label>Upper Bound f(x)</label>
@@ -159,7 +242,7 @@
         </div>
     </div>
 
-    <div>
+    <div id="sec-param" class="s-section">
         <div class="group-title">2. Parameters</div>
         <div style="display: flex; gap: 12px; margin-bottom: 24px;">
             <div style="flex: 1;">
@@ -203,16 +286,30 @@
     let lastFocused = document.getElementById('fIn');
     const root = (x, n) => Math.pow(x, 1/n);
 
+    function switchTab(type, el) {
+        document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.s-section').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('sec-' + type).classList.add('active');
+    }
+
     function toggleTheme() {
         const body = document.body;
         const btn = document.getElementById('theme-toggle');
+        const sun = document.getElementById('m-sun');
+        const moon = document.getElementById('m-moon');
         const isCurrentlyDark = !body.hasAttribute('data-theme');
+        
         if (isCurrentlyDark) {
             body.setAttribute('data-theme', 'light');
             btn.innerText = 'Dark Mode';
+            sun.classList.remove('hidden');
+            moon.classList.add('hidden');
         } else {
             body.removeAttribute('data-theme');
             btn.innerText = 'Light Mode';
+            sun.classList.add('hidden');
+            moon.classList.remove('hidden');
         }
         render(); 
     }
@@ -350,7 +447,9 @@
             },
             margin: {l:0,r:0,b:0,t:0}, showlegend: false
         }, {responsive: true});
-        document.getElementById('res').innerText = vol.toFixed(5);
+        const vStr = vol.toFixed(5);
+        document.getElementById('res').innerText = vStr;
+        document.getElementById('float-val').innerText = vStr;
     }
     window.onload = () => { updatePreview(); render(); };
 </script>

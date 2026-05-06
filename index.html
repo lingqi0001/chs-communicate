@@ -5081,6 +5081,11 @@
             window.clearPostImage();
             document.getElementById('postPageTitle').innerText = 'New Announcement';
 
+            const batchBtn = document.getElementById('batchImportBtn');
+            if (batchBtn) {
+                batchBtn.classList.toggle('hidden', !isAppAdmin());
+            }
+
             const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
             if (imgArea) imgArea.style.display = window.isPhotoDisabled ? 'none' : 'flex';
 
@@ -5100,6 +5105,7 @@
             window.clearPostImage();
             const postBtnLabel = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule].postBtn : 'Post';
             document.getElementById('postPageTitle').innerText = 'New ' + (postBtnLabel || 'Post');
+            document.getElementById('batchImportBtn')?.classList.add('hidden');
 
             const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
             if (imgArea) imgArea.style.display = window.isPhotoDisabled ? 'none' : 'flex';
@@ -5120,6 +5126,7 @@
             document.getElementById('postInputTitle').placeholder = "What's the tool's name?";
             document.getElementById('postInputDesc').placeholder = "Explain how it helps you or what features it should have...";
             document.getElementById('postPageTitle').innerText = 'Tool Suggestion';
+            document.getElementById('batchImportBtn')?.classList.add('hidden');
             
             // Hide image area for requests
             const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
@@ -5330,6 +5337,10 @@
         };
 
         window.processBatchImport = async () => {
+            if (!isAppAdmin()) {
+                showCustomAlert("Unauthorized", "Only administrators can perform batch imports.");
+                return;
+            }
             const raw = document.getElementById('batchJsonInput').value.trim();
             if (!raw) return;
             let data;
