@@ -159,17 +159,17 @@
         }
 
         .sidebar-push {
-            animation: sidebarPush 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+            animation: sidebarPush 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
         }
 
         .sidebar-pop {
-            animation: sidebarPop 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+            animation: sidebarPop 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
         }
 
         @keyframes sidebarPush {
             from {
-                transform: translateX(30px);
-                opacity: 0;
+                transform: translateX(20px);
+                opacity: 0.4;
             }
 
             to {
@@ -180,8 +180,8 @@
 
         @keyframes sidebarPop {
             from {
-                transform: translateX(-20px);
-                opacity: 0;
+                transform: translateX(-15px);
+                opacity: 0.4;
             }
 
             to {
@@ -512,7 +512,7 @@
 
         const OVERLAY_PAGE_IDS = [
             'lostFoundPage', 'marketplacePage', 'tutoringPage', 'suggestionsPage', 'infoPage',
-            'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage', 'adminConsolePage'
+            'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage', 'adminConsolePage', 'extensionPage'
         ];
 
         const MODULE_PAGE_MAP = {
@@ -2062,6 +2062,28 @@
                     }
                 } catch (err) { console.warn('Aggressive search failed:', err); }
 
+                // 1.5 Tools Search
+                const tools = [
+                    { id: 'calc_volume_3d', name: '3D Volume Visualizer', desc: 'Mathematics - Calculus BC' }
+                ];
+                const matchedTools = tools.filter(t => t.name.toLowerCase().includes(term.toLowerCase()) || t.desc.toLowerCase().includes(term.toLowerCase()));
+                if (matchedTools.length > 0) {
+                    html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Learning Tools</div>`;
+                    matchedTools.forEach(t => {
+                        html += `
+                            <div onclick="openExtension('${t.id}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                <div class="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center text-[#007AFF]">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(t.name)}</div>
+                                    <div class="text-xs text-gray-400">${escapeHTML(t.desc)}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
                 // 2. Global Messages Search
                 if (!localDB) await dbReady;
                 try {
@@ -2399,58 +2421,51 @@
 
         window.switchLeftTab = (tab) => {
             const headNews = document.getElementById('headTabNews');
+            const headTools = document.getElementById('headTabTools');
             const headMore = document.getElementById('headTabMore');
+            
             const newsContent = document.getElementById('newsMainContent');
+            const toolsContent = document.getElementById('toolsMainContent');
             const moreContent = document.getElementById('moreMainContent');
+            
             const subTabs = document.getElementById('newsSubTabsWrapper');
+            const addBtn = document.getElementById('addAnnouncementBtn');
 
-            if (!headNews || !moreContent) return;
+            if (!headNews || !newsContent || !toolsContent || !moreContent) return;
 
+            // Reset all tabs to inactive state (small, gray)
+            [headNews, headTools, headMore].forEach(h => {
+                if(h) h.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none mb-0.5";
+            });
+
+            // Update button visibility and sidebar components
             if (tab === 'news') {
-                headNews.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-colors leading-none";
-                headMore.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors leading-none mb-0.5";
-
-                const addBtn = document.getElementById('addAnnouncementBtn');
-                if (addBtn && (currentUser.role === 'admin' || currentUser.role === 'teacher')) {
-                    addBtn.classList.remove('hidden');
-                }
-
+                headNews.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none";
+                if (addBtn && isAppStaff()) addBtn.classList.remove('hidden');
                 if (subTabs) {
                     subTabs.style.height = '32px';
                     subTabs.style.opacity = '1';
                     subTabs.style.marginTop = '0.75rem';
                 }
-
-                moreContent.style.opacity = '0';
-                moreContent.style.transform = 'translateX(20px)';
-                moreContent.style.pointerEvents = 'none';
-                moreContent.style.zIndex = '0';
-
+                
                 newsContent.style.opacity = '1';
                 newsContent.style.transform = 'translateX(0)';
                 newsContent.style.pointerEvents = 'auto';
                 newsContent.style.zIndex = '10';
 
-                // Sync bottom nav: maintain News icon highlight when switching between News and More
-                const iconNews = document.getElementById('icon-news');
-                const textNews = document.getElementById('text-news');
-                if (iconNews && textNews) {
-                    iconNews.classList.replace('text-gray-400', 'text-[#007AFF]');
-                    textNews.classList.replace('text-gray-400', 'text-[#007AFF]');
-                }
-                const iconMessages = document.getElementById('icon-messages');
-                const textMessages = document.getElementById('text-messages');
-                if (iconMessages && textMessages) {
-                    iconMessages.classList.replace('text-[#007AFF]', 'text-gray-400');
-                    textMessages.classList.replace('text-[#007AFF]', 'text-gray-400');
-                }
-            } else if (tab === 'more') {
-                headMore.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-colors leading-none";
-                headNews.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors leading-none mb-0.5";
+                toolsContent.style.opacity = '0';
+                toolsContent.style.transform = 'translateX(20px)';
+                toolsContent.style.pointerEvents = 'none';
+                toolsContent.style.zIndex = '0';
 
-                const addBtn = document.getElementById('addAnnouncementBtn');
+                moreContent.style.opacity = '0';
+                moreContent.style.transform = 'translateX(40px)';
+                moreContent.style.pointerEvents = 'none';
+                moreContent.style.zIndex = '0';
+
+            } else if (tab === 'tools') {
+                headTools.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none";
                 if (addBtn) addBtn.classList.add('hidden');
-
                 if (subTabs) {
                     subTabs.style.height = '0px';
                     subTabs.style.opacity = '0';
@@ -2462,23 +2477,69 @@
                 newsContent.style.pointerEvents = 'none';
                 newsContent.style.zIndex = '0';
 
+                toolsContent.style.opacity = '1';
+                toolsContent.style.transform = 'translateX(0)';
+                toolsContent.style.pointerEvents = 'auto';
+                toolsContent.style.zIndex = '10';
+
+                moreContent.style.opacity = '0';
+                moreContent.style.transform = 'translateX(20px)';
+                moreContent.style.pointerEvents = 'none';
+                moreContent.style.zIndex = '0';
+
+            } else if (tab === 'more') {
+                headMore.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none";
+                if (addBtn) addBtn.classList.add('hidden');
+                if (subTabs) {
+                    subTabs.style.height = '0px';
+                    subTabs.style.opacity = '0';
+                    subTabs.style.marginTop = '0px';
+                }
+
+                newsContent.style.opacity = '0';
+                newsContent.style.transform = 'translateX(-40px)';
+                newsContent.style.pointerEvents = 'none';
+                newsContent.style.zIndex = '0';
+
+                toolsContent.style.opacity = '0';
+                toolsContent.style.transform = 'translateX(-20px)';
+                toolsContent.style.pointerEvents = 'none';
+                toolsContent.style.zIndex = '0';
+
                 moreContent.style.opacity = '1';
                 moreContent.style.transform = 'translateX(0)';
                 moreContent.style.pointerEvents = 'auto';
                 moreContent.style.zIndex = '10';
+            }
 
-                // Sync bottom nav: maintain News icon highlight in More view
-                const iconNews = document.getElementById('icon-news');
-                const textNews = document.getElementById('text-news');
-                if (iconNews && textNews) {
-                    iconNews.classList.replace('text-gray-400', 'text-[#007AFF]');
-                    textNews.classList.replace('text-gray-400', 'text-[#007AFF]');
-                }
-                const iconMessages = document.getElementById('icon-messages');
-                const textMessages = document.getElementById('text-messages');
-                if (iconMessages && textMessages) {
-                    iconMessages.classList.replace('text-[#007AFF]', 'text-gray-400');
-                    textMessages.classList.replace('text-[#007AFF]', 'text-gray-400');
+            // Sync bottom nav (Mobile)
+            if (tab === 'news' || tab === 'more' || tab === 'tools') {
+                const navTab = (tab === 'tools') ? 'tools' : 'news';
+                
+                // Reset all bottom nav icons
+                ['news', 'tools', 'messages'].forEach(t => {
+                    const icon = document.getElementById(`icon-${t}`);
+                    const text = document.getElementById(`text-${t}`);
+                    if (icon && text) {
+                        icon.classList.remove('text-[#007AFF]');
+                        icon.classList.add('text-gray-400');
+                        text.classList.remove('text-[#007AFF]');
+                        text.classList.add('text-gray-400');
+                        // Special case for messages which might have fill/stroke differences
+                        if (t === 'messages') icon.setAttribute('fill', 'none'); 
+                        else icon.setAttribute('stroke', 'currentColor');
+                    }
+                });
+
+                // Highlight active nav tab
+                const activeIcon = document.getElementById(`icon-${navTab}`);
+                const activeText = document.getElementById(`text-${navTab}`);
+                if (activeIcon && activeText) {
+                    activeIcon.classList.remove('text-gray-400');
+                    activeIcon.classList.add('text-[#007AFF]');
+                    activeText.classList.remove('text-gray-400');
+                    activeText.classList.add('text-[#007AFF]');
+                    if (navTab === 'messages') activeIcon.setAttribute('fill', 'currentColor');
                 }
             }
         };
@@ -2768,7 +2829,31 @@
                                     <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
                                 </div>
                             </div>
-                            <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
+                            <div id="sidebarSubList" class="flex-1 overflow-y-auto">
+                                <div class="p-4 space-y-4 animate-pulse">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-100 dark:bg-white/5 rounded w-3/4"></div>
+                                            <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-100 dark:bg-white/5 rounded w-2/3"></div>
+                                            <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/3"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-100 dark:bg-white/5 rounded w-1/2"></div>
+                                            <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/4"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
@@ -2776,6 +2861,7 @@
                 const subList = document.getElementById('sidebarSubList');
                 const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
                 if (recentSnap.exists()) {
+                    subList.innerHTML = '';
                     const users = recentSnap.val();
                     const sortedIds = Object.keys(users).reverse();
 
@@ -2810,15 +2896,13 @@
         // Helper: Level 2 Class Member List
         async function renderClassLevel2(container, isTabSwitch) {
             try {
-                const snap = await get(ref(db, `classes/${window.currentClassId}`));
-                const c = snap.val();
-                if (!c) { window.currentClassId = null; window.renderSidebar(); return; }
-
                 // Optimization: If already in Level 2 for this class, don't re-render shell and trigger animation
                 const existingSubList = document.getElementById('sidebarSubList');
-                const isAlreadyInLevel2 = existingSubList && container.querySelector('.uppercase.tracking-widest')?.innerText.toUpperCase() === c.name.toUpperCase();
+                const isAlreadyInLevel2 = existingSubList && container.querySelector('.uppercase.tracking-widest')?.innerText.toUpperCase().includes("STUDENTS"); // Simple check
 
+                // Show shell immediately if not already there
                 if (!isAlreadyInLevel2) {
+                    const cachedName = cnCache[window.currentClassId] || "Class";
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
@@ -2827,21 +2911,55 @@
                                     Back
                                 </button>
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest truncate max-w-[150px] text-center">${escapeHTML(c.name)}</div>
+                                    <div id="sidebarLevel2Title" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest truncate max-w-[150px] text-center">${escapeHTML(cachedName)}</div>
                                 </div>
                                 <div class="flex-1"></div>
-                                ${(isAppAdmin() || c.teacherId === currentUser.id) ? `
-                                    <div class="flex items-center gap-3 z-10">
-                                        <button onclick="handleDeleteClass('${window.currentClassId}')" class="text-red-500 hover:text-red-600 active:scale-90 transition-all p-1" title="Delete Class">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                        <button onclick="openStudentSelector('${window.currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>
-                                    </div>
-                                ` : '<div class="w-10"></div>'}
                             </div>
-                            <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
+                            <div id="sidebarSubList" class="flex-1 overflow-y-auto">
+                                <div class="p-4 space-y-4 animate-pulse">
+                                    <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/4 mb-6"></div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-100 dark:bg-white/5 rounded w-3/4"></div>
+                                            <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/4 mt-8 mb-6"></div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-100 dark:bg-white/5 rounded w-2/3"></div>
+                                            <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/3"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `;
+                }
+
+                const snap = await get(ref(db, `classes/${window.currentClassId}`));
+                const c = snap.val();
+                if (!c) { window.currentClassId = null; window.renderSidebar(); return; }
+
+                const titleEl = document.getElementById('sidebarLevel2Title');
+                if (titleEl) titleEl.innerText = c.name;
+
+                // Add Edit/Delete buttons if admin/teacher
+                if (isAppAdmin() || c.teacherId === currentUser.id) {
+                    const header = container.querySelector('.relative');
+                    if (header && !header.querySelector('.admin-actions')) {
+                        const actionDiv = document.createElement('div');
+                        actionDiv.className = 'flex items-center gap-3 z-10 admin-actions';
+                        actionDiv.innerHTML = `
+                            <button onclick="handleDeleteClass('${window.currentClassId}')" class="text-red-500 hover:text-red-600 active:scale-90 transition-all p-1" title="Delete Class">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                            <button onclick="openStudentSelector('${window.currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>
+                        `;
+                        header.appendChild(actionDiv);
+                    }
                 }
 
                 const subList = document.getElementById('sidebarSubList');
@@ -2851,6 +2969,31 @@
                 const teacherActive = activeTargetId === c.teacherId;
                 const groupActive = activeTargetId === `group_${window.currentClassId}`;
 
+                let extensionHtml = '';
+                if (c.extensions) {
+                    const activeExts = Object.keys(c.extensions).filter(eid => c.extensions[eid] === true);
+                    if (activeExts.length > 0) {
+                        extensionHtml += `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>`;
+                        activeExts.forEach(eid => {
+                            if (eid === 'calc_volume_3d') {
+                                extensionHtml += `
+                                    <div onclick="openExtension('calc_volume_3d')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
+                                        <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</div>
+                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Mathematics Tool</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                }
+
                 let html = `
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
                     <div id="item-${c.teacherId}" onclick="switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
@@ -2859,6 +3002,8 @@
                             <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
                         </div>
                     </div>
+
+                    ${extensionHtml}
 
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
                     <div id="item-group_${window.currentClassId}" onclick="switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
@@ -2958,7 +3103,7 @@
                     }
                 }
 
-                showCustomAlert("Class Deleted", "The class has been successfully removed.");
+                // Removed showCustomAlert to prevent modal sticking issues
             } catch (e) {
                 console.error('Delete Class Error:', e);
                 showCustomAlert("Error", "Failed to delete class: " + e.message);
@@ -2979,6 +3124,7 @@
                 .sort((a, b) => a.name.localeCompare(b.name));
 
             let selectedIds = new Set(Object.keys(currentStudents));
+            let extensionsEnabled = !!(classData.extensions && classData.extensions['calc_volume_3d']);
 
             const renderSelectorList = (filter = "") => {
                 const filtered = userList.filter(u =>
@@ -3004,6 +3150,10 @@
                 else selectedIds.delete(uid);
             };
 
+            window.toggleExtensionSelection = (isChecked) => {
+                extensionsEnabled = !!isChecked;
+            };
+
             const modal = document.getElementById('customModal');
             const tEl = modal.querySelector('#modalTitle');
             const bEl = modal.querySelector('#modalBody');
@@ -3016,6 +3166,21 @@
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Class Name</label>
                         <input type="text" id="editClassName" value="${escapeHTML(classData.name)}" placeholder="Enter class name..." class="w-full mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Manage Extensions</label>
+                        <div class="mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                </div>
+                                <span class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" ${extensionsEnabled ? 'checked' : ''} onchange="toggleExtensionSelection(this.checked)">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
+                            </label>
+                        </div>
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Manage Students</label>
@@ -3046,6 +3211,7 @@
                     confirmBtn.onclick = null;
                     cancelBtn.onclick = null;
                     delete window.toggleStudentSelection;
+                    delete window.toggleExtensionSelection;
                 };
 
                 confirmBtn.onclick = async () => {
@@ -3053,7 +3219,10 @@
                     if (!newName) { showCustomAlert("Required", "Please enter a class name."); return; }
 
                     modal.classList.add('opacity-0');
-                    setTimeout(() => modal.classList.add('hidden'), 300);
+                    _modalTimer = setTimeout(() => {
+                        modal.classList.add('hidden');
+                        _modalTimer = null;
+                    }, 300);
 
                     const newStudents = {};
                     selectedIds.forEach(id => newStudents[id] = true);
@@ -3061,10 +3230,11 @@
                     try {
                         await update(ref(db, `classes/${classId}`), {
                             name: newName,
-                            students: newStudents
+                            students: newStudents,
+                            extensions: { 'calc_volume_3d': extensionsEnabled }
                         });
                         window.renderSidebar();
-                        showCustomAlert("Success", "Class updated successfully.");
+                        // Removed showCustomAlert to prevent modal sticking issues
                     } catch (e) {
                         showCustomAlert("Error", "Failed to update class: " + e.message);
                     }
@@ -3462,9 +3632,10 @@
             if (!isMobile) return;
             if (window.isTabAnimating) return;
 
-            const tabs = ['news', 'messages'];
-            // Normalize 'more' to 'news' for index calculations
-            const normalizedTab = (tab === 'more' ? 'news' : tab);
+            const tabs = ['news', 'tools', 'messages'];
+            // Normalize 'more' to 'news' or similar if needed, but here more is a sub-view of news section
+            let normalizedTab = tab;
+            if (tab === 'more') normalizedTab = 'news';
 
             // Determine current tab based on icon colors
             let currentTab = tabs.find(t => {
@@ -3472,7 +3643,15 @@
                 return icon && icon.classList.contains('text-[#007AFF]');
             }) || 'news';
 
-            if (currentTab === normalizedTab) return;
+            if (currentTab === normalizedTab) {
+                // If already on news/tools/more section but just switching sub-views
+                if (tab === 'news' || tab === 'more' || tab === 'tools') {
+                    switchLeftTab(tab);
+                }
+                return;
+            }
+
+            window.isTabAnimating = true;
 
             // Always close all overlay pages when switching tabs
             const modulePageIdToClear = currentModule ? MODULE_PAGE_MAP[currentModule] : null;
@@ -3487,28 +3666,37 @@
             const msgEl = document.getElementById('sidePanel');
             const chatSec = document.getElementById('chatSection');
 
-            if (tab === 'news' || tab === 'more') {
+            if (tab === 'news' || tab === 'more' || tab === 'tools') {
                 switchLeftTab(tab);
             }
 
-            const currentEl = currentTab === 'messages' ? msgEl : newsEl;
-            const targetEl = normalizedTab === 'messages' ? msgEl : newsEl;
+            // Map tab names to their container elements
+            const elMap = {
+                'news': newsEl,
+                'tools': newsEl, // Tools is also inside newsSection on desktop but we might want to rethink for mobile
+                'messages': msgEl
+            };
 
-            if (!currentEl || !targetEl) return;
+            const currentEl = elMap[currentTab];
+            const targetEl = elMap[normalizedTab];
 
-            // news=0, messages=1. 
-            // Forward means News -> Messages (Slide to Left)
-            // Backward means Messages -> News (Slide to Right)
+            // SPECIAL CASE: News and Tools both live in newsSection.
+            // If switching between them, switchLeftTab already handles it.
+            // We only need sliding animation if moving to/from Messages.
+            if (currentEl === targetEl) {
+                window.isTabAnimating = false;
+                return;
+            }
+
+            if (!currentEl || !targetEl) {
+                window.isTabAnimating = false;
+                return;
+            }
+
             const currentIndex = tabs.indexOf(currentTab);
             const targetIndex = tabs.indexOf(normalizedTab);
             const isForward = targetIndex > currentIndex;
 
-            window.isTabAnimating = true;
-
-            // 1. Prepare elements - Clear any conflicting animations or classes
-            [newsEl, msgEl, chatSec].forEach(el => {
-                el.classList.remove('slide-in-left', 'slide-in-right');
-            });
             chatSec.classList.add('hidden');
             chatSec.classList.remove('flex');
 
@@ -3706,129 +3894,88 @@
             }
         };
 
-        window.showCustomConfirm = (title, body, confirmText = "Continue") => {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('customModal');
-                const mTitle = document.getElementById('modalTitle');
-                const mBody = document.getElementById('modalBody');
-                const btnCancel = document.getElementById('modalCancel');
-                const btnAlt = document.getElementById('modalAlt');
-                const btnConfirm = document.getElementById('modalConfirm');
-                const inner = modal.querySelector('div');
+        let _modalTimer = null;
+        function _getModalEls() {
+            const modal = document.getElementById('customModal');
+            return {
+                modal,
+                inner: modal.querySelector('div'),
+                title: document.getElementById('modalTitle'),
+                body: document.getElementById('modalBody'),
+                cancel: document.getElementById('modalCancel'),
+                alt: document.getElementById('modalAlt'),
+                confirm: document.getElementById('modalConfirm')
+            };
+        }
+        function _closeModal(val, resolve) {
+            const { modal, inner, cancel, alt, confirm } = _getModalEls();
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            inner.classList.remove('scale-100');
+            inner.classList.add('scale-90');
+            _modalTimer = setTimeout(() => {
+                modal.classList.add('hidden');
+                cancel.onclick = null;
+                alt.onclick = null;
+                confirm.onclick = null;
+                _modalTimer = null;
+                resolve(val);
+            }, 300);
+        }
+        function _openModal() {
+            const { modal, inner } = _getModalEls();
+            if (_modalTimer) { clearTimeout(_modalTimer); _modalTimer = null; }
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                modal.classList.remove('opacity-0');
+                inner.classList.add('scale-100');
+                inner.classList.remove('scale-90');
+            }, 10);
+        }
 
-                mTitle.innerText = title;
-                mBody.innerText = body;
-                btnConfirm.innerText = confirmText;
-                btnCancel.classList.remove('hidden');
-                btnAlt.classList.add('hidden');
-
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    modal.classList.add('opacity-100');
-                    inner.classList.add('scale-100');
-                    inner.classList.remove('scale-90');
-                }, 10);
-
-                const close = (res) => {
-                    modal.classList.remove('opacity-100');
-                    inner.classList.remove('scale-100');
-                    inner.classList.add('scale-90');
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        btnCancel.onclick = null;
-                        btnAlt.onclick = null;
-                        btnConfirm.onclick = null;
-                        resolve(res);
-                    }, 300);
-                };
-
-                btnCancel.onclick = () => close(false);
-                btnConfirm.onclick = () => close(true);
+        window.showCustomAlert = (title, body, btnText = "OK") => {
+            return new Promise(resolve => {
+                const els = _getModalEls();
+                els.title.innerText = title;
+                els.body.innerText = body;
+                els.confirm.innerText = btnText;
+                els.cancel.classList.add('hidden');
+                els.alt.classList.add('hidden');
+                els.confirm.onclick = () => _closeModal(true, resolve);
+                _openModal();
             });
         };
 
-        window.showCustomAlert = (title, body, btnText = "OK") => {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('customModal');
-                const mTitle = document.getElementById('modalTitle');
-                const mBody = document.getElementById('modalBody');
-                const btnCancel = document.getElementById('modalCancel');
-                const btnAlt = document.getElementById('modalAlt');
-                const btnConfirm = document.getElementById('modalConfirm');
-                const inner = modal.querySelector('div');
-
-                mTitle.innerText = title;
-                mBody.innerText = body;
-                btnConfirm.innerText = btnText;
-                btnCancel.classList.add('hidden');
-                btnAlt.classList.add('hidden');
-
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    modal.classList.add('opacity-100');
-                    inner.classList.add('scale-100');
-                    inner.classList.remove('scale-90');
-                }, 10);
-
-                const close = () => {
-                    modal.classList.remove('opacity-100');
-                    inner.classList.remove('scale-100');
-                    inner.classList.add('scale-90');
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        btnConfirm.onclick = null;
-                        resolve();
-                    }, 300);
-                };
-                btnConfirm.onclick = close;
+        window.showCustomConfirm = (title, body, confirmText = "Continue") => {
+            return new Promise(resolve => {
+                const els = _getModalEls();
+                els.title.innerText = title;
+                els.body.innerHTML = body;
+                els.confirm.innerText = confirmText;
+                els.cancel.classList.remove('hidden');
+                els.alt.classList.add('hidden');
+                els.cancel.onclick = () => _closeModal(false, resolve);
+                els.confirm.onclick = () => _closeModal(true, resolve);
+                _openModal();
             });
         };
 
         window.showTourConfirm = (title, body) => {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('customModal');
-                const mTitle = document.getElementById('modalTitle');
-                const mBody = document.getElementById('modalBody');
-                const btnCancel = document.getElementById('modalCancel');
-                const btnAlt = document.getElementById('modalAlt');
-                const btnConfirm = document.getElementById('modalConfirm');
-                const inner = modal.querySelector('div');
-
-                mTitle.innerText = title;
-                mBody.innerText = body;
-                btnCancel.innerText = "Cancel";
-                btnAlt.innerText = "No Music";
-                btnConfirm.innerText = "Yes (Music)";
-
-                btnCancel.classList.remove('hidden');
-                btnAlt.classList.remove('hidden');
-                btnConfirm.classList.remove('hidden');
-
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    modal.classList.add('opacity-100');
-                    inner.classList.add('scale-100');
-                    inner.classList.remove('scale-90');
-                }, 10);
-
-                const close = (res) => {
-                    modal.classList.remove('opacity-100');
-                    inner.classList.remove('scale-100');
-                    inner.classList.add('scale-90');
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        btnCancel.onclick = null;
-                        btnAlt.onclick = null;
-                        btnConfirm.onclick = null;
-                        resolve(res);
-                    }, 300);
-                };
-
-                btnCancel.onclick = () => close('cancel');
-                btnAlt.onclick = () => close('no');
-                btnConfirm.onclick = () => close('yes');
+            return new Promise(resolve => {
+                const els = _getModalEls();
+                els.title.innerText = title;
+                els.body.innerText = body;
+                els.confirm.innerText = "Begin Tour";
+                els.cancel.innerText = "Maybe Later";
+                els.cancel.classList.remove('hidden');
+                els.alt.classList.add('hidden');
+                els.cancel.onclick = () => _closeModal(false, resolve);
+                els.confirm.onclick = () => _closeModal(true, resolve);
+                _openModal();
             });
         };
+
 
         window.closeGallery = () => {
             document.getElementById('galleryModal').classList.add('hidden');
@@ -4410,6 +4557,53 @@
                 if (callback) callback();
             }, 400);
         }
+
+        // Extension Management Logic
+        let _currentExtensionUrl = '';
+        window.openExtension = (eid) => {
+            const titleEl = document.getElementById('extensionTitle');
+            const iframe = document.getElementById('extensionIframe');
+            const loader = document.getElementById('extensionLoading');
+            
+            let url = 'about:blank';
+            let title = 'Tool';
+
+            if (eid === 'calc_volume_3d') {
+                url = 'BC volume 3D present.html';
+                title = '3D Volume Visualizer';
+            }
+
+            _currentExtensionUrl = url;
+            titleEl.innerText = title;
+            loader.classList.remove('hidden');
+            iframe.src = url;
+
+            iframe.onload = () => {
+                loader.classList.add('hidden');
+            };
+
+            openOverlayPage('extensionPage');
+        };
+
+        window.closeExtension = () => {
+            closeOverlayPage('extensionPage', () => {
+                document.getElementById('extensionIframe').src = 'about:blank';
+                _currentExtensionUrl = '';
+            });
+        };
+
+        window.reloadExtension = () => {
+            const iframe = document.getElementById('extensionIframe');
+            const loader = document.getElementById('extensionLoading');
+            loader.classList.remove('hidden');
+            iframe.contentWindow.location.reload();
+        };
+
+        window.openExtensionExternally = () => {
+            if (_currentExtensionUrl && _currentExtensionUrl !== 'about:blank') {
+                window.open(_currentExtensionUrl, '_blank');
+            }
+        };
         // ===== End Overlay Navigation Engine =====
 
         window.openModule = (moduleName) => {
@@ -5957,29 +6151,44 @@
             const c = snap.val();
             if (!c) return;
 
-            // 1. Edit Name via custom prompt (we'll use a simple modal for this)
+            // 1. Edit Name
             const newName = await showCustomPrompt("Edit Class Name", "Enter the new name for this class:", c.name);
             if (newName === null) return;
-
             if (newName.trim() && newName.trim() !== c.name) {
                 await update(ref(db, `classes/${classId}`), { name: newName.trim() });
             }
 
             // 2. Manage Roster
-            const action = await showCustomConfirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
-            if (action) {
+            const rosterAction = await showCustomConfirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
+            if (rosterAction) {
                 const email = await showCustomPrompt("Add Student", "Enter the student's HCPSS email address:");
-                if (!email) return;
-
-                const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase().trim())));
-                if (!usersSnap.exists()) {
-                    await showCustomAlert("Error", "No registered user found with that email.");
-                } else {
-                    const uid = Object.keys(usersSnap.val())[0];
-                    await update(ref(db, `classes/${classId}/students`), { [uid]: true });
-                    await showCustomAlert("Success", "Student added to the class roster.");
+                if (email) {
+                    const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase().trim())));
+                    if (!usersSnap.exists()) {
+                        await showCustomAlert("Error", "No registered user found with that email.");
+                    } else {
+                        const uid = Object.keys(usersSnap.val())[0];
+                        await update(ref(db, `classes/${classId}/students`), { [uid]: true });
+                        await showCustomAlert("Success", "Student added to the class roster.");
+                    }
                 }
             }
+
+            // 3. Manage Extensions
+            const extAction = await showCustomConfirm("Manage Extensions", "Would you like to toggle extensions for this class?", "Manage");
+            if (extAction) {
+                const isEnabled = c.extensions && c.extensions['calc_volume_3d'];
+                const toggle = await showCustomConfirm(
+                    "3D Volume Visualizer", 
+                    `The 3D Volume Visualizer is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b> for this class. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
+                    isEnabled ? "DEACTIVATE" : "ACTIVATE"
+                );
+                if (toggle) {
+                    await update(ref(db, `classes/${classId}/extensions`), { 'calc_volume_3d': !isEnabled });
+                    await showCustomAlert("Success", `Extension ${isEnabled ? 'removed' : 'added'} successfully.`);
+                }
+            }
+
             window.renderSidebar();
         };
 
@@ -5996,8 +6205,8 @@
                     lastActivity: serverTimestamp(),
                     students: {}
                 });
-                await showCustomAlert("Success", `Class "${name}" created successfully!`);
                 window.renderSidebar();
+                // Removed showCustomAlert to prevent modal sticking issues
             } catch (e) {
                 showCustomAlert("Error", "Failed to create class: " + e.message);
             }
@@ -6006,35 +6215,23 @@
         // Helper: Custom Prompt using the existing modal structure
         window.showCustomPrompt = (title, body, defaultValue = "") => {
             return new Promise(resolve => {
-                const modal = document.getElementById('customModal');
-                const tEl = modal.querySelector('#modalTitle');
-                const bEl = modal.querySelector('#modalBody');
-                const confirmBtn = document.getElementById('modalConfirm');
-                const cancelBtn = document.getElementById('modalCancel');
-
-                tEl.innerText = title;
-                bEl.innerHTML = `${body}<br/><input type="text" id="modalInput" class="w-full mt-4 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${escapeHTML(defaultValue)}">`;
-
-                cancelBtn.classList.remove('hidden');
-                cancelBtn.innerText = "Cancel";
-                confirmBtn.innerText = "Save";
-
-                const close = (val) => {
-                    modal.classList.add('opacity-0');
-                    setTimeout(() => { modal.classList.add('hidden'); resolve(val); }, 300);
-                };
-
-                confirmBtn.onclick = () => {
+                const els = _getModalEls();
+                els.title.innerText = title;
+                els.body.innerHTML = `${body}<br/><input type="text" id="modalInput" class="w-full mt-4 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${escapeHTML(defaultValue)}">`;
+                els.cancel.classList.remove('hidden');
+                els.alt.classList.add('hidden');
+                els.cancel.innerText = "Cancel";
+                els.confirm.innerText = "Save";
+                els.cancel.onclick = () => _closeModal(null, resolve);
+                els.confirm.onclick = () => {
                     const val = document.getElementById('modalInput').value;
-                    close(val);
+                    _closeModal(val, resolve);
                 };
-                cancelBtn.onclick = () => close(null);
-
-                modal.classList.remove('hidden');
+                _openModal();
                 setTimeout(() => {
-                    modal.classList.remove('opacity-0');
-                    document.getElementById('modalInput').focus();
-                }, 10);
+                    const input = document.getElementById('modalInput');
+                    if (input) input.focus();
+                }, 50);
             });
         };
 
@@ -6350,66 +6547,9 @@
             if (cp) cp.classList.add('hidden');
         };
 
-        window.showCustomAlert = (title, body) => {
-            return new Promise(resolve => {
-                const modal = document.getElementById('customModal');
-                const tEl = modal.querySelector('#modalTitle');
-                const bEl = modal.querySelector('#modalBody');
-                const confirmBtn = document.getElementById('modalConfirm');
-                const cancelBtn = document.getElementById('modalCancel');
-                const altBtn = document.getElementById('modalAlt');
+        // Removed redundant showCustomAlert definition
 
-                tEl.innerText = title;
-                bEl.innerText = body;
-                cancelBtn.classList.add('hidden');
-                altBtn.classList.add('hidden');
-                confirmBtn.innerText = "OK";
-                confirmBtn.onclick = () => {
-                    modal.classList.add('opacity-0');
-                    modal.querySelector('div').classList.add('scale-90');
-                    setTimeout(() => { modal.classList.add('hidden'); resolve(true); }, 300);
-                };
-
-                modal.classList.remove('hidden');
-                requestAnimationFrame(() => {
-                    modal.classList.remove('opacity-0');
-                    modal.querySelector('div').classList.remove('scale-90');
-                });
-            });
-        };
-
-        window.showCustomConfirm = (title, body, confirmText = "Continue") => {
-            return new Promise(resolve => {
-                const modal = document.getElementById('customModal');
-                const tEl = modal.querySelector('#modalTitle');
-                const bEl = modal.querySelector('#modalBody');
-                const confirmBtn = document.getElementById('modalConfirm');
-                const cancelBtn = document.getElementById('modalCancel');
-                const altBtn = document.getElementById('modalAlt');
-
-                tEl.innerText = title;
-                bEl.innerText = body;
-                cancelBtn.classList.remove('hidden');
-                altBtn.classList.add('hidden');
-                cancelBtn.innerText = "Cancel";
-                confirmBtn.innerText = confirmText;
-
-                confirmBtn.onclick = () => {
-                    modal.classList.add('opacity-0');
-                    setTimeout(() => { modal.classList.add('hidden'); resolve(true); }, 300);
-                };
-                cancelBtn.onclick = () => {
-                    modal.classList.add('opacity-0');
-                    setTimeout(() => { modal.classList.add('hidden'); resolve(false); }, 300);
-                };
-
-                modal.classList.remove('hidden');
-                requestAnimationFrame(() => {
-                    modal.classList.remove('opacity-0');
-                    modal.querySelector('div').classList.remove('scale-90');
-                });
-            });
-        };
+        // Removed redundant showCustomConfirm definition
 
         // Catch all uncaught errors
         window.addEventListener('error', function (e) { showError(e.error || e.message); });
@@ -7166,17 +7306,23 @@
         <div id="bottomNav"
             class="lg:hidden fixed bottom-0 left-0 w-full bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-safe pt-2 flex justify-around z-[40]">
             <button onclick="switchTab('news')" class="flex flex-col items-center flex-1" id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 text-gray-400" id="icon-news" fill="none" viewBox="0 0 24 24"
+                <svg class="w-6 h-6 mb-1 text-gray-400 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
                 </svg>
-                <span class="text-xs font-medium text-gray-400" id="text-news">News</span>
+                <span class="text-xs font-medium text-gray-400 transition-colors" id="text-news">News</span>
+            </button>
+            <button onclick="switchTab('tools')" class="flex flex-col items-center flex-1" id="tabBtn-tools">
+                <svg class="w-6 h-6 mb-1 text-gray-400 transition-colors" id="icon-tools" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                </svg>
+                <span class="text-xs font-medium text-gray-400 transition-colors" id="text-tools">Tools</span>
             </button>
             <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
                 id="tabBtn-messages">
                 <div class="relative">
-                    <svg class="w-6 h-6 mb-1 text-[#007AFF]" id="icon-messages" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 mb-1 text-[#007AFF] transition-colors" id="icon-messages" fill="currentColor" viewBox="0 0 24 24">
                         <path fill-rule="evenodd"
                             d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
                             clip-rule="evenodd" />
@@ -7185,10 +7331,9 @@
                         class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
                     </div>
                 </div>
-                <span class="text-xs font-medium text-[#007AFF]" id="text-messages">Messages</span>
+                <span class="text-xs font-medium text-[#007AFF] transition-colors" id="text-messages">Messages</span>
             </button>
         </div>
-
         <div id="newsSection"
             class="flex lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
             <!-- Header with synchronized height -->
@@ -7196,9 +7341,11 @@
                 <div class="flex gap-4 items-end justify-between h-9">
                     <div class="flex gap-4 items-end">
                         <button id="headTabNews" onclick="switchLeftTab('news')"
-                            class="text-3xl font-bold tracking-tight text-black dark:text-white transition-colors leading-none">News</button>
+                            class="text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
+                        <button id="headTabTools" onclick="switchLeftTab('tools')"
+                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
                         <button id="headTabMore" onclick="switchLeftTab('more')"
-                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors leading-none">More</button>
+                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">More</button>
                         <div id="newsSyncHint"
                             class="mb-1 text-xs font-bold text-blue-500 opacity-0 transition-opacity duration-300">
                             Updating...</div>
@@ -7236,6 +7383,37 @@
                         </div>
                         <div id="clubNewsContent" class="hidden space-y-4 transition-opacity duration-150 opacity-0">
                             <!-- Club News injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Tools / Extensions List -->
+                <div id="toolsMainContent"
+                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
+                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-2 px-1">Learning Tools</div>
+                        
+                        <div onclick="openExtension('calc_volume_3d')"
+                            class="p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-base text-black dark:text-white">3D Volume Visualizer</h3>
+                                <p class="text-xs text-gray-500">AP Calculus BC: Volumes w Cross Sections</p>
+                            </div>
+                        </div>
+
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1">Coming Soon</div>
+                        <div class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
+                            <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-base text-gray-400">More Tools...</h3>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -8164,6 +8342,38 @@
 
         <div id="adminUserList" class="flex-1 overflow-y-auto p-4 space-y-3 pb-[90px] lg:pb-safe">
             <div class="text-center text-gray-400 mt-20">Enter search or scan to list users</div>
+        </div>
+    </div>
+
+    <!-- Extension View Page -->
+    <div id="extensionPage"
+        class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
+        <div class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
+            <div class="w-20">
+                <button onclick="closeExtension()" class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                    </svg> Back
+                </button>
+            </div>
+            <div id="extensionTitle" class="font-bold text-base text-black dark:text-white truncate flex-1 text-center">Tool</div>
+            <div class="w-20 flex justify-end items-center gap-1">
+                <button onclick="openExtensionExternally()" title="Open in New Window" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button onclick="reloadExtension()" title="Refresh" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 relative bg-white dark:bg-black">
+            <iframe id="extensionIframe" class="w-full h-full border-none" src="about:blank"></iframe>
+            <div id="extensionLoading" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Launching Tool...</div>
+                </div>
+            </div>
         </div>
     </div>
 

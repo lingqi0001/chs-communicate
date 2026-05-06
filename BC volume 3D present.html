@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volumes with Known Cross Sections</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --sidebar: #0C0C0E;
+            --accent: #F59E0B;
+            --border: #27272A;
+            --input: #151518;
+            --text: #F4F4F5;
+            --muted: #71717A;
+            --error: #EF4444;
+            --plot-bg: #000000;
+            --transition: 0.25s ease;
+        }
+
+        [data-theme="light"] {
+            --bg: #FFFFFF;
+            --sidebar: #F8F8FA;
+            --border: #E4E4E7;
+            --input: #FFFFFF;
+            --text: #09090B;
+            --muted: #71717A;
+            --plot-bg: #FFFFFF;
+            --accent: #B45309;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; padding: 0; 
+            background: var(--bg); 
+            color: var(--text);
+            display: flex; height: 100vh; overflow: hidden;
+            transition: background var(--transition);
+        }
+
+        #sidebar { 
+            width: 440px; min-width: 440px;
+            background: var(--sidebar); 
+            padding: 32px; 
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 24px;
+            z-index: 20; overflow-y: auto;
+        }
+
+        #sidebar::-webkit-scrollbar { width: 5px; }
+        #sidebar::-webkit-scrollbar-track { background: transparent; }
+        #sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        #sidebar::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+        header .title-area { flex: 1; }
+        header h1 { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.02em; color: var(--accent); margin: 0; text-transform: uppercase; line-height: 1.2; }
+        header p { font-size: 0.8rem; color: var(--muted); margin-top: 6px; font-weight: 500; }
+
+        #theme-toggle {
+            background: var(--input); border: 1px solid var(--border); 
+            padding: 6px 12px; border-radius: 6px; color: var(--text);
+            font-size: 0.65rem; font-weight: 800; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all var(--transition); white-space: nowrap;
+        }
+        #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+        .group-title { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 0.95rem; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+        
+        input[type="text"], input[type="number"], select { 
+            width: 100%; background: var(--input); 
+            border: 1px solid var(--border); 
+            border-radius: 10px; padding: 14px;
+            color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
+            box-sizing: border-box; outline: none; transition: all var(--transition);
+        }
+        input:focus { border-color: var(--accent); }
+        input.invalid { border-color: var(--error); background: rgba(239, 68, 68, 0.05); }
+
+        .math-preview { font-size: 1.1rem; color: var(--accent); margin-top: 10px; min-height: 1.5em; font-weight: 500; }
+
+        .math-kb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+        .kb-btn { 
+            background: var(--input); color: var(--text); border: 1px solid var(--border); padding: 10px 4px; 
+            border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; 
+            cursor: pointer; transition: all 0.2s;
+        }
+        .kb-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+        .action-btn { 
+            background: var(--text); color: var(--bg); border: none; 
+            padding: 18px; width: 100%; border-radius: 10px; 
+            font-weight: 900; font-size: 1rem; text-transform: uppercase; 
+            cursor: pointer; transition: all 0.2s; margin-top: 8px;
+        }
+        .action-btn:hover { background: var(--accent); color: white; }
+        .action-btn.shake { animation: shake 0.4s ease-in-out; background: var(--error); color: white; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        .footer { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border); }
+        .vol-val { font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; color: var(--accent); font-weight: 700; margin-top: 8px; }
+
+        #main { flex: 1; position: relative; background: var(--plot-bg); }
+        #plot { width: 100%; height: 100%; }
+        .error-log { color: var(--error); font-size: 0.9rem; margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2); display: none; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <header>
+        <div class="title-area">
+            <h1 style="font-size: 1.5rem;">AP Calculus</h1>
+            <h1 style="font-size: 1rem; color: var(--muted); margin-top: 4px;">Volumes w Cross Sections</h1>
+            <p style="margin-top: 8px;">Made by Lingqi Mo with Google Gemini</p>
+        </div>
+        <button id="theme-toggle" onclick="toggleTheme()">Light Mode</button>
+    </header>
+
+    <div>
+        <div class="group-title">1. Functions</div>
+        <div class="field">
+            <label>Upper Bound f(x)</label>
+            <input type="text" id="fIn" value="sqrt(x)" oninput="updatePreview()" onfocus="lastFocused=this">
+            <div id="fPre" class="math-preview"></div>
+        </div>
+        <div class="field">
+            <label>Lower Bound g(x)</label>
+            <input type="text" id="gIn" value="0" oninput="updatePreview()" onfocus="lastFocused=this">
+            <div id="gPre" class="math-preview"></div>
+        </div>
+        
+        <div class="math-kb">
+            <button class="kb-btn" onclick="insert('^2')">x²</button>
+            <button class="kb-btn" onclick="insert('^3')">x³</button>
+            <button class="kb-btn" onclick="insert('^')">xⁿ</button>
+            <button class="kb-btn" onclick="insert('sqrt(')">√x</button>
+            <button class="kb-btn" onclick="insert('cbrt(')">∛x</button>
+            <button class="kb-btn" onclick="insert('root(x, 3)')">ⁿ√x</button>
+            <button class="kb-btn" onclick="insert('pi')">π</button>
+            <button class="kb-btn" onclick="insert('e')">e</button>
+            <button class="kb-btn" onclick="insert('sin(')">sin</button>
+            <button class="kb-btn" onclick="insert('cos(')">cos</button>
+            <button class="kb-btn" onclick="insert('tan(')">tan</button>
+            <button class="kb-btn" onclick="insert('log(')">ln</button>
+        </div>
+    </div>
+
+    <div>
+        <div class="group-title">2. Parameters</div>
+        <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+            <div style="flex: 1;">
+                <label style="font-size: 0.9rem; color: var(--muted); font-weight: 600;">Start (a)</label>
+                <input type="number" id="xA" value="0" step="0.5">
+            </div>
+            <div style="flex: 1;">
+                <label style="font-size: 0.9rem; color: var(--muted); font-weight: 600;">End (b)</label>
+                <input type="number" id="xB" value="4" step="0.5">
+            </div>
+        </div>
+        <div class="field">
+            <label>Cross Section Shape</label>
+            <select id="shape">
+                <option value="square">Squares</option>
+                <option value="semicircle">Semicircles</option>
+                <option value="equilateral">Equilateral Triangles</option>
+                <option value="iso_right">Isosceles Right Triangles</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Precision: <span id="nVal" style="color: var(--accent)">30</span> Slices</label>
+            <input type="range" id="nSl" min="2" max="100" value="30" oninput="document.getElementById('nVal').innerText = this.value">
+        </div>
+    </div>
+
+    <button id="mainBtn" class="action-btn" onclick="render()">Build Model</button>
+    <div id="errLog" class="error-log"></div>
+
+    <div class="footer">
+        <div class="group-title">Calculated Volume</div>
+        <div id="res" class="vol-val">--</div>
+    </div>
+</div>
+
+<div id="main">
+    <div id="plot"></div>
+</div>
+
+<script>
+    let lastFocused = document.getElementById('fIn');
+    const root = (x, n) => Math.pow(x, 1/n);
+
+    function toggleTheme() {
+        const body = document.body;
+        const btn = document.getElementById('theme-toggle');
+        const isCurrentlyDark = !body.hasAttribute('data-theme');
+        if (isCurrentlyDark) {
+            body.setAttribute('data-theme', 'light');
+            btn.innerText = 'Dark Mode';
+        } else {
+            body.removeAttribute('data-theme');
+            btn.innerText = 'Light Mode';
+        }
+        render(); 
+    }
+
+    function insert(v) {
+        const s = lastFocused.selectionStart;
+        lastFocused.value = lastFocused.value.substring(0, s) + v + lastFocused.value.substring(lastFocused.selectionEnd);
+        lastFocused.focus(); lastFocused.selectionStart = lastFocused.selectionEnd = s + v.length;
+        updatePreview();
+    }
+
+    function smartParse(str) {
+        if (!str) return "0";
+        let s = str.toLowerCase().trim();
+        s = s.replace(/^[fgy]\(x\)\s*=\s*/, '').replace(/^y\s*=\s*/, '');
+        s = s.replace(/\bln\b/g, 'log').replace(/\bpi\b/g, 'Math.PI').replace(/\be\b/g, 'Math.E');
+        const fns = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'exp', 'sqrt', 'cbrt', 'abs'];
+        fns.forEach(f => {
+            const re = new RegExp(`\\b${f}(?!\\()(\\s*[a-z\\d\\.\\*\\+\\-\\/\\^]+)`, 'g');
+            s = s.replace(re, `${f}($1)`);
+        });
+        s = s.replace(/\s+/g, '');
+        s = s.replace(/(\d)([a-z\(])/g, '$1*$2').replace(/(\))([\da-z\(])/g, '$1*$2').replace(/\bx\(/g, 'x*(').replace(/\^/g, '**');
+        fns.forEach(f => {
+            const re = new RegExp(`\\b${f}\\b`, 'g');
+            s = s.replace(re, (m, off, full) => full.substring(off-5, off) === 'Math.' ? m : `Math.${m}`);
+        });
+        return s;
+    }
+
+    function getFn(str) {
+        try {
+            const p = smartParse(str);
+            const fn = new Function('x', 'root', `return ${p};`);
+            fn(1, root); return (v) => fn(v, root);
+        } catch (e) { return null; }
+    }
+
+    function updatePreview() {
+        const fR = document.getElementById('fIn').value, gR = document.getElementById('gIn').value;
+        const toLatex = (str) => {
+            let s = str.toLowerCase().trim();
+            const fns = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'exp', 'sqrt', 'cbrt', 'abs'];
+            fns.forEach(f => {
+                const re = new RegExp(`\\b${f}(?!\\()(\\s*[a-z\\d\\.\\*\\+\\-\\/\\^]+)`, 'g');
+                s = s.replace(re, `${f}($1)`);
+            });
+            s = s.replace(/\*/g, '');
+            s = s.replace(/\bsin\b/g, '\\sin').replace(/\bcos\b/g, '\\cos').replace(/\btan\b/g, '\\tan');
+            s = s.replace(/sqrt\((.*?)\)/g, '\\sqrt{$1}').replace(/cbrt\((.*?)\)/g, '\\sqrt[3]{$1}').replace(/root\((.*?), \s*(\d+)\)/g, '\\sqrt[$2]{$1}');
+            s = s.replace(/\bpi\b/g, '\\pi');
+            return s;
+        };
+        document.getElementById('fPre').innerHTML = `\\( f(x) = ${toLatex(fR)} \\)`;
+        document.getElementById('gPre').innerHTML = `\\( g(x) = ${toLatex(gR)} \\)`;
+        if (window.MathJax) MathJax.typesetPromise();
+    }
+
+    function render() {
+        const fR = document.getElementById('fIn').value, gR = document.getElementById('gIn').value;
+        const xA = parseFloat(document.getElementById('xA').value), xB = parseFloat(document.getElementById('xB').value);
+        const nS = parseInt(document.getElementById('nSl').value), sh = document.getElementById('shape').value;
+        const f = getFn(fR), g = getFn(gR);
+        const errLog = document.getElementById('errLog'), btn = document.getElementById('mainBtn');
+        const isLight = document.body.hasAttribute('data-theme');
+
+        document.getElementById('fIn').classList.remove('invalid'); document.getElementById('gIn').classList.remove('invalid');
+        if (!f || !g) {
+            errLog.style.display = 'block';
+            errLog.innerHTML = `<strong>⚠️ Syntax Error</strong><br>Check ${!f ? 'f(x)' : 'g(x)'} syntax.`;
+            document.getElementById(!f ? 'fIn' : 'gIn').classList.add('invalid');
+            btn.classList.add('shake'); setTimeout(() => btn.classList.remove('shake'), 400);
+            document.getElementById('res').innerText = "ERROR"; return;
+        }
+        errLog.style.display = 'none';
+
+        const traces = [];
+        let vol = 0; const steps = 1000; const dx = (xB - xA) / steps;
+        let factor = 1;
+        if(sh === 'semicircle') factor = Math.PI / 8;
+        else if(sh === 'equilateral') factor = Math.sqrt(3) / 4;
+        else if(sh === 'iso_right') factor = 0.5;
+
+        for(let i=0; i<steps; i++) {
+            let x = xA + i * dx;
+            let s = Math.abs(f(x) - g(x));
+            vol += factor * (s * s) * dx;
+        }
+
+        const sStep = (xB - xA) / (nS - 1);
+        const sliceLineColor = isLight ? 'rgba(180, 83, 9, 0.6)' : 'rgba(255, 159, 10, 0.4)';
+        
+        for(let i=0; i<nS; i++) {
+            let x = xA + i * sStep;
+            let y1 = f(x), y2 = g(x);
+            let s = Math.abs(y1 - y2);
+            if(s < 0.005) continue;
+            let midY = (y1 + y2) / 2;
+            let px = [], py = [], pz = [];
+            if (sh === 'square') {
+                px = [x, x, x, x, x]; py = [y1, y1, y2, y2, y1]; pz = [0, s, s, 0, 0];
+            } else if (sh === 'semicircle') {
+                for(let j=0; j<=24; j++) {
+                    let r = Math.PI * (j/24);
+                    px.push(x); py.push(midY + (s/2) * Math.cos(r)); pz.push((s/2) * Math.sin(r));
+                }
+                px.push(x); py.push(y1); pz.push(0);
+            } else if (sh === 'equilateral') {
+                px = [x, x, x, x]; py = [y1, y2, midY, y1]; pz = [0, 0, s*Math.sqrt(3)/2, 0];
+            } else if (sh === 'iso_right') {
+                px = [x, x, x, x]; py = [y1, y2, y1, y1]; pz = [0, 0, s, 0];
+            }
+            traces.push({ type: 'mesh3d', x: px, y: py, z: pz, color: '#F59E0B', opacity: 0.15, showscale: false, hoverinfo: 'none' });
+            traces.push({ type: 'scatter3d', mode: 'lines', x: px, y: py, z: pz, line: {color: sliceLineColor, width: 1.5}, showlegend: false });
+        }
+
+        const lx = [], ly1 = [], ly2 = [];
+        for(let i=0; i<=100; i++) {
+            let x = xA + (xB-xA)*(i/100); lx.push(x); ly1.push(f(x)); ly2.push(g(x));
+        }
+        traces.push({ type: 'scatter3d', mode: 'lines', x: lx.concat(lx.slice().reverse()), y: ly1.concat(ly2.slice().reverse()), z: new Array(202).fill(0), line: {color: isLight ? '#000000' : '#FFFFFF', width: 4}, name: 'Base' });
+
+        const plotEl = document.getElementById('plot');
+        let cam = (plotEl && plotEl.layout && plotEl.layout.scene) ? plotEl.layout.scene.camera : null;
+
+        Plotly.react('plot', traces, {
+            dragmode: 'turntable', 
+            paper_bgcolor: isLight ? '#FFFFFF' : '#000000',
+            scene: {
+                aspectmode: 'data', 
+                xaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'}, 
+                yaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'}, 
+                zaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'},
+                camera: cam || { eye: { x: 1.5, y: 1.5, z: 1.2 } }
+            },
+            margin: {l:0,r:0,b:0,t:0}, showlegend: false
+        }, {responsive: true});
+        document.getElementById('res').innerText = vol.toFixed(5);
+    }
+    window.onload = () => { updatePreview(); render(); };
+</script>
+
+</body>
+</html>
