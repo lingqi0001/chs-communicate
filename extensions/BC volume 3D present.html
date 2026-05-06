@@ -164,10 +164,17 @@
         .s-section { padding: 20px; display: none; }
         .s-section.active { display: block; }
 
-        header { padding: 20px 20px 10px 20px; position: relative; border-bottom: 1px solid var(--border); }
-        header h1 { font-size: 1rem; }
-        header p { display: none; }
-        #theme-toggle { position: absolute; top: 18px; right: 20px; padding: 4px 8px; font-size: 0.6rem; }
+        header { 
+            padding: 20px 20px 10px 20px; 
+            display: flex; flex-direction: column; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--sidebar);
+        }
+        header .title-area { max-width: 70%; } /* Leave space for floating card */
+        header h1 { font-size: 0.95rem; }
+        header p { display: block; font-size: 0.65rem; margin-top: 4px; opacity: 0.8; }
+        
+        #theme-toggle { display: none !important; } /* Hide desktop toggle on mobile */
 
         .math-kb { grid-template-columns: repeat(6, 1fr); gap: 4px; }
         .kb-btn { padding: 8px 2px; font-size: 0.7rem; }
