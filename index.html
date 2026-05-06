@@ -877,10 +877,8 @@
 
             async askMusic(auto) {
                 const choice = await window.showTourConfirm("Welcome to CHS-Communicate! 🎬", "Would you like a quick 45-second interactive tour of the app's features?");
-                if (choice === 'yes') {
+                if (choice) {
                     this.start(auto, true);
-                } else if (choice === 'no') {
-                    this.start(auto, false);
                 } else {
                     if (window.showCustomAlert) {
                         window.showCustomAlert(`Welcome!`, `Check out the 'More' section to browse school activities and start chatting!`);
