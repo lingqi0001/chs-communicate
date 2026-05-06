@@ -475,6 +475,7 @@
         const globalListeners = new Set();
         const ADMIN_EMAIL = 'moss104088@gmail.com';
         const SAFETY_BOT_ID = 'safety_bot';
+        const ADVICE_BOT_ID = 'advice_bot';
 
 
 
@@ -1882,9 +1883,14 @@
         async function fetchUser(userId) {
             if (!userId) return null;
             const cleanedId = userId.toLowerCase();
+            if (cleanedId === SAFETY_BOT_ID) {
+                return { id: SAFETY_BOT_ID, name: 'Safety Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png' };
+            }
+            if (cleanedId === ADVICE_BOT_ID) {
+                return { id: ADVICE_BOT_ID, name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
+            }
             // Client-side hardcoded avatar override for admin accounts
             if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
-                // If the ID is an admin ID but the current user isn't the real admin, don't spoof
                 const adminUser = { id: 'moss104088', name: 'Moss', avatar: sushiAvatar, email: ADMIN_EMAIL };
                 ALL_USERS[cleanedId] = adminUser;
                 return adminUser;
@@ -5066,6 +5072,7 @@
         };
 
         let isPostingNews = false;
+        let isRequestingExtension = false;
 
         window.openNewsPostForm = () => {
             console.log('App: Opening News Post Form');
@@ -5106,10 +5113,40 @@
             });
         };
 
+        window.openExtensionRequest = () => {
+            isPostingNews = false;
+            isRequestingExtension = true;
+            document.getElementById('postInputTitle').value = '';
+            document.getElementById('postInputDesc').value = '';
+            document.getElementById('postInputTitle').placeholder = "What's the tool's name?";
+            document.getElementById('postInputDesc').placeholder = "Explain how it helps you or what features it should have...";
+            document.getElementById('postPageTitle').innerText = 'Tool Suggestion';
+            
+            // Hide image area for requests
+            const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
+            if (imgArea) imgArea.classList.add('hidden');
+            
+            const page = document.getElementById('postPage');
+            page.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('postPageBackdrop').classList.add('opacity-100');
+                document.getElementById('postPageContent').classList.remove('translate-y-full');
+            }, 10);
+        };
+
         window.closePostForm = () => {
             document.getElementById('postPageBackdrop').classList.remove('opacity-100');
             document.getElementById('postPageContent').classList.add('translate-y-full');
-            setTimeout(() => document.getElementById('postPage').classList.add('hidden'), 400);
+            setTimeout(() => {
+                document.getElementById('postPage').classList.add('hidden');
+                isPostingNews = false;
+                isRequestingExtension = false;
+                // Reset placeholders
+                document.getElementById('postInputTitle').placeholder = "Subject";
+                document.getElementById('postInputDesc').placeholder = "What's on your mind?";
+                const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
+                if (imgArea) imgArea.classList.remove('hidden');
+            }, 400);
         };
 
 
@@ -5144,8 +5181,36 @@
                 const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
                 const isAnonymous = config.anonymous || false;
                 lastPostSentTime = now;
-                const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
+                
+                if (isRequestingExtension) {
+                    const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+                    const requestText = `[EXTENSION REQUEST]\nTool Name: ${title}\nDescription: ${desc}\nSubmitted by: ${currentUser.name} (${currentUser.id})`;
+                    
+                    const adminChatId = getChatId(ADVICE_BOT_ID, adminId);
+                    push(ref(db, `messages/${adminChatId}`), {
+                        senderId: ADVICE_BOT_ID,
+                        senderName: 'Advice Bot',
+                        text: requestText,
+                        timestamp: serverTimestamp()
+                    });
+                    update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
 
+                    const userChatId = getChatId(ADVICE_BOT_ID, currentUser.id);
+                    const confirmText = `[SUBMISSION SUCCESSFUL]\nThank you for your suggestion! "Advice Bot" has delivered your request for "${title}" to the Admin team for review.`;
+                    push(ref(db, `messages/${userChatId}`), {
+                        senderId: ADVICE_BOT_ID,
+                        senderName: 'Advice Bot',
+                        text: confirmText,
+                        timestamp: serverTimestamp()
+                    });
+                    update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
+
+                    showCustomAlert("Success", "Your suggestion has been sent to Admin. Thank you!");
+                    closePostForm();
+                    return;
+                }
+
+                const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
                 set(push(ref(db, dbRefStr)), {
                     title, desc,
                     image: currentPostBase64 || null,
@@ -7406,7 +7471,10 @@
                             </div>
                         </div>
 
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1">Coming Soon</div>
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
+                            <span>Coming Soon</span>
+                            <button onclick="openExtensionRequest()" class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What extensions do you want? Tell us!</button>
+                        </div>
                         <div class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
                             <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round"/></svg>
