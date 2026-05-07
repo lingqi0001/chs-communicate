@@ -3461,6 +3461,31 @@
             // Deleted in favor of refactored version above
         };
 
+        // Sidebar Sticky Toggle Logic
+        window.toggleSidebarPin = () => {
+            const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
+            
+            // UI Feedback for the handle
+            const handle = document.getElementById('sidebarHandle');
+            if (handle) {
+                handle.querySelector('svg').style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+            // Trigger a resize event to ensure chat scrolls correctly
+            window.dispatchEvent(new Event('resize'));
+        };
+
+        // Initialize Sidebar State
+        (function initSidebarState() {
+            const pinned = localStorage.getItem('sidebarPinned');
+            // Default to true for new users, or respect existing preference
+            if (pinned === 'false') {
+                document.body.classList.add('sidebar-collapsed');
+            } else {
+                document.body.classList.remove('sidebar-collapsed');
+            }
+        })();
+
         window.switchChat = async (targetId) => {
             if (!targetId || targetId === currentUser.id) return;
 
@@ -6583,6 +6608,101 @@
         .ticket-cutout::after {
             right: -10px;
         }
+        /* --- Desktop Smart Sidebar (Advanced Edge Trigger) --- */
+        @media (min-width: 1024px) {
+            #newsSection {
+                transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+                transform-origin: left center;
+                overflow: hidden;
+                flex-shrink: 0;
+                z-index: 20;
+            }
+
+            /* 折叠状态样式 (针对最左侧 News) */
+            body.sidebar-collapsed #newsSection {
+                width: 0 !important;
+                min-width: 0 !important;
+                opacity: 0;
+                pointer-events: none;
+                border-right-width: 0;
+            }
+
+            /* 主内容 (Messages + Chat) 平滑过渡 */
+            #sidePanel, #chatSection {
+                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.5s ease;
+            }
+
+            /* 当侧边栏收起时，主内容占满 */
+            body.sidebar-collapsed #sidePanel, 
+            body.sidebar-collapsed #chatSection {
+                transform: scale(1) translateX(0);
+            }
+
+            /* 当侧边栏展开时，给整体加个高级感缩放 */
+            body:not(.sidebar-collapsed) #sidePanel,
+            body:not(.sidebar-collapsed) #chatSection {
+                transform: scale(0.995);
+                transform-origin: left center;
+            }
+
+            /* 边缘感应器 */
+            #sidebarTrigger {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 12px;
+                height: 100vh;
+                z-index: 999;
+                cursor: pointer;
+            }
+
+            /* 呼出柄 (Handle) */
+            #sidebarHandle {
+                position: fixed;
+                left: -45px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 32px;
+                height: 90px;
+                background: #007AFF;
+                border-radius: 0 16px 16px 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                box-shadow: 4px 0 15px rgba(0,122,255,0.3);
+                z-index: 1000;
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                cursor: pointer;
+            }
+
+            #sidebarHandle:hover { width: 38px; }
+
+            /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
+            body.sidebar-collapsed #sidebarTrigger:hover + #sidebarHandle,
+            body.sidebar-collapsed #sidebarHandle:hover {
+                left: 0 !important;
+            }
+
+            /* 当收起时，滑块在左边缘留一点点暗示 */
+            body.sidebar-collapsed #sidebarHandle {
+                left: -28px;
+            }
+
+            /* 当展开时，滑块变形成一个细长条，停在侧边栏边缘作为收起按钮 */
+            body:not(.sidebar-collapsed) #sidebarHandle {
+                left: 320px; /* 侧边栏宽度 */
+                width: 16px;
+                height: 60px;
+                opacity: 0.3;
+                background: #8E8E93;
+            }
+            body:not(.sidebar-collapsed) #sidebarHandle:hover {
+                opacity: 1;
+                background: #007AFF;
+                width: 24px;
+            }
+        }
     </style>
 </head>
 
@@ -7699,6 +7819,14 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Desktop Edge Trigger & Handle -->
+        <div id="sidebarTrigger"></div>
+        <div id="sidebarHandle" onclick="toggleSidebarPin()">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
         </div>
 
         <div id="sidePanel"
