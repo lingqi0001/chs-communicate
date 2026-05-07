@@ -480,6 +480,7 @@
         const ADMIN_EMAIL = 'moss104088@gmail.com';
         const SAFETY_BOT_ID = 'safety_bot';
         const ADVICE_BOT_ID = 'advice_bot';
+        const APP_START_TIME = Date.now();
 
 
 
@@ -762,7 +763,7 @@
 
                     // Future Listener
                     const lastKey = remoteKeys.sort().pop();
-                    const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), limitToLast(1));
+                    const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), orderByKey(), limitToLast(1));
                     onChildAdded(q, async (snap) => {
                         console.log(`App: New item received for news/${tab}`);
                         await saveNewsItemLocal(tab, snap.key, snap.val());
@@ -782,7 +783,7 @@
             for (const name of moduleNames) {
                 try {
                     const lastKey = await getLastKey('modules', 'moduleName', name);
-                    const q = lastKey ? query(ref(db, `modules/${name}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `modules/${name}`), limitToLast(50));
+                    const q = lastKey ? query(ref(db, `modules/${name}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `modules/${name}`), orderByKey(), limitToLast(50));
                     onChildAdded(q, async (snap) => {
                         try {
                             const post = { id: snap.key, ...snap.val() };
@@ -2030,7 +2031,7 @@
 
                     // Fetch or Refresh the "Hot Index" if older than 5 minutes or nearly empty
                     if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(ALL_USERS).length < 10) {
-                        const allSnap = await get(query(ref(db, 'users'), limitToFirst(5000)));
+                        const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
                         if (allSnap.exists()) {
                             Object.assign(ALL_USERS, allSnap.val());
                             window._lastUserFetch = now;
@@ -2632,7 +2633,7 @@
             Object.keys(ALL_USERS).forEach(targetId => {
                 if (targetId === currentUser.id || globalListeners.has(targetId)) return;
                 const chatId = getChatId(currentUser.id, targetId);
-                onChildAdded(query(ref(db, `messages/${chatId}`), limitToLast(1)), (snap) => {
+                onChildAdded(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(1)), (snap) => {
                     const msg = snap.val();
                     if (msg && msg.senderId !== currentUser.id && msg.timestamp > APP_START_TIME) {
                         if (SETTINGS.soundEnabled) notifySound.play().catch(() => { });
@@ -2656,11 +2657,13 @@
                 // If already in class mode and inside a specific class, clicking 'Class' tab should go back to list
                 if (mode === 'class' && window.currentClassId) {
                     window.currentClassId = null;
+                    window._isPopNav = true;
                     window.renderSidebar(true);
                 }
                 return;
             }
             window.sidebarMode = mode;
+            window.currentClassId = null; // Reset Level 2 view when switching tabs
             window.renderSidebar(true);
         };
 
@@ -2883,7 +2886,7 @@
                 }
 
                 const subList = document.getElementById('sidebarSubList');
-                const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                const recentSnap = await get(query(ref(db, 'users'), orderByKey(), limitToLast(20)));
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
                     const users = recentSnap.val();
@@ -3329,7 +3332,7 @@
             // 2. New User Onboarding: Fetch most recent users ONLY if the user has no history
             if (Object.keys(chatMap).length === 0) {
                 try {
-                    const recentSnap = await get(query(ref(db, 'users'), limitToLast(20)));
+                    const recentSnap = await get(query(ref(db, 'users'), orderByKey(), limitToLast(20)));
                     if (recentSnap.exists()) {
                         const recents = recentSnap.val();
                         Object.keys(recents).forEach(rid => {
@@ -3891,7 +3894,7 @@
             // to save traffic. The real-time listener below handles new messages.
 
             // 3. Start Firebase Listener (Sync NEW items only)
-            let q = lastKey ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `messages/${chatId}`), limitToLast(50));
+            let q = lastKey ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
 
             stopCurrentChatListener = onChildAdded(q, (snap) => {
                 const existingMsgs = Array.from(chatBox.querySelectorAll('.msg-pop'));
@@ -6408,9 +6411,14 @@
                         }
                     }
                 }
+                const firstSync = !isSyncDone;
                 isSyncDone = true;
-                window.renderSidebar();
-                if (activeTargetId) switchChat(activeTargetId);
+                if (firstSync) {
+                    window.renderSidebar();
+                }
+
+                // Removed redundant switchChat call that caused periodic reloads
+
             } catch (e) { console.warn("Group sync failed:", e); }
         }
 
