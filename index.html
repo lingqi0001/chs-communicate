@@ -425,11 +425,15 @@
 
         console.log('App: Version 2026-05-02-2115 (Latest)');
         const app = initializeApp(firebaseConfig);
+        window.firebaseApp = app;
 
         const db = getDatabase(app);
-        const APP_START_TIME = Date.now();
-        const storage = getStorage(app);
+        window.firebaseDb = db;
+        window.fRef = ref; window.fSet = set; window.fUpdate = update; window.fPush = push; window.fGet = get; window.fOnValue = onValue;
+        
         const auth = getAuth(app);
+        window.firebaseAuth = auth;
+        window.firebaseOnAuth = onAuthStateChanged;
         let messaging = null;
         isSupported().then(supported => {
             if (supported) {
@@ -508,7 +512,8 @@
             suggestions: { title: 'Suggestions', postBtn: 'Suggest', hasComments: true, anonymous: true },
             info: { title: 'CHS Info', postBtn: 'Add', hasComments: false, anonymous: false },
             eagle_time: { title: 'Eagle Time', postBtn: null, hasComments: false, anonymous: false },
-            grade_calculator: { title: 'Grade Calculator', postBtn: null, hasComments: false, anonymous: false }
+            grade_calculator: { title: 'Grade Calculator', postBtn: null, hasComments: false, anonymous: false },
+            independent_research: { title: 'Independent Research', postBtn: null, hasComments: false, anonymous: false }
         };
 
         const OVERLAY_PAGE_IDS = [
@@ -524,7 +529,8 @@
             info: 'infoPage',
             eagle_time: 'eagleTimePage',
             grade_calculator: 'gradeCalculatorPage',
-            cafeteria: 'cafeteriaPage'
+            cafeteria: 'cafeteriaPage',
+            independent_research: 'extensionPage'
         };
 
         let currentModule = null;
@@ -1465,6 +1471,7 @@
             const defaultName = email.split('@')[0];
             const capitalizedDefaultName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
             currentUser = { name: capitalizedDefaultName, id: idPrefix, role: role, email: email };
+            window.currentUser = currentUser; // Export for extensions
 
             const userRef = ref(db, `users/${idPrefix}`);
             const snapshot = await get(userRef);
@@ -2644,6 +2651,19 @@
         let isRenderingSidebar = false;
         window.sidebarMode = 'recent'; // 'recent', 'all', or 'class'
 
+        window.switchSidebarTab = (mode) => {
+            if (window.sidebarMode === mode) {
+                // If already in class mode and inside a specific class, clicking 'Class' tab should go back to list
+                if (mode === 'class' && window.currentClassId) {
+                    window.currentClassId = null;
+                    window.renderSidebar(true);
+                }
+                return;
+            }
+            window.sidebarMode = mode;
+            window.renderSidebar(true);
+        };
+
         window.renderSidebar = async function (isTabSwitch = false) {
             if (isRenderingSidebar) return;
             const container = document.getElementById('sidebarList');
@@ -2681,11 +2701,11 @@
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
                     <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button onclick="window.sidebarMode='recent'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
+                        <button onclick="window.switchSidebarTab('recent')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.sidebarMode='all'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
+                        <button onclick="window.switchSidebarTab('all')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.sidebarMode='class'; window.renderSidebar(true);" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
+                        <button onclick="window.switchSidebarTab('class')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
                     </div>
                     <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                 `;
@@ -2993,6 +3013,20 @@
                                         </div>
                                     </div>
                                 `;
+                            } else if (eid === 'independent_research') {
+                                extensionHtml += `
+                                    <div onclick="openExtension('independent_research')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
+                                        <div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-sm text-black dark:text-white">IR Navigator</div>
+                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Research Management Tool</div>
+                                        </div>
+                                    </div>
+                                `;
                             }
                         });
                     }
@@ -3128,7 +3162,10 @@
                 .sort((a, b) => a.name.localeCompare(b.name));
 
             let selectedIds = new Set(Object.keys(currentStudents));
-            let extensionsEnabled = !!(classData.extensions && classData.extensions['calc_volume_3d']);
+            let extensionsState = {
+                'calc_volume_3d': !!(classData.extensions && classData.extensions['calc_volume_3d']),
+                'independent_research': !!(classData.extensions && classData.extensions['independent_research'])
+            };
 
             const renderSelectorList = (filter = "") => {
                 const filtered = userList.filter(u =>
@@ -3154,8 +3191,8 @@
                 else selectedIds.delete(uid);
             };
 
-            window.toggleExtensionSelection = (isChecked) => {
-                extensionsEnabled = !!isChecked;
+            window.toggleExtensionSelection = (eid, isChecked) => {
+                extensionsState[eid] = !!isChecked;
             };
 
             const modal = document.getElementById('customModal');
@@ -3173,17 +3210,31 @@
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Manage Extensions</label>
-                        <div class="mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                        <div class="space-y-2 mt-1">
+                            <div class="p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                    </div>
+                                    <span class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</span>
                                 </div>
-                                <span class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" ${extensionsState['calc_volume_3d'] ? 'checked' : ''} onchange="toggleExtensionSelection('calc_volume_3d', this.checked)">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
+                                </label>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" class="sr-only peer" ${extensionsEnabled ? 'checked' : ''} onchange="toggleExtensionSelection(this.checked)">
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
-                            </label>
+                            <div class="p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                                    </div>
+                                    <span class="font-bold text-sm text-black dark:text-white">IR Navigator</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" ${extensionsState['independent_research'] ? 'checked' : ''} onchange="toggleExtensionSelection('independent_research', this.checked)">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -3235,7 +3286,7 @@
                         await update(ref(db, `classes/${classId}`), {
                             name: newName,
                             students: newStudents,
-                            extensions: { 'calc_volume_3d': extensionsEnabled }
+                            extensions: extensionsState
                         });
                         window.renderSidebar();
                         // Removed showCustomAlert to prevent modal sticking issues
@@ -4574,6 +4625,9 @@
             if (eid === 'calc_volume_3d') {
                 url = 'extensions/BC volume 3D present.html';
                 title = '3D Volume Visualizer';
+            } else if (eid === 'independent_research') {
+                url = 'extensions/IR Navigator.html';
+                title = 'Independent Research Hub';
             }
 
             _currentExtensionUrl = url;
@@ -4614,6 +4668,11 @@
             currentModuleSort = 'latest';
             const config = MODULE_CONFIG[moduleName];
             const pageId = MODULE_PAGE_MAP[moduleName];
+
+            if (pageId === 'extensionPage') {
+                window.openExtension(moduleName);
+                return;
+            }
 
             const page = document.getElementById(pageId);
             if (page) {
@@ -6247,18 +6306,19 @@
                 }
             }
 
-            // 3. Manage Extensions
-            const extAction = await showCustomConfirm("Manage Extensions", "Would you like to toggle extensions for this class?", "Manage");
-            if (extAction) {
-                const isEnabled = c.extensions && c.extensions['calc_volume_3d'];
+            const extAction = await showCustomConfirm("Manage Extensions", "Which extension would you like to manage?", "IR Hub", "3D Volume");
+            if (extAction !== null) {
+                const eid = extAction ? 'independent_research' : 'calc_volume_3d';
+                const name = extAction ? 'IR Navigator' : '3D Volume Visualizer';
+                const isEnabled = c.extensions && c.extensions[eid];
                 const toggle = await showCustomConfirm(
-                    "3D Volume Visualizer", 
-                    `The 3D Volume Visualizer is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b> for this class. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
+                    name, 
+                    `${name} is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b>. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
                     isEnabled ? "DEACTIVATE" : "ACTIVATE"
                 );
                 if (toggle) {
-                    await update(ref(db, `classes/${classId}/extensions`), { 'calc_volume_3d': !isEnabled });
-                    await showCustomAlert("Success", `Extension ${isEnabled ? 'removed' : 'added'} successfully.`);
+                    await update(ref(db, `classes/${classId}/extensions`), { [eid]: !isEnabled });
+                    await showCustomAlert("Success", `Extension updated successfully.`);
                 }
             }
 
@@ -7403,15 +7463,15 @@
         <div id="newsSection"
             class="hidden lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
             <!-- Header with synchronized height -->
-            <div class="flex-shrink-0 pt-12 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
-                <div class="flex gap-4 items-end justify-between h-9">
+            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
+                <div class="flex gap-4 items-center justify-between h-9">
                     <div class="flex gap-4 items-end">
                         <button id="headTabNews" onclick="switchLeftTab('news')"
-                            class="text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
+                            class="text-2xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
                         <button id="headTabTools" onclick="switchLeftTab('tools')"
-                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
+                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
                         <button id="headTabMore" onclick="switchLeftTab('more')"
-                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">More</button>
+                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">More</button>
                         <div id="newsSyncHint"
                             class="mb-1 text-xs font-bold text-blue-500 opacity-0 transition-opacity duration-300">
                             Updating...</div>
@@ -7469,6 +7529,19 @@
                             <div>
                                 <h3 class="font-bold text-base text-black dark:text-white">3D Volume Visualizer</h3>
                                 <p class="text-xs text-gray-500">AP Calculus BC: Volumes w Cross Sections</p>
+                            </div>
+                        </div>
+
+                        <div onclick="openExtension('independent_research')"
+                            class="p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group">
+                            <div class="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-base text-black dark:text-white">IR Navigator</h3>
+                                <p class="text-xs text-gray-500">Independent Research: Project Hub</p>
                             </div>
                         </div>
 
@@ -7623,9 +7696,9 @@
         <div id="sidePanel"
             class="flex lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
             <!-- Header synchronized with News panel -->
-            <div class="flex-shrink-0 pt-12 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
-                <div class="flex justify-between items-end h-9">
-                    <h2 class="text-3xl font-bold tracking-tight leading-none">Messages</h2>
+            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
+                <div class="flex justify-between items-center h-9">
+                    <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
                     <div class="flex items-center gap-3 mb-1">
                         <button id="donationBtn" onclick="toggleDonation()"
                             class="text-[#007AFF] active:scale-90 transition-transform">
