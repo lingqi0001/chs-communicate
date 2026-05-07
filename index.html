@@ -1428,12 +1428,26 @@
             const hint = document.getElementById('loginHint');
             const originalHint = hint.innerText;
             btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
-            hint.innerText = "Please check the Google popup window...";
+            
+            // Check if mobile (simplified)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            hint.innerText = isMobile ? "Redirecting to Google..." : "Please check the Google popup window...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-            try { await signInWithPopup(auth, googleProvider); }
+            try { 
+                if (isMobile) {
+                    // Use Redirect for mobile to bypass popup blockers
+                    await signInWithRedirect(auth, googleProvider);
+                } else {
+                    // Use Popup for desktop
+                    await signInWithPopup(auth, googleProvider);
+                }
+            }
             catch (error) {
-                if (error.code !== 'auth/popup-closed-by-user') alert("Google Sign-In failed: " + error.message);
+                console.error("Auth Error:", error);
+                if (error.code !== 'auth/popup-closed-by-user') {
+                    alert("Google Sign-In failed: " + error.message + "\n\nTip: If using local IP (10.0.0.x), ensure it's added to Firebase Authorized Domains.");
+                }
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -3707,145 +3721,81 @@
             clearSearch();
         };
 
+        window.refreshBottomNav = (activeTab) => {
+            const newsBtn = document.getElementById('tabBtn-news');
+            const msgBtn = document.getElementById('tabBtn-messages');
+            const newsIconActive = `<svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #007AFF;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`;
+            const newsIconInactive = `<svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #9CA3AF;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`;
+            const msgIconActive = `<svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`;
+            const msgIconInactive = `<svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`;
+
+            if (newsBtn) {
+                const active = (activeTab === 'news');
+                newsBtn.innerHTML = (active ? newsIconActive : newsIconInactive) + `<span class="text-xs font-medium" style="color: ${active?'#007AFF':'#9CA3AF'}">News</span>`;
+            }
+            if (msgBtn) {
+                const active = (activeTab === 'messages');
+                msgBtn.innerHTML = `<div class="relative">${active ? msgIconActive : msgIconInactive}<div id="mainUnreadDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-xs font-medium" style="color: ${active?'#007AFF':'#9CA3AF'}">Messages</span>`;
+            }
+        };
+
         window.switchTab = (tab) => {
             const isMobile = window.innerWidth < 1024;
             if (!isMobile) return;
-            if (window.isTabAnimating) return;
-
-            const tabs = ['news', 'messages'];
-            // Normalize 'more' and 'tools' to 'news'
-            let normalizedTab = tab;
-            if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
-
-            // Determine current tab based on icon colors
-            let currentTab = tabs.find(t => {
-                const icon = document.getElementById(`icon-${t}`);
-                return icon && (icon.classList.contains('text-[#007AFF]') || icon.getAttribute('fill') === 'currentColor');
-            }) || 'messages';
-
-            if (currentTab === normalizedTab) {
-                // If already on news/tools/more section but just switching sub-views
-                if (tab === 'news' || tab === 'more' || tab === 'tools') {
-                    switchLeftTab(tab);
-                }
-                return;
-            }
-
-            window.isTabAnimating = true;
-
-            // Always close all overlay pages when switching tabs
-            const modulePageIdToClear = currentModule ? MODULE_PAGE_MAP[currentModule] : null;
-            OVERLAY_PAGE_IDS.forEach(id => closeOverlayPage(id, id === modulePageIdToClear ? () => {
-                if (moduleListener) { moduleListener(); moduleListener = null; }
-                currentModule = null;
-            } : null));
-            if (window.closeDetail) window.closeDetail();
-            if (window.closePostForm) window.closePostForm();
 
             const newsEl = document.getElementById('newsSection');
             const msgEl = document.getElementById('sidePanel');
             const chatSec = document.getElementById('chatSection');
 
-            if (tab === 'news' || tab === 'more' || tab === 'tools') {
-                switchLeftTab(tab);
-            }
+            const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
+            const currentTab = isCurrentlyOnNews ? 'news' : 'messages';
+            
+            let normalizedTab = tab;
+            if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
 
-            // Map tab names to their container elements
-            const elMap = {
-                'news': newsEl,
-                'messages': msgEl
-            };
-
-            const currentEl = elMap[currentTab];
-            const targetEl = elMap[normalizedTab];
-
-            // SPECIAL CASE: News and Tools both live in newsSection.
-            // If switching between them, switchLeftTab already handles it.
-            // We only need sliding animation if moving to/from Messages.
-            if (currentEl === targetEl) {
-                window.isTabAnimating = false;
+            if (currentTab === normalizedTab) {
+                if (tab === 'news' || tab === 'more' || tab === 'tools') switchLeftTab(tab);
                 return;
             }
 
-            if (!currentEl || !targetEl) {
-                window.isTabAnimating = false;
-                return;
-            }
+            // 1. INSTANT VISUAL FEEDBACK
+            window.refreshBottomNav(normalizedTab);
 
-            const currentIndex = tabs.indexOf(currentTab);
-            const targetIndex = tabs.indexOf(normalizedTab);
-            const isForward = targetIndex > currentIndex;
+            // 2. ANIMATION LOGIC
+            if (window.closeDetail) window.closeDetail();
+            if (window.closePostForm) window.closePostForm();
+
+            const isForward = (normalizedTab === 'messages');
+            const currentEl = isCurrentlyOnNews ? newsEl : msgEl;
+            const targetEl = isCurrentlyOnNews ? msgEl : newsEl;
+
+            if (normalizedTab === 'news' || normalizedTab === 'more' || normalizedTab === 'tools') switchLeftTab(normalizedTab);
 
             chatSec.classList.add('hidden');
             chatSec.classList.remove('flex');
 
-            // 2. Set initial positions
-            currentEl.style.cssText = `
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                z-index: 10;
-                transform: translateX(0);
-                transition: none;
-                display: flex;
-            `;
-
-            targetEl.style.cssText = `
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                z-index: 11;
-                transform: translateX(${isForward ? '100%' : '-100%'});
-                transition: none;
-                display: flex;
-            `;
+            currentEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform:translateX(0); transition:none; display:flex;`;
+            targetEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:11; transform:translateX(${isForward ? '100%' : '-100%'}); transition:none; display:flex;`;
             targetEl.classList.remove('hidden');
 
-            // 3. Trigger transition
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    const ease = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+                    const ease = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
                     currentEl.style.transition = ease;
                     targetEl.style.transition = ease;
-
                     currentEl.style.transform = `translateX(${isForward ? '-100%' : '100%'})`;
                     targetEl.style.transform = 'translateX(0)';
                 });
             });
 
-            // 4. Cleanup
             setTimeout(() => {
                 currentEl.classList.add('hidden');
                 currentEl.classList.remove('flex');
                 currentEl.style.cssText = '';
                 targetEl.style.cssText = '';
-
-                // Ensure target is properly visible in normal flow
                 targetEl.classList.remove('hidden');
                 targetEl.classList.add('flex');
-
-                window.isTabAnimating = false;
-            }, 450);
-
-            // 5. Update Bottom Nav
-            tabs.forEach(t => {
-                const btnTab = (t === 'news' ? 'news' : 'messages');
-                const active = (normalizedTab === btnTab);
-                const icon = document.getElementById(`icon-${t}`);
-                const text = document.getElementById(`text-${t}`);
-
-                if (active) {
-                    icon?.classList.replace('text-gray-400', 'text-[#007AFF]');
-                    text?.classList.replace('text-gray-400', 'text-[#007AFF]');
-                } else {
-                    icon?.classList.replace('text-[#007AFF]', 'text-gray-400');
-                    text?.classList.replace('text-[#007AFF]', 'text-gray-400');
-                }
-            });
+            }, 350);
         };
 
         function escapeHTML(str) {
@@ -4660,7 +4610,8 @@
             _currentExtensionUrl = url;
             titleEl.innerText = title;
             loader.classList.remove('hidden');
-            iframe.src = url;
+            // Force cache bust with a timestamp
+            iframe.src = url + '?v=' + Date.now();
 
             iframe.onload = () => {
                 loader.classList.add('hidden');
@@ -6610,7 +6561,12 @@
             right: -10px;
         }
         /* --- Desktop Smart Sidebar (Advanced Edge Trigger) --- */
+        #sidebarTrigger, #sidebarHandle { display: none; }
+
         @media (min-width: 1024px) {
+            #sidebarTrigger { display: block; }
+            #sidebarHandle { display: flex; }
+
             #newsSection {
                 transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
                 transform-origin: left center;
@@ -7574,19 +7530,20 @@
         class="hidden flex app-container relative overflow-hidden bg-white dark:bg-black transition-colors duration-300">
 
         <div id="bottomNav"
-            class="lg:hidden fixed bottom-0 left-0 w-full bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-safe pt-2 flex justify-around z-[40]">
-            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1" id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 text-gray-400 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
+            class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 flex items-center z-50 px-6">
+            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative"
+                id="tabBtn-news">
+                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" style="color: #9CA3AF;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
                 </svg>
-                <span class="text-xs font-medium text-gray-400 transition-colors" id="text-news">News</span>
+                <span class="text-xs font-medium transition-colors" id="text-news" style="color: #9CA3AF;">News</span>
             </button>
             <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
                 id="tabBtn-messages">
                 <div class="relative">
-                    <svg class="w-6 h-6 mb-1 text-[#007AFF] transition-colors" id="icon-messages" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;">
                         <path fill-rule="evenodd"
                             d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
                             clip-rule="evenodd" />
@@ -7595,7 +7552,7 @@
                         class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
                     </div>
                 </div>
-                <span class="text-xs font-medium text-[#007AFF] transition-colors" id="text-messages">Messages</span>
+                <span class="text-xs font-medium transition-colors" id="text-messages" style="color: #007AFF;">Messages</span>
             </button>
         </div>
         <div id="newsSection"
@@ -8815,6 +8772,12 @@
                 </div>
             </div>
         </div>
+        <script>
+            // Initial bottom nav sync
+            if (window.innerWidth < 1024 && window.refreshBottomNav) {
+                window.refreshBottomNav('messages');
+            }
+        </script>
     </div>
 </body>
 

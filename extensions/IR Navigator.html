@@ -183,6 +183,74 @@
             }
         }, 500);
 
+        window.setMatrixView = (m) => { matrixView = m; renderMatrix(); };
+        window.renderMatrix = () => {
+            const container = document.getElementById('matrix-content'); if (!container) return;
+            container.innerHTML = '';
+            if (matrixView === 'table') {
+                let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--muted); font-size:10px; text-transform:uppercase;">
+                        <th style="padding:15px; text-align:left;">Theme</th><th style="padding:15px; text-align:left;">Source</th><th style="padding:15px; text-align:left;">Notes</th>
+                    </tr>`;
+                Object.entries(myMatrix).forEach(([id, data]) => {
+                    html += `<tr style="border-bottom:1px solid var(--border);">
+                        <td style="padding:15px; font-weight:700; color:var(--accent);">${data.theme||'Untitled'}</td>
+                        <td style="padding:15px;">${data.source||'-'}</td>
+                        <td style="padding:15px; color:var(--muted);">${data.notes||'-'}</td>
+                    </tr>`;
+                });
+                container.innerHTML = html + `</table>`;
+            } else {
+                container.innerHTML = `<div style="padding:20px; color:var(--muted);">Theme grouping view is under construction...</div>`;
+            }
+        };
+
+        window.initHeatmap = () => {
+            const b = getBridge(); if (!b) return;
+            const container = document.getElementById('heatmap'); if (!container) return;
+            b.fOnValue(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/meta'), snap => {
+                container.innerHTML = '';
+                const users = snap.val() || {};
+                Object.entries(users).forEach(([uid, data]) => {
+                    const p = data.percent || 0;
+                    container.innerHTML += `
+                        <div class="item-row" style="margin-bottom:0; flex-direction:column; align-items:flex-start; gap:8px;">
+                            <div style="display:flex; justify-content:space-between; width:100%;">
+                                <b style="font-size:12px;">${data.name || 'Student'}</b>
+                                <span style="color:var(--accent); font-weight:900;">${p}%</span>
+                            </div>
+                            <div style="width:100%; height:4px; background:#333; border-radius:10px; overflow:hidden;">
+                                <div style="width:${p}%; height:100%; background:var(--accent); transition:0.5s;"></div>
+                            </div>
+                            <div style="font-size:9px; color:var(--muted);">STAGE ${data.stage || 0}: ${STAGES[data.stage||0].name}</div>
+                        </div>
+                    `;
+                });
+            });
+        };
+
+        window.openSubs = (idx, taskName) => {
+            const b = getBridge(); if (!b) return;
+            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
+            wrap.style.display = 'flex'; document.getElementById('modal-title').innerText = "SUBMISSIONS: " + taskName;
+            sub.style.display = 'none';
+            body.innerHTML = '<div style="color:var(--muted);">Loading student artifacts...</div>';
+            
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links`), snap => {
+                const allLinks = snap.val() || {};
+                let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+                let count = 0;
+                Object.entries(allLinks).forEach(([uid, stages]) => {
+                    const link = stages[currentIdx]?.[idx];
+                    if (link) {
+                        count++;
+                        html += `<div class="item-row" style="padding:12px 16px;"><div style="flex-grow:1; font-weight:600; font-size:13px;">Student: ${uid.substring(0,8)}...</div><a href="${link}" target="_blank" class="btn-mini btn-accent">VIEW SOURCE</a></div>`;
+                    }
+                });
+                body.innerHTML = count > 0 ? html + '</div>' : '<div style="padding:20px; text-align:center; color:var(--muted);">No submissions yet.</div>';
+            }, { onlyOnce: true });
+        };
+
         function syncData() {
             const b = getBridge();
             if (!currentTasks.length) {
@@ -282,7 +350,11 @@
         };
 
         function deleteTask(idx) { const b = getBridge(); if(!b || !confirm("Remove?")) return; const updated = [...currentTasks]; updated.splice(idx, 1); b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), updated); }
-        window.closeModal = () => { document.getElementById('modal-wrap').style.display = 'none'; document.getElementById('modal-submit').innerText = "EXECUTE"; };
+        window.closeModal = () => { 
+            document.getElementById('modal-wrap').style.display = 'none'; 
+            document.getElementById('modal-submit').innerText = "EXECUTE";
+            document.getElementById('modal-submit').style.display = 'flex';
+        };
         function seedTestData() { const b = getBridge(); alert("Seeding..."); const ns = ["Alice R.", "Bob S.", "Charlie L.", "Diana I.", "Ethan S."]; ns.forEach(async (n, i) => { await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/test_${i}`), { name: n, percent: 45, stage: 0 }); }); alert("Done."); }
         
         jump(0);
