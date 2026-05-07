@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Honor Roll - Pro A1 Tool</title>
+    <style>
+        /* Base Layout */
+        body { 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #525659; 
+            overflow: hidden;
+        }
+
+        /* Sidebar Control Panel */
+        #sidebar {
+            width: 360px;
+            background: #ffffff;
+            padding: 25px;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        /* Preview Area */
+        #output-container {
+            flex-grow: 1;
+            overflow: auto; 
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Default 33% Zoom for Preview */
+        #output {
+            zoom: 0.33; 
+            transform-origin: top center;
+        }
+
+        #nameInput { 
+            width: 100%; height: 140px; 
+            border: 2px solid #007bff; border-radius: 4px; padding: 10px;
+            background: #fff; overflow-y: auto;
+            box-sizing: border-box; font-size: 13px;
+        }
+
+        .guide-box {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 12px;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .row-inputs { display: flex; gap: 10px; }
+        .row-inputs > div { flex: 1; }
+        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* A1 Dimensions */
+        .page {
+            background: white;
+            padding: 30mm; 
+            margin-bottom: 80px;
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr;
+            column-gap: 30mm; 
+            page-break-after: always;
+            box-sizing: border-box;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
+
+        .landscape { width: 841mm; height: 594mm; }
+        .portrait { width: 594mm; height: 841mm; }
+
+        .column { 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            width: 100%;
+        }
+
+        /* Container to keep row height globally uniform */
+        .name-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .name-text { 
+            text-align: center; 
+            white-space: nowrap; 
+            display: inline-block;
+        }
+
+        button {
+            padding: 15px; background: #007bff; color: white; 
+            border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;
+            margin-top: 5px;
+        }
+        button:hover { background: #0056b3; }
+
+        label { font-weight: bold; color: #000; font-size: 13px; }
+        h2 { margin: 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; font-size: 20px; }
+
+        @media print {
+            body { display: block; background: none; overflow: visible; }
+            #sidebar { display: none; }
+            #output-container { padding: 0; display: block; overflow: visible; }
+            #output { zoom: 1; } 
+            .page { margin: 0; box-shadow: none; border: none; page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>Layout Control</h2>
+    
+    <div class="guide-box">
+        <b style="color: #28a745;">📋 Copy Instructions:</b><br>
+        1. In Excel, press <b>Ctrl + A</b> to select all.<br>
+        2. Press <b>Ctrl + C</b> to copy.<br>
+        3. Click the blue box and press <b>Ctrl + V</b>.<br>
+        Structure and bolding will be preserved.
+    </div>
+
+    <div class="input-group">
+        <label>1. Paste Data Box</label>
+        <div id="nameInput" contenteditable="true" placeholder="Paste here..."></div>
+    </div>
+
+    <div class="row-inputs">
+        <div class="input-group">
+            <label>Walls</label>
+            <input type="number" id="numWalls" value="4" min="1">
+        </div>
+        <div class="input-group">
+            <label>Pages per Wall</label>
+            <input type="number" id="pagesPerWall" value="3" min="1">
+        </div>
+    </div>
+    
+    <div class="input-group">
+        <label>2. Page Orientation</label>
+        <div style="display: flex; gap: 15px;">
+            <label style="font-weight: normal;"><input type="radio" name="orientation" value="landscape" checked onclick="updateOrientation()"> Landscape</label>
+            <label style="font-weight: normal;"><input type="radio" name="orientation" value="portrait" onclick="updateOrientation()"> Portrait</label>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>3. Global Font Size (Auto-fit Result)</label>
+        <input type="range" id="fontSize" min="10" max="100" value="34" oninput="manualUpdateFontSize()">
+        <div style="display: flex; justify-content: space-between; font-weight: bold;">
+            <span style="color:#999; font-size: 11px;">Small</span>
+            <span id="fsVal" style="color:#007bff;">34pt</span>
+            <span style="color:#999; font-size: 11px;">Large</span>
+        </div>
+    </div>
+
+    <button onclick="generateLayout()">4. Generate & Auto-Fit</button>
+    
+    <div style="font-size: 12px; color: #d9534f; line-height: 1.4; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px;">
+        <b>🖨️ PRINT SETTINGS:</b><br>
+        - Press <b>Ctrl + P</b> to start printing<br>
+        - Target: <b>Save as PDF</b><br>
+        - Paper: <b>A1</b> | Layout: <b id="printLayoutHint">Landscape</b><br>
+        - Margins: <b>None</b><br>
+        - Pages: <b>Odd pages only</b>
+    </div>
+</div>
+
+<div id="output-container">
+    <div id="output"></div>
+</div>
+
+<script>
+function manualUpdateFontSize() {
+    const val = document.getElementById('fontSize').value;
+    document.getElementById('fsVal').innerText = val + 'pt';
+    document.querySelectorAll('.name-text').forEach(n => n.style.fontSize = val + 'pt');
+    adjustWidths(); // Re-check widths after manual change
+}
+
+function updateOrientation() {
+    const orientation = document.querySelector('input[name="orientation"]:checked').value;
+    const hint = document.getElementById('printLayoutHint');
+    hint.innerText = orientation.charAt(0).toUpperCase() + orientation.slice(1);
+}
+
+// 统一调整字号：找到能让所有名字都排下的最小字号并应用到全局
+function adjustWidths() {
+    const texts = document.querySelectorAll('.name-text');
+    if (texts.length === 0) return;
+
+    const baseSize = parseFloat(document.getElementById('fontSize').value);
+    let minSizeFound = baseSize;
+    const buffer = 10; 
+
+    // 第一步：遍历所有名字，找出能够适应列宽的最大可用字号
+    texts.forEach(text => {
+        text.style.fontSize = baseSize + 'pt'; // 先重置
+        const maxWidth = text.closest('.name-row').offsetWidth - buffer;
+        
+        if (text.scrollWidth > maxWidth) {
+            const neededSize = (maxWidth / text.scrollWidth) * baseSize;
+            if (neededSize < minSizeFound) {
+                minSizeFound = neededSize;
+            }
+        }
+    });
+
+    // 限制最小字号并取整
+    if (minSizeFound < 8) minSizeFound = 8;
+    const finalSize = Math.floor(minSizeFound * 10) / 10;
+
+    // 第二步：将计算出的统一字号应用到所有名字
+    texts.forEach(text => {
+        text.style.fontSize = finalSize + 'pt';
+    });
+
+    // 同步更新 UI 滑块
+    document.getElementById('fontSize').value = finalSize;
+    document.getElementById('fsVal').innerText = finalSize + 'pt';
+}
+
+function generateLayout() {
+    const inputDiv = document.getElementById('nameInput');
+    const orientation = document.querySelector('input[name="orientation"]:checked').value;
+    const numWalls = parseInt(document.getElementById('numWalls').value) || 1;
+    const pagesPerWall = parseInt(document.getElementById('pagesPerWall').value) || 1;
+    
+    let namesData = [];
+    const cells = inputDiv.querySelectorAll('td');
+    
+    if (cells.length > 0) {
+        cells.forEach(cell => {
+            let text = cell.textContent.trim();
+            if (text) {
+                let isBold = cell.querySelector('b, strong') !== null || 
+                             cell.style.fontWeight === 'bold' || 
+                             cell.style.fontWeight === '700' ||
+                             (cell.firstElementChild && (cell.firstElementChild.style.fontWeight === 'bold' || cell.firstElementChild.tagName === 'B'));
+                namesData.push({ text, bold: isBold });
+            }
+        });
+    } else {
+        const lines = inputDiv.innerText.split('\n');
+        lines.forEach(line => { if (line.trim()) namesData.push({ text: line.trim(), bold: false }); });
+    }
+
+    if (namesData.length === 0) return alert("Please paste Excel data first!");
+
+    const totalPapers = numWalls * pagesPerWall;
+    const totalCols = totalPapers * 3;
+    const namesPerCol = Math.ceil(namesData.length / totalCols);
+
+    // Height Calculation
+    const availableHeightMm = (orientation === 'landscape' ? 594 : 841) - 60;
+    const availableHeightPt = availableHeightMm * 2.835;
+    
+    // Determine Global Row Height (Points)
+    const globalRowHeight = Math.floor(availableHeightPt / namesPerCol);
+    // Base font size (slightly smaller than row height for padding)
+    let baseFs = Math.floor(globalRowHeight * 0.85);
+    
+    if (baseFs > 100) baseFs = 100;
+    if (baseFs < 10) baseFs = 10;
+
+    document.getElementById('fontSize').value = baseFs;
+    document.getElementById('fsVal').innerText = baseFs + 'pt';
+
+    let groups = [];
+    for (let i = 0; i < totalCols; i++) {
+        groups.push(namesData.slice(i * namesPerCol, (i + 1) * namesPerCol));
+    }
+
+    let outputHtml = '';
+    for (let p = 0; p < totalPapers; p++) {
+        const wallIdx = Math.floor(p / pagesPerWall);
+        const vIdx = p % pagesPerWall;
+        const colsInOneWall = 3 * pagesPerWall;
+        const c1Idx = (wallIdx * colsInOneWall) + (0 * pagesPerWall) + vIdx;
+        const c2Idx = (wallIdx * colsInOneWall) + (1 * pagesPerWall) + vIdx;
+        const c3Idx = (wallIdx * colsInOneWall) + (2 * pagesPerWall) + vIdx;
+
+        outputHtml += `<div class="page ${orientation}">`;
+        [c1Idx, c2Idx, c3Idx].forEach(idx => {
+            outputHtml += `<div class="column">`;
+            if (groups[idx]) {
+                groups[idx].forEach(item => {
+                    const weight = item.bold ? 'bold' : 'normal';
+                    // Apply globalRowHeight to ensure vertical consistency
+                    outputHtml += `
+                        <div class="name-row" style="height: ${globalRowHeight}pt;">
+                            <div class="name-text" style="font-size:${baseFs}pt; font-weight:${weight}">${item.text}</div>
+                        </div>`;
+                });
+            }
+            outputHtml += `</div>`;
+        });
+        outputHtml += `</div>`;
+    }
+    
+    document.getElementById('output').innerHTML = outputHtml;
+    
+    // Final Step: Shrink any names that are too wide for their columns
+    adjustWidths();
+    
+    document.getElementById('output-container').scrollTop = 0;
+}
+</script>
+
+</body>
+</html>

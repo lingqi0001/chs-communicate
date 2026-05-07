@@ -24,6 +24,63 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        /* Print Optimization: Isolates extension content when printing */
+        @media print {
+            body {
+                background: white !important;
+            }
+
+            /* Hide everything by default */
+            body>*:not(#extensionPage) {
+                display: none !important;
+            }
+
+            #extensionPage {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                transform: none !important;
+                display: flex !important;
+                z-index: 9999 !important;
+                background: white !important;
+            }
+
+            /* Hide the tool header (Back/Refresh buttons) */
+            #extensionPage>div:first-child {
+                display: none !important;
+            }
+
+            /* Make iframe container full page */
+            #extensionPage>div:last-child {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            #extensionIframe {
+                width: 100% !important;
+                height: 100% !important;
+                border: none !important;
+            }
+
+            /* Ensure common overlay backgrounds are hidden */
+            .fixed,
+            .absolute {
+                visibility: hidden;
+            }
+
+            #extensionPage,
+            #extensionPage * {
+                visibility: visible;
+            }
+        }
+
         #chatBox {
             overflow-x: hidden !important;
         }
@@ -208,19 +265,37 @@
 
         /* Simple Highlight (Matches Hover State) */
         @keyframes simpleHighlight {
-            0% { background-color: #F3F4F6; }
-            40% { background-color: #F3F4F6; }
-            100% { background-color: transparent; }
+            0% {
+                background-color: #F3F4F6;
+            }
+
+            40% {
+                background-color: #F3F4F6;
+            }
+
+            100% {
+                background-color: transparent;
+            }
         }
+
         @keyframes simpleHighlightDark {
-            0% { background-color: rgba(255, 255, 255, 0.1); }
-            40% { background-color: rgba(255, 255, 255, 0.1); }
-            100% { background-color: transparent; }
+            0% {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+
+            40% {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+
+            100% {
+                background-color: transparent;
+            }
         }
 
         .target-highlight {
             animation: simpleHighlight 2.5s ease-out forwards;
         }
+
         .dark .target-highlight {
             animation: simpleHighlightDark 2.5s ease-out forwards;
         }
@@ -430,7 +505,7 @@
         const db = getDatabase(app);
         window.firebaseDb = db;
         window.fRef = ref; window.fSet = set; window.fUpdate = update; window.fPush = push; window.fGet = get; window.fOnValue = onValue;
-        
+
         const auth = getAuth(app);
         window.firebaseAuth = auth;
         window.firebaseOnAuth = onAuthStateChanged;
@@ -795,10 +870,100 @@
                 }
             }
 
+            // 3. Sync Extensions Automatically (New)
+            syncExtensions();
+
             // Final hide of sync hint
             if (syncHint) {
                 syncHint.classList.add('hidden');
+                setTimeout(() => syncHint.remove(), 1000);
             }
+            isSyncDone = true;
+        }
+
+        window.syncExtensions = async function () {
+            const container = document.getElementById('dynamicExtensionsList');
+            if (!container) return;
+
+            try {
+                // Method A: Try Local Directory Listing (Python http.server / Dev Mode)
+                const localResp = await fetch('/extensions/');
+                if (localResp.ok) {
+                    const text = await localResp.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const links = Array.from(doc.querySelectorAll('a'))
+                        .map(a => a.getAttribute('href'))
+                        .filter(href => href && href.endsWith('.html') && !href.startsWith('/'));
+
+                    if (links.length > 0) {
+                        console.log('App: Extensions detected via local directory listing.');
+                        renderExtensions(links.map(l => ({ name: decodeURIComponent(l), url: 'extensions/' + l })));
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('App: Local extension sync skipped (not a directory-listing server).');
+            }
+
+            try {
+                // Method B: GitHub API Fallback (Works when pushed to origin)
+                const ghResp = await fetch('https://api.github.com/repos/lingqi0001/chs-communicate/contents/extensions');
+                if (ghResp.ok) {
+                    const files = await ghResp.json();
+                    const htmlFiles = files.filter(f => f.name.endsWith('.html'))
+                        .map(f => ({ name: f.name, url: f.path }));
+                    if (htmlFiles.length > 0) {
+                        console.log('App: Extensions detected via GitHub API.');
+                        renderExtensions(htmlFiles);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('App: GitHub extension sync failed:', e);
+            }
+
+            container.innerHTML = `<div class="text-xs text-gray-400 text-center py-6 italic">No extensions found in /extensions/ folder.</div>`;
+        };
+
+        function renderExtensions(files) {
+            const container = document.getElementById('dynamicExtensionsList');
+            if (!container) return;
+            container.innerHTML = '<div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-2 px-1">Learning Tools</div>';
+
+            files.forEach(file => {
+                const rawName = file.name.replace('.html', '');
+                // Clean up name for display (e.g. "BC volume 3D present" -> "BC Volume 3D Present")
+                const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+                const card = document.createElement('div');
+                card.onclick = () => openExtension(rawName, file.url, displayName);
+                card.className = "p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group";
+
+                // Assign icon colors based on name to keep it colorful
+                let iconColor = "text-[#007AFF]";
+                let iconBg = "bg-blue-100 dark:bg-blue-500/20";
+                if (rawName.toLowerCase().includes('logic')) {
+                    iconColor = "text-green-500";
+                    iconBg = "bg-green-100 dark:bg-green-500/20";
+                } else if (rawName.toLowerCase().includes('ir') || rawName.toLowerCase().includes('navigator')) {
+                    iconColor = "text-cyan-500";
+                    iconBg = "bg-cyan-100 dark:bg-cyan-500/20";
+                }
+
+                card.innerHTML = `
+                    <div class="w-10 h-10 rounded-full ${iconBg} flex items-center justify-center ${iconColor}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-black dark:text-white">${displayName}</h3>
+                        <p class="text-xs text-gray-500">Extension Tool</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
         }
 
 
@@ -1428,13 +1593,13 @@
             const hint = document.getElementById('loginHint');
             const originalHint = hint.innerText;
             btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
-            
+
             // Check if mobile (simplified)
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             hint.innerText = isMobile ? "Redirecting to Google..." : "Please check the Google popup window...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-            try { 
+            try {
                 if (isMobile) {
                     // Use Redirect for mobile to bypass popup blockers
                     await signInWithRedirect(auth, googleProvider);
@@ -2449,11 +2614,11 @@
             const headNews = document.getElementById('headTabNews');
             const headTools = document.getElementById('headTabTools');
             const headMore = document.getElementById('headTabMore');
-            
+
             const newsContent = document.getElementById('newsMainContent');
             const toolsContent = document.getElementById('toolsMainContent');
             const moreContent = document.getElementById('moreMainContent');
-            
+
             const subTabs = document.getElementById('newsSubTabsWrapper');
             const addBtn = document.getElementById('addAnnouncementBtn');
 
@@ -2461,7 +2626,7 @@
 
             // Reset all tabs to inactive state (small, gray)
             [headNews, headTools, headMore].forEach(h => {
-                if(h) h.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none mb-0.5";
+                if (h) h.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none mb-0.5";
             });
 
             // Update button visibility and sidebar components
@@ -2473,7 +2638,7 @@
                     subTabs.style.opacity = '1';
                     subTabs.style.marginTop = '0.75rem';
                 }
-                
+
                 newsContent.style.opacity = '1';
                 newsContent.style.transform = 'translateX(0)';
                 newsContent.style.pointerEvents = 'auto';
@@ -2541,7 +2706,7 @@
             // Sync bottom nav (Mobile)
             if (tab === 'news' || tab === 'more' || tab === 'tools') {
                 const navTab = (tab === 'tools') ? 'tools' : 'news';
-                
+
                 // Reset all bottom nav icons
                 ['news', 'tools', 'messages'].forEach(t => {
                     const icon = document.getElementById(`icon-${t}`);
@@ -2552,7 +2717,7 @@
                         text.classList.remove('text-[#007AFF]');
                         text.classList.add('text-gray-400');
                         // Special case for messages which might have fill/stroke differences
-                        if (t === 'messages') icon.setAttribute('fill', 'none'); 
+                        if (t === 'messages') icon.setAttribute('fill', 'none');
                         else icon.setAttribute('stroke', 'currentColor');
                     }
                 });
@@ -3479,7 +3644,7 @@
         window.toggleSidebarPin = () => {
             const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
             localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
-            
+
             // Trigger a resize event to ensure chat scrolls correctly
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
@@ -3731,11 +3896,11 @@
 
             if (newsBtn) {
                 const active = (activeTab === 'news');
-                newsBtn.innerHTML = (active ? newsIconActive : newsIconInactive) + `<span class="text-xs font-medium" style="color: ${active?'#007AFF':'#9CA3AF'}">News</span>`;
+                newsBtn.innerHTML = (active ? newsIconActive : newsIconInactive) + `<span class="text-xs font-medium" style="color: ${active ? '#007AFF' : '#9CA3AF'}">News</span>`;
             }
             if (msgBtn) {
                 const active = (activeTab === 'messages');
-                msgBtn.innerHTML = `<div class="relative">${active ? msgIconActive : msgIconInactive}<div id="mainUnreadDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-xs font-medium" style="color: ${active?'#007AFF':'#9CA3AF'}">Messages</span>`;
+                msgBtn.innerHTML = `<div class="relative">${active ? msgIconActive : msgIconInactive}<div id="mainUnreadDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-xs font-medium" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Messages</span>`;
             }
         };
 
@@ -3749,7 +3914,7 @@
 
             const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
             const currentTab = isCurrentlyOnNews ? 'news' : 'messages';
-            
+
             let normalizedTab = tab;
             if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
 
@@ -4591,15 +4756,18 @@
 
         // Extension Management Logic
         let _currentExtensionUrl = '';
-        window.openExtension = (eid) => {
+        window.openExtension = (eid, customUrl = null, customTitle = null) => {
             const titleEl = document.getElementById('extensionTitle');
             const iframe = document.getElementById('extensionIframe');
             const loader = document.getElementById('extensionLoading');
-            
+
             let url = 'about:blank';
             let title = 'Tool';
 
-            if (eid === 'calc_volume_3d') {
+            if (customUrl) {
+                url = customUrl;
+                title = customTitle || eid;
+            } else if (eid === 'calc_volume_3d') {
                 url = 'extensions/BC volume 3D present.html';
                 title = '3D Volume Visualizer';
             } else if (eid === 'independent_research') {
@@ -4610,7 +4778,6 @@
             _currentExtensionUrl = url;
             titleEl.innerText = title;
             loader.classList.remove('hidden');
-            // Force cache bust with a timestamp
             iframe.src = url + '?v=' + Date.now();
 
             iframe.onload = () => {
@@ -5164,11 +5331,11 @@
             document.getElementById('postInputDesc').placeholder = "Explain how it helps you or what features it should have...";
             document.getElementById('postPageTitle').innerText = 'Tool Suggestion';
             document.getElementById('batchImportBtn')?.classList.add('hidden');
-            
+
             // Hide image area for requests
             const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
             if (imgArea) imgArea.classList.add('hidden');
-            
+
             const page = document.getElementById('postPage');
             page.classList.remove('hidden');
             setTimeout(() => {
@@ -5224,11 +5391,11 @@
                 const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
                 const isAnonymous = config.anonymous || false;
                 lastPostSentTime = now;
-                
+
                 if (isRequestingExtension) {
                     const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
                     const requestText = `[EXTENSION REQUEST]\nTool Name: ${title}\nDescription: ${desc}\nSubmitted by: ${currentUser.name} (${currentUser.id})`;
-                    
+
                     const adminChatId = getChatId(ADVICE_BOT_ID, adminId);
                     push(ref(db, `messages/${adminChatId}`), {
                         senderId: ADVICE_BOT_ID,
@@ -6292,7 +6459,7 @@
                 const name = extAction ? 'IR Navigator' : '3D Volume Visualizer';
                 const isEnabled = c.extensions && c.extensions[eid];
                 const toggle = await showCustomConfirm(
-                    name, 
+                    name,
                     `${name} is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b>. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
                     isEnabled ? "DEACTIVATE" : "ACTIVATE"
                 );
@@ -6560,12 +6727,21 @@
         .ticket-cutout::after {
             right: -10px;
         }
+
         /* --- Desktop Smart Sidebar (Advanced Edge Trigger) --- */
-        #sidebarTrigger, #sidebarHandle { display: none; }
+        #sidebarTrigger,
+        #sidebarHandle {
+            display: none;
+        }
 
         @media (min-width: 1024px) {
-            #sidebarTrigger { display: block; }
-            #sidebarHandle { display: flex; }
+            #sidebarTrigger {
+                display: block;
+            }
+
+            #sidebarHandle {
+                display: flex;
+            }
 
             #newsSection {
                 transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -6585,12 +6761,13 @@
             }
 
             /* 主内容 (Messages + Chat) 平滑过渡 */
-            #sidePanel, #chatSection {
+            #sidePanel,
+            #chatSection {
                 transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.5s ease;
             }
 
             /* 当侧边栏收起时，主内容占满 */
-            body.sidebar-collapsed #sidePanel, 
+            body.sidebar-collapsed #sidePanel,
             body.sidebar-collapsed #chatSection {
                 transform: scale(1) translateX(0);
             }
@@ -6627,17 +6804,19 @@
                 align-items: center;
                 justify-content: center;
                 color: white;
-                box-shadow: 4px 0 15px rgba(0,122,255,0.3);
+                box-shadow: 4px 0 15px rgba(0, 122, 255, 0.3);
                 z-index: 1000;
                 transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 cursor: pointer;
             }
 
-            #sidebarHandle:hover { width: 38px; }
+            #sidebarHandle:hover {
+                width: 38px;
+            }
 
             /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
             /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
-            body.sidebar-collapsed #sidebarTrigger:hover + #sidebarHandle,
+            body.sidebar-collapsed #sidebarTrigger:hover+#sidebarHandle,
             body.sidebar-collapsed #sidebarHandle:hover {
                 left: 0 !important;
             }
@@ -6650,19 +6829,20 @@
 
             /* 当展开时，滑块变形成一个灰色的小条，吸附在 NEWS 列表右边缘内部 (指向左) */
             body:not(.sidebar-collapsed) #sidebarHandle {
-                left: 320px; 
-                width: 16px; 
+                left: 320px;
+                width: 16px;
                 height: 60px;
-                background: #8E8E93; 
+                background: #8E8E93;
                 opacity: 0.4;
-                transform: translateY(-50%) translateX(-100%) scaleX(-1); /* 移入内部并翻转 */
+                transform: translateY(-50%) translateX(-100%) scaleX(-1);
+                /* 移入内部并翻转 */
             }
-            
+
             body:not(.sidebar-collapsed) #sidebarHandle:hover {
                 opacity: 1;
                 width: 22px;
             }
-            
+
             /* 当全屏内容打开时，强制隐藏滑块 */
             body.is-fullscreen #sidebarHandle,
             body.is-fullscreen #sidebarTrigger {
@@ -7531,10 +7711,9 @@
 
         <div id="bottomNav"
             class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 flex items-center z-50 px-6">
-            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative"
-                id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor" style="color: #9CA3AF;">
+            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative" id="tabBtn-news">
+                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" style="color: #9CA3AF;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
                 </svg>
@@ -7543,7 +7722,8 @@
             <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
                 id="tabBtn-messages">
                 <div class="relative">
-                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;">
+                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor"
+                        viewBox="0 0 24 24" style="color: #007AFF;">
                         <path fill-rule="evenodd"
                             d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
                             clip-rule="evenodd" />
@@ -7552,7 +7732,8 @@
                         class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
                     </div>
                 </div>
-                <span class="text-xs font-medium transition-colors" id="text-messages" style="color: #007AFF;">Messages</span>
+                <span class="text-xs font-medium transition-colors" id="text-messages"
+                    style="color: #007AFF;">Messages</span>
             </button>
         </div>
         <div id="newsSection"
@@ -7612,41 +7793,27 @@
                 <div id="toolsMainContent"
                     class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
                     <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-2 px-1">Learning Tools</div>
-                        
-                        <div onclick="openExtension('calc_volume_3d')"
-                            class="p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group">
-                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-black dark:text-white">3D Volume Visualizer</h3>
-                                <p class="text-xs text-gray-500">AP Calculus BC: Volumes w Cross Sections</p>
+                        <div id="dynamicExtensionsList" class="space-y-3">
+                            <!-- Extensions will be automatically injected here -->
+                            <div class="flex justify-center py-10">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
                             </div>
                         </div>
 
-                        <div onclick="openExtension('independent_research')"
-                            class="p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group">
-                            <div class="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-black dark:text-white">IR Navigator</h3>
-                                <p class="text-xs text-gray-500">Independent Research: Project Hub</p>
-                            </div>
-                        </div>
-
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
+                        <div
+                            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
                             <span>Coming Soon</span>
-                            <button onclick="openExtensionRequest()" class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What extensions do you want? Tell us!</button>
+                            <button onclick="openExtensionRequest()"
+                                class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What
+                                extensions do you want? Tell us!</button>
                         </div>
-                        <div class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
-                            <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round"/></svg>
+                        <div
+                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
+                            <div
+                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round" />
+                                </svg>
                             </div>
                             <div>
                                 <h3 class="font-bold text-base text-gray-400">More Tools...</h3>
@@ -8593,27 +8760,40 @@
     <!-- Extension View Page -->
     <div id="extensionPage"
         class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
-        <div class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
+        <div
+            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
             <div class="w-20">
-                <button onclick="closeExtension()" class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
+                <button onclick="closeExtension()"
+                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
                     <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
                     </svg> Back
                 </button>
             </div>
-            <div id="extensionTitle" class="font-bold text-base text-black dark:text-white truncate flex-1 text-center">Tool</div>
+            <div id="extensionTitle" class="font-bold text-base text-black dark:text-white truncate flex-1 text-center">
+                Tool</div>
             <div class="w-20 flex justify-end items-center gap-1">
-                <button onclick="openExtensionExternally()" title="Open in New Window" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <button onclick="openExtensionExternally()" title="Open in New Window"
+                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                 </button>
-                <button onclick="reloadExtension()" title="Refresh" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <button onclick="reloadExtension()" title="Refresh"
+                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                 </button>
             </div>
         </div>
         <div class="flex-1 relative bg-white dark:bg-black">
             <iframe id="extensionIframe" class="w-full h-full border-none" src="about:blank"></iframe>
-            <div id="extensionLoading" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10">
+            <div id="extensionLoading"
+                class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10">
                 <div class="flex flex-col items-center gap-3">
                     <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                     <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Launching Tool...</div>

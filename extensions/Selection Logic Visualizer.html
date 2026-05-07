@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Selection Logic Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.3);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --code-bg: #010409;
+            --highlight: rgba(56, 189, 248, 0.15);
+            --border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 2rem;
+            padding: 0 2rem 2rem 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .code-container {
+            position: relative;
+            background: var(--code-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .code-line {
+            position: relative;
+            z-index: 1;
+            padding: 0 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .code-line.active {
+            background: var(--highlight);
+            color: var(--accent);
+            box-shadow: inset 2px 0 0 var(--accent);
+        }
+
+        .code-keyword { color: #ff7b72; }
+        .code-type { color: #ffa657; }
+        .code-func { color: #d2a8ff; }
+        .code-var { color: #79c0ff; }
+        .code-string { color: #a5d6ff; }
+        .code-comment { color: #8b949e; font-style: italic; }
+
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        button.primary {
+            background: var(--accent);
+            color: var(--bg-color);
+            border: none;
+        }
+
+        button.primary:hover {
+            background: #7dd3fc;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .array-display {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .array-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .array-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        .slots {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .slot {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .slot.current-j { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+        .slot.current-k { border-color: var(--warning); }
+        .slot.is-sm { border-color: var(--success); background: rgba(16, 185, 129, 0.05); }
+
+        .slot-val {
+            font-weight: 600;
+            font-size: 1rem;
+            z-index: 1;
+            text-align: center;
+            padding: 0 5px;
+            word-break: break-all;
+        }
+
+        .slot-len {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .slot-idx {
+            position: absolute;
+            top: 4px;
+            left: 6px;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .pointer-marker {
+            position: absolute;
+            bottom: -25px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--accent);
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+
+        .variables {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .var-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .var-name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .var-value {
+            font-family: 'Fira Code', monospace;
+            font-weight: 600;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .input-section {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .status-msg {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 4px solid var(--accent);
+            font-size: 0.9rem;
+            min-height: 3.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 1100px) {
+            main { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Logic Visualizer</h1>
+        <p>Step-by-step demonstration of <code>strArrMethod</code> selection logic</p>
+    </header>
+
+    <main>
+        <div class="panel">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="arrayInput">Array Elements (comma separated)</label>
+                    <input type="text" id="arrayInput" value="apple, pear, banana, kiwi, peach">
+                </div>
+                <button onclick="reset()">Initialize</button>
+            </div>
+
+            <div class="code-container" id="codeEditor">
+                <div class="code-line" id="line-1"><span class="code-keyword">public static</span> <span class="code-type">String</span>[] <span class="code-func">strArrMethod</span>(<span class="code-type">String</span>[] <span class="code-var">arr</span>)</div>
+                <div class="code-line" id="line-2">{</div>
+                <div class="code-line" id="line-3">  <span class="code-type">String</span>[] <span class="code-var">result</span> = <span class="code-keyword">new</span> <span class="code-type">String</span>[<span class="code-var">arr</span>.length];</div>
+                <div class="code-line" id="line-4">  <span class="code-keyword">for</span> (<span class="code-type">int</span> <span class="code-var">j</span> = 0; <span class="code-var">j</span> < <span class="code-var">arr</span>.length; <span class="code-var">j</span>++)</div>
+                <div class="code-line" id="line-5">  {</div>
+                <div class="code-line" id="line-6">    <span class="code-type">String</span> <span class="code-var">sm</span> = <span class="code-var">arr</span>[<span class="code-var">j</span>];</div>
+                <div class="code-line" id="line-7">    <span class="code-keyword">for</span> (<span class="code-type">int</span> <span class="code-var">k</span> = <span class="code-var">j</span> + 1; <span class="code-var">k</span> < <span class="code-var">arr</span>.length; <span class="code-var">k</span>++)</div>
+                <div class="code-line" id="line-8">    {</div>
+                <div class="code-line" id="line-9">      <span class="code-keyword">if</span> (<span class="code-var">arr</span>[<span class="code-var">k</span>].length() < <span class="code-var">sm</span>.length())</div>
+                <div class="code-line" id="line-10">      {</div>
+                <div class="code-line" id="line-11">        <span class="code-var">sm</span> = <span class="code-var">arr</span>[<span class="code-var">k</span>]; <span class="code-comment">// Line 12</span></div>
+                <div class="code-line" id="line-12">      }</div>
+                <div class="code-line" id="line-13">    }</div>
+                <div class="code-line" id="line-14">    <span class="code-var">result</span>[<span class="code-var">j</span>] = <span class="code-var">sm</span>;</div>
+                <div class="code-line" id="line-15">  }</div>
+                <div class="code-line" id="line-16">  <span class="code-keyword">return</span> <span class="code-var">result</span>;</div>
+                <div class="code-line" id="line-17">}</div>
+            </div>
+
+            <div class="status-msg" id="status">
+                Press "Step" or "Auto Run" to start.
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="controls">
+                <button id="stepBtn" class="primary" onclick="step()">Step Forward</button>
+                <button id="runBtn" onclick="run()">Auto Run</button>
+                <button onclick="reset()">Reset</button>
+            </div>
+
+            <div class="viz-container">
+                <div class="array-display">
+                    <div class="array-row">
+                        <div class="array-label">Input Array (arr)</div>
+                        <div class="slots" id="arr-slots"></div>
+                    </div>
+                </div>
+
+                <div class="variables">
+                    <div class="var-card">
+                        <div class="var-name">j (outer index)</div>
+                        <div class="var-value" id="var-j">-</div>
+                    </div>
+                    <div class="var-card">
+                        <div class="var-name">k (inner index)</div>
+                        <div class="var-value" id="var-k">-</div>
+                    </div>
+                    <div class="var-card">
+                        <div class="var-name">sm (current min)</div>
+                        <div class="var-value" id="var-sm">-</div>
+                    </div>
+                </div>
+
+                <div class="array-display">
+                    <div class="array-row">
+                        <div class="array-label">Result Array (result)</div>
+                        <div class="slots" id="result-slots"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let arr = [];
+        let result = [];
+        let state = {
+            pc: 0,
+            j: 0,
+            k: 0,
+            sm: "",
+            done: false,
+            phase: 'start'
+        };
+        let isRunning = false;
+        let runTimer = null;
+
+        function init() {
+            const input = document.getElementById('arrayInput').value;
+            arr = input.split(',').map(s => s.trim()).filter(s => s !== "");
+            result = new Array(arr.length).fill("");
+            state = {
+                pc: 1,
+                j: 0,
+                k: 0,
+                sm: "",
+                done: false,
+                phase: 'start'
+            };
+            render();
+            updateCodeHighlight(0);
+            document.getElementById('status').innerText = "Initialized. Ready to process " + arr.length + " elements.";
+            document.getElementById('stepBtn').disabled = false;
+        }
+
+        function render() {
+            const arrContainer = document.getElementById('arr-slots');
+            const resContainer = document.getElementById('result-slots');
+            
+            arrContainer.innerHTML = '';
+            resContainer.innerHTML = '';
+
+            arr.forEach((val, i) => {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                if (state.phase !== 'start' && !state.done) {
+                    if (i === state.j) slot.classList.add('current-j');
+                    if (i === state.k && (state.phase === 'k-loop-check' || state.phase === 'compare' || state.phase === 'update-sm')) slot.classList.add('current-k');
+                }
+                if (val === state.sm && (state.phase === 'k-loop-check' || state.phase === 'compare' || state.phase === 'update-sm' || state.phase === 'set-result')) {
+                    slot.classList.add('is-sm');
+                }
+
+                slot.innerHTML = `
+                    <div class="slot-idx">${i}</div>
+                    <div class="slot-val">${val}</div>
+                    <div class="slot-len">len: ${val.length}</div>
+                `;
+                
+                if (i === state.j && !state.done && state.phase !== 'start') {
+                    const marker = document.createElement('div');
+                    marker.className = 'pointer-marker';
+                    marker.innerText = 'j';
+                    slot.appendChild(marker);
+                }
+                if (i === state.k && (state.phase === 'k-loop-check' || state.phase === 'compare' || state.phase === 'update-sm') && !state.done) {
+                    const marker = document.createElement('div');
+                    marker.className = 'pointer-marker';
+                    marker.style.color = 'var(--warning)';
+                    marker.style.bottom = '-40px';
+                    marker.innerText = 'k';
+                    slot.appendChild(marker);
+                }
+
+                arrContainer.appendChild(slot);
+            });
+
+            result.forEach((val, i) => {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                slot.innerHTML = `
+                    <div class="slot-idx">${i}</div>
+                    <div class="slot-val">${val || ""}</div>
+                    <div class="slot-len">${val ? 'len: ' + val.length : ''}</div>
+                `;
+                resContainer.appendChild(slot);
+            });
+
+            document.getElementById('var-j').innerText = state.done ? "-" : state.j;
+            document.getElementById('var-k').innerText = (state.phase === 'k-loop-check' || state.phase === 'compare' || state.phase === 'update-sm') ? state.k : "-";
+            document.getElementById('var-sm').innerText = state.sm === "" ? "-" : `"${state.sm}"`;
+        }
+
+        function updateCodeHighlight(line) {
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            if (line > 0) {
+                const el = document.getElementById('line-' + line);
+                if (el) el.classList.add('active');
+            }
+        }
+
+        function step() {
+            if (state.done) return;
+
+            const status = document.getElementById('status');
+
+            switch (state.phase) {
+                case 'start':
+                    state.phase = 'init-res';
+                    state.pc = 3;
+                    status.innerText = "Initializing result array of length " + arr.length;
+                    break;
+                case 'init-res':
+                    state.j = 0;
+                    state.phase = 'j-loop-check';
+                    state.pc = 4;
+                    status.innerText = "Checking outer loop condition: j (0) < arr.length (" + arr.length + ")";
+                    break;
+                case 'j-loop-check':
+                    if (state.j < arr.length) {
+                        state.phase = 'sm-init';
+                        state.pc = 6;
+                        status.innerText = "j = " + state.j + ". Setting sm = arr[j] (\"" + arr[state.j] + "\")";
+                    } else {
+                        state.phase = 'return';
+                        state.pc = 16;
+                        status.innerText = "Outer loop finished. Returning result.";
+                    }
+                    break;
+                case 'sm-init':
+                    state.sm = arr[state.j];
+                    state.k = state.j + 1;
+                    state.phase = 'k-loop-check';
+                    state.pc = 7;
+                    status.innerText = "Setting k = j + 1 (" + state.k + ")";
+                    break;
+                case 'k-loop-check':
+                    if (state.k < arr.length) {
+                        state.phase = 'compare';
+                        state.pc = 9;
+                        status.innerText = "Checking if arr[k] (\"" + arr[state.k] + "\") is shorter than sm (\"" + state.sm + "\")";
+                    } else {
+                        state.phase = 'set-result';
+                        state.pc = 14;
+                        status.innerText = "Inner loop finished. result[" + state.j + "] = sm (\"" + state.sm + "\")";
+                    }
+                    break;
+                case 'compare':
+                    if (arr[state.k].length < state.sm.length) {
+                        state.phase = 'update-sm';
+                        state.pc = 11;
+                        status.innerText = "Condition met: " + arr[state.k].length + " < " + state.sm.length + ". Updating sm.";
+                    } else {
+                        state.k++;
+                        state.phase = 'k-loop-check';
+                        state.pc = 7;
+                        status.innerText = "Condition not met. Incrementing k.";
+                    }
+                    break;
+                case 'update-sm':
+                    state.sm = arr[state.k];
+                    state.k++;
+                    state.phase = 'k-loop-check';
+                    state.pc = 7;
+                    status.innerText = "Updated sm to \"" + state.sm + "\". Incrementing k.";
+                    break;
+                case 'set-result':
+                    result[state.j] = state.sm;
+                    state.j++;
+                    state.phase = 'j-loop-check';
+                    state.pc = 4;
+                    status.innerText = "Set result[" + (state.j-1) + "]. Incrementing j.";
+                    break;
+                case 'return':
+                    state.done = true;
+                    state.pc = 17;
+                    status.innerText = "Method complete. Final result: [" + result.join(', ') + "]";
+                    document.getElementById('stepBtn').disabled = true;
+                    stopRun();
+                    break;
+            }
+
+            render();
+            updateCodeHighlight(state.pc);
+        }
+
+        function run() {
+            if (isRunning) {
+                stopRun();
+            } else {
+                isRunning = true;
+                document.getElementById('runBtn').innerText = "Stop";
+                runTimer = setInterval(step, 600);
+            }
+        }
+
+        function stopRun() {
+            isRunning = false;
+            document.getElementById('runBtn').innerText = "Auto Run";
+            clearInterval(runTimer);
+        }
+
+        function reset() {
+            stopRun();
+            init();
+        }
+
+        document.getElementById('arrayInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') reset();
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
