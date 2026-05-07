@@ -3466,13 +3466,10 @@
             const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
             localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
             
-            // UI Feedback for the handle
-            const handle = document.getElementById('sidebarHandle');
-            if (handle) {
-                handle.querySelector('svg').style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)';
-            }
             // Trigger a resize event to ensure chat scrolls correctly
-            window.dispatchEvent(new Event('resize'));
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 500);
         };
 
         // Initialize Sidebar State
@@ -4596,6 +4593,7 @@
         let _overlayZBase = 150;
 
         function openOverlayPage(pageId, init) {
+            document.body.classList.add('is-fullscreen');
             const page = document.getElementById(pageId);
             if (!page) return;
 
@@ -4630,6 +4628,7 @@
         }
 
         function closeOverlayPage(pageId, callback) {
+            document.body.classList.remove('is-fullscreen');
             const page = document.getElementById(pageId);
             if (!page || page.classList.contains('hidden')) return;
             page.classList.add('translate-x-full');
@@ -4667,11 +4666,13 @@
                 loader.classList.add('hidden');
             };
 
+            document.body.classList.add('is-fullscreen');
             openOverlayPage('extensionPage');
         };
 
         window.closeExtension = () => {
             closeOverlayPage('extensionPage', () => {
+                document.body.classList.remove('is-fullscreen');
                 document.getElementById('extensionIframe').src = 'about:blank';
                 _currentExtensionUrl = '';
             });
@@ -6672,35 +6673,44 @@
                 color: white;
                 box-shadow: 4px 0 15px rgba(0,122,255,0.3);
                 z-index: 1000;
-                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 cursor: pointer;
             }
 
             #sidebarHandle:hover { width: 38px; }
 
             /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
+            /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
             body.sidebar-collapsed #sidebarTrigger:hover + #sidebarHandle,
             body.sidebar-collapsed #sidebarHandle:hover {
                 left: 0 !important;
             }
 
-            /* 当收起时，滑块在左边缘留一点点暗示 */
+            /* 当收起时，滑块在屏幕最左侧边缘露出一小部分 (指向右) */
             body.sidebar-collapsed #sidebarHandle {
                 left: -28px;
+                transform: translateY(-50%) scaleX(1);
             }
 
-            /* 当展开时，滑块变形成一个细长条，停在侧边栏边缘作为收起按钮 */
+            /* 当展开时，滑块变形成一个灰色的小条，吸附在 NEWS 列表右边缘内部 (指向左) */
             body:not(.sidebar-collapsed) #sidebarHandle {
-                left: 320px; /* 侧边栏宽度 */
-                width: 16px;
+                left: 320px; 
+                width: 16px; 
                 height: 60px;
-                opacity: 0.3;
-                background: #8E8E93;
+                background: #8E8E93; 
+                opacity: 0.4;
+                transform: translateY(-50%) translateX(-100%) scaleX(-1); /* 移入内部并翻转 */
             }
+            
             body:not(.sidebar-collapsed) #sidebarHandle:hover {
                 opacity: 1;
-                background: #007AFF;
-                width: 24px;
+                width: 22px;
+            }
+            
+            /* 当全屏内容打开时，强制隐藏滑块 */
+            body.is-fullscreen #sidebarHandle,
+            body.is-fullscreen #sidebarTrigger {
+                display: none !important;
             }
         }
     </style>
