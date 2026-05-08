@@ -415,45 +415,108 @@
             let s = Math.abs(y1 - y2);
             if(s < 0.005) continue;
             let midY = (y1 + y2) / 2;
-            let px = [], py = [], pz = [];
+            let px = [], py = [], pz = [], pi = [], pj = [], pk = [];
             if (sh === 'square') {
-                px = [x, x, x, x, x]; py = [y1, y1, y2, y2, y1]; pz = [0, s, s, 0, 0];
+                px = [x, x, x, x]; py = [y1, y1, y2, y2]; pz = [0, s, s, 0];
+                pi = [0, 0]; pj = [1, 2]; pk = [2, 3];
             } else if (sh === 'semicircle') {
+                px.push(x); py.push(midY); pz.push(0); // Center point for triangulation
                 for(let j=0; j<=24; j++) {
                     let r = Math.PI * (j/24);
                     px.push(x); py.push(midY + (s/2) * Math.cos(r)); pz.push((s/2) * Math.sin(r));
+                    if (j > 0) {
+                        pi.push(0); pj.push(j); pk.push(j+1);
+                    }
                 }
-                px.push(x); py.push(y1); pz.push(0);
             } else if (sh === 'equilateral') {
-                px = [x, x, x, x]; py = [y1, y2, midY, y1]; pz = [0, 0, s*Math.sqrt(3)/2, 0];
+                px = [x, x, x]; py = [y1, y2, midY]; pz = [0, 0, s*Math.sqrt(3)/2];
+                pi = [0]; pj = [1]; pk = [2];
             } else if (sh === 'iso_right') {
-                px = [x, x, x, x]; py = [y1, y2, y1, y1]; pz = [0, 0, s, 0];
+                px = [x, x, x]; py = [y1, y2, y1]; pz = [0, 0, s];
+                pi = [0]; pj = [1]; pk = [2];
             }
-            traces.push({ type: 'mesh3d', x: px, y: py, z: pz, color: '#F59E0B', opacity: 0.15, showscale: false, hoverinfo: 'none' });
-            traces.push({ type: 'scatter3d', mode: 'lines', x: px, y: py, z: pz, line: {color: sliceLineColor, width: 1.5}, showlegend: false });
+            
+            // The "Solid" face trace
+            traces.push({ 
+                type: 'mesh3d', 
+                x: px, y: py, z: pz, 
+                i: pi, j: pj, k: pk,
+                color: '#F59E0B', 
+                opacity: isLight ? 0.4 : 0.6, // Higher opacity for "solid" look
+                flatshading: true,
+                showscale: false, 
+                hoverinfo: 'none' 
+            });
+
+            // The "Outline" trace for crisp edges
+            traces.push({ 
+                type: 'scatter3d', 
+                mode: 'lines', 
+                x: px.concat(px[0]), 
+                y: py.concat(py[0]), 
+                z: pz.concat(pz[0]), 
+                line: {color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(245, 158, 11, 0.8)', width: 2}, 
+                hoverinfo: 'none',
+                showlegend: false 
+            });
         }
 
         const lx = [], ly1 = [], ly2 = [];
         for(let i=0; i<=100; i++) {
             let x = xA + (xB-xA)*(i/100); lx.push(x); ly1.push(f(x)); ly2.push(g(x));
         }
-        traces.push({ type: 'scatter3d', mode: 'lines', x: lx.concat(lx.slice().reverse()), y: ly1.concat(ly2.slice().reverse()), z: new Array(202).fill(0), line: {color: isLight ? '#000000' : '#FFFFFF', width: 4}, name: 'Base' });
+        traces.push({ 
+            type: 'scatter3d', 
+            mode: 'lines', 
+            x: lx.concat(lx.slice().reverse()), 
+            y: ly1.concat(ly2.slice().reverse()), 
+            z: new Array(202).fill(0), 
+            line: {color: isLight ? '#000000' : '#FFFFFF', width: 4}, 
+            hoverinfo: 'none',
+            name: 'Base' 
+        });
 
         const plotEl = document.getElementById('plot');
         let cam = (plotEl && plotEl.layout && plotEl.layout.scene) ? plotEl.layout.scene.camera : null;
 
         Plotly.react('plot', traces, {
             dragmode: 'turntable', 
+            hovermode: false, 
             paper_bgcolor: isLight ? '#FFFFFF' : '#000000',
             scene: {
                 aspectmode: 'data', 
                 xaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'}, 
                 yaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'}, 
                 zaxis:{gridcolor: isLight?'#DDD':'#111', color: isLight?'#333':'#444'},
-                camera: cam || { eye: { x: 1.5, y: 1.5, z: 1.2 } }
+                camera: cam || { eye: { x: 1.5, y: 1.5, z: 1.2 } },
+                annotations: []
             },
             margin: {l:0,r:0,b:0,t:0}, showlegend: false
         }, {responsive: true});
+
+        plotEl.removeAllListeners('plotly_click');
+        plotEl.on('plotly_click', function(data) {
+            if (!data.points || data.points.length === 0) return;
+            const p = data.points[0];
+            const annotation = {
+                x: p.x, y: p.y, z: p.z,
+                text: `<b>(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})</b>`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowcolor: '#F59E0B',
+                font: { color: '#F59E0B', size: 12 },
+                bgcolor: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(20,20,20,0.9)',
+                bordercolor: '#F59E0B',
+                borderwidth: 1,
+                ax: 0, ay: -50
+            };
+            Plotly.relayout('plot', { 'scene.annotations': [annotation] });
+        });
+
+        plotEl.on('plotly_doubleclick', function() {
+            Plotly.relayout('plot', { 'scene.annotations': [] });
+        });
+
         const vStr = vol.toFixed(5);
         document.getElementById('res').innerText = vStr;
         document.getElementById('float-val').innerText = vStr;
