@@ -1611,28 +1611,28 @@
             const originalHint = hint.innerText;
             btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
-            // Check if mobile (simplified)
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            hint.innerText = isMobile ? "Redirecting to Google..." : "Please check the Google popup window...";
+            hint.innerText = "Please check the Google popup window...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
             try {
-                if (isMobile) {
-                    // Use Redirect for mobile to bypass popup blockers
-                    await signInWithRedirect(auth, googleProvider);
-                } else {
-                    // Use Popup for desktop
-                    await signInWithPopup(auth, googleProvider);
-                }
+                await signInWithPopup(auth, googleProvider);
             }
             catch (error) {
                 console.error("Auth Error:", error);
-                if (error.code !== 'auth/popup-closed-by-user') {
-                    alert("Google Sign-In failed: " + error.message + "\n\nTip: If using local IP (10.0.0.x), ensure it's added to Firebase Authorized Domains.");
+                if (error.code === 'auth/popup-blocked') {
+                    // Fallback to redirect only if popup is blocked
+                    hint.innerText = "Popup blocked. Redirecting...";
+                    await signInWithRedirect(auth, googleProvider);
+                } else if (error.code !== 'auth/popup-closed-by-user') {
+                    alert("Google Sign-In failed: " + error.message);
+                    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                    hint.innerText = originalHint;
+                    hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+                } else {
+                    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                    hint.innerText = originalHint;
+                    hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 }
-                btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-                hint.innerText = originalHint;
-                hint.classList.replace('text-[#007AFF]', 'text-gray-400');
             }
         };
 
