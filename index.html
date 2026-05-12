@@ -3021,6 +3021,7 @@
             }
         };
         const UNREAD_CHATS = new Set();
+        let ORIGINAL_FAVICON = document.querySelector('link[rel="icon"]')?.href || '';
 
         window.updateGlobalUnreadStatus = () => {
             const unreadCount = UNREAD_CHATS.size;
