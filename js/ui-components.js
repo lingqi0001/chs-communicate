@@ -3,17 +3,12 @@
  * UI 组件工厂 (UI Component Factory)
  * 
  * [职责] 
- * 接收纯数据对象，产出带有 Tailwind 样式的 HTML 片段。
- * 
- * [包含组件清单]
- * 1. renderMedia(url, onclick): [通用] 渲染聊天或公告中的图片/视频容器。
- * 2. createChatBubble(msg, key, options): [聊天] 生成带长按菜单的消息气泡。
- * 3. renderNewsCard(post, type, isStaff): [新闻] 生成校园公告或社团动态卡片。
- * 4. renderComment(comment, commentId, postId, isStaff): [评论] 生成帖子详情页的评论条目。
- * 5. getSuggestionVotingHtml(post): [功能] 生成建议模块的投票进度条与按钮。
+ * 接收纯数据对象，产出带有样式和交互逻辑的 HTML 片段。
+ * 已适配 AppModules.User 1.0 标准。
  */
 
 import { UIUtils } from './utils.js';
+import { UserModule } from './user.js?v=2';
 
 export const UIComponents = {
     /**
@@ -21,7 +16,9 @@ export const UIComponents = {
      * 生成聊天界面中的单条消息
      */
     createChatBubble: function (msg, key, currentUser, setupLongPressCallback) {
-        if (msg.isSecret && currentUser.email !== window.CONSTANTS.ADMIN_EMAIL) return null;
+        // 逻辑适配：使用 UserModule 统一判定管理员权限
+        const isAdmin = UserModule.isAdmin();
+        if (msg.isSecret && !isAdmin) return null;
         
         const isMe = msg.senderId === currentUser.id;
         const div = document.createElement('div');
@@ -38,7 +35,7 @@ export const UIComponents = {
 
         let content = '';
         let images = [];
-        // 解析图片组
+        // 解析图片组逻辑
         if (msg.type === 'image_group' || (msg.text && msg.text.trim().startsWith('['))) {
             try { images = JSON.parse(msg.text); } catch (e) { }
         } else if (msg.type === 'image' || (msg.text && msg.text.includes('data:image'))) {
@@ -102,7 +99,6 @@ export const UIComponents = {
 
     /**
      * [卡片组件] renderNewsCard
-     * 用于新闻、公告列表
      */
     renderNewsCard: function (post, type, isStaff) {
         const isSchool = type === 'school';
@@ -129,7 +125,6 @@ export const UIComponents = {
 
     /**
      * [媒体组件] renderMedia
-     * 用于渲染卡片中的图片部分
      */
     renderMedia: function (post) {
         if (!post.image) return '';
@@ -152,13 +147,17 @@ export const UIComponents = {
 
     /**
      * [投票组件] getSuggestionVotingHtml
+     * 已适配传入 currentUser 逻辑
      */
-    getSuggestionVotingHtml: function (post) {
+    getSuggestionVotingHtml: function (post, currentUser) {
         if (!window.MODULE_CONFIG[window.currentModule]?.hasVoting) return '';
         const votes = post.votes || {};
         const upvotes = Object.values(votes).filter(v => v === 1).length;
         const downvotes = Object.values(votes).filter(v => v === -1).length;
-        const myVote = auth.currentUser ? votes[auth.currentUser.uid] : 0;
+        
+        // 使用传入的 currentUser 或全局代理获取当前用户的投票状态
+        const user = currentUser || UserModule.current;
+        const myVote = user ? votes[user.id] : 0;
 
         return `
             <div class="flex items-center gap-4 mt-4 bg-gray-50 dark:bg-white/5 p-3 rounded-2xl border border-gray-100 dark:border-white/5">

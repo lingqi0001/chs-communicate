@@ -345,14 +345,25 @@
         // 导入云消息库：处理移动端 PWA 推送通知
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
-        import { NotifyModule } from './js/notify.js';
-        import { ModalModule } from './js/alert.js';
+        import { NotifyModule } from './js/notify.js?v=2';
+        import { ModalModule } from './js/alert.js?v=2';
+        import { initCloudRefs } from './js/db.js?v=2';
+        import { UserModule } from './js/user.js?v=2';
 
         // 命名空间初始化
         window.AppModules = {
             Notify: NotifyModule,
-            Modal: ModalModule
+            Modal: ModalModule,
+            User: UserModule
         };
+
+        // 核心状态代理 (Core State Proxy)
+        // 保证全局变量 currentUser 始终同步 AppModules.User.current
+        Object.defineProperty(window, 'currentUser', {
+            get: () => AppModules.User.current,
+            set: (val) => { AppModules.User.current = val; },
+            configurable: true
+        });
 
         // 兼容性桥接 (Bridge)
         window.showCustomAlert = (...args) => AppModules.Modal.alert(...args);
@@ -368,7 +379,7 @@
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
         import { UIUtils, DateUtils } from './js/utils.js';
         import { UIComponents } from './js/ui-components.js';
-        import { UserModule } from './js/user.js';
+
         import { localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
 
 
@@ -395,6 +406,9 @@
         const auth = getAuth(app);
         window.firebaseAuth = auth;
         window.firebaseOnAuth = onAuthStateChanged;
+
+        // 初始化外部模块的云端引用
+        initCloudRefs({ db, auth, storage });
 
         /**
          * [回调函数] 处理第三方登录重定向结果
@@ -478,14 +492,13 @@
 
         // 桥接 UserModule：确保原有的 isAppStaff() 等调用依然有效，但逻辑已迁移至外部。
         window.UserModule = UserModule;
-        window.isAppAdmin = () => UserModule.isAdmin(auth.currentUser?.email);
-        window.isAppTeacher = () => UserModule.isTeacher(auth.currentUser?.email);
-        window.isAppStaff = () => UserModule.isStaff(auth.currentUser?.email);
-        window.fetchUser = (id) => UserModule.fetchUser(id, db, ALL_USERS);
+        window.isAppAdmin = () => AppModules.User.isAdmin();
+        window.isAppTeacher = () => AppModules.User.isTeacher();
+        window.isAppStaff = () => AppModules.User.isTeacher() || AppModules.User.isAdmin();
+        window.fetchUser = (id) => AppModules.User.fetchUser(id, ALL_USERS);
 
         // 应用运行时状态管理
         let ALL_USERS = { ...SYSTEM_USERS };
-        let currentUser = null;
         let DONATIONS = {};
         let activeTargetId = null;
         let stopCurrentChatListener = null;
@@ -964,12 +977,11 @@
         async function setupUser(user) {
             console.log('App: Entering setupUser for', user.email);
             /**
-             * [账户清洗与资料比对]
-             * 调用 UserModule 进行统一的角色分配和数据库同步。
+             * [逻辑搬迁] 
+             * 现在全部身份初始化和数据库同步都由 User 模块内部处理
              */
-            currentUser = await UserModule.syncProfile(user, db);
-            window.currentUser = currentUser;
-            ALL_USERS[currentUser.id] = currentUser;
+            const profile = await AppModules.User.init(user);
+            ALL_USERS[profile.id] = profile;
 
             /**
              * [用户心跳 (Heartbeat)] 

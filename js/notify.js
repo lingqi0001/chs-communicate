@@ -1,19 +1,20 @@
 /**
- * CHS Communicate - Notification Module
- * Handles PWA Push Notifications (FCM), Unread Status, Favicon Badges, and Notification Sounds.
+ * js/notify.js
+ * 通知系统 1.0 (Notification Module)
+ * [职责] 处理 PWA 推送 (FCM)、未读消息红点、Favicon 徽章及提示音。
+ * [依赖] 仅依赖 db.js?v=2 导出的标准接口，不直接操作数据库 SDK。
  */
 
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
-import { ref, update, onChildAdded, query, orderByKey, limitToLast, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { CloudDB, PATHS } from './db.js?v=2';
 
 export const NotifyModule = {
     unreadSet: new Set(),
-    engine: null, // Firebase Messaging instance
-    audio: null,  // Notification sound object
+    engine: null, // Firebase Messaging 实例
+    audio: null,  // 提示音对象
     originalFavicon: document.querySelector('link[rel="icon"]')?.href || '',
-    db: null,     // Firebase Database instance
     
-    // Internal state passed during init
+    // 应用上下文（由 init 注入）
     context: {
         currentUser: null,
         allUsers: null,
@@ -23,30 +24,29 @@ export const NotifyModule = {
     },
 
     /**
-     * Initialize the notification system
-     * @param {Object} deps - Dependencies: { db, currentUser, allUsers, settings, globalListeners }
+     * [初始化]
+     * @param {Object} deps - 业务依赖: { currentUser, allUsers, settings, globalListeners }
      */
     init: function(deps) {
-        this.db = deps.db;
         this.context.currentUser = deps.currentUser;
         this.context.allUsers = deps.allUsers;
         this.context.settings = deps.settings;
         this.context.globalListeners = deps.globalListeners;
         this.context.appStartTime = deps.appStartTime || Date.now();
 
-        // Initialize Audio
+        // 初始化提示音
         if (this.context.settings?.soundUrl) {
             this.audio = new Audio(this.context.settings.soundUrl);
         }
 
-        // Initialize Messaging if engine is provided
+        // 如果 Messaging 引擎已就绪，则启动监听
         if (this.engine) {
             this.setupListeners();
         }
     },
 
     /**
-     * Update UI elements (Main Unread Dot and Page Title)
+     * [UI 更新] 更新主红点及页面标题未读数
      */
     updateUI: function() {
         const unreadCount = this.unreadSet.size;
@@ -63,7 +63,7 @@ export const NotifyModule = {
     },
 
     /**
-     * Draw a blue dot badge on the favicon
+     * [Favicon 徽章] 在浏览器图标上绘制蓝点
      */
     updateFavicon: function(hasUnread) {
         const favicon = document.querySelector('link[rel="icon"]');
@@ -84,7 +84,7 @@ export const NotifyModule = {
             ctx.clearRect(0, 0, 64, 64);
             ctx.drawImage(img, 0, 0, 64, 64);
             
-            // Draw Blue Dot in bottom right
+            // 绘制右下角蓝色圆点
             ctx.beginPath();
             ctx.arc(50, 50, 12, 0, 2 * Math.PI);
             ctx.fillStyle = '#007AFF';
@@ -101,7 +101,7 @@ export const NotifyModule = {
     },
 
     /**
-     * Request Browser Notification Permission and Register FCM Token
+     * [权限申请] 申请通知权限并注册 FCM Token
      */
     requestPermission: async function() {
         try {
@@ -115,7 +115,8 @@ export const NotifyModule = {
                 });
 
                 if (token && this.context.currentUser) {
-                    await update(ref(this.db, `user_private/${this.context.currentUser.id}`), { fcmToken: token });
+                    // 使用 CloudDB 标准接口
+                    await CloudDB.update(PATHS.userPrivate(this.context.currentUser.uid || this.context.currentUser.id), { fcmToken: token });
                     console.log('NotifyModule: FCM Token registered.');
                 }
             }
@@ -125,7 +126,7 @@ export const NotifyModule = {
     },
 
     /**
-     * Setup Foreground Messaging Listeners
+     * [监听器] 前台消息监听
      */
     setupListeners: function() {
         if (!this.engine) return;
@@ -142,58 +143,51 @@ export const NotifyModule = {
     },
 
     /**
-     * Monitor all chats for new incoming messages while App is running
+     * [监控器] 全量监听聊天室消息变化
      */
     initMonitor: function() {
-        if (!this.db || !this.context.currentUser) return;
-        
         const { currentUser, allUsers, globalListeners, appStartTime, settings } = this.context;
+        if (!currentUser) return;
 
         Object.keys(allUsers).forEach(targetId => {
             if (targetId === currentUser.id || globalListeners.has(targetId)) return;
             
-            // Helper for Chat ID
-            const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
-            const chatId = getChatId(currentUser.id, targetId);
+            const chatId = [currentUser.id.toLowerCase(), targetId.toLowerCase()].sort().join('_');
             
-            const q = query(ref(this.db, `messages/${chatId}`), orderByKey(), limitToLast(1));
-            
-            onChildAdded(q, (snap) => {
-                const msg = snap.val();
-                // activeTargetId check - accessing via window for now to ensure reactive updates
-                const activeId = window.activeTargetId; 
+            // 使用 CloudDB 的原生引用接口进行监听
+            import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js").then(sdk => {
+                const q = sdk.query(sdk.ref(CloudDB._db(), PATHS.messages(chatId)), sdk.orderByKey(), sdk.limitToLast(1));
+                
+                sdk.onChildAdded(q, (snap) => {
+                    const msg = snap.val();
+                    const activeId = window.activeTargetId; 
 
-                if (msg && msg.senderId !== currentUser.id && msg.timestamp > appStartTime) {
-                    if (!document.hidden && activeId === targetId) {
-                        // Mark as read immediately on server
-                        update(ref(this.db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
-                    } else {
-                        // Play sound
-                        if (settings?.soundEnabled && this.audio) {
-                            this.audio.play().catch(() => { });
+                    if (msg && msg.senderId !== currentUser.id && msg.timestamp > appStartTime) {
+                        if (!document.hidden && activeId === targetId) {
+                            // 若当前正在该聊天室，直接标记为已读
+                            CloudDB.update(`${PATHS.chats}/${currentUser.id}`, { [targetId]: CloudDB.serverTime() });
+                        } else {
+                            // 否则触发通知逻辑
+                            if (settings?.soundEnabled && this.audio) {
+                                this.audio.play().catch(() => { });
+                            }
+                            this.unreadSet.add(targetId);
+                            const dot = document.getElementById(`dot-${targetId}`);
+                            if (dot) dot.classList.remove('hidden');
+                            this.updateUI();
+                            
+                            // 更新最后活动时间
+                            CloudDB.update(`${PATHS.chats}/${currentUser.id}`, { [targetId]: CloudDB.serverTime() });
                         }
-                        
-                        // Add to unread set
-                        this.unreadSet.add(targetId);
-                        
-                        // Show dot in UI
-                        const dot = document.getElementById(`dot-${targetId}`);
-                        if (dot) dot.classList.remove('hidden');
-                        
-                        this.updateUI();
-
-                        // Move to top in sidebar list
-                        update(ref(this.db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
                     }
-                }
+                });
             });
             globalListeners.add(targetId);
         });
     },
 
     /**
-     * Mark a specific chat as read and update UI
-     * @param {string} targetId 
+     * [标记已读] 清除特定聊天室的未读状态
      */
     markAsRead: function(targetId) {
         if (this.unreadSet.has(targetId)) {
