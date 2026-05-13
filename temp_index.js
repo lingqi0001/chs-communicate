@@ -1,339 +1,12 @@
-<!DOCTYPE html>
-<html lang="en" class="">
 
-<head>
-    <!-- 
-      第一部分：文档元数据 (Document Metadata)
-      - Viewport: 针对移动端和 iOS 进行优化，使用 viewport-fit=cover 适配刘海屏。
-      - Title: 动态标题，后续会通过 JS 更新未读消息数。
-      - Icons: 包含 Favicon 和 Apple Touch Icon，使用内联 SVG 提升加载性能。
-      - Tailwind: 配置 darkMode 为 'class'，支持手动切换深浅色模式。
-    -->
-    <!-- 网页编码格式：强制使用 UTF-8，确保中文（如评论、公告）在任何环境下都不会乱码 -->
-    <meta charset="UTF-8">
-    <!-- 
-      移动端极致视口配置：
-      - width=device-width: 宽度等于设备物理宽度。
-      - initial-scale=1.0: 初始不缩放。
-      - maximum-scale=1.0, user-scalable=no: 禁止用户手动双指缩放，保证应用像原生 App 一样稳定，不会因为误触导致页面乱飘。
-      - viewport-fit=cover: 这是针对 iPhone X 及后续刘海屏机型的核心配置，确保背景色能延伸到屏幕顶部的状态栏和底部的操作条区域。
-    -->
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <!-- 网页在浏览器标签页显示的标题 -->
-    <title>CHS Chat & Social</title>
-    <!-- 网页图标 (Favicon)：使用内联 SVG 保证加载速度 -->
-    <link rel="icon" type="image/svg+xml"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpolygon fill='white' points='12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1'/%3E%3Cpath fill='%23ED2129' d='M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z'/%3E%3C/svg%3E">
-    <!-- iOS 桌面快捷方式图标 -->
-    <link rel="apple-touch-icon"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='%23ED2129'/%3E%3Cpolygon fill='white' points='12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1'/%3E%3Cpath fill='%23ED2129' d='M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z'/%3E%3C/svg%3E">
-    <!-- PWA 配置：支持离线运行和安装到桌面 -->
-    <link rel="manifest" href="manifest.json">
-    <!-- 移动端顶部状态栏颜色 (Android/Chrome) -->
-    <meta name="theme-color" content="#007AFF">
-    <!-- 引入 Tailwind CSS：原子化样式库 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
+
         // 配置 Tailwind 支持基于 'class' 的深色模式切换
         tailwind.config = { darkMode: 'class' }
-    </script>
-    <style>
-        /* 
-          第二部分：全局样式与 CSS 变量覆盖 (Global Styles & Overrides)
-          - 核心布局修正
-          - 自定义美化组件（滚动条、动画类）
-        */
-        html,
-        body {
-            /* 强制禁止水平方向滚动：这是 Web 开发的铁律，防止因为 1px 的布局误差导致页面左右晃动 */
-            overflow-x: hidden;
-            /* 宽度始终撑满屏幕 */
-            width: 100%;
-            /* 
-               iOS 核心流畅度优化：启用原生弹性滚动效果。
-               当用户滑动到页面顶部或底部时，会有苹果标志性的“橡皮筋”回弹感。
-            */
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* 打印优化样式：当用户尝试打印网页时触发 */
-        @media print {
-            body {
-                background: white !important;
-            }
-
-            /* 隐藏除功能模块以外的所有装饰性元素 */
-            body>*:not(#extensionPage) {
-                display: none !important;
-            }
-
-            /* 强制功能页面全屏显示以供打印 */
-            #extensionPage {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                transform: none !important;
-                display: flex !important;
-                z-index: 9999 !important;
-                background: white !important;
-            }
-
-            /* 隐藏打印页面的操作按钮（返回/刷新） */
-            #extensionPage>div:first-child {
-                display: none !important;
-            }
-
-            /* 容器撑满打印纸张 */
-            #extensionPage>div:last-child {
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-            }
-
-            #extensionIframe {
-                width: 100% !important;
-                height: 100% !important;
-                border: none !important;
-            }
-
-            /* 确保背景层在打印时消失 */
-            .fixed,
-            .absolute {
-                visibility: hidden;
-            }
-
-            #extensionPage,
-            #extensionPage * {
-                visibility: visible;
-            }
-        }
-
-        /* 聊天主容器布局补丁：确保气泡不会撑开宽度导致出现横向滚动条 */
-        #chatBox {
-            overflow-x: hidden !important;
-        }
+    
 
         /* 
-           全站自定义滚动条设计 (Webkit 专用)：
-           - 放弃浏览器默认那种粗笨的灰色滚动条。
-           - 宽度设为 6px，既能让鼠标点到，又不会破坏界面的极简感。
-        */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        /* 滚动条背景（轨道）：完全透明，让它“隐身”在背景里 */
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        /* 
-           滚动条滑块 (Thumb)：
-           - 使用 10% 透明度的黑色/白色，模拟出一种半透明玻璃的效果。
-           - 只有当用户滚动时，才能隐约看到它。
-        */
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-        }
-
-        /* 适配深色模式：白色半透明滑块 */
-        .dark ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* 针对特定侧边栏和容器的超细滚动条 (4px) */
-        #sidebarSubList::-webkit-scrollbar,
-        #sidebarList::-webkit-scrollbar,
-        #chatBox::-webkit-scrollbar,
-        .overflow-y-auto::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #sidebarSubList::-webkit-scrollbar-track,
-        .overflow-y-auto::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        /* 默认状态下的滑块 */
-        #sidebarSubList::-webkit-scrollbar-thumb,
-        .overflow-y-auto::-webkit-scrollbar-thumb {
-            background: rgba(120, 120, 120, 0.1);
-            border-radius: 10px;
-        }
-
-        /* 悬停时的滑块：加深颜色提醒用户可拖动 */
-        #sidebarSubList::-webkit-scrollbar-thumb:hover,
-        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-            background: rgba(120, 120, 120, 0.4);
-        }
-
-        /* 深色模式滑块配置 */
-        .dark #sidebarSubList::-webkit-scrollbar-thumb,
-        .dark .overflow-y-auto::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .dark #sidebarSubList::-webkit-scrollbar-thumb:hover,
-        .dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* 
-           视觉补丁：为了让侧边栏看起来更高级，我们将分割线向右延伸 4px，
-           这样滚动条滑动时会覆盖在内容边缘，而不是把内容往左挤，营造一种悬浮感。
-        */
-        #sidebarSubList>div,
-        #sidebarSubList>button {
-            margin-right: -4px !important;
-            padding-right: 4px !important;
-        }
-
-        #sidebarSubList {
-            overflow-x: hidden !important;
-        }
-
-        /* 滚动条角落处的空白区域设为透明 */
-        ::-webkit-scrollbar-corner {
-            background: transparent;
-        }
-
-        /* --- 第三部分：全局核心动画定义 (Core Animation System) --- */
-
-        /* 淡入动画：用于公告和弹窗显示 */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        /* 从底部向上滑入并淡入：增加动态韵律感 */
-        @keyframes slideInFromBottom {
-            from {
-                transform: translateY(8px);
-            }
-
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        /* 动画基础类：500ms 持续时间，贝塞尔曲线平滑过渡 */
-        .animate-in {
-            animation-duration: 500ms;
-            animation-fill-mode: both;
-            animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .fade-in {
-            animation-name: fadeIn;
-        }
-
-        .slide-in-from-bottom-2 {
-            animation-name: slideInFromBottom;
-        }
-
-        .duration-500 {
-            animation-duration: 500ms;
-        }
-
-        /* 
-           苹果风格的 UI 动效类：
-           - Push: 模拟点击进入下一级页面的平移感。
-           - Pop: 模拟返回上一级页面的回弹感。
-        */
-        @keyframes applePush {
-            from {
-                transform: translateX(15px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* 苹果风格的左侧弹出动画：用于返回上一页 */
-        @keyframes applePop {
-            from {
-                transform: translateX(-15px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* 侧边栏推入效果：0.3秒完成 */
-        .sidebar-push {
-            animation: sidebarPush 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-        }
-
-        .sidebar-pop {
-            animation: sidebarPop 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-        }
-
-        /* 侧边栏平移关键帧 */
-        @keyframes sidebarPush {
-            from {
-                transform: translateX(20px);
-                opacity: 0.4;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes sidebarPop {
-            from {
-                transform: translateX(-15px);
-                opacity: 0.4;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* 标签页弹出效果：先缩小后回弹 (Spring Effect) */
-        @keyframes tabPop {
-            0% {
-                transform: scale(0.96);
-                opacity: 0;
-            }
-
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
-        .tab-pop-animation {
-            animation: tabPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-    </style>
-    <script type="module">
-        /* 
-          第四部分：核心引擎初始化 (Core Engine Initialization)
-          - 负责与 Google Firebase 后台建立实时连接。
-          - 导入身份验证 (Auth)、数据库 (DB)、存储 (Storage) 和消息推送 (Messaging) 模块。
+          SECTION 4: CORE ENGINE INITIALIZATION
+          - Firebase 核心引擎与各大功能库导入
         */
         // 导入 Firebase 应用主程序
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -440,30 +113,28 @@
         }
 
         /* 
-          第五部分：全局工具函数与常量定义 (Global Utilities & Constants)
-          - 这里存储了全应用共用的配置项（如机器人 ID、管理员邮箱）。
-          - UIUtils 提供了一些轻量级的界面处理逻辑（如时间格式化、XSS 防护）。
+          SECTION 5: GLOBAL UTILITIES & CONSTANTS
+          - 全局静态常量与 UI 工具箱
         */
-        // 全局静态常量池：集中管理应用中的硬编码字符串，方便一处修改全站同步。
         window.CONSTANTS = {
-            // 寿司默认头像的 SVG：为什么用 SVG？因为它不需要网络请求，且在任何分辨率下都保持绝对清晰。
+            // 寿司默认头像的 SVG 数据，保证加载即显，无白屏
             SUSHI_AVATAR: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='%23FFF' d='M20 60c0-10 10-20 30-20s30 10 30 20-10 20-30 20-30-10-30-20z'/%3E%3Cpath fill='%23FF7F50' d='M15 55c0-15 20-30 35-30s35 15 35 30c0 5-10 10-35 10S15 60 15 55z'/%3E%3Cpath fill='none' stroke='%23FFF' stroke-width='1.5' d='M30 35c10 5 30 5 40 0M25 45c10 5 35 5 45 0M20 55c10 5 40 5 50 0'/%3E%3Cpath fill='%23333' d='M45 25c2 2 8 2 10 0l-2-3-6 1z'/%3E%3C/svg%3E`,
-            SAFETY_BOT_ID: 'safety_bot', // 安全卫士：负责规则提醒和冲突处理
-            ADVICE_BOT_ID: 'advice_bot', // 建议助手：负责收集用户反馈和功能引导
-            ADMIN_EMAIL: 'moss104088@gmail.com' // 应用终极管理员邮箱，拥有最高权限（如进入数据库控制台）
+            SAFETY_BOT_ID: 'safety_bot', // 安全机器人唯一 ID
+            ADVICE_BOT_ID: 'advice_bot', // 建议机器人唯一 ID
+            ADMIN_EMAIL: 'moss104088@gmail.com' // 管理员控制邮箱
         };
 
-        // UI 增强工具箱：封装常用的 UI 处理逻辑
+        // UIUtils 工具对象：全站共用的逻辑提取
         window.UIUtils = {
             /**
-             * [高级时间算法]：将原始毫秒时间戳转换为人性化的模糊时间。
-             * 这种设计比具体的日期更能让用户感受到聊天的“即时性”。
+             * [函数] 将时间戳转换为“几分钟前”风格
+             * @param {number} timestamp 原始时间戳
              */
             formatTime: function (timestamp) {
                 if (!timestamp) return "";
                 const date = new Date(timestamp);
                 const now = new Date();
-                const diff = (now - date) / 1000; // 换算为秒
+                const diff = (now - date) / 1000; // 计算秒数差值
 
                 if (diff < 60) return "Just now"; // 1分钟内
                 if (diff < 3600) return Math.floor(diff / 60) + "m ago"; // 1小时内
@@ -515,8 +186,10 @@
 
 
         // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
+        let SYSTEM_OPENAI_KEY = '';
         window.isPhotoDisabled = false;
         window.isSidebarAnimating = false;
+        const MODERATION_THRESHOLD = 0.5;
         let currentNewsTab = 'school';
         const cnCache = {};
         const ctCache = {}; // Cache for class teacher names
@@ -535,18 +208,9 @@
         </svg>`;
 
         /* 
-          第六部分：模块配置中心 (Module Configuration)
-          - 所有的子应用（失物招领、二手交易、等）都在这里统一定义。
-          - 定义了每个模块是否支持匿名发布、是否开启评论区以及按钮的文案。
-          - 这种“配置驱动”的设计使得添加新功能模块只需要在这里写几行代码即可。
-        */
-        /* 
-          社交模块元数据 (Module Metadata)：
-          - 这是一个非常核心的设计：我们将每个功能的业务规则抽离出来。
-          - title: 显示在界面上的名字。
-          - postBtn: 发布按钮的文案（如果是 null 则表示禁止用户直接发布，如 Eagle Time）。
-          - hasComments: 该模块是否需要开启评论功能。
-          - anonymous: 是否允许匿名发布（保护用户隐私）。
+          SECTION 6: MODULE CONFIGURATION
+          - Defines the behavior (comments, anonymity, labels) for all social sub-apps.
+          - Maps logical modules to their physical DOM container IDs.
         */
         const MODULE_CONFIG = {
             lost_and_found: { title: 'Lost and Found', postBtn: 'Report', hasComments: false, anonymous: false },
@@ -559,7 +223,6 @@
             independent_research: { title: 'Independent Research', postBtn: null, hasComments: false, anonymous: false }
         };
 
-        // 叠加层页面 ID 列表：用于在页面切换时统一关闭所有已打开的子页面弹窗
         const OVERLAY_PAGE_IDS = [
             'lostFoundPage', 'marketplacePage', 'tutoringPage', 'suggestionsPage', 'infoPage',
             'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage', 'adminConsolePage', 'extensionPage'
@@ -586,14 +249,13 @@
         let currentPostBase64 = null;
 
         /* 
-          第七部分：本地离线缓存引擎 (IndexedDB Storage)
-          - 离线优先 (Offline-First)：系统会优先从浏览器本地数据库读取数据，从而实现“秒开”体验。
-          - 自动同步：后台会自动将 Firebase 的最新数据刷入 IndexedDB，解决网络抖动带来的卡顿问题。
+          SECTION 7: LOCAL CACHING ENGINE (IndexedDB)
+          - Offline-First: Stores messages, news, and posts locally for instant loads.
+          - Synchronization: Prevents network lag from affecting user experience.
         */
         let localDB;
         function initLocalDB() {
             return new Promise((resolve) => {
-                // 设置 10 秒超时保护：如果浏览器数据库启动太慢，系统会自动切换到“无缓存模式”，保证程序不卡死
                 const timeout = setTimeout(() => {
                     console.warn("DB Ready timeout (10s) - Falling back to no-cache mode");
                     resolve(null);
@@ -605,29 +267,16 @@
                     clearTimeout(timeout);
                     resolve(null);
                 };
-                // IndexedDB 数据库骨架定义 (Schema Definition)
                 dbReq.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    /* 
-                       1. 聊天消息库：
-                       - chatId 索引：这是为了在用户点击某个人的头像时，能瞬间从数万条消息中只捞出他们俩的对话。
-                    */
                     if (!db.objectStoreNames.contains("messages")) {
                         const store = db.createObjectStore("messages", { keyPath: "compositeId" });
                         store.createIndex("chatId", "chatId", { unique: false });
                     }
-                    /* 
-                       2. 功能模块内容库：
-                       - moduleName 索引：用于区分市场、互助等不同的信息流。
-                    */
                     if (!db.objectStoreNames.contains("modules")) {
                         const store = db.createObjectStore("modules", { keyPath: "compositeId" });
                         store.createIndex("moduleName", "moduleName", { unique: false });
                     }
-                    /* 
-                       3. 校园公告/新闻库：
-                       - tabType 索引：区分“校园公告”和“社团动态”。
-                    */
                     if (!db.objectStoreNames.contains("news")) {
                         const store = db.createObjectStore("news", { keyPath: "compositeId" });
                         store.createIndex("tabType", "tabType", { unique: false });
@@ -652,51 +301,15 @@
         }
         let dbReady = initLocalDB();
 
-        /**
-         * [核心底层：本地消息持久化] saveMessageLocal
-         * 为什么这个函数如此重要？
-         * 它是解决聊天卡顿的关键。我们不从网络拉取历史记录，而是从本地 IndexedDB 读取。
-         * 
-         * 逻辑重复点解释：
-         * 虽然这段代码和 saveModulePostLocal 极其相似，但这种重复是为了实现“零依赖隔离”。
-         * 即使消息数据库格式变了，也不会影响到新闻或社交模块的稳定性。
-         */
         async function saveMessageLocal(chatId, key, msg) {
-            /**
-             * 1. 状态锁检查 (State Lock)：
-             * IndexedDB 是异步启动的。如果此时 localDB 还没初始化完成，
-             * await dbReady 会让代码在这里“静止”，直到连接成功。
-             * 这是防止在数据库还没开好就强行写入导致崩溃的第一道防线。
-             */
             if (!localDB) await dbReady;
-            if (!localDB) return; 
-
+            if (!localDB) return;
             try {
-                /**
-                 * 2. 独占事务 (Read-Write Transaction)：
-                 * "readwrite" 告诉浏览器：我要改数据了，请帮我锁住这个存储桶。
-                 * 这样可以防止两个函数同时写同一条数据导致的数据损坏。
-                 */
                 const tx = localDB.transaction("messages", "readwrite");
-                
-                // 3. 访问特定的存储表 "messages"
                 const store = tx.objectStore("messages");
-                
-                /**
-                 * 4. 复合主键黑科技 (Composite ID Strategy)：
-                 * 为什么要存成 `${chatId}_${key}`？
-                 * 在分布式数据库（Firebase）里，消息 Key 只有在同一路径下唯一。
-                 * 如果你同时和 A 和 B 聊天，极小概率会出现重复的 Key。
-                 * 组合 chatId 后，我们创造了一个物理层面的全局唯一索引，确保消息永远不会存错位。
-                 */
                 store.put({ compositeId: `${chatId}_${key}`, chatId, key, ...msg });
             } catch (e) {
                 console.warn("DB Save failed (Message):", e);
-                /**
-                 * 5. 故障自愈逻辑 (Self-Healing)：
-                 * InvalidStateError 通常发生在浏览器为了省电关闭了数据库连接。
-                 * 我们不报错，而是通过 localDB = null 触发下一次调用时的自动重连。
-                 */
                 if (e.name === 'InvalidStateError') {
                     localDB = null;
                     dbReady = initLocalDB();
@@ -704,11 +317,6 @@
             }
         }
 
-        /**
-         * [异步函数] 从本地获取历史聊天记录
-         * @param {string} chatId 会话 ID
-         * @returns {Promise<Array>} 排序后的消息数组
-         */
         async function getLocalMessages(chatId) {
             if (!localDB) await dbReady;
             return new Promise((resolve) => {
@@ -734,25 +342,15 @@
             });
         }
 
-        /**
-         * [深度解析] 将模块动态（如二手交易、失物招领）存入本地 (saveModulePostLocal)
-         */
         async function saveModulePostLocal(moduleName, key, post) {
-            // 同样的第一道防线：确保数据库准备好
             if (!localDB) await dbReady;
             if (!localDB) return;
-
             try {
-                // 开启事务，专门访问 "modules" 表
                 const tx = localDB.transaction("modules", "readwrite");
                 const store = tx.objectStore("modules");
-                
-                // 构造复合主键：moduleName + postKey。
-                // 这样当你切换“互助”和“市场”模块时，数据不会互相覆盖。
                 store.put({ compositeId: `${moduleName}_${key}`, moduleName, key, ...post });
             } catch (e) {
                 console.warn("DB Save failed (Module Post):", e);
-                // 同样的错误恢复：如果连接断开，自动重启数据库连接
                 if (e.name === 'InvalidStateError') {
                     localDB = null;
                     dbReady = initLocalDB();
@@ -760,25 +358,15 @@
             }
         }
 
-        /**
-         * [深度解析] 将校园新闻条目存入本地 (saveNewsItemLocal)
-         */
         async function saveNewsItemLocal(tabType, key, item) {
-            // 确保数据库连接有效
             if (!localDB) await dbReady;
             if (!localDB) return;
-
             try {
-                // 开启针对 "news" 表的写操作
                 const tx = localDB.transaction("news", "readwrite");
                 const store = tx.objectStore("news");
-                
-                // 这里的 tabType 分为 'school' 和 'club'。
-                // 存入后，我们可以通过 tabType 索引快速渲染对应的频道内容。
                 store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...item });
             } catch (e) {
                 console.warn("DB Save failed (News Item):", e);
-                // 处理数据库失效，重连逻辑
                 if (e.name === 'InvalidStateError') {
                     localDB = null;
                     dbReady = initLocalDB();
@@ -850,17 +438,9 @@
             });
         }
 
-        /**
-         * [核心逻辑] 全局数据同步引擎 (Background Sync)
-         * 该函数负责：
-         * 1. 显示同步进度提示。
-         * 2. 对比本地与云端数据，找出缺失的条目并补全。
-         * 3. 挂载实时监听器，确保应用运行期间能收到秒级的更新通知。
-         */
         async function globalDataSync() {
             console.log('App: Starting background globalDataSync...');
             const syncHint = document.getElementById('newsSyncHint');
-            // 显示“同步中...”的小灯，提升用户体验
             if (syncHint) syncHint.classList.add('opacity-100');
 
             const newsTabs = ['school', 'club'];
@@ -870,33 +450,28 @@
                     const remoteData = remoteSnap.val() || {};
                     const remoteKeys = Object.keys(remoteData);
 
-                    // 1. 先读取本地已有内容，确定同步的“断点”
+                    // 1. Get current local state first
                     const localItems = await getLocalNews(tab);
                     const localKeys = localItems.map(it => it.key);
 
-                    // 2. 批量将云端数据刷入本地，保证本地缓存与云端强一致
+                    // 2. Batch save to LocalDB in a single transaction
                     if (localDB) {
                         const tx = localDB.transaction("news", "readwrite");
                         const store = tx.objectStore("news");
                         for (const key of remoteKeys) {
                             store.put({ compositeId: `${tab}_${key}`, tabType: tab, key, ...remoteData[key] });
                         }
-                        // 如果某条新闻在云端被管理员删了，本地也要同步删除，防止出现“僵尸消息”
+                        // Cleanup local items not in remote
                         for (const k of localKeys) {
                             if (!remoteKeys.includes(k)) store.delete(`${tab}_${k}`);
                         }
                     }
 
-                    // 立即渲染一次本地内容，给用户“极速秒开”的错觉
+                    // Immediate UI Refresh
                     const finalLocal = await getLocalNews(tab);
                     renderNewsContentFromData(finalLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
 
-                    /**
-                     * 3. 增量实时监听 (Incremental Real-time Sync)：
-                     * 核心算法：利用 Firebase 的 query + startAfter。
-                     * 我们只监听比本地最新一条消息“还要新”的内容，这样可以极大地减少监听范围，
-                     * 避免每次有新消息都重新拉取全量列表，极其省电省流量。
-                     */
+                    // Future Listener
                     const lastKey = remoteKeys.sort().pop();
                     const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), orderByKey(), limitToLast(1));
                     onChildAdded(q, async (snap) => {
@@ -913,8 +488,7 @@
             }
             console.log('App: News sync complete.');
 
-            // 第二步：同步社交功能模块 (Modules Sync)
-            // 包含二手交易、建议反馈等，逻辑与新闻同步类似。
+            // 2. Sync Modules (Restored and Hardened)
             const moduleNames = Object.keys(MODULE_CONFIG);
             for (const name of moduleNames) {
                 try {
@@ -942,24 +516,14 @@
             isSyncDone = true;
         }
 
-        /**
-         * [异步函数] 扩展功能同步引擎 (Extension Sync Engine)
-         * 逻辑：
-         * 1. 尝试从本地 `/extensions/` 目录扫描（开发环境）。
-         * 2. 如果本地扫描不到，则回退到通过 GitHub API 动态抓取仓库中的 HTML 文件（生产环境）。
-         * 这样即使不发版，只要在 GitHub 对应的文件夹下扔一个 HTML，应用里就会自动出现新工具。
-         */
         window.syncExtensions = async function () {
             const container = document.getElementById('dynamicExtensionsList');
             if (!container) return;
-            container.innerHTML = ''; // 清除加载中的进度条
+            container.innerHTML = ''; // Clear spinner
 
             const categoryMap = { 'school': 'Learning Tools', 'staff': 'Staff Tools' };
 
-            /**
-             * [辅助函数] 尝试从本地目录扫描文件列表
-             * 这种方式仅在本地开发服务器（如 VS Code Live Server）环境下生效。
-             */
+            // Helper to sync from a specific folder (Local Dev Mode)
             const syncFolderLocal = async (folder) => {
                 try {
                     const resp = await fetch(`/extensions/${folder}/`);
@@ -979,116 +543,76 @@
                 return false;
             };
 
-            /**
-             * [黑科技]：通过 GitHub API 动态发现扩展。
-             * 为什么这么做？因为我们的应用部署在静态服务器上，没有后台扫描文件系统。
-             * 通过调用 GitHub 的 API，我们可以知道 extensions 目录下有哪些子文件夹和 HTML，
-             * 从而实现无需重新打包应用，直接在线热更新功能。
-             */
+            // Helper to sync via GitHub API
             const syncViaGitHub = async () => {
                 try {
-                    // 调用 GitHub 仓库内容 API
                     const ghResp = await fetch('https://api.github.com/repos/lingqi0001/chs-communicate/contents/extensions');
                     if (ghResp.ok) {
                         const items = await ghResp.json();
                         for (const item of items) {
                             if (item.type === 'dir') {
-                                // 如果是文件夹，则深入扫描其中的 .html 文件
                                 const subResp = await fetch(item.url);
                                 if (subResp.ok) {
                                     const files = await subResp.json();
-                                    /**
-                                     * [过滤与映射] 
-                                     * 1. 只提取以 .html 结尾的文件，防止把 README 或图片当成插件。
-                                     * 2. map 构建一个包含文件名和 URL 的标准对象，统一后续渲染接口。
-                                     */
                                     const htmlFiles = files.filter(f => f.name.endsWith('.html'))
                                         .map(f => ({ name: f.name, url: f.path }));
-                                    
                                     if (htmlFiles.length > 0) {
-                                        // 调用渲染引擎，在 UI 中生成插件入口卡片
                                         renderExtensionsCategory(categoryMap[item.name] || item.name, htmlFiles);
                                     }
                                 }
                             }
                         }
-                        return true; // 标志位：抓取成功
+                        return true;
                     }
-                } catch (e) {
-                    console.error("GitHub Extension Fetch Failed:", e);
-                }
-                return false; // 标志位：网络错误或仓库权限问题导致失败
+                } catch (e) { }
+                return false;
             };
 
-            /**
-             * [加载策略决策]
-             * 逻辑：
-             * 1. 优先扫描本地服务器：方便开发者在本地测试新写的 HTML 插件。
-             * 2. 如果本地没有响应，则回退到 GitHub 远程抓取：这是为了保证外网用户能看到最新动态内容。
-             */
+            // Try local first (dev server), then GitHub API
             let foundLocal = false;
             for (const cat of Object.keys(categoryMap)) {
-                // 遍历分类目录，如 /extensions/school/
                 if (await syncFolderLocal(cat)) foundLocal = true;
             }
 
-            // 如果本地开发目录为空（生产环境常态），则请求 GitHub API
             if (!foundLocal) {
                 await syncViaGitHub();
             }
 
-            // 异常提示：如果两边都没找到任何 HTML 文件
             if (container.innerHTML === '') {
                 container.innerHTML = `<div class="text-xs text-gray-400 text-center py-6 italic">No extensions found in /extensions/ folders.</div>`;
             }
         };
 
-        /**
-         * [UI 渲染引擎] 动态生成扩展卡片
-         * @param {string} title - 分类标题（如：Learning Tools）
-         * @param {Array} files - 包含插件元数据的文件数组
-         */
         function renderExtensionsCategory(title, files) {
             const container = document.getElementById('dynamicExtensionsList');
-            if (!container) return; // 防护：如果当前 UI 还没渲染出来，则直接退出，防止报错
+            if (!container) return;
 
-            // 创建分类标题节点（全大写、极小字号、间距宽、灰色，符合苹果设计规范）
             const header = document.createElement('div');
             header.className = "text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1";
             header.innerText = title;
             container.appendChild(header);
 
             files.forEach(file => {
-                // [文案美化] 将文件名从 "grade_calc.html" 转换为 "Grade Calc"
                 const rawName = file.name.replace('.html', '');
                 const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-                // 创建主卡片容器
                 const card = document.createElement('div');
-                // 点击事件：调用全局 openExtension 打开一个内嵌的 iframe 或全屏视图
                 card.onclick = () => openExtension(rawName, file.url, displayName);
-                // 样式：半透明毛玻璃底色、高圆角、悬停缩放效果
                 card.className = "p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group";
 
-                /**
-                 * [动态图标着色] 
-                 * 逻辑：根据插件名包含的关键词，自动分配不同的主题色，增强视觉分区感。
-                 */
-                let iconColor = "text-[#007AFF]"; // 默认蓝色
+                let iconColor = "text-[#007AFF]";
                 let iconBg = "bg-blue-100 dark:bg-blue-500/20";
-                
                 if (rawName.toLowerCase().includes('logic')) {
-                    iconColor = "text-green-500"; // 逻辑相关：绿色
+                    iconColor = "text-green-500";
                     iconBg = "bg-green-100 dark:bg-green-500/20";
                 } else if (rawName.toLowerCase().includes('ir') || rawName.toLowerCase().includes('navigator')) {
-                    iconColor = "text-cyan-500"; // 研究导航：青色
+                    iconColor = "text-cyan-500";
                     iconBg = "bg-cyan-100 dark:bg-cyan-500/20";
                 } else if (title.toLowerCase().includes('staff')) {
-                    iconColor = "text-purple-500"; // 教职员工工具：紫色
+                    iconColor = "text-purple-500";
                     iconBg = "bg-purple-100 dark:bg-purple-500/20";
                 }
 
-                // 注入 HTML 结构，使用 Lucide 风格的拼图图标
                 card.innerHTML = `
                     <div class="w-10 h-10 rounded-full ${iconBg} flex items-center justify-center ${iconColor}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1105,16 +629,574 @@
         }
 
 
+        /* --- PRODUCT TOUR LOGIC (STORYTELLING MODE) --- */
+        window.ProductTour = {
+            currentStep: 0,
+            autoPlayInterval: null,
+            autoResumeTimeout: null,
+            bgMusic: null,
+            isAutoPlaying: false,
+            sequenceTimeouts: [],
+
+            inject() {
+                if (document.getElementById('tour-container')) return;
+
+                // Pre-initialize music here to start loading earlier
+                this.initMusic();
+
+                const container = document.createElement('div');
+                container.id = 'tour-container';
+                container.innerHTML = `
+                    <div id="tourOverlay"></div>
+                    <div id="tourHighlight"></div>
+                    <div id="tourPointer"></div>
+                    <div id="tourTooltip"></div>
+                    <div id="tourCinematicOverlay" onclick="ProductTour.skipSequence()" class="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black transition-opacity duration-1000 pointer-events-auto opacity-0">
+                        <!-- Narrative Opening -->
+                        <div id="tourNarrative" class="text-center space-y-6 max-w-2xl px-8 transition-all duration-1000 opacity-0 transform translate-y-4">
+                             <p class="text-2xl text-gray-400 font-medium italic">Have you ever wondered what the perfect app for Centennial High School would look like?</p>
+                             <p class="text-xl text-blue-400 font-bold">Check out the software custom-built for MR. VW by students in Advanced Object Oriented Design!</p>
+                             <p class="text-[10px] text-gray-600 uppercase tracking-widest mt-8 animate-pulse">Click anywhere to skip</p>
+                        </div>
+
+                        <!-- Triple Scaling Title -->
+                        <div id="tourTitleSlide" class="hidden flex flex-col items-center justify-center gap-2">
+                             <h2 class="text-2xl font-bold text-white/40 animate-in fade-in zoom-in duration-700">chschat.xyz</h2>
+                             <h2 class="text-5xl font-black text-white/70 animate-in fade-in zoom-in duration-700 delay-300">chschat.xyz</h2>
+                             <h1 class="text-8xl font-black text-white tracking-tighter animate-in fade-in zoom-in duration-700 delay-700 shadow-blue-500/20">chschat.xyz</h1>
+                        </div>
+
+                        <!-- End Credits -->
+                        <div id="tourCreditsSlide" class="hidden text-center space-y-8">
+                             <h1 class="text-8xl font-black text-white tracking-tighter shadow-xl">chschat.xyz</h1>
+                             <div class="space-y-4">
+                                 <p class="text-2xl text-blue-400 font-bold tracking-widest uppercase">This is our website. Register today!</p>
+                                 <div class="pt-8 space-y-2 text-gray-400 font-medium">
+                                     <p class="text-sm uppercase tracking-[0.3em]">Engineering Excellence</p>
+                                     <p>Custom-built for <span class="text-white">MR. VW</span></p>
+                                     <p>by <span class="text-blue-400">Advanced Object Oriented Design Students</span></p>
+                                 </div>
+                                 <p class="text-[10px] tracking-widest uppercase mt-20 opacity-30">Independent Student Project • Not affiliated with HCPSS</p>
+                             </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(container);
+            },
+
+            clearSequence() {
+                this.sequenceTimeouts.forEach(t => clearTimeout(t));
+                this.sequenceTimeouts = [];
+            },
+
+            skipSequence() {
+                const cin = document.getElementById('tourCinematicOverlay');
+                const credits = document.getElementById('tourCreditsSlide');
+
+                if (!credits.classList.contains('hidden')) {
+                    this.end();
+                    return;
+                }
+
+                this.clearSequence();
+                cin.classList.replace('opacity-100', 'opacity-0');
+                cin.classList.add('pointer-events-none');
+
+                setTimeout(() => {
+                    document.getElementById('tourOverlay').classList.add('active');
+                    if (this.currentStep === 0) this.showStep();
+                    if (this.isAutoPlaying) this.startAutoPlay();
+                }, 500);
+            },
+
+            async askMusic(auto) {
+                const choice = await window.showTourConfirm("Welcome to CHS-Communicate! 🎬", "Would you like a quick 45-second interactive tour of the app's features?");
+                if (choice) {
+                    this.start(auto, true);
+                } else {
+                    if (window.showCustomAlert) {
+                        window.showCustomAlert(`Welcome!`, `Check out the 'Social' section to browse school activities and start chatting!`);
+                    }
+                }
+            },
+
+            initMusic() {
+                if (!this.bgMusic) {
+                    // Using a slightly different URL as fallback if needed, but sticking to SoundHelix
+                    this.bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+                    this.bgMusic.loop = true;
+                    this.bgMusic.volume = 0.4;
+                    this.bgMusic.preload = 'auto';
+                    this.bgMusic.onerror = () => {
+                        console.warn("Music load failed, trying fallback...");
+                        this.bgMusic.src = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
+                        this.bgMusic.load();
+                    };
+                    this.bgMusic.load();
+                }
+            },
+
+            tryPlayMusic() {
+                if (this.bgMusic && this.bgMusic.paused && this.musicEnabled) {
+                    this.bgMusic.play().catch(e => console.log("Music blocked"));
+                }
+            },
+
+            start(auto = true, music = true) {
+                this.initMusic();
+                // PC Only Check
+                if (window.innerWidth < 1024) {
+                    if (window.showCustomAlert) {
+                        window.showCustomAlert("PC Required", "The Product Tour is optimized for computer screens. Please view on a desktop or laptop for the best experience.");
+                    } else {
+                        alert("The Product Tour is optimized for computer screens.");
+                    }
+                    return;
+                }
+
+                // Auto Fullscreen for Immersion
+                try {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen();
+                    }
+                } catch (e) {
+                    console.warn("Fullscreen request blocked or failed", e);
+                }
+
+                this.inject();
+                this.musicEnabled = music;
+                if (this.musicEnabled) this.tryPlayMusic();
+
+                this.isAutoPlaying = auto;
+                this.currentStep = 0;
+
+                if (window.toggleSettings) {
+                    const modal = document.getElementById('settingsModal');
+                    if (modal && !modal.classList.contains('hidden')) window.toggleSettings();
+                }
+                if (window.closeModule) window.closeModule();
+                if (window.closeEagleTime) window.closeEagleTime();
+
+                const cin = document.getElementById('tourCinematicOverlay');
+                const narrative = document.getElementById('tourNarrative');
+                const title = document.getElementById('tourTitleSlide');
+
+                if (cin) {
+                    cin.classList.remove('opacity-0', 'pointer-events-none');
+                    cin.classList.add('opacity-100');
+                }
+
+                if (narrative) {
+                    this.sequenceTimeouts.push(setTimeout(() => {
+                        narrative.classList.remove('opacity-0', 'translate-y-4');
+                        narrative.classList.add('opacity-100', 'translate-y-0');
+                    }, 500));
+
+                    this.sequenceTimeouts.push(setTimeout(() => {
+                        narrative.classList.add('opacity-0');
+                        setTimeout(() => {
+                            narrative.classList.add('hidden');
+                            if (title) title.classList.remove('hidden');
+                            this.tryPlayMusic();
+                        }, 1000);
+                    }, 4500));
+                }
+
+                this.sequenceTimeouts.push(setTimeout(() => {
+                    this.skipSequence();
+                }, 8000));
+            },
+
+            steps: [
+                {
+                    title: "Revolutionary Communication",
+                    content: "Welcome to CHS-Communicate. A platform designed for the modern Centennial High student experience.",
+                    target: null
+                },
+                {
+                    title: "Live School News",
+                    content: "Stay ahead with real-time updates. CHS-Communicate syncs instantly with school announcements.",
+                    target: "#schoolNewsContent",
+                    action: () => {
+                        if (window.switchLeftTab) window.switchLeftTab('news');
+                        if (window.toggleNewsTab) window.toggleNewsTab('school');
+                    }
+                },
+                {
+                    title: "Club Highlights",
+                    content: "Never miss a meeting. Explore a dedicated feed for clubs and student organizations.",
+                    target: "#clubNewsContent",
+                    action: () => {
+                        if (window.switchLeftTab) window.switchLeftTab('news');
+                        if (window.toggleNewsTab) window.toggleNewsTab('club');
+                    }
+                },
+                {
+                    title: "The 'Social' Menu",
+                    content: "Access powerful productivity tools. CHS-Communicate is the central dashboard for your school day.",
+                    target: "#headTabMore",
+                    action: () => { if (window.switchLeftTab) window.switchLeftTab('more'); }
+                },
+                {
+                    title: "Eagle Time Simplified",
+                    content: "Enroll in sessions with one tap. Integrated directly into the CHS-Communicate system.",
+                    target: "[onclick*='openEagleTime()']",
+                    action: () => {
+                        if (window.switchLeftTab) window.switchLeftTab('more');
+                        setTimeout(() => { if (window.openEagleTime) window.openEagleTime(); }, 500);
+                    }
+                },
+                {
+                    title: "Digital Hall Pass",
+                    content: "Secure, verified, and always on your phone. The modern way to move through your school day.",
+                    target: "#eagleTimePage",
+                    action: () => {
+                        setTimeout(() => {
+                            const el = document.querySelector('#studentPassContainer > div') || document.querySelector('#sessionListContainer .bg-white') || document.querySelector('#eagleTimePage .font-semibold');
+                            if (el) ProductTour.focusElement(el);
+                        }, 700);
+                    }
+                },
+                {
+                    title: "Student Suggestions",
+                    content: "Have a voice. Share ideas anonymously with the CHS-Communicate community board.",
+                    target: "[onclick*='suggestions']",
+                    action: () => {
+                        if (window.closeEagleTime) window.closeEagleTime();
+                        setTimeout(() => { if (window.openModule) window.openModule('suggestions'); }, 500);
+                    }
+                },
+                {
+                    title: "Interactive Voting",
+                    content: "Support the best ideas. Our high-fidelity bars show exactly where the student body stands.",
+                    target: "#suggestionsPage .module-list",
+                    action: () => {
+                        setTimeout(() => {
+                            const card = document.querySelector('#suggestionsPage .module-list > div div');
+                            if (card) ProductTour.focusElement(card);
+                        }, 800);
+                    }
+                },
+                {
+                    title: "School Marketplace",
+                    content: "Buy and sell safely. The CHS-Communicate marketplace is built exclusively for Centennial students.",
+                    target: "[onclick*='marketplace']",
+                    action: () => {
+                        if (window.closeModule) window.closeModule();
+                        setTimeout(() => { if (window.openModule) window.openModule('marketplace'); }, 500);
+                    }
+                },
+                {
+                    title: "Lost & Found Board",
+                    content: "Reunite with your belongings instantly through our real-time community board.",
+                    target: "[onclick*='lost_and_found']",
+                    action: () => {
+                        if (window.closeModule) window.closeModule();
+                        setTimeout(() => { if (window.openModule) window.openModule('lost_and_found'); }, 500);
+                    }
+                },
+                {
+                    title: "Essential School Info",
+                    content: "All your links, schedules, and resources curated in one beautiful location.",
+                    target: "[onclick*='info']",
+                    action: () => {
+                        if (window.closeModule) window.closeModule();
+                        setTimeout(() => { if (window.openModule) window.openModule('info'); }, 500);
+                    }
+                },
+                {
+                    title: "Private Messaging",
+                    content: "Connect instantly. CHS-Communicate offers the fastest messaging for student-to-student interaction.",
+                    target: "#sidebarSubList",
+                    action: () => {
+                        if (window.closeModule) window.closeModule();
+                        if (window.switchTab) window.switchTab('messages');
+                        window.sidebarMode = 'recent';
+                        if (window.renderSidebar) window.renderSidebar(true);
+                        setTimeout(() => {
+                            const firstChat = document.querySelector('#sidebarSubList > div[onclick*="switchChat"]');
+                            if (firstChat) firstChat.click();
+                        }, 500);
+                    }
+                },
+                {
+                    title: "Powerful Organization",
+                    content: "Manage your conversations. Switch between Recent chats and your Contacts seamlessly.",
+                    target: ".sidebar-tabs",
+                    action: () => {
+                        window.sidebarMode = 'recent';
+                        if (window.renderSidebar) window.renderSidebar(true);
+                    }
+                },
+                {
+                    title: "Academic Roster",
+                    content: "Your classes, automated. CHS-Communicate organizes your course rosters instantly.",
+                    target: "#sidebarSubList",
+                    action: () => {
+                        window.sidebarMode = 'class';
+                        if (window.renderSidebar) window.renderSidebar(true);
+                        setTimeout(() => {
+                            const firstClass = document.querySelector('#sidebarSubList > div[onclick*="currentClassId"]');
+                            if (firstClass) {
+                                firstClass.click();
+                                setTimeout(() => {
+                                    const roster = document.getElementById('sidebarSubList');
+                                    if (roster) ProductTour.focusElement(roster);
+                                }, 600);
+                            }
+                        }, 500);
+                    }
+                },
+                {
+                    title: "Full Media Support",
+                    content: "Send high-res photos and documents. CHS-Communicate handles all your media sharing needs.",
+                    target: "#chatBox",
+                    action: () => {
+                        window.sidebarMode = 'recent';
+                        if (window.renderSidebar) window.renderSidebar(true);
+                        setTimeout(() => {
+                            const firstChat = document.querySelector('#sidebarSubList > div[onclick*="switchChat"]');
+                            if (firstChat) firstChat.click();
+                            setTimeout(() => {
+                                const msg = document.querySelector('.msg-bubble');
+                                if (msg) ProductTour.focusElement(msg);
+                            }, 600);
+                        }, 500);
+                    }
+                },
+                {
+                    title: "Universal Search",
+                    content: "Never lose a detail again. Find anything in CHS-Communicate with lightning speed.",
+                    target: "#globalSearchInput",
+                    action: () => document.getElementById('globalSearchInput')?.focus()
+                },
+                {
+                    title: "Premium Aesthetics",
+                    content: "Dark Mode and custom themes. Tailor CHS-Communicate to your unique style.",
+                    target: "#settingsBtn",
+                    action: () => { if (window.toggleSettings) window.toggleSettings(); }
+                },
+                {
+                    title: "Available Everywhere",
+                    content: "Experience the ultimate school app today. Built by students, for students.",
+                    target: null,
+                    action: () => {
+                        const modal = document.getElementById('settingsModal');
+                        if (modal && !modal.classList.contains('hidden') && window.toggleSettings) window.toggleSettings();
+                    }
+                }
+            ],
+
+            startAutoPlay() {
+                this.stopAutoPlay();
+                this.autoPlayInterval = setInterval(() => this.next(true), 3500);
+            },
+
+            stopAutoPlay() {
+                if (this.autoPlayInterval) {
+                    clearInterval(this.autoPlayInterval);
+                    this.autoPlayInterval = null;
+                }
+            },
+
+            handleUserInteraction() {
+                if (!this.isAutoPlaying) return;
+
+                this.stopAutoPlay();
+                if (this.autoResumeTimeout) clearTimeout(this.autoResumeTimeout);
+
+                this.autoResumeTimeout = setTimeout(() => {
+                    this.startAutoPlay();
+                    this.next(true);
+                }, 6000);
+            },
+
+            next(auto = false) {
+                if (!auto) this.handleUserInteraction();
+
+                this.currentStep++;
+                if (this.currentStep >= this.steps.length) return this.showCredits();
+                this.showStep();
+            },
+
+            showStep() {
+                const step = this.steps[this.currentStep];
+                const highlight = document.getElementById('tourHighlight');
+                const tooltip = document.getElementById('tourTooltip');
+                const pointer = document.getElementById('tourPointer');
+                const overlay = document.getElementById('tourOverlay');
+
+                if (!tooltip || !highlight || !pointer || !overlay) return this.end();
+
+                tooltip.innerHTML = `
+                    <div class="flex items-center mb-6">
+                        <div class="tour-dot"></div>
+                        <h3 class="font-black text-[32px] tracking-tight leading-none">${step.title}</h3>
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-300 text-[20px] leading-relaxed mb-10 font-medium">${step.content}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold text-gray-400 uppercase tracking-widest">${this.currentStep + 1} / ${this.steps.length}</span>
+                        <button class="tour-btn" onclick="ProductTour.next()">Next</button>
+                    </div>
+                `;
+
+                if (step.action) {
+                    try { step.action(); } catch (e) { console.warn("Tour action failed", e); }
+                }
+
+                if (!step.target) {
+                    highlight.style.opacity = '0';
+                    pointer.style.display = 'none';
+                    tooltip.style.left = '50%';
+                    tooltip.style.top = '50%';
+                    tooltip.style.transform = 'translate(-50%, -50%) scale(1)';
+                    overlay.style.clipPath = 'none';
+                } else {
+                    const el = document.querySelector(step.target);
+                    if (el) {
+                        this.focusElement(el);
+                    } else {
+                        // Element not found, center tooltip
+                        highlight.style.opacity = '0';
+                        pointer.style.display = 'none';
+                        tooltip.style.left = '50%';
+                        tooltip.style.top = '50%';
+                        tooltip.style.transform = 'translate(-50%, -50%) scale(1)';
+                        overlay.style.clipPath = 'none';
+                    }
+                }
+
+                tooltip.classList.remove('active');
+                setTimeout(() => { if (tooltip) tooltip.classList.add('active'); }, 100);
+            },
+
+            focusElement(el) {
+                // Ensure the element is visible and centered
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                const rect = el.getBoundingClientRect();
+                this.updateHighlight(rect);
+                const pointer = document.getElementById('tourPointer');
+                pointer.style.display = 'block';
+                pointer.style.left = (rect.left + rect.width / 2 - 15) + 'px';
+                pointer.style.top = (rect.top + rect.height / 2 - 15) + 'px';
+            },
+
+            updateHighlight(rect) {
+                const highlight = document.getElementById('tourHighlight');
+                const tooltip = document.getElementById('tourTooltip');
+                const overlay = document.getElementById('tourOverlay');
+
+                if (!highlight || !tooltip || !overlay) return;
+
+                highlight.style.opacity = '1';
+                highlight.style.left = (rect.left - 10) + 'px';
+                highlight.style.top = (rect.top - 10) + 'px';
+                highlight.style.width = (rect.width + 20) + 'px';
+                highlight.style.height = (rect.height + 20) + 'px';
+
+                const pad = 10;
+                const L = rect.left - pad;
+                const T = rect.top - pad;
+                const R = rect.right + pad;
+                const B = rect.bottom + pad;
+                overlay.style.clipPath = `polygon(
+                    0% 0%, 0% 100%, ${L}px 100%, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px 100%, 100% 100%, 100% 0%
+                )`;
+
+                const tooltipWidth = 480;
+                const margin = 40;
+                let tLeft, tTop;
+
+                // Standard Desktop Positioning
+                if (rect.right + tooltipWidth + margin * 2 < window.innerWidth) {
+                    tLeft = rect.right + margin;
+                } else if (rect.left - tooltipWidth - margin * 2 > 0) {
+                    tLeft = rect.left - tooltipWidth - margin;
+                } else {
+                    tLeft = (window.innerWidth - tooltipWidth) / 2;
+                }
+
+                tTop = rect.top + rect.height / 2 - 150;
+                if (tTop < margin) tTop = margin;
+                if (tTop + 350 > window.innerHeight) tTop = window.innerHeight - 350 - margin;
+
+                tooltip.style.width = tooltipWidth + 'px';
+                tooltip.style.left = tLeft + 'px';
+                tooltip.style.top = tTop + 'px';
+                tooltip.style.transform = 'translateY(0)';
+            },
+
+            showCredits() {
+                if (this.autoPlayInterval) clearInterval(this.autoPlayInterval);
+                const cin = document.getElementById('tourCinematicOverlay');
+                const title = document.getElementById('tourTitleSlide');
+                const credits = document.getElementById('tourCreditsSlide');
+                const tooltip = document.getElementById('tourTooltip');
+                const overlay = document.getElementById('tourOverlay');
+
+                if (!cin || !title || !credits) return this.end();
+
+                if (tooltip) tooltip.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+
+                // 1. Show Cinematic Backdrop again
+                cin.classList.remove('opacity-0', 'pointer-events-none');
+                cin.classList.add('opacity-100');
+
+                // 2. Repeat chschat.xyz animation (Small -> Big)
+                title.classList.remove('hidden');
+                credits.classList.add('hidden');
+
+                // 3. After 4s of title, show final credits and STAY THERE
+                setTimeout(() => {
+                    title.classList.add('hidden');
+                    credits.classList.remove('hidden');
+                    credits.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-8', 'duration-1000');
+
+                    // Add a Finish button to the credits slide
+                    if (!document.getElementById('tourFinishBtn')) {
+                        const finishBtn = document.createElement('button');
+                        finishBtn.id = 'tourFinishBtn';
+                        finishBtn.className = "mt-12 tour-btn pointer-events-auto bg-white text-black hover:bg-gray-200";
+                        finishBtn.innerText = "Finish Presentation";
+                        finishBtn.onclick = () => ProductTour.end();
+                        credits.appendChild(finishBtn);
+                    }
+                }, 4000);
+
+                // Slow music fade out but keep it playing softly
+                let vol = 0.4;
+                const fade = setInterval(() => {
+                    vol -= 0.02;
+                    if (vol <= 0.1) {
+                        clearInterval(fade);
+                    } else {
+                        if (this.bgMusic) this.bgMusic.volume = vol;
+                    }
+                }, 500);
+            },
+
+            end() {
+                if (this.autoPlayInterval) clearInterval(this.autoPlayInterval);
+                if (this.bgMusic) {
+                    this.bgMusic.pause();
+                    this.bgMusic.currentTime = 0;
+                }
+                const container = document.getElementById('tour-container');
+                if (container) {
+                    container.style.opacity = '0';
+                    setTimeout(() => container.remove(), 500);
+                }
+            }
+        };
 
 
 
-
-        // --- 用户偏好设置 (Settings Persistence) ---
-        // 使用 localStorage 实现持久化存储，即便刷新页面或重启浏览器，设置依然有效。
         const SETTINGS = {
-            theme: localStorage.getItem('theme') || 'system', // 主题模式：支持跟随系统
-            soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // 是否开启提示音
-            soundUrl: localStorage.getItem('soundUrl') || "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" // 提示音音源
+            theme: localStorage.getItem('theme') || 'system',
+            soundEnabled: localStorage.getItem('soundEnabled') !== 'false',
+            soundUrl: localStorage.getItem('soundUrl') || "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"
         };
 
         const SOUNDS = [
@@ -1128,56 +1210,35 @@
         let notifySound = new Audio(SETTINGS.soundUrl);
         const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
 
-        // --- 发送频率限制 (Rate Limiting) ---
-        // 核心安全策略：通过前端 CD (冷却时间) 减少服务器负担并拦截脚本灌水。
+        // --- RATE LIMITING STATE ---
         let lastMsgSentTime = 0;
         let lastPostSentTime = 0;
         let lastCommentSentTime = 0;
-        const MSG_COOLDOWN = 1000; // 消息发送间隔：1秒
-        const POST_COOLDOWN = 5000; // 发帖间隔：5秒
-        const COMMENT_COOLDOWN = 2000; // 评论间隔：2秒
+        const MSG_COOLDOWN = 1000;
+        const POST_COOLDOWN = 5000;
+        const COMMENT_COOLDOWN = 2000;
 
-        // --- 安全鉴权辅助逻辑 ---
-        // 这些逻辑依赖于不可篡改的 Firebase Auth 状态。
-        // 注意：真正的安全规则是在 Firebase 后台的 database.rules.json 中强制执行的。
+        // --- SECURE AUTHORIZATION HELPERS ---
+        // These rely on the immutable Firebase Auth state, making them harder to spoof than global objects.
+        // REAL security is enforced by the database.rules.json on the server.
         var isAppAdmin = () => auth.currentUser && auth.currentUser.email === window.CONSTANTS.ADMIN_EMAIL;
         var isAppTeacher = () => auth.currentUser && auth.currentUser.email && auth.currentUser.email.endsWith('@hcpss.org');
         var isAppStaff = () => isAppAdmin() || isAppTeacher();
 
 
-        /**
-         * [核心生命周期] Firebase 鉴权状态监听器 (Auth State Observer)
-         * 逻辑：
-         * 只要页面没关，Firebase 会自动维护登录状态（通过 IndexedDB 存储的 Token）。
-         * 这个函数是应用启动后的第一个“十字路口”。
-         */
         console.log('App: Setting up onAuthStateChanged...');
         onAuthStateChanged(auth, async (user) => {
-            // 实时打印当前状态，方便在调试控制台追踪鉴权流
             console.log('App: Auth state changed. User:', user ? user.email : 'null');
-            
             try {
                 if (user) {
-                    /**
-                     * [分支 A]：用户已登录。
-                     * 立即进入 setupUser 函数：这里会初始化个人资料、同步离线数据、挂载消息监听器。
-                     */
                     await setupUser(user);
                 } else {
-                    /**
-                     * [分支 B]：用户未登录或 Token 已过期。
-                     * 动作：
-                     * 1. 显示登录页。
-                     * 2. 隐藏主功能页（防止通过 F12 绕过登录看 UI）。
-                     * 3. 关闭启动加载动画。
-                     */
                     console.log('App: No user found. Showing login page.');
                     document.getElementById('loginPage')?.classList.remove('hidden');
                     document.getElementById('mainPage')?.classList.add('hidden');
                     hideLoading();
                 }
             } catch (err) {
-                // 捕获启动阶段的一切崩溃：网络波动、存储权限被浏览器禁用等
                 console.error('App: Critical error during initialization:', err);
                 if (window.showError) window.showError(err);
                 hideLoading();
@@ -1189,14 +1250,7 @@
         window.handleSignOut = () => signOut(auth).then(() => location.reload());
 
 
-        /**
-         * [动作函数] 第三方登录逻辑：Google 登录
-         * 策略：
-         * 1. 优先尝试弹窗登录 (Popup)：用户体验最好，不丢失当前页面的 JS 状态。
-         * 2. 如果弹窗被拦截 (Blocked)：自动回退到页面重定向 (Redirect)，确保 100% 成功率。
-         */
         window.loginWithGoogle = async () => {
-            // 界面反馈：禁用按钮防止用户在等待时“鬼畜点击”
             const btns = document.querySelectorAll('#loginPage button');
             const hint = document.getElementById('loginHint');
             const originalHint = hint.innerText;
@@ -1206,26 +1260,20 @@
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
             try {
-                // 调起 Google 官方鉴权弹窗
                 await signInWithPopup(auth, googleProvider);
             }
             catch (error) {
                 console.error("Auth Error:", error);
-                
-                // 处理浏览器拦截弹窗的情况（常见于非 HTTPS 或极端安全设置）
                 if (error.code === 'auth/popup-blocked') {
+                    // Fallback to redirect only if popup is blocked
                     hint.innerText = "Popup blocked. Redirecting...";
                     await signInWithRedirect(auth, googleProvider);
-                } 
-                // 处理用户主动关掉弹窗的情况
-                else if (error.code !== 'auth/popup-closed-by-user') {
+                } else if (error.code !== 'auth/popup-closed-by-user') {
                     alert("Google Sign-In failed: " + error.message);
-                    // 恢复按钮状态
                     btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                     hint.innerText = originalHint;
                     hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 } else {
-                    // 用户取消，无痛回退 UI
                     btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                     hint.innerText = originalHint;
                     hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -1233,10 +1281,6 @@
             }
         };
 
-        /**
-         * [动作函数] Microsoft 登录逻辑
-         * 流程与 Google 类似，专门针对使用教育邮箱（HCPSS）的用户优化。
-         */
         window.loginWithMicrosoft = async () => {
             const btns = document.querySelectorAll('#loginPage button');
             const hint = document.getElementById('loginHint');
@@ -1245,9 +1289,7 @@
             hint.innerText = "Please check the Microsoft popup window...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-            try { 
-                await signInWithPopup(auth, microsoftProvider); 
-            }
+            try { await signInWithPopup(auth, microsoftProvider); }
             catch (error) {
                 if (error.code !== 'auth/popup-closed-by-user') alert("Microsoft Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
@@ -1257,71 +1299,40 @@
         };
 
 
-        /**
-         * [核心核心核心逻辑]：用户资料初始化程序 (setupUser)
-         * 该函数负责在登录成功后，根据 Email 判断权限并同步数据库。
-         */
         async function setupUser(user) {
             console.log('App: Entering setupUser for', user.email);
             const email = user.email.toLowerCase();
-            
-            /**
-             * [账户清洗] 
-             * 逻辑：提取邮箱前缀作为数据库中的唯一 ID (idPrefix)。
-             * 为什么不用 uid？因为本应用设计上希望账号在不同终端（如不同的 auth 提供商）只要邮箱一致即视为同一人。
-             */
+            // Use a slightly more robust ID prefix by including the domain part for uniqueness
             const idPrefix = email.split('@')[0].replace(/\./g, '_');
 
-            // --- 动态角色分配系统 (Role Engine) ---
-            // 逻辑：纯字符串匹配，极其高效且安全（最终鉴权由 Firebase Rules 兜底）
             let role = 'user';
-            if (email === ADMIN_EMAIL) role = 'admin'; // 全站唯一超级管理员
-            else if (email.endsWith('@hcpss.org')) role = 'teacher'; // 老师
-            else if (email.endsWith('@inst.hcpss.org')) role = 'student'; // 学生
+            if (email === ADMIN_EMAIL) role = 'admin';
+            else if (email.endsWith('@hcpss.org')) role = 'teacher';
+            else if (email.endsWith('@inst.hcpss.org')) role = 'student';
 
-            // 预设默认显示名称（如果用户还没改过名字）
             const defaultName = email.split('@')[0];
             const capitalizedDefaultName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
-            
-            // 构建全局当前用户对象
             currentUser = { name: capitalizedDefaultName, id: idPrefix, role: role, email: email };
-            window.currentUser = currentUser; // 导出到全局，方便扩展插件读取用户信息
+            window.currentUser = currentUser; // Export for extensions
 
-            // --- 数据库资料比对 (Database Sync) ---
             const userRef = ref(db, `users/${idPrefix}`);
             const snapshot = await get(userRef);
 
             if (snapshot.exists()) {
-                /**
-                 * [老用户回归]
-                 * 逻辑：从数据库拉取最新的名字、头像、是否同意条款的状态。
-                 */
                 const userData = snapshot.val();
                 if (userData.name) currentUser.name = userData.name;
                 currentUser.avatar = userData.avatar || null;
                 currentUser.hasAcceptedTerms = userData.hasAcceptedTerms || false;
-                
-                // 更新数据库中的“最后在线时间”，这会触发好友列表里的“亮灯”状态
                 await update(userRef, { lastSeen: serverTimestamp(), role: role, email: email });
 
-                /**
-                 * [管理员彩蛋] 
-                 * 如果是超级管理员 Moss，强制将其头像设为预设的寿司 SVG。
-                 * 逻辑：确保系统的品牌形象（管理员身份）在 UI 上是稳固的。
-                 */
+                // Automatic Avatar Setup for Admin Moss (The Sushi Icon)
                 if (currentUser.id === 'moss104088' && userData.avatar !== window.CONSTANTS.SUSHI_AVATAR) {
                     await update(userRef, { avatar: window.CONSTANTS.SUSHI_AVATAR });
                     currentUser.avatar = window.CONSTANTS.SUSHI_AVATAR;
                 }
             } else {
-                /**
-                 * [新用户注册]
-                 * 逻辑：如果数据库中查无此人，说明是第一次登录。
-                 */
                 currentUser.hasAcceptedTerms = false;
-                currentUser._isNewUser = true; // 临时标志位：用于后续引导流程
-                
-                // 在数据库中创建一个空的新用户档案
+                currentUser._isNewUser = true; // Flag for notification
                 await set(userRef, {
                     name: currentUser.name,
                     role: role,
@@ -1331,44 +1342,34 @@
                     hasAcceptedTerms: false
                 });
             }
-            // 注册到全局本地索引
             ALL_USERS[currentUser.id] = currentUser;
 
-            /**
-             * [用户心跳 (Heartbeat)] 
-             * 核心逻辑：每 60 秒向服务器报一次平安。
-             * 为什么不实时报？为了省流量，也为了防止被 Firebase 当作恶意刷频封锁。
-             */
+            // Heartbeat for "Online" status
             if (window._heartbeat) clearInterval(window._heartbeat);
             window._heartbeat = setInterval(() => {
                 if (auth.currentUser) {
                     update(ref(db, `users/${idPrefix}`), { lastSeen: serverTimestamp() });
                 }
-            }, 60000); // 间隔一分钟更新一次在线状态
+            }, 60000); // Update every minute
 
-            // --- 2. 并行获取全局关键数据 (Batch Fetching) ---
-            // 策略：使用 Promise.all 让四个请求并发，总耗时由最慢的那个决定，而不是逐一排队。
+            // 2. Fetch required global data concurrently
             console.log('App: Fetching global data...');
             let dataFetchResult;
             try {
                 dataFetchResult = await Promise.all([
-                    get(ref(db, 'settings')),   // 应用全局开关（如是否开启图片上传）
-                    get(ref(db, 'donations')),  // 赞助者名单
-                    get(ref(db, 'tos_content')),// 服务条款正文
-                    get(ref(db, `user_private/${user.uid}`)) // 用户的私密标记（如是否为系统推荐用户）
+                    get(ref(db, 'settings')),
+                    get(ref(db, 'donations')),
+                    get(ref(db, 'tos_content')),
+                    get(ref(db, `user_private/${user.uid}`))
                 ]);
             } catch (err) {
                 console.error('App: Global data fetch failed:', err);
-                // 容错处理：即使这些数据拿不到（网络瞬间波动），也不影响用户进入聊天室主界面
+                // Continue with defaults if fetch fails to avoid blocking startup
                 dataFetchResult = [null, null, null, null];
             }
             const [settingsSnap, donationsSnap, tosSnap, privateSnap] = dataFetchResult;
 
-            /**
-             * [设置填充与响应式监听] 
-             * 逻辑：不仅初始化时读一次，我们还挂一个 onValue 监听器。
-             * 这样管理员在后台关掉图片分享的一瞬间，全校用户手机上的“相机图标”都会同步消失。
-             */
+            // Populate settings
             const settingsData = settingsSnap?.val() || {};
             SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
             const soundToggle = document.getElementById('soundToggle');
@@ -1376,16 +1377,11 @@
 
             onValue(ref(db, 'settings'), (snap) => {
                 const s = snap.val() || {};
-                // 是否全局禁用图片？
                 window.isPhotoDisabled = s.isPhotoDisabled || false;
                 const toggle = document.getElementById('globalPhotoToggle');
                 if (toggle) toggle.checked = window.isPhotoDisabled;
 
-                /**
-                 * [管理员禁令提醒] 
-                 * 如果检测到图片被禁，且用户不是第一次进（避开干扰新用户引导），
-                 * 则弹出一个警告框告知由于流量或稳定性原因暂时禁用图片。
-                 */
+                // 1. Photo Status Notification (Only show if DISABLED)
                 const isNewOrTest = (user && user.email && user.email.toLowerCase().includes('moss932888')) || (currentUser && currentUser._isNewUser);
                 if (!window._settingsInit && !isNewOrTest) {
                     window._settingsInit = true;
@@ -1398,22 +1394,18 @@
                     }
                 }
 
-                // 界面即时更新：隐藏/显示聊天框的相机按钮
+                // Hide/Show camera icon in chat input
                 const cameraBtn = document.getElementById('chatCameraBtn');
                 if (cameraBtn) cameraBtn.style.display = window.isPhotoDisabled ? 'none' : 'block';
 
-                /**
-                 * [强制刷新视图]
-                 * 如果图片分享状态变了，必须重新渲染当前聊天的气泡，
-                 * 否则已经显示的图片可能因为状态没对齐而无法被点击放大。
-                 */
+                // Re-render current views to reflect the change
                 if (activeTargetId) {
                     const chatId = getChatId(currentUser.id, activeTargetId);
                     loadChatThread(chatId);
                 }
                 if (currentModule) renderModuleList();
 
-                // 刷新公告栏内容，处理公告里的图片显示状态
+                // Also refresh News/Announcements
                 const newsTabs = ['school', 'club'];
                 newsTabs.forEach(tab => {
                     getLocalNews(tab).then(posts => {
@@ -1424,10 +1416,28 @@
             });
 
 
+            // Add Tour Button to Settings (Available to all students)
+            const settingsView = document.getElementById('settingsView');
+            if (settingsView && !document.getElementById('tourStartRow')) {
+                const tourRow = document.createElement('div');
+                tourRow.id = 'tourStartRow';
+                tourRow.className = "p-4 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-500/20 mb-4";
+                tourRow.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-[15px] font-bold text-blue-600 dark:text-blue-400">Product Tour 🎬</div>
+                            <div class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Explore features in 45 seconds</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="ProductTour.askMusic(true)" class="bg-blue-500 text-white px-3 py-1.5 rounded-xl text-[12px] font-bold active:scale-95 transition-transform shadow-sm">Auto Play</button>
+                            <button onclick="ProductTour.askMusic(false)" class="bg-white dark:bg-white/10 text-blue-500 dark:text-blue-400 px-3 py-1.5 rounded-xl text-[12px] font-bold active:scale-95 transition-transform border border-blue-100 dark:border-blue-500/20">Manual</button>
+                        </div>
+                    </div>
+                `;
+                settingsView.prepend(tourRow);
+            }
 
-
-            // --- 最后的初始化决策 ---
-            // 逻辑：管理员面板显示权限判断
+            // Update UI with donations and ToS from DB
             if (isAppAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             } else {
@@ -1436,56 +1446,47 @@
 
             const tosContent = tosSnap?.val() || "";
             const userData = privateSnap?.val() || {};
-            // 测试账号免除一切等待逻辑，直接进入最快渲染模式
             const isAlwaysNewUser = user && user.email && user.email.toLowerCase().includes('moss932888');
             window._isNewUserFlag = userData.isNew || isAlwaysNewUser;
 
-            /**
-             * [账户纠偏]
-             * 如果是测试账号，强制标记为未同意条款，以便反复测试 ToS 页面效果。
-             */
+            // Force onboarding flags for test user
             if (isAlwaysNewUser) {
                 currentUser.hasAcceptedTerms = false;
             }
 
-            // 在后台静默清除“新用户”标记。这样下一次登录时，后台就知道你已经是老用户了。
+            // Clear flag in background for real new users
             if (userData.isNew && !isAlwaysNewUser) {
                 update(ref(db, `user_private/${user.uid}`), { isNew: null }).catch(e => console.warn('Flag clear fail:', e));
             }
 
             console.log('App: setupUser finalizing. hasAcceptedTerms:', currentUser.hasAcceptedTerms);
 
-            /**
-             * [核心分支]：判断是否允许进入主界面
-             * 流程：
-             * A. 如果同意了条款：直接启动所有观察者 (Observer) 和 同步 (Sync) 逻辑，隐藏登录，开启侧边栏。
-             * B. 如果没同意：强制留在服务条款 (ToS) 页面，直到用户点击“我同意”。
-             */
             if (currentUser.hasAcceptedTerms) {
                 document.getElementById('loginPage').classList.add('hidden');
                 document.getElementById('mainPage').classList.remove('hidden');
-                initUserObserver(); // 监听好友列表和个人资料
-                initSettingsUI();   // 初始化设置菜单
-                updateNewsAccess(); // 检查是否有发公告的权限
-                initNewsObserver(); // 挂载公告栏实时流
-                showSidebar();      // 展开侧边栏
-                requestNotificationPermission(); // 尝试申请消息推送权限
-                globalDataSync();   // 执行大规模离线同步（IndexedDB）
-                syncGroupChats();   // 同步班级群聊列表
+                initUserObserver();
+                initSettingsUI();
+                updateNewsAccess();
+                initNewsObserver();
+                showSidebar();
+                requestNotificationPermission();
+                globalDataSync();
+                syncGroupChats();
+
+                onValue(ref(db, 'config/openai_key'), (snap) => {
+                    const val = snap.val() || '';
+                    if (val) SYSTEM_OPENAI_KEY = val;
+                });
 
                 console.log('App: All components initialized. Hiding loading.');
-                hideLoading(); // 关掉全屏白色加载遮罩，正式揭晓主界面
+                hideLoading();
             } else {
                 console.log('App: User must accept ToS.');
-                showTos(true); // 弹出强制性条款页面
+                showTos(true);
                 hideLoading();
             }
         }
 
-        /**
-         * [UI 展现] 显示服务条款 (Terms of Service)
-         * @param {boolean} mandatory - 是否强制接受。如果是 true，则隐藏关闭按钮，用户必须点击“同意”才能进应用。
-         */
         window.showTos = (mandatory = false) => {
             const tosPage = document.getElementById('tosPage');
             const tosCloseBtn = document.getElementById('tosCloseBtn');
@@ -1493,88 +1494,72 @@
 
             tosPage.classList.remove('hidden');
             if (mandatory) {
-                // 强制模式：隐藏右上角的 X，显示底部的“同意”按钮区域
                 tosCloseBtn.classList.add('hidden');
                 tosAcceptSection.classList.remove('hidden');
             } else {
-                // 普通查看模式：允许直接关闭
                 tosCloseBtn.classList.remove('hidden');
                 tosAcceptSection.classList.add('hidden');
             }
         };
 
-        // 关闭 ToS 弹窗（仅用于非强制模式）
         window.closeTos = () => {
             document.getElementById('tosPage').classList.add('hidden');
         };
 
-        /**
-         * [动作函数] 用户点击“我同意条款”
-         * 逻辑：
-         * 1. 更新数据库中的 hasAcceptedTerms 标志位。
-         * 2. 如果是新用户（第一次进应用），则跳转到“设置姓名”页面。
-         * 3. 如果是老用户，则直接进入主界面。
-         */
         window.acceptTerms = async () => {
             if (!currentUser) return;
             const userRef = ref(db, `users/${currentUser.id}`);
-            
-            // 写入数据库：标记该用户已合规
             await update(userRef, { hasAcceptedTerms: true });
             currentUser.hasAcceptedTerms = true;
 
-            // 特殊逻辑：针对测试账号 moss932888，始终将其视为新用户，以便测试流程
             const isAlwaysNewUser = currentUser.email && currentUser.email.toLowerCase().includes('moss932888');
 
+            // If new user (or test user), show name setup instead of entering app
             if (currentUser._isNewUser || isAlwaysNewUser) {
-                // 进入“姓名设置”环节
                 document.getElementById('tosPage').classList.add('hidden');
                 document.getElementById('nameSetupPage').classList.remove('hidden');
 
-                // 预填充逻辑：尝试从 Google 账户自带的原始名字中提取并格式化
+                // Pre-fill if auth provided a name
                 if (currentUser.name) {
                     const parts = currentUser.name.split(' ');
                     const first = parts[0] || '';
                     const last = parts.slice(1).join(' ') || '';
-                    // 强制首字母大写美化
                     document.getElementById('setupFirstName').value = first.charAt(0).toUpperCase() + first.slice(1);
                     document.getElementById('setupLastName').value = last.charAt(0).toUpperCase() + last.slice(1);
                 }
                 return;
             }
 
-            // 已经是老用户，跳过姓名设置，直接开机
             enterApp();
         };
 
-        /**
-         * [启动序列] 进入应用主逻辑
-         * 逻辑：执行一连串的 UI 切换和数据订阅，标志着用户正式开始使用应用。
-         */
         window.enterApp = async () => {
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainPage').classList.remove('hidden');
-            initUserObserver();         // 启动侧边栏用户更新监听
-            initSettingsUI();           // 渲染设置界面
-            updateNewsAccess();         // 计算公告发布权限
-            initNewsObserver();         // 订阅新闻公告流
-            showSidebar();              // 展示左侧导航栏
-            requestNotificationPermission(); // 触发 PWA 推送弹窗
-            closeTos();                 // 确保关闭条款页
-            hideLoading();              // 彻底移除加载遮罩
+            initUserObserver();
+            initSettingsUI();
+            updateNewsAccess();
+            initNewsObserver();
+            showSidebar();
+            requestNotificationPermission();
+            closeTos();
+            hideLoading();
+
+            // Product Tour Invitation - ONLY after entering app
+            const userEmail = auth.currentUser?.email?.toLowerCase() || "";
+            const isAlwaysNewUser = userEmail.includes('moss932888');
+
+            if ((window._isNewUserFlag || isAlwaysNewUser) && !window._tourPrompted) {
+                window._tourPrompted = true;
+                setTimeout(async () => {
+                    ProductTour.askMusic(true);
+                }, 1000);
+            }
         };
 
-        /**
-         * [核心逻辑] 保存新用户的初始档案
-         * 逻辑：
-         * 1. 验证输入：必须包含姓和名。
-         * 2. 更新数据库。
-         * 3. 自动向管理员发送一条招呼信息（极其重要的功能：让管理员知道有新人加入，且方便新人直接找到客服）。
-         */
         window.saveInitialProfile = async () => {
             const rawFirst = document.getElementById('setupFirstName').value.trim();
             const rawLast = document.getElementById('setupLastName').value.trim();
-            // 姓名清洗：首字母大写
             const first = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1);
             const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
             const newName = [first, last].filter(Boolean).join(' ');
@@ -1584,41 +1569,23 @@
             }
 
             const btn = document.getElementById('setupSubmitBtn');
-            btn.disabled = true; // 防止二次点击
+            btn.disabled = true;
             btn.innerText = "Setting up...";
 
             try {
-                // 更新正式名字到数据库
                 await update(ref(db, `users/${currentUser.id}`), { name: newName });
                 currentUser.name = newName;
 
-                /**
-                 * [自动招呼逻辑] 
-                 * 为什么要在这里发消息？
-                 * 因为这时候用户刚刚设置好真实姓名，管理员收到的私信里能看到正确的名字，
-                 * 同时也让用户知道“私信”功能在哪。
-                 */
+                // Send the admin notification NOW with the real name
                 try {
-                    const adminId = 'moss104088'; // 管理员 ID
+                    const adminId = 'moss104088';
                     const chatId = getChatId(currentUser.id, adminId);
-                    // 构造系统自动私信正文
-                    const msg = { 
-                        senderId: currentUser.id, 
-                        senderName: currentUser.name, 
-                        text: "[Auto Sent By System] I'm a new user", 
-                        type: 'text', 
-                        timestamp: serverTimestamp() 
-                    };
-                    // 1. 写入消息列表
+                    const msg = { senderId: currentUser.id, senderName: currentUser.name, text: "[Auto Sent By System] I'm a new user", type: 'text', timestamp: serverTimestamp() };
                     await push(ref(db, `messages/${chatId}`), msg);
-                    // 2. 双向更新最近聊天记录列表，确保双方侧边栏都能看到对方
                     await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
                     await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
-                } catch (e) { 
-                    console.warn('New user notification failed:', e); 
-                }
+                } catch (e) { console.warn('Notification failed:', e); }
 
-                // 清理临时标志，正式入场
                 delete currentUser._isNewUser;
                 document.getElementById('nameSetupPage').classList.add('hidden');
                 enterApp();
@@ -1629,14 +1596,6 @@
             }
         };
 
-        /**
-         * [黑科技] 申请并绑定 PWA 推送通知权限
-         * 逻辑：
-         * 1. 检查浏览器是否支持 Notification API 和 Firebase Messaging。
-         * 2. 申请权限。
-         * 3. 注册 Service Worker (SW)。注意：GitHub Pages 的子目录路径需要特殊处理。
-         * 4. 获取 FCM Token 并存入数据库，这样后台云函数（Cloud Functions）才能定向推送。
-         */
         async function requestNotificationPermission() {
             try {
                 if (!('Notification' in window) || !messaging) {
@@ -1645,21 +1604,14 @@
                 }
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
-                    /**
-                     * [路径适配技巧] 
-                     * 因为 GitHub Pages 部署在子目录下，Service Worker 的注册路径必须手动修正，
-                     * 否则浏览器会因为 404 导致推送功能彻底失效。
-                     */
+                    // Fix for GitHub Pages subfolder
                     const swUrl = window.location.pathname.includes('chs-communicate') ? '/chs-communicate/firebase-messaging-sw.js' : '/firebase-messaging-sw.js';
                     const token = await getToken(messaging, {
                         vapidKey: 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w',
                         serviceWorkerRegistration: await navigator.serviceWorker.register(swUrl)
                     });
-                    
                     if (token) {
-                        // 将 Token 存入用户的私密区域，供推送服务器调用
                         await update(ref(db, `user_private/${currentUser.id}`), { fcmToken: token });
-                        console.log('App: FCM Token registered successfully.');
                     }
                 }
             } catch (err) {
@@ -1667,29 +1619,19 @@
             }
         }
 
-        /**
-         * [监听器] 处理前台收到的推送消息
-         * 逻辑：如果用户正开着 App 且收到了推送，我们不显示横幅，而是显示一个应用内的 Alert。
-         */
         function setupMessagingListeners() {
             if (!messaging) return;
             onMessage(messaging, (payload) => {
-                console.log('Foreground message received:', payload);
+                console.log('Foreground message:', payload);
                 if (payload.notification) {
-                    // 应用内强提醒
                     alert(`${payload.notification.title}\n${payload.notification.body}`);
                 }
             });
         }
 
-        /**
-         * [UI 权限控制] 更新“发布公告”按钮的可见性
-         * 逻辑：只有老师 (Teacher) 或管理员 (Admin) 才有权发布校园新闻。
-         */
         function updateNewsAccess() {
             const btn = document.getElementById('addAnnouncementBtn');
             if (btn) {
-                // 利用全局权限辅助函数判断
                 if (isAppStaff()) {
                     btn.classList.remove('hidden');
                 } else {
@@ -1698,46 +1640,28 @@
             }
         }
 
-        /**
-         * [监听器] 初始化新闻实时同步流
-         * 逻辑：
-         * 1. 遍历两个分类：'school' (学校公告) 和 'club' (社团动态)。
-         * 2. 挂载 onValue 实时监听云端数据库。
-         */
         function initNewsObserver() {
             for (const tab of ['school', 'club']) {
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                 const container = document.getElementById(containerId);
-                // 渲染初始状态：骨架屏效果（Loading 提示）
                 if (container) container.innerHTML = '<div class="text-center text-gray-400 py-20 animate-pulse">Loading...</div>';
 
-                // Firebase 实时订阅
+                // Real-time listener for news
                 onValue(ref(db, `news/${tab}`), async (snapshot) => {
                     const data = snapshot.val() || {};
-                    // 将对象转换为数组，并注入 snapKey
                     const posts = Object.keys(data).map(key => ({ ...data[key], key }));
 
-                    // [重要：离线化] 将同步到的数据写入本地 IndexedDB
+                    // Save to local cache
                     saveLocalNews(tab, posts);
 
-                    /**
-                     * [渲染逻辑] 
-                     * 为什么不用直接渲染？
-                     * 因为渲染引擎里包含入场动画逻辑，需要对比新旧数据。
-                     */
+                    // Render with transition
                     renderNewsContentFromData(posts, containerId, tab);
                 });
             }
         }
 
-        /* 
-           统一新闻公告引擎 (Unified News Engine) 
-           这是整个 App 中 UI 复用程度最高的模块之一。
-        */
+        /* --- STEP 11-13: UNIFIED NEWS ENGINE --- */
         window.NewsCore = {
-            /**
-             * [辅助函数] 获取不同类型公告的彩色标签
-             */
             getBadge: function (type) {
                 const isSchool = type === 'school';
                 return {
@@ -1746,54 +1670,37 @@
                 };
             },
 
-            /**
-             * [核心 HTML 构建器] 渲染单个新闻卡片
-             * 包含了：权限删除按钮、时间格式化、XSS 转义、图片渲染。
-             */
             renderCard: function (post, type) {
                 const badge = this.getBadge(type);
-                const dateStr = window.UIUtils.formatTime(post.timestamp); // 转换为“几小时前”
-                const isStaff = isAppStaff(); // 判断当前登录人是否有删除权限
+                const dateStr = window.UIUtils.formatTime(post.timestamp);
+                const isStaff = isAppStaff();
 
                 return `
                     <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div class="flex justify-between items-start">
-                            <!-- 动态标签 -->
                             <span class="text-[11px] font-bold ${badge.color} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badge.text}</span>
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-gray-400 font-medium">${dateStr}</span>
-                                <!-- 如果是老师，显示删除图标 -->
                                 ${isStaff ? `<button onclick="deleteNews('${post.key}', '${type}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
                             </div>
                         </div>
-                        <!-- 标题：必须经过 XSS 转义 -->
                         <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${window.UIUtils.escape(post.title)}</h3>
-                        <!-- 正文：支持多行显示，并自动解析其中的 URL 链接 -->
                         <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(window.UIUtils.escape(post.desc))}</p>
-                        <!-- 媒体内容块 -->
                         ${this.renderMedia(post)}
                     </div>`;
             },
 
-            /**
-             * [媒体构建器] 处理公告中的图片
-             * 逻辑：如果管理员关闭了全局图片显示，这里会降级为一个提示框，而不是加载失败的叉叉。
-             */
             renderMedia: function (post) {
                 if (!post.image) return '';
                 if (window.isPhotoDisabled) {
-                    // 全局禁用时的优雅降级提示
                     return `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled by Admin</div>`;
                 }
-                
-                // 将图片 URL 数组编码，方便传入全局 openGallery 预览窗口
                 const enc = encodeURIComponent(JSON.stringify([post.image]));
                 return `
                     <div class="relative w-full">
                         <img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" 
                              onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
                              onclick="openGallery('${enc}')">
-                        <!-- 图片失效时的占位反馈 -->
                         <div class="hidden mt-3 px-4 py-3 bg-gray-50 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-dashed border-gray-200 dark:border-gray-800">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             Photo no longer available
@@ -1842,36 +1749,24 @@
             await set(ref(db, `news/${tabType}/${id}`), null);
         };
 
-        /**
-         * [异步函数] 获取用户信息
-         * 该函数包含“客户端重写逻辑”，优先处理系统级特殊账号。
-         */
         async function fetchUser(userId) {
             if (!userId) return null;
             const cleanedId = userId.toLowerCase();
-            
-            // --- 机器人账户拦截 (Bot Overrides) ---
-            // 逻辑：如果 ID 是预设的机器人，则直接返回本地硬编码的数据和头像，不需要请求网络。
             if (cleanedId === window.CONSTANTS.SAFETY_BOT_ID) {
                 return { id: window.CONSTANTS.SAFETY_BOT_ID, name: 'Safety Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png' };
             }
             if (cleanedId === window.CONSTANTS.ADVICE_BOT_ID) {
                 return { id: window.CONSTANTS.ADVICE_BOT_ID, name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
             }
-            
-            // --- 管理员账户拦截 (Admin Overrides) ---
-            // 逻辑：确保管理员 Moss 的头像始终是那份标志性的“寿司”。
+            // Client-side hardcoded avatar override for admin accounts
             if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
                 const adminUser = { id: 'moss104088', name: 'Moss', avatar: window.CONSTANTS.SUSHI_AVATAR, email: window.CONSTANTS.ADMIN_EMAIL };
                 ALL_USERS[cleanedId] = adminUser;
                 return adminUser;
             }
-
-            // [性能优化] 优先从内存缓存 (ALL_USERS) 中读取
             if (ALL_USERS[cleanedId]) return ALL_USERS[cleanedId];
 
             try {
-                // 缓存未命中，则请求 Firebase 数据库
                 const snap = await get(ref(db, `users/${userId}`));
                 if (snap.exists()) {
                     ALL_USERS[userId] = snap.val();
@@ -1883,16 +1778,9 @@
             return null;
         }
 
-        /**
-         * [监听器] 初始化用户相关数据的观察者
-         */
         function initUserObserver() {
             console.log('App: initUserObserver starting...');
-            
-            /**
-             * 1. 监听当前用户自己的档案变更
-             * 逻辑：如果用户在另一台手机上改了名字，本手机的 UI 要立刻同步。
-             */
+            // Only listen to the current user's profile changes
             onValue(ref(db, `users/${currentUser.id}`), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -1901,44 +1789,32 @@
                     currentUser.hasAcceptedTerms = data.hasAcceptedTerms || false;
                     ALL_USERS[currentUser.id] = data;
                 } else {
-                    // [极端安全情况] 如果用户账号在云端被管理员彻底删除
+                    // User was deleted from database - force immediate logout and cache clear
                     console.warn('App: User account no longer exists in database. Forcing logout.');
-                    clearAllLocalData(); // 立即清除本地一切缓存，强制登出
+                    clearAllLocalData();
                 }
             });
 
-            /**
-             * 2. 监听用户的“私信列表” (Chat List)
-             * 逻辑：
-             * - 每当有人发新消息给你，或者你发给别人，user_chats 里的对应 ID 时间戳会更新。
-             * - 侧边栏会自动按照这个列表重新渲染。
-             */
+            // Listen to the user's chat list to populate the sidebar
             console.log('App: Setting up user_chats listener...');
+            // Normalize path to lowercase to ensure consistency with sendMsg/delete logic
             onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
                 const chatMap = snapshot.val() || {};
-                
-                /**
-                 * [数据清洗] 过滤掉早期的“幽灵 ID”
-                 * 逻辑：早期版本生成的 ID 格式（如带有 gmail/inst 的后缀）可能导致侧边栏混乱，
-                 * 这里在源头将其滤掉，只保留标准前缀 ID。
-                 */
+                // CRITICAL: Filter out legacy ghost IDs immediately at the source
                 const chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
                 console.log(`App: Found ${chatIds.length} valid recent chats.`);
 
-                // 异步拉取这些聊天对象的名字和头像，拉取成功后会自动刷新侧边栏
+                // Fetch info in background, don't block the UI
                 chatIds.forEach(id => {
                     fetchUser(id).then(() => renderSidebar()).catch(e => console.warn(e));
                 });
 
-                renderSidebar(); // 立即初次渲染（显示占位符或旧缓存）
-                initGlobalNotificationMonitor(); // 同时启动未读消息数红点检测
+                renderSidebar();
+                initGlobalNotificationMonitor();
 
-                /**
-                 * [桌面端优化] 
-                 * 逻辑：在大屏幕下，如果还没选中任何聊天窗口，
-                 * 自动打开列表里的第一条对话（就像 Outlook/iMessage 那样）。
-                 */
+
+
                 if (window.innerWidth >= 1024 && !activeTargetId) {
                     const sorted = chatIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0));
                     const firstUserId = sorted[0];
@@ -1976,101 +1852,64 @@
             }
         };
 
-        /**
-         * [UI 主题引擎] 全局皮肤切换
-         * @param {string} mode - 'light' | 'dark' | 'system'
-         * 逻辑：
-         * 1. 同步内存 SETTINGS 对象。
-         * 2. 写入 localStorage 确保下次打开页面不闪烁（Flash of Unstyled Content）。
-         * 3. 修改 <html> 标签的 class，触发 Tailwind 的 dark 变体样式。
-         */
         window.applyTheme = (mode) => {
             SETTINGS.theme = mode;
             localStorage.setItem('theme', mode);
             const html = document.documentElement;
-            // 判断逻辑：如果是 'dark' 或者 (系统偏好为黑且设置为跟随系统)
-            if (mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                html.classList.add('dark');
-            } else {
-                html.classList.remove('dark');
-            }
+            if (mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) html.classList.add('dark');
+            else html.classList.remove('dark');
         };
-        // 初始执行一次，确保首屏颜色正确
         applyTheme(SETTINGS.theme);
 
-        /**
-         * [搜索辅助] 清除全局搜索状态
-         * 逻辑：重置所有输入框、搜索结果列表，并隐藏结果遮罩层。
-         */
         window.clearGlobalSearch = () => {
             const input = document.getElementById('globalSearchInput');
             const results = document.getElementById('globalSearchResults');
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
-            
             if (input) input.value = '';
-            if (results) results.classList.add('hidden'); // 隐藏浮层
-            if (resultList) resultList.innerHTML = '';    // 清空 DOM 节点，释放内存
+            if (results) results.classList.add('hidden');
+            if (resultList) resultList.innerHTML = '';
             if (clearBtn) clearBtn.classList.add('hidden');
         };
 
-        /**
-         * [搜索核心] 切换搜索分类过滤器 (Category Filter)
-         * @param {string} cat - 'people' | 'messages' | 'tools' | 'news' | 'community'
-         * 逻辑：
-         * 1. 实现“点选/反选”逻辑：再次点击当前分类会切回 'all'。
-         * 2. 更新按钮的视觉反馈（苹果风格的半透明度切换）。
-         * 3. 立即触发一次增量搜索，让结果根据分类刷新。
-         */
         window.currentSearchCategory = 'all';
         window.setSearchCategory = (cat) => {
+            // Click the same category -> back to 'all'
             if (window.currentSearchCategory === cat) {
-                window.currentSearchCategory = 'all'; // 反选：回到全局搜素
+                window.currentSearchCategory = 'all';
             } else {
-                window.currentSearchCategory = cat; // 切换分类
+                window.currentSearchCategory = cat;
             }
 
-            // 更新 UI 按钮高亮状态
             document.querySelectorAll('.search-cat-btn').forEach(btn => {
                 const btnCat = btn.id.replace('searchCat-', '');
                 if (window.currentSearchCategory === 'all') {
-                    // 全局模式下：所有分类按钮变灰，表示当前不是特定过滤模式
+                    // In global search, no highlights
                     btn.classList.remove('text-white', 'opacity-100');
                     btn.classList.add('text-gray-400', 'opacity-50');
                 } else if (btnCat === window.currentSearchCategory) {
-                    // 激活模式：文字变白且全不透明
                     btn.classList.add('text-white', 'opacity-100');
                     btn.classList.remove('text-gray-400', 'opacity-50');
                 } else {
-                    // 非激活分类：变灰
                     btn.classList.remove('text-white', 'opacity-100');
                     btn.classList.add('text-gray-400', 'opacity-50');
                 }
             });
 
-            // 如果搜索框里有内容，立即重新执行搜索
             const input = document.getElementById('globalSearchInput');
             if (input && input.value.trim().length >= 2) {
                 handleGlobalSearch({ target: input });
             }
         };
 
-        /**
-         * [重磅逻辑] 全局搜索引擎入口 (The Global Search Engine)
-         * 该函数负责在用户输入时，跨多个数据库维度检索出最相关的结果。
-         */
         let searchTimeout;
         window.handleGlobalSearch = (e) => {
-            // 1. 防抖处理 (Debounce)：
-            // 逻辑：每次按键都会清除之前的计时器并重开 300ms 计时。
-            // 这样只有当用户停止打字 300ms 后才执行复杂搜索，避免浏览器在每输入一个字符时都卡顿。
             clearTimeout(searchTimeout);
             const term = e.target.value.trim();
             const results = document.getElementById('globalSearchResults');
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
 
-            // 搜索门槛：至少输入 2 个字符才开启检索，节省性能。
             if (term.length < 2) {
                 if (clearBtn) term ? clearBtn.classList.remove('hidden') : clearBtn.classList.add('hidden');
                 if (results) { results.classList.add('hidden'); if (resultList) resultList.innerHTML = ''; }
@@ -2079,20 +1918,15 @@
 
             searchTimeout = setTimeout(async () => {
                 if (clearBtn) clearBtn.classList.remove('hidden');
-                let html = ''; // 用于拼接最终渲染的 HTML 字符串
+                let html = '';
                 const cat = window.currentSearchCategory;
                 const termLower = term.toLowerCase();
 
-                // --- 维度 1：人名与用户检索 (People Search) ---
-                if (cat === 'all' || cat === 'messages' || cat === 'people') {
+                // 1. People - Only if 'all' or 'messages'
+                if (cat === 'all' || cat === 'messages') {
                     try {
                         const now = Date.now();
-                        /**
-                         * [热索引维护]：
-                         * 由于 Firebase 无法进行高效的人名模糊检索（只能前缀匹配），
-                         * 我们的策略是每 5 分钟全量同步一次用户索引到 ALL_USERS 内存中。
-                         * 这样搜索时直接走内存过滤，响应速度能达到 1ms 级。
-                         */
+                        // Fetch or Refresh the "Hot Index" if older than 5 minutes or nearly empty
                         if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(ALL_USERS).length < 10) {
                             const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
                             if (allSnap.exists()) {
@@ -2101,11 +1935,9 @@
                             }
                         }
 
-                        /**
-                         * [多维内存过滤]：同时匹配 ID、人名、邮箱。
-                         */
+                        // Thorough local filter on the complete hot index
                         const matchedIds = Object.keys(ALL_USERS).filter(id => {
-                            if (id === currentUser.id) return false; // 排除自己
+                            if (id === currentUser.id) return false;
                             const u = ALL_USERS[id];
                             const n = (u.name || '').toLowerCase();
                             const e = (u.email || '').toLowerCase();
@@ -2115,18 +1947,13 @@
 
                         if (matchedIds.length > 0) {
                             html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
-                            /**
-                             * [智能排序权重算法]：
-                             * 逻辑：如果名字是以搜索词开头的，权重最高（放在第一位）。
-                             * 使用 startsWith 进行前缀匹配加权，确保如 "Moss" 会排在含有 "mo" 但非前缀匹配的 "Amo" 前面。
-                             */
                             const sortedMatches = matchedIds.sort((a, b) => {
                                 const nameA = (ALL_USERS[a].name || '').toLowerCase();
                                 const nameB = (ALL_USERS[b].name || '').toLowerCase();
                                 if (nameA.startsWith(termLower) && !nameB.startsWith(termLower)) return -1;
                                 if (!nameA.startsWith(termLower) && nameB.startsWith(termLower)) return 1;
                                 return 0;
-                            }).slice(0, 10); // 只取前 10 名，防止列表太长拖慢 UI
+                            }).slice(0, 10);
 
                             for (const id of sortedMatches) {
                                 const isMe = id === currentUser.id;
@@ -2144,10 +1971,7 @@
                     } catch (err) { console.warn('Aggressive search failed:', err); }
                 }
 
-                /**
-                 * [维度 2] 工具与内置扩展程序搜索 (Tools Search)
-                 * 逻辑：对比硬编码的模块注册表，实现对“绩点计算器”等工具的快速导航。
-                 */
+                // 1.5 Tools & Extensions Search - Only if 'all' or 'tools'
                 if (cat === 'all' || cat === 'tools') {
                     const toolsResults = [];
                     const fullRegistry = [
@@ -2169,7 +1993,6 @@
                     if (toolsResults.length > 0) {
                         html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
                         toolsResults.forEach(t => {
-                            // 根据 type 决定是调用 openModule 还是 openExtension
                             const onClick = t.type === 'module' ? `openModule('${t.id}')` : `openExtension('${t.id}')`;
                             html += `
                                 <div onclick="${onClick}; clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
@@ -2185,18 +2008,37 @@
                     }
                 }
 
+                // 1.8 People Search - Only if 'all' or 'people'
+                if (cat === 'all' || cat === 'people') {
+                    const peopleResults = [];
+                    if (window.allUsers) {
+                        Object.values(window.allUsers).forEach(u => {
+                            if (u.name.toLowerCase().includes(termLower) || (u.username && u.username.toLowerCase().includes(termLower))) {
+                                peopleResults.push(u);
+                            }
+                        });
+                    }
 
-                // --- 维度 3：聊天消息检索 (Messages Search) ---
+                    if (peopleResults.length > 0) {
+                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
+                        peopleResults.forEach(u => {
+                            const photo = u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
+                            html += `
+                                <div onclick="openDirectChat('${u.id}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <img src="${photo}" class="w-9 h-9 rounded-full object-cover">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div>
+                                        <div class="text-xs text-gray-400">@${escapeHTML(u.username || 'user')}</div>
+                                    </div>
+                                </div>`;
+                        });
+                    }
+                }
+
+                // 2. Global Messages Search
                 if (cat === 'all' || cat === 'messages') {
                     if (!localDB) await dbReady;
                     try {
-                        /**
-                         * [重磅：本地全文检索逻辑]
-                         * 逻辑：
-                         * 1. 从 IndexedDB 提取出用户设备上存过的所有消息。
-                         * 2. 在前端进行字符串全量匹配。
-                         * 3. 过滤掉图片、系统通知等无文本内容。
-                         */
                         const tx = localDB.transaction("messages", "readonly");
                         const store = tx.objectStore("messages");
                         const allMsgs = await new Promise(res => {
@@ -2204,13 +2046,9 @@
                             req.onsuccess = () => res(req.result || []);
                         });
                         const currentUserIdLower = currentUser.id.toLowerCase();
-                        
                         const filtered = allMsgs.filter(m => {
                             if (!m.text || !m.chatId) return false;
-                            // 排除图片消息：因为图片的 URL 也是一段字符串，可能会干扰关键词匹配
                             if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
-                            
-                            // 权限校验：只允许搜自己所在的群聊或私信，防止信息泄露（虽然 IDB 理论上是安全的）
                             if (m.chatId.startsWith('group_')) {
                                 const classId = m.chatId.replace('group_', '');
                                 if (!sidebarClasses[classId]) return false;
@@ -2219,7 +2057,7 @@
                                 if (!participants.includes(currentUserIdLower)) return false;
                             }
                             return m.text.toLowerCase().includes(termLower);
-                        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15); // 只取最近 15 条匹配消息
+                        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15);
 
                         if (filtered.length > 0) {
                             html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
@@ -2230,7 +2068,6 @@
                                     const classId = m.chatId.replace('group_', '');
                                     chatName = cnCache[classId] || "Class Chat";
                                 } else {
-                                    // 私信名解析：找到对方的名字
                                     const parts = m.chatId.split('_');
                                     if (parts.length >= 2) {
                                         const otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
@@ -2240,13 +2077,6 @@
                                 }
                                 const escapedJumpId = jumpId.replace(/'/g, "\\'");
                                 const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
-                                
-                                /**
-                                 * [点击跳转逻辑]
-                                 * 这里的 onclick 非常精彩：
-                                 * 1. 先执行 switchChat 切换到对应的对话窗口。
-                                 * 2. 延迟 500ms（等待 DOM 渲染完成）执行 jumpToMessage，让聊天窗口自动滚动到这行消息。
-                                 */
                                 html += `<div onclick="switchChat('${escapedJumpId}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                     <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(chatName)}</div>
                                     <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
@@ -2256,13 +2086,9 @@
                     } catch (e) { }
                 }
 
-                // --- 维度 4：新闻公告与社区动态搜索 (News & Modules Search) ---
+                // 3. Local Stores (News & Modules)
                 if (cat === 'all' || cat === 'news' || cat === 'community') {
-                    /**
-                     * [高阶搜索函数]：复用同一段逻辑扫描不同的 IndexedDB 表
-                     */
                     const searchLocalStore = async (storeName, label, targetCat) => {
-                        // 如果用户当前在一个特定的分类过滤器下，且不是搜索目标，则跳过
                         if (cat !== 'all' && cat !== targetCat) return;
                         try {
                             const tx = localDB.transaction(storeName, "readonly");
@@ -2273,12 +2099,10 @@
                             });
                             let tempHtml = '';
                             items.forEach(item => {
-                                // 同时匹配标题和描述
                                 const t = (item.title || item.name || '').toLowerCase();
                                 const d = (item.desc || item.text || '').toLowerCase();
                                 if (t.includes(termLower) || d.includes(termLower)) {
                                     const typeOrModule = storeName === 'news' ? item.tabType : item.moduleName;
-                                    // 搜索点击后的跳转逻辑：handlePostJump 会根据 storeName 决定跳到新闻页还是模块页
                                     tempHtml += `<div onclick="handlePostJump('${storeName}', '${item.key}', '${typeOrModule}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                         <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">${label}</div>
                                         <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title || item.name || 'Post')}</div>
@@ -2289,7 +2113,6 @@
                             if (tempHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">${storeName === 'news' ? 'Announcements' : 'Community'}</div>` + tempHtml;
                         } catch (e) { }
                     };
-
                     if (localDB) {
                         await searchLocalStore('news', 'Announcement', 'news');
                         await searchLocalStore('modules', 'Community', 'community');
@@ -2316,11 +2139,11 @@
                     const container = document.getElementById(containerId);
                     if (container) {
                         const items = Array.from(container.children);
-                        const target = items.find(el => el.dataset.newsKey === itemId);
+                        const target = items.find(it => it.innerHTML.includes(itemId) || it.innerText.includes(itemId));
                         if (target) {
                             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            target.classList.add('ring-2', 'ring-[#007AFF]', 'animate-pulse');
-                            setTimeout(() => target.classList.remove('ring-2', 'ring-[#007AFF]', 'animate-pulse'), 3000);
+                            // Wait for scroll to settle before highlighting
+                            setTimeout(() => window.UIUtils.highlight(target), 600);
                         }
                     }
                 }, 500);
@@ -2434,7 +2257,20 @@
 
             if (isAppAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
+                document.getElementById('openaiKeyInput').value = SYSTEM_OPENAI_KEY || '';
             }
+            window.saveAdminConfig = async () => {
+                if (!isAppAdmin()) return;
+                const val = document.getElementById('openaiKeyInput').value.trim();
+                if (!val) { alert("Please enter a key."); return; }
+                try {
+                    await set(ref(db, 'config/openai_key'), val);
+                    SYSTEM_OPENAI_KEY = val;
+                    alert("Admin Config Saved!");
+                } catch (err) {
+                    alert("Cloud Save Failed: " + err.message);
+                }
+            };
         }
 
         function updateSettingsLabels() {
@@ -4032,7 +3868,20 @@
             });
         };
 
-
+        window.showTourConfirm = (title, body) => {
+            return new Promise(resolve => {
+                const els = _getModalEls();
+                els.title.innerText = title;
+                els.body.innerText = body;
+                els.confirm.innerText = "Begin Tour";
+                els.cancel.innerText = "Maybe Later";
+                els.cancel.classList.remove('hidden');
+                els.alt.classList.add('hidden');
+                els.cancel.onclick = () => _closeModal(false, resolve);
+                els.confirm.onclick = () => _closeModal(true, resolve);
+                _openModal();
+            });
+        };
 
 
         window.closeGallery = () => {
@@ -4560,8 +4409,8 @@
 
                 // Generate path based on security rules (Chats are isolated by UID)
                 let path = `${folder}/${filename}`;
-                if (folder === 'chats' && auth.currentUser) {
-                    path = `chats/${auth.currentUser.uid}/${filename}`;
+                if (folder === 'chats' && window.currentUser) {
+                    path = `chats/${window.currentUser.id}/${filename}`;
                 }
 
                 const storageRef = sRef(storage, path);
@@ -4702,6 +4551,8 @@
 
             _currentExtensionUrl = url;
             titleEl.innerText = title;
+            const customBtn = document.getElementById('extensionCustomBtn');
+            if(customBtn) customBtn.classList.add('hidden');
             loader.classList.remove('hidden');
             iframe.src = url + '?v=' + Date.now();
 
@@ -4710,9 +4561,9 @@
             };
 
             // Apply Panel vs Fullscreen logic based on extension type
-            const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine'].includes(eid);
+            const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'lost_and_found', 'marketplace', 'peer_tutoring', 'suggestions', 'info'].includes(eid);
             const extPage = document.getElementById('extensionPage');
-
+            
             if (isPanel) {
                 extPage.classList.add('lg:left-80');
                 extPage.classList.remove('z-[160]');
@@ -4737,6 +4588,9 @@
                 switch (event.data.type) {
                     case 'GET_USER':
                         if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: isAppAdmin(), isStaff: isAppStaff() }, '*');
+                        break;
+                    case 'SET_TITLE':
+                        document.getElementById('extensionTitle').innerText = event.data.title;
                         break;
                     case 'SHOW_TOAST':
                         showToast(event.data.message);
@@ -4788,42 +4642,7 @@
         };
         // ===== End Overlay Navigation Engine =====
 
-        window.openModule = (moduleName) => {
-            currentModule = moduleName;
-            currentModuleSort = 'latest';
-            const config = MODULE_CONFIG[moduleName];
-            const pageId = MODULE_PAGE_MAP[moduleName];
 
-            if (pageId === 'extensionPage') {
-                window.openExtension(moduleName);
-                return;
-            }
-
-            const page = document.getElementById(pageId);
-            if (page) {
-                const titleEl = page.querySelector('.module-title');
-                const addBtn = page.querySelector('.module-add-btn');
-                if (titleEl) titleEl.innerText = config.title;
-                if (addBtn) {
-                    if (config.postBtn) {
-                        addBtn.innerText = config.postBtn;
-                        addBtn.classList.remove('hidden');
-                    } else {
-                        addBtn.classList.add('hidden');
-                    }
-                }
-            }
-
-            openOverlayPage(pageId, () => setModuleSort('latest'));
-        };
-
-        window.closeModule = () => {
-            const pageId = MODULE_PAGE_MAP[currentModule];
-            closeOverlayPage(pageId, () => {
-                if (moduleListener) { moduleListener(); moduleListener = null; }
-                currentModule = null;
-            });
-        };
 
         window.setModuleSort = (sort) => {
             currentModuleSort = sort;
@@ -4988,141 +4807,7 @@
             }
         };
 
-        function renderModuleList() {
-            const pageId = MODULE_PAGE_MAP[currentModule];
-            const listEl = document.querySelector(`#${pageId} .module-list`);
-            if (!listEl) return;
-            listEl.innerHTML = '';
 
-            if (modulePosts.length === 0) {
-                listEl.innerHTML = '<div class="flex flex-col items-center justify-center mt-20 text-gray-400"><svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="text-sm font-medium">No posts yet</p></div>';
-                return;
-            }
-
-            if (currentModuleSort === 'latest') {
-                modulePosts.sort((a, b) => b.timestamp - a.timestamp);
-            } else {
-                modulePosts.sort((a, b) => (Object.keys(b.likes || {}).length) - (Object.keys(a.likes || {}).length));
-            }
-
-            if (!window._masonryResizeListener) {
-                let lastCols = 0;
-                window._masonryResizeListener = () => {
-                    if (!currentModule) return;
-                    let c = 1;
-                    const w = window.innerWidth;
-                    if (w >= 1536) c = 5;
-                    else if (w >= 1280) c = 4;
-                    else if (w >= 1024) c = 3;
-                    else if (w >= 640) c = 2;
-                    if (c !== lastCols) {
-                        lastCols = c;
-                        renderModuleList();
-                    }
-                };
-                window.addEventListener('resize', window._masonryResizeListener);
-            }
-
-            let cols = 1;
-            const w = window.innerWidth;
-            if (w >= 1536) cols = 5;
-            else if (w >= 1280) cols = 4;
-            else if (w >= 1024) cols = 3;
-            else if (w >= 640) cols = 2;
-
-            if (window._masonryResizeListener) {
-                // Ensure lastCols is initialized
-                window._masonryResizeListener.lastCols = cols;
-            }
-
-            const columns = Array.from({ length: cols }, () => []);
-            modulePosts.forEach((post, i) => columns[i % cols].push(post));
-
-            const mappedPostsHtml = columns.map(colPosts => {
-                if (colPosts.length === 0) return '';
-                return `<div class="flex-1 flex flex-col gap-4 max-w-[320px]">` + colPosts.map(post => {
-                    const config = MODULE_CONFIG[currentModule];
-                    const likesCount = Object.keys(post.likes || {}).length;
-                    const isLiked = post.likes && auth.currentUser && post.likes[auth.currentUser.uid];
-
-                    const authorName = config.anonymous ? 'Anonymous User' : (post.authorName || 'Unknown');
-                    const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anonymous&background=random' : (ALL_USERS[post.authorId]?.avatar || 'https://ui-avatars.com/api/?name=' + authorName + '&background=random');
-
-                    let interactions = `<div class="flex items-center gap-5 mt-3">
-                        <button onclick="toggleLike('${post.id}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'} transition-colors group">
-                            <svg class="w-6 h-6 ${isLiked ? 'fill-current scale-110' : 'fill-none group-active:scale-90'} transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                            <span class="text-sm font-medium">${likesCount}</span>
-                        </button>`;
-
-                    if (config.hasComments) {
-                        const commentsCount = Object.keys(post.comments || {}).length;
-                        interactions += `<button onclick="openPostDetail('${post.id}')" class="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group">
-                            <div class="relative">
-                                <svg class="w-6 h-6 fill-none group-active:scale-90 transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                                </svg>
-                                <div id="mainUnreadDot" class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-black hidden"></div>
-                            </div>
-                            <span class="text-sm font-medium">${commentsCount}</span>
-                        </button>`;
-                    }
-
-                    interactions += `<button onclick="reportPost('${post.id}')" class="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95" title="Report Post"><svg class="w-6 h-6 fill-none transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
-
-                    interactions += `<div class="flex-1"></div>`;
-
-                    if (!config.anonymous && post.authorId !== currentUser.id) {
-                        interactions += `<button onclick="window.startModuleChat('${post.authorId}')" class="bg-[#007AFF] text-white px-4 py-1.5 rounded-full text-sm font-semibold active:scale-95 transition-transform shadow-md shadow-blue-500/20 ml-3">Chat</button>`;
-                    }
-
-                    interactions += `</div>`;
-
-                    let adminDeleteBtn = '';
-                    if (isAppAdmin() || isAppTeacher()) {
-                        adminDeleteBtn = `<button onclick="deletePost('${post.id}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 active:scale-95 transition-transform p-1 ml-2" title="Delete Post"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
-                    }
-
-                    return `
-                        <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-white/5 transition-colors w-full">
-                            <div class="flex items-start mb-3">
-                                <img src="${authorAvatar}" class="w-10 h-10 rounded-full object-cover shadow-sm mr-3">
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-sm leading-tight text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
-                                    <div class="text-xs text-gray-500 font-medium mt-0.5">${new Date(post.timestamp).toLocaleString()}</div>
-                                </div>
-                                ${adminDeleteBtn}
-                            </div>
-                            <div class="font-bold text-lg mb-2 text-black dark:text-white leading-snug cursor-pointer" ${config.hasComments ? `onclick="openPostDetail('${post.id}')"` : ''}>${escapeHTML(post.title)}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                            ${(post.image && !window.isPhotoDisabled) ? `
-                            <div class="relative w-full">
-                                <img src="${post.image}" class="w-full aspect-square object-cover rounded-2xl mt-3 cursor-pointer border border-gray-100 dark:border-white/5" 
-                                     onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-                                     onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">
-                                <div class="hidden mt-3 px-4 py-3 bg-gray-50 dark:bg-white/5 rounded-2xl text-gray-400 text-xs italic flex items-center gap-2 border border-dashed border-gray-200 dark:border-gray-800">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    Photo no longer available
-                                </div>
-                            </div>` : ''}
-                            ${(post.image && window.isPhotoDisabled) ? `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-100 dark:border-white/5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>` : ''}
-                            ${getSuggestionVotingHtml(post)}
-                            ${interactions}
-                        </div>
-                    `;
-                }).join('') + `</div>`;
-            }).join('');
-
-            listEl.innerHTML = `<div class="flex gap-4 items-start justify-center w-full mx-auto max-w-[1600px]">${mappedPostsHtml}</div>`;
-        }
-
-        window.deletePost = async (postId) => {
-            if (!confirm("Are you sure you want to delete this post?")) return;
-            try {
-                await set(ref(db, `modules/${currentModule}/${postId}`), null);
-            } catch (e) {
-                alert("Failed to delete post.");
-            }
-        };
 
         window.handleMsgReport = () => {
             if (!selectedMsgData) return;
@@ -5215,51 +4900,7 @@
             }, 350);
         };
 
-        window.handlePostImageSelect = (e) => {
-            if (window.isPhotoDisabled) {
-                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
-                e.target.value = '';
-                return;
-            }
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const MAX_HEIGHT = 800;
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > height) {
-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                    } else {
-                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                    }
-                    canvas.width = width; canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    currentPostBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-                    document.getElementById('postImagePreview').src = currentPostBase64;
-                    document.getElementById('postImagePreview').classList.remove('hidden');
-                    document.getElementById('postImageClearBtn').classList.remove('hidden');
-                    document.getElementById('postImagePlaceholder').classList.add('hidden');
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        };
-
-        window.clearPostImage = (e) => {
-            if (e) e.stopPropagation();
-            currentPostBase64 = null;
-            document.getElementById('postFileInput').value = '';
-            document.getElementById('postImagePreview').classList.add('hidden');
-            document.getElementById('postImageClearBtn').classList.add('hidden');
-            document.getElementById('postImagePlaceholder').classList.remove('hidden');
-        };
 
         let isPostingNews = false;
         let isRequestingExtension = false;
@@ -5288,26 +4929,6 @@
             });
         };
 
-        window.openPostForm = () => {
-            console.log('App: Opening Module Post Form. Module:', currentModule);
-            isPostingNews = false;
-            document.getElementById('postInputTitle').value = '';
-            document.getElementById('postInputDesc').value = '';
-            window.clearPostImage();
-            const postBtnLabel = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule].postBtn : 'Post';
-            document.getElementById('postPageTitle').innerText = 'New ' + (postBtnLabel || 'Post');
-            document.getElementById('batchImportBtn')?.classList.add('hidden');
-
-            const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
-            if (imgArea) imgArea.style.display = window.isPhotoDisabled ? 'none' : 'flex';
-
-            const page = document.getElementById('postPage');
-            page.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                document.getElementById('postPageBackdrop').classList.add('opacity-100');
-                document.getElementById('postPageContent').classList.remove('translate-y-full');
-            });
-        };
 
         window.openExtensionRequest = () => {
             isPostingNews = false;
@@ -5331,203 +4952,12 @@
             }, 10);
         };
 
-        window.closePostForm = () => {
-            document.getElementById('postPageBackdrop').classList.remove('opacity-100');
-            document.getElementById('postPageContent').classList.add('translate-y-full');
-            setTimeout(() => {
-                document.getElementById('postPage').classList.add('hidden');
-                isPostingNews = false;
-                isRequestingExtension = false;
-                // Reset placeholders
-                document.getElementById('postInputTitle').placeholder = "Subject";
-                document.getElementById('postInputDesc').placeholder = "What's on your mind?";
-                const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
-                if (imgArea) imgArea.classList.remove('hidden');
-            }, 400);
-        };
 
 
-        window.submitPost = () => {
-            const now = Date.now();
-            if (now - lastPostSentTime < POST_COOLDOWN) {
-                alert(`Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostSentTime)) / 1000)}s before posting again.`);
-                return;
-            }
 
-            const title = document.getElementById('postInputTitle').value.trim();
-            const desc = document.getElementById('postInputDesc').value.trim();
-            if (!title || !desc) { alert("Title and description are required."); return; }
 
-            if (title.length > 200 || desc.length > 1000) {
-                showCustomAlert("Content Too Long", "Titles are limited to 200 characters and descriptions to 1000 characters.");
-                return;
-            }
 
-            if (currentPostBase64 && window.isPhotoDisabled) {
-                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
-                window.clearPostImage();
-                return;
-            }
 
-            const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
-            const isAnonymous = config.anonymous || false;
-            lastPostSentTime = now;
-
-            if (isRequestingExtension) {
-                const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
-                const requestText = `[EXTENSION REQUEST]\nTool Name: ${title}\nDescription: ${desc}\nSubmitted by: ${currentUser.name} (${currentUser.id})`;
-
-                const adminChatId = getChatId(ADVICE_BOT_ID, adminId);
-                push(ref(db, `messages/${adminChatId}`), {
-                    senderId: ADVICE_BOT_ID,
-                    senderName: 'Advice Bot',
-                    text: requestText,
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
-
-                const userChatId = getChatId(ADVICE_BOT_ID, currentUser.id);
-                const confirmText = `[SUBMISSION SUCCESSFUL]\nThank you for your suggestion! "Advice Bot" has delivered your request for "${title}" to the Admin team for review.`;
-                push(ref(db, `messages/${userChatId}`), {
-                    senderId: ADVICE_BOT_ID,
-                    senderName: 'Advice Bot',
-                    text: confirmText,
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
-
-                showCustomAlert("Success", "Your suggestion has been sent to Admin. Thank you!");
-                closePostForm();
-                return;
-            }
-
-            const publishContent = async () => {
-                let finalImageUrl = null;
-                if (currentPostBase64) {
-                    // Show a temporary hint in the alert/form if possible
-                    finalImageUrl = await uploadImageToStorage(currentPostBase64, isPostingNews ? 'announcements' : 'modules');
-                }
-
-                const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
-                set(push(ref(db, dbRefStr)), {
-                    title, desc,
-                    image: finalImageUrl,
-                    authorId: isAnonymous ? 'anonymous' : currentUser.id,
-                    authorName: isAnonymous ? 'Anonymous' : currentUser.name,
-                    timestamp: Date.now(),
-                    likes: {}
-                }).then(() => {
-                    showCustomAlert("Success", "Published successfully!");
-                    closePostForm();
-                    if (isPostingNews) globalDataSync();
-                }).catch(err => {
-                    lastPostSentTime = 0;
-                    alert("Failed to post: " + err.message);
-                });
-            };
-
-            publishContent();
-        };
-
-        window.toggleLike = async (postId) => {
-            if (!auth.currentUser) return;
-            const uid = auth.currentUser.uid;
-            const postRef = ref(db, `modules/${currentModule}/${postId}/likes/${uid}`);
-            const post = modulePosts.find(p => p.id === postId);
-            try {
-                if (post && post.likes && post.likes[uid]) {
-                    await set(postRef, null);
-                } else {
-                    await set(postRef, true);
-                }
-            } catch (err) { console.error(err); }
-        };
-
-        window.openPostDetail = (postId) => {
-            currentPostId = postId;
-            const page = document.getElementById('detailPage');
-            page.classList.remove('hidden');
-            requestAnimationFrame(() => page.classList.remove('translate-x-full'));
-
-            const config = MODULE_CONFIG[currentModule];
-            document.getElementById('commentInputArea').classList.toggle('hidden', !config.hasComments);
-
-            if (postDetailListener) postDetailListener();
-            postDetailListener = onValue(ref(db, `modules/${currentModule}/${postId}`), (snap) => {
-                const post = snap.val();
-                if (post) renderPostDetail(postId, post);
-            });
-        };
-
-        window.closeDetail = () => {
-            const page = document.getElementById('detailPage');
-            page.classList.add('translate-x-full');
-            setTimeout(() => page.classList.add('hidden'), 380);
-            if (postDetailListener) { postDetailListener(); postDetailListener = null; }
-            currentPostId = null;
-        };
-
-        async function renderPostDetail(postId, post) {
-            const contentEl = document.getElementById('detailContent');
-            const config = MODULE_CONFIG[currentModule];
-            const likesCount = Object.keys(post.likes || {}).length;
-            const isLiked = post.likes && auth.currentUser && post.likes[auth.currentUser.uid];
-
-            const authorName = config.anonymous ? 'Anonymous' : (post.authorName || 'Unknown');
-            const author = !config.anonymous ? await fetchUser(post.authorId) : null;
-            const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (author?.avatar || 'https://ui-avatars.com/api/?name=' + authorName);
-
-            let html = `
-                <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5">
-                    <div class="flex items-center gap-4 mb-5">
-                        <img src="${authorAvatar}" class="w-14 h-14 rounded-full object-cover">
-                        <div>
-                            <div class="font-bold text-lg text-black dark:text-white">${authorName}</div>
-                            <div class="text-sm text-gray-400 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
-                        </div>
-                    </div>
-                    <div class="font-extrabold text-2xl mb-3 text-black dark:text-white">${escapeHTML(post.title)}</div>
-                    <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                    ${(post.image && !window.isPhotoDisabled) ? `
-                    <div class="relative w-full">
-                        <img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer" 
-                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-                             onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">
-                        <div class="hidden mt-5 px-5 py-4 bg-gray-50 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-dashed border-gray-200 dark:border-gray-800">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            Photo no longer available
-                        </div>
-                    </div>` : ''}
-                    ${(post.image && window.isPhotoDisabled) ? `<div class="mt-5 px-5 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-gray-100 dark:border-white/5"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Blocked by Administrator</div>` : ''}
-                    ${getSuggestionVotingHtml({ ...post, id: postId })}
-                    <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
-                        <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
-                            <svg class="w-7 h-7 ${isLiked ? 'fill-current' : 'fill-none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                            <span class="text-base font-medium">${likesCount}</span>
-                        </button>
-                        <button onclick="reportPost('${postId}')" class="text-gray-400 hover:text-gray-600"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>
-                    </div>
-                </div>`;
-
-            if (config.hasComments) {
-                const comments = post.comments || {};
-                const sorted = Object.keys(comments).map(k => ({ id: k, ...comments[k] })).sort((a, b) => a.timestamp - b.timestamp);
-                html += `<div class="mt-8 font-bold text-xl mb-5 px-2 text-black dark:text-white">Comments (${sorted.length})</div>`;
-                if (sorted.length === 0) {
-                    html += `<div class="text-center text-gray-400 text-sm mt-5">No comments yet.</div>`;
-                } else {
-                    html += `<div class="space-y-4">`;
-                    for (const c of sorted) {
-                        const cAuthorName = config.anonymous ? 'Anonymous' : (c.authorName || 'Unknown');
-                        const cAuthor = !config.anonymous ? await fetchUser(c.authorId) : null;
-                        const cAuthorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (cAuthor?.avatar || 'https://ui-avatars.com/api/?name=' + cAuthorName);
-                        html += `<div class="flex gap-4"><img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full mt-1"><div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm"><div class="flex justify-between mb-1"><span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span><span class="text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div class="text-base text-gray-700 dark:text-gray-300">${linkify(escapeHTML(c.text))}</div></div></div>`;
-                    }
-                    html += `</div>`;
-                }
-            }
-            contentEl.innerHTML = html;
-        }
 
 
         window.openBatchImport = () => {
@@ -5591,24 +5021,6 @@
             }
         };
 
-        window.submitComment = () => {
-
-            const now = Date.now();
-            if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
-            const input = document.getElementById('commentInput');
-            const text = input.value.trim();
-            if (!text || !currentPostId) return;
-
-            const config = MODULE_CONFIG[currentModule] || {};
-            const isAnonymous = config.anonymous || false;
-            lastCommentSentTime = now;
-            set(push(ref(db, `modules/${currentModule}/${currentPostId}/comments`)), {
-                text,
-                authorId: isAnonymous ? 'anonymous' : currentUser.id,
-                authorName: isAnonymous ? 'Anonymous' : currentUser.name,
-                timestamp: Date.now()
-            }).then(() => { input.value = ''; }).catch(e => alert(e.message));
-        };
 
         window.openEagleTime = () => {
             currentModule = 'eagle_time';
@@ -6452,398 +5864,8 @@
         // Run sync periodically
         setInterval(syncGroupChats, 30000);
         syncGroupChats();
-    </script>
-    <style>
-        /* Custom Scrollbar Styles */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
+    
 
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background-color: rgba(0, 0, 0, 0.15);
-            border-radius: 10px;
-        }
-
-        .dark ::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(0, 0, 0, 0.3);
-        }
-
-        .dark ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.3);
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        .app-container {
-            height: 100vh;
-            height: 100dvh;
-        }
-
-        .msg-pop {
-            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-
-        @keyframes popIn {
-            0% {
-                transform: scale(0.95) translateY(10px);
-                opacity: 0;
-            }
-
-            100% {
-                transform: scale(1) translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .slide-in-left {
-            animation: slideInLeft 0.3s ease-out forwards;
-        }
-
-        /* Flat Minimalist UI for Search */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        #searchResultList::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #searchResultList::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        #searchResultList::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-        }
-
-        .ios-glass {
-            background: #ffffff !important;
-            border: 1px solid rgba(0, 0, 0, 0.1) !important;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-        }
-
-        .dark .ios-glass {
-            background: #1C1C1E !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-        }
-
-        .slide-in-right {
-            animation: slideInRight 0.3s ease-out forwards;
-        }
-
-        .highlight-pulse {
-            animation: highlightPulse 0.4s ease-in-out 2;
-        }
-
-        @keyframes highlightPulse {
-
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.5;
-                transform: scale(1.02);
-            }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.25s ease-out forwards;
-        }
-
-        .fade-out {
-            animation: fadeOut 0.25s ease-in forwards;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes fadeOut {
-            from {
-                opacity: 1;
-            }
-
-            to {
-                opacity: 0;
-            }
-        }
-
-        .slide-up {
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px) scale(0.95);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0) scale(1);
-                opacity: 1;
-            }
-        }
-
-        .pass-gradient {
-            background: linear-gradient(135deg, #007AFF 0%, #00C6FF 100%);
-        }
-
-
-
-        .ticket-cutout {
-            position: relative;
-        }
-
-        .ticket-cutout::before,
-        .ticket-cutout::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: #F2F2F7;
-            border-radius: 50%;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .dark .ticket-cutout::before,
-        .dark .ticket-cutout::after {
-            background: #000;
-        }
-
-        .ticket-cutout::before {
-            left: -10px;
-        }
-
-        .ticket-cutout::after {
-            right: -10px;
-        }
-
-        /* --- Desktop Smart Sidebar (Advanced Edge Trigger) --- */
-        #sidebarTrigger,
-        #sidebarHandle {
-            display: none;
-        }
-
-        @media (min-width: 1024px) {
-            #sidebarTrigger {
-                display: block;
-            }
-
-            #sidebarHandle {
-                display: flex;
-            }
-
-            #newsSection {
-                transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-                transform-origin: left center;
-                overflow: hidden;
-                flex-shrink: 0;
-                z-index: 20;
-            }
-
-            /* 折叠状态样式 (针对最左侧 News) */
-            body.sidebar-collapsed #newsSection {
-                width: 0 !important;
-                min-width: 0 !important;
-                opacity: 0;
-                pointer-events: none;
-                border-right-width: 0;
-            }
-
-            /* 主内容 (Messages + Chat) 平滑过渡 */
-            #sidePanel,
-            #chatSection {
-                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.5s ease;
-            }
-
-            /* 当侧边栏收起时，主内容占满 */
-            body.sidebar-collapsed #sidePanel,
-            body.sidebar-collapsed #chatSection {
-                transform: scale(1) translateX(0);
-            }
-
-            /* 当侧边栏展开时，给整体加个高级感缩放 */
-            body:not(.sidebar-collapsed) #sidePanel,
-            body:not(.sidebar-collapsed) #chatSection {
-                transform: scale(0.995);
-                transform-origin: left center;
-            }
-
-            /* 边缘感应器 */
-            #sidebarTrigger {
-                position: fixed;
-                left: 0;
-                top: 0;
-                width: 12px;
-                height: 100vh;
-                z-index: 999;
-                cursor: pointer;
-            }
-
-            /* 呼出柄 (Handle) */
-            #sidebarHandle {
-                position: fixed;
-                left: -45px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 32px;
-                height: 90px;
-                background: #007AFF;
-                border-radius: 0 16px 16px 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                box-shadow: 4px 0 15px rgba(0, 122, 255, 0.3);
-                z-index: 1000;
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                cursor: pointer;
-            }
-
-            #sidebarHandle:hover {
-                width: 38px;
-            }
-
-            /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
-            /* 只有在折叠状态下，鼠标靠近或已折叠时滑块才跳到 0 */
-            body.sidebar-collapsed #sidebarTrigger:hover+#sidebarHandle,
-            body.sidebar-collapsed #sidebarHandle:hover {
-                left: 0 !important;
-            }
-
-            /* 当收起时，滑块在屏幕最左侧边缘露出一小部分 (指向右) */
-            body.sidebar-collapsed #sidebarHandle {
-                left: -28px;
-                transform: translateY(-50%) scaleX(1);
-            }
-
-            /* 当展开时，滑块变形成一个灰色的小条，吸附在 NEWS 列表右边缘内部 (指向左) */
-            body:not(.sidebar-collapsed) #sidebarHandle {
-                left: 320px;
-                width: 16px;
-                height: 60px;
-                background: #8E8E93;
-                opacity: 0.4;
-                transform: translateY(-50%) translateX(-100%) scaleX(-1);
-                /* 移入内部并翻转 */
-            }
-
-            body:not(.sidebar-collapsed) #sidebarHandle:hover {
-                opacity: 1;
-                width: 22px;
-            }
-
-            /* 当全屏内容打开时，强制隐藏滑块 */
-            body.is-fullscreen #sidebarHandle,
-            body.is-fullscreen #sidebarTrigger {
-                display: none !important;
-            }
-        }
-    </style>
-</head>
-
-<body class="overflow-hidden bg-[#f2f2f7] dark:bg-black text-black dark:text-white transition-colors duration-300">
-
-    <!-- Batch Import Modal -->
-    <div id="batchImportModal"
-        class="hidden fixed inset-0 z-[4001] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-all duration-300">
-        <div
-            class="bg-white dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col scale-100 transition-all">
-            <div class="p-5 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
-                <h3 class="font-bold text-lg">Batch Import</h3>
-                <button onclick="closeBatchImport()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-            <div class="p-6 space-y-4">
-                <p class="text-sm text-gray-500 leading-relaxed">Paste your AI-generated JSON array below. It should
-                    include <b>title</b>, <b>desc</b>, and <b>type</b> (school or club) for each item.</p>
-                <textarea id="batchJsonInput" rows="10"
-                    placeholder='[{"title": "Morning Meeting", "desc": "Join us at 8am...", "type": "school"}]'
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border-none resize-none focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
-                <button onclick="processBatchImport()"
-                    class="w-full bg-[#007AFF] text-white py-3.5 rounded-xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20">Import
-                    & Publish All</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Confirmation Modal -->
-    <div id="customModal"
-        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
-        <div
-            class="bg-white/80 dark:bg-gray-900/80 w-full max-w-[280px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
-            <div class="p-5 text-center">
-                <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-1.5 leading-tight">Title
-                </div>
-                <div id="modalBody" class="text-sm text-black/70 dark:text-white/60 leading-snug">Body</div>
-            </div>
-            <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
-                <button id="modalCancel"
-                    class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
-                <button id="modalAlt"
-                    class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">No</button>
-                <button id="modalConfirm"
-                    class="flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Continue</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Error Overlay -->
-    <div id="errorOverlay"
-        class="hidden fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-6 text-white">
-        <div class="bg-[#1C1C1E] p-8 rounded-3xl border border-white/10 max-w-md w-full shadow-2xl text-center">
-            <div class="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h2 class="text-xl font-bold mb-2">Startup Failure</h2>
-            <p class="text-gray-400 text-sm mb-4">The application failed to initialize. Error details:</p>
-            <pre id="errorMessage"
-                class="bg-black/50 p-4 rounded-xl text-left text-xs text-red-400 overflow-auto max-h-40 mb-6 font-mono"></pre>
-            <button onclick="location.reload()" class="w-full bg-[#007AFF] py-3 rounded-xl font-bold">Try
-                Reload</button>
-        </div>
-    </div>
-
-    <script>
         // Global error helper
         window.showError = function (err) {
             console.error('App Error:', err);
@@ -6892,1843 +5914,10 @@
                 window.hideLoading();
             }
         }, 10000);
-    </script>
+    
 
-    <div id="loadingPage"
-        class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black transition-opacity duration-500 pointer-events-none">
-        <div class="relative flex flex-col items-center animate-pulse">
-            <div
-                class="w-24 h-24 bg-[#E3F2FD] rounded-[32px] rounded-bl-none flex items-center justify-center shadow-xl relative overflow-hidden ring-4 ring-white/10">
-                <svg class="w-16 h-16 drop-shadow-md" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-                    <polygon fill="white"
-                        points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-                    <path fill="#ED2129"
-                        d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-                </svg>
-            </div>
-            <div class="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6">
-                <div class="w-full h-full bg-[#007AFF] animate-progress origin-left"></div>
-            </div>
-        </div>
-    </div>
-    <!-- Name Setup Overlay -->
-    <div id="nameSetupPage"
-        class="hidden fixed inset-0 z-[192] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-6">
-        <div class="w-full max-w-sm bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl space-y-6 slide-up">
-            <div class="flex flex-col items-center">
-                <div class="w-20 h-20 bg-blue-50 dark:bg-blue-500/10 rounded-3xl flex items-center justify-center mb-4">
-                    <svg class="w-10 h-10 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                </div>
-                <h2 class="text-2xl font-black text-black dark:text-white">Profile Setup</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">Please use your <b>real name</b> so
-                    classmates can recognize you.</p>
-            </div>
-
-            <div class="space-y-3">
-                <div
-                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">First
-                        Name</label>
-                    <input type="text" id="setupFirstName" placeholder="Required"
-                        class="w-full bg-transparent outline-none text-base font-medium">
-                </div>
-                <div
-                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Last
-                        Name</label>
-                    <input type="text" id="setupLastName" placeholder="Required"
-                        class="w-full bg-transparent outline-none text-base font-medium">
-                </div>
-            </div>
-
-            <button onclick="saveInitialProfile()" id="setupSubmitBtn"
-                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:pointer-events-none">
-                Start Chatting
-            </button>
-        </div>
-    </div>
-
-    <!-- Device Compatibility Page -->
-    <div id="compatibilityPage"
-        class="hidden fixed inset-0 z-[195] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-8 text-center">
-        <div class="bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl max-w-sm w-full space-y-6">
-            <h2 class="text-2xl font-black text-black dark:text-white">Device Support</h2>
-            <div class="space-y-4 text-left">
-                <div class="space-y-1">
-                    <p class="text-xs font-bold text-[#007AFF] uppercase tracking-widest">Supported</p>
-                    <ul class="text-[14px] space-y-1.5 text-gray-600 dark:text-gray-300 font-medium">
-                        <li>• iPhone 6s or newer</li>
-                        <li>• iPads (iPadOS 13+)</li>
-                        <li>• School Chrome Books</li>
-                        <li>• Samsung S8 / Google Pixel 2+</li>
-                        <li>• PC & Mac: Chrome, Edge, Safari 13.1+</li>
-                    </ul>
-                </div>
-                <div class="space-y-1">
-                    <p class="text-xs font-bold text-red-500 uppercase tracking-widest">Not Supported</p>
-                    <ul class="text-[14px] space-y-1.5 text-gray-400 font-medium">
-                        <li>• iPhone 6 and older</li>
-                        <li>• Internet Explorer / Old Firefox</li>
-                    </ul>
-                </div>
-            </div>
-            <button onclick="dismissCompatibility()"
-                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-blue-500/20">Got
-                it</button>
-        </div>
-    </div>
-
-    <div id="loginPage"
-        class="hidden fixed inset-0 z-[190] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-6">
-        <div class="w-full max-w-sm flex flex-col items-center mb-10">
-            <div
-                class="w-24 h-24 bg-[#E3F2FD] rounded-[32px] rounded-bl-none flex items-center justify-center shadow-xl mb-8 relative overflow-hidden ring-4 ring-white/10">
-                <svg class="w-16 h-16 drop-shadow-md" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-                    <polygon fill="white"
-                        points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-                    <path fill="#ED2129"
-                        d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-                </svg>
-            </div>
-            <h1 class="text-3xl font-black text-black dark:text-white mb-2 tracking-tight">CHS Chat & Social</h1>
-            <p id="loginHint" class="text-gray-500 dark:text-gray-400 text-center font-medium">Select your account type
-                to continue</p>
-        </div>
-        <div class="w-full max-w-xs">
-            <button onclick="loginWithGoogle()"
-                class="w-full bg-white dark:bg-[#1C1C1E] text-black dark:text-white border border-gray-200 dark:border-gray-700 py-3 rounded-xl font-semibold text-base mb-2 flex items-center justify-center gap-3 shadow-sm transition-opacity active:opacity-70">
-                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                <div class="text-left flex flex-col">
-                    <span class="leading-tight">Sign In with Google</span>
-                    <span class="text-xs opacity-50 font-medium leading-tight">Administrator Only</span>
-                </div>
-            </button>
-            <button onclick="loginWithMicrosoft()"
-                class="w-full bg-white dark:bg-[#1C1C1E] text-black dark:text-white border border-gray-200 dark:border-gray-700 py-3 rounded-xl font-semibold text-base mb-2 flex items-center justify-center gap-3 shadow-sm transition-opacity active:opacity-70">
-                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 32 32">
-                    <rect x="2" y="2" width="13" height="13" fill="#f25022" />
-                    <rect x="17" y="2" width="13" height="13" fill="#7fba00" />
-                    <rect x="2" y="17" width="13" height="13" fill="#00a4ef" />
-                    <rect x="17" y="17" width="13" height="13" fill="#ffb900" />
-                </svg>
-                <div class="text-left flex flex-col">
-                    <span class="leading-tight">Sign In with Microsoft</span>
-                    <span class="text-xs opacity-50 font-medium leading-tight">HCPSS accounts</span>
-                </div>
-            </button>
-        </div>
-    </div>
-
-    <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
-        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-2xl shadow-2xl slide-up overflow-visible">
-            <div
-                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E]">
-                <h3 id="modalTitle" class="font-bold text-lg">Settings</h3>
-                <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
-            </div>
-            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl max-h-[70vh] overflow-y-auto">
-
-                <div id="settingsView" class="space-y-6">
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Profile</label>
-                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="firstNameInput" placeholder="First Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="lastNameInput" placeholder="Last Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <button onclick="saveProfileName(event)"
-                                class="w-full text-[#007AFF] font-medium py-3 text-base active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                                Update Name
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="relative" id="themeDropdownContainer">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
-                        <div onclick="toggleDropdown('themeDropdown', event)"
-                            class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl cursor-pointer">
-                            <span class="font-medium">Theme</span>
-                            <div class="flex items-center text-gray-500">
-                                <span id="currentThemeLabel" class="mr-2">System</span>
-                                <svg id="themeDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div id="themeDropdown"
-                            class="custom-dropdown hidden absolute top-[calc(100%+8px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
-                            <button onclick="selectTheme('system', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
-                            <button onclick="selectTheme('light', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
-                            <button onclick="selectTheme('dark', event)"
-                                class="w-full text-left px-4 py-3 text-sm">Dark</button>
-                        </div>
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
-                        <button onclick="showTos(false)"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <span class="font-medium">Terms of Service</span>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
-                        <label class="font-medium">Sound Effects</label>
-                        <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                            class="w-6 h-6 accent-blue-500">
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Software</label>
-                        <button onclick="showChangelog()"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <div class="text-left">
-                                <div class="font-medium">Engineering Log</div>
-                                <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="pt-2 space-y-2">
-                        <button onclick="handleSignOut()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-500 py-3 rounded-xl font-semibold text-base hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
-                            Sign Out
-                        </button>
-                        <button onclick="clearAllLocalData()"
-                            class="w-full text-gray-400 text-xs font-medium py-2 hover:text-red-500 transition-colors">
-                            Trouble? Clear Local Cache
-                        </button>
-                    </div>
-
-                    <div id="adminPanel"
-                        class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
-                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
-                        <button onclick="openAdminConsole()"
-                            class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all mb-4">
-                            Open Database Console (Advanced)
-                        </button>
-
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Management Tools
-                        </h3>
-                        <button onclick="adminPurgeImages()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-4 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-all active:scale-[0.98]">
-                            Purge Private Image Storage
-                        </button>
-
-                        <div
-                            class="flex items-center justify-between p-4 bg-red-50 dark:bg-red-500/5 rounded-2xl border border-red-100 dark:border-red-500/20">
-                            <div class="flex-1 pr-4">
-                                <label class="font-bold text-red-600 dark:text-red-400 text-sm">Disable All
-                                    Photos</label>
-                                <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Hide/Block
-                                    all images to save data & bandwidth</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="globalPhotoToggle"
-                                    onchange="toggleGlobalPhotos(this.checked)" class="sr-only peer">
-                                <div
-                                    class="w-11 h-6 bg-gray-300 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500">
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="changelogView"
-                    class="hidden space-y-6 pb-6 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
-                    <div class="space-y-10">
-                        <!-- v5.0 -->
-                        <section class="space-y-4">
-                            <div
-                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
-                                <span
-                                    class="bg-blue-500 text-white text-xs font-black px-2 py-0.5 rounded-md">v5.0</span>
-                                <h3 class="font-bold text-base">Real-time Engine & Automation</h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div>
-                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>Real-time news synchronization via Firebase onValue listeners</li>
-                                        <li>Asynchronous UI reconciliation with state-aware animations</li>
-                                        <li>Smart Linkify URL sanitization regex (Trailing punctuation exclusion)</li>
-                                        <li>Incremental Apps Script Sync (newer_than:1d) with star-based de-duplication
-                                        </li>
-                                        <li>Automated tabType classification (Media/Club keyword scanning)</li>
-                                        <li>Intelligent Canvas divider & footer stripping logic</li>
-                                        <li>Automation runtime window constraints (07:00-17:00) for quota management
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Enhanced news rendering performance with targeted DOM updates</li>
-                                        <li>Added slide-in-from-bottom-2 keyframe transitions for new posts</li>
-                                        <li>Optimized Google Apps Script execution time and memory footprint</li>
-                                        <li>Improved CSS animation fluidity for announcement transitions</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Resolved saveLocalNews ReferenceError in news initialization</li>
-                                        <li>Fixed URL parsing bug capturing trailing parentheses in announcements</li>
-                                        <li>Corrected tabType mismatch for student community emails</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-                        <!-- v4.0 -->
-                        <section class="space-y-4">
-                            <div
-                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
-                                <span
-                                    class="bg-blue-500 text-white text-xs font-black px-2 py-0.5 rounded-md">v4.0</span>
-                                <h3 class="font-bold text-base">Performance & Storage</h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div>
-                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>Firebase Storage integration for cloud image hosting</li>
-                                        <li>Smart client-side image compression (800px max)</li>
-                                        <li>Optimized JPEG quality (0.6) for data savings</li>
-                                        <li>URL-based image messaging system</li>
-                                        <li>Native browser caching support for media</li>
-                                        <li>User image quota system (15 images limit)</li>
-                                        <li>Rolling FIFO (First-In-First-Out) overwrite mechanism</li>
-                                        <li>Pre-deletion confirmation prompts</li>
-                                        <li>Admin Purge Tool for centralized storage cleanup</li>
-                                        <li>Automated stale image cleanup logic</li>
-                                        <li>5-day auto-expiry strategy for non-essential media</li>
-                                        <li>"Image Expired" UI placeholders</li>
-                                        <li>Graceful image load error handling</li>
-                                        <li>Real-time upload status (Uploading...) feedback</li>
-                                        <li>Hardened error recovery for interrupted uploads</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>90%+ reduction in image data consumption</li>
-                                        <li>Significant reduction in chat thread load times</li>
-                                        <li>Minimized server-side bandwidth overhead</li>
-                                        <li>Enhanced real-time message sync efficiency</li>
-                                        <li>True incremental sync (fetching new data only)</li>
-                                        <li>Removed redundant background consistency checks</li>
-                                        <li>Optimized local IndexDB cache strategy</li>
-                                        <li>Minimized Firebase request counts</li>
-                                        <li>Smart scrolling (auto-scroll only when at bottom)</li>
-                                        <li>Uninterrupted reading during new message arrival</li>
-                                        <li>Responsive UI interaction during heavy sync</li>
-                                        <li>Improved cloud storage utilization efficiency</li>
-                                        <li>Cost control and quota management optimization</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Fixed "Ghost Data" issue where deleted contacts reappeared</li>
-                                        <li>Resolved ID case-sensitivity sync bugs</li>
-                                        <li>Fixed global search result navigation</li>
-                                        <li>Corrected announcement jump positioning</li>
-                                        <li>Resolved message index positioning errors</li>
-                                        <li>Fixed multi-image stack rendering anomalies</li>
-                                        <li>Corrected toggleStack expansion logic</li>
-                                        <li>Improved image container adaptation for stacks</li>
-                                        <li>Fixed "Uploading..." hang issues</li>
-                                        <li>Resolved input field lock-up bugs</li>
-                                        <li>Added missing upload failure feedback</li>
-                                        <li>Fixed timeout handling for large files</li>
-                                        <li>Prevented crashes on corrupted image loads</li>
-                                        <li>Resolved URL parsing errors in image groups</li>
-                                        <li>Fixed local cache conflict anomalies</li>
-                                        <li>Resolved duplicate message loading</li>
-                                        <li>Fixed scroll jitter in long chat threads</li>
-                                        <li>Removed forced scroll-to-bottom on history load</li>
-                                        <li>Fixed UI stuttering during heavy media loads</li>
-                                        <li>Corrected image alignment offsets</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- v3.0 -->
-                        <section class="space-y-4">
-                            <div
-                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
-                                <span
-                                    class="bg-gray-200 dark:bg-white/10 text-gray-500 text-xs font-black px-2 py-0.5 rounded-md">v3.0</span>
-                                <h3 class="font-bold text-base">Experience & Accessibility</h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div>
-                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>Deployment on GitHub Pages for global access</li>
-                                        <li>Instant publishing capability with no quota caps</li>
-                                        <li>Forced Service Worker updates for live patching</li>
-                                        <li>Global unread message red-dot indicators</li>
-                                        <li>Minimalist login flow (Email + 8888 pass)</li>
-                                        <li>Automated account registration system</li>
-                                        <li>Admin push notifications for new sign-ups</li>
-                                        <li>Auto-generated welcome chats for new users</li>
-                                        <li>Step-by-step user onboarding flow</li>
-                                        <li>Full support for Chinese character usernames</li>
-                                        <li>Multi-language input method compatibility</li>
-                                        <li>Restored push notification functionality</li>
-                                        <li>Fixed notification script routing paths</li>
-                                        <li>Instant system activation upon entry</li>
-                                        <li>Streamlined onboarding paths</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Brand refresh to "CHS Chat & Social"</li>
-                                        <li>Pixel-perfect UI element alignment</li>
-                                        <li>Unified search bar height standards</li>
-                                        <li>Baseline alignment for announcement cards</li>
-                                        <li>Optimized Recent Chats sidebar alignment</li>
-                                        <li>Visual polish for selection and hover states</li>
-                                        <li>Enhanced background blending effects</li>
-                                        <li>Improved UI depth and layering</li>
-                                        <li>Visual consistency across all modules</li>
-                                        <li>Interaction fluidity enhancements</li>
-                                        <li>Simplified login flow UX</li>
-                                        <li>Shortened user task paths</li>
-                                        <li>Clearer page structure hierarchy</li>
-                                        <li>Reduced visual noise in chat threads</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Fixed App Check connection failures</li>
-                                        <li>Resolved reCAPTCHA loading blockages</li>
-                                        <li>Addressed Vercel deployment limitations</li>
-                                        <li>Fixed 404 errors on push notification scripts</li>
-                                        <li>Resolved data loading failures</li>
-                                        <li>Fixed multi-device connection instability</li>
-                                        <li>Resolved login hang issues</li>
-                                        <li>Fixed crashes during Chinese input</li>
-                                        <li>Resolved user creation failures</li>
-                                        <li>Fixed missing data for new accounts</li>
-                                        <li>Resolved initialization anomalies</li>
-                                        <li>Fixed UI misalignment issues</li>
-                                        <li>Resolved push notification trigger failures</li>
-                                        <li>Fixed unmarked unread messages</li>
-                                        <li>Resolved state loss on page refresh</li>
-                                        <li>Fixed Service Worker cache pollution</li>
-                                        <li>Resolved persistent old version residue</li>
-                                        <li>Fixed data synchronization issues</li>
-                                        <li>Resolved fragmented user experiences</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- v2.0 -->
-                        <section class="space-y-4">
-                            <div
-                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
-                                <span
-                                    class="bg-gray-200 dark:bg-white/10 text-gray-500 text-xs font-black px-2 py-0.5 rounded-md">v2.0</span>
-                                <h3 class="font-bold text-base">Security & Stability</h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div>
-                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>On-demand user data loading mechanism</li>
-                                        <li>Removed full user-node real-time listeners</li>
-                                        <li>Implemented getCachedUser(uid) interface</li>
-                                        <li>Firebase Security Rules permission isolation</li>
-                                        <li>Global HTML escape function (XSS Defense)</li>
-                                        <li>Unified secure rendering entry point</li>
-                                        <li>Content filtering for News & Announcements</li>
-                                        <li>Content filtering for Chat system</li>
-                                        <li>Content filtering for Marketplace</li>
-                                        <li>Initializer try/catch/finally blocks</li>
-                                        <li>Force release for loading state indicators</li>
-                                        <li>IndexedDB local storage caching API</li>
-                                        <li>Local cache fallback logic</li>
-                                        <li>Low-bandwidth degradation strategies</li>
-                                        <li>Firebase reconnection mechanism</li>
-                                        <li>Error log capture and reporting</li>
-                                        <li>Event naming isolation (evt namespace)</li>
-                                        <li>Firebase query function polyfills</li>
-                                        <li>orderByChild query support</li>
-                                        <li>startAt / endAt search range support</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>User data retrieval performance tuning</li>
-                                        <li>First-screen loading speed boost</li>
-                                        <li>Reduced overall Firebase request count</li>
-                                        <li>Minimized memory footprint</li>
-                                        <li>Search responsiveness enhancements</li>
-                                        <li>Decoupled search UI from core logic</li>
-                                        <li>Optimized input field rendering performance</li>
-                                        <li>Reduced DOM update frequency</li>
-                                        <li>Minimized render-blocking scripts</li>
-                                        <li>Isolated asynchronous error handling</li>
-                                        <li>Enhanced initialization stability</li>
-                                        <li>Improved multi-device consistency</li>
-                                        <li>Better page refresh recovery</li>
-                                        <li>Improved local cache hit rates</li>
-                                        <li>Optimized offline functionality</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Fixed PII data leak vulnerabilities (FERPA)</li>
-                                        <li>Resolved innerHTML XSS injection flaws</li>
-                                        <li>Fixed script execution vulnerabilities</li>
-                                        <li>Resolved security flaws in Chat/News</li>
-                                        <li>Fixed startup hang (hideLoading not triggered)</li>
-                                        <li>Resolved Firebase latency blockage</li>
-                                        <li>Fixed uncaught Promise exceptions</li>
-                                        <li>Resolved missing getLocalModulePosts</li>
-                                        <li>Fixed IndexedDB read failures</li>
-                                        <li>Resolved missing Firebase imports</li>
-                                        <li>Fixed JS parsing interruptions</li>
-                                        <li>Resolved search functionality failures</li>
-                                        <li>Fixed variable naming conflicts (e)</li>
-                                        <li>Resolved blank page / unresponsive issues</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- v1.0 -->
-                        <section class="space-y-4">
-                            <div
-                                class="sticky top-0 bg-white dark:bg-[#1C1C1E] py-2 z-10 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
-                                <span
-                                    class="bg-gray-200 dark:bg-white/10 text-gray-500 text-xs font-black px-2 py-0.5 rounded-md">v1.0</span>
-                                <h3 class="font-bold text-base">Initial Release</h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div>
-                                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">New Features</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                        <li>PWA support (Add to Home Screen)</li>
-                                        <li>Standalone mode (No browser UI)</li>
-                                        <li>Microsoft (HCPSS) OAuth integration</li>
-                                        <li>Admin login identification labels</li>
-                                        <li>Initial user onboarding flow</li>
-                                        <li>Mandatory Terms of Service agreement</li>
-                                        <li>Persistent user state (local/session)</li>
-                                        <li>Real-time chat system launch</li>
-                                        <li>Live message updates via Firebase</li>
-                                        <li>News & Announcements module v1</li>
-                                        <li>Cafeteria menu module v1</li>
-                                        <li>Marketplace structural framework</li>
-                                        <li>Settings panel foundation</li>
-                                        <li>Donation system entry ($ icon)</li>
-                                        <li>PayPal integration</li>
-                                        <li>WeChat/Alipay QR display</li>
-                                        <li>Unified module routing structure</li>
-                                        <li>Permission levels (Admin / User)</li>
-                                        <li>Basic error UI indicators</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Slide-in animations for 'Social' modules</li>
-                                        <li>Unified module transition effects</li>
-                                        <li>Bottom Sheet for cafeteria editing</li>
-                                        <li>Post-like interaction UX across modules</li>
-                                        <li>Optimized settings info structure</li>
-                                        <li>Integrated legal info entrance</li>
-                                        <li>Reusable donation UI components</li>
-                                        <li>Optimized loading animations</li>
-                                        <li>Consistent iconography style</li>
-                                        <li>Redrawn PayPal icon</li>
-                                        <li>Localized Alipay design</li>
-                                        <li>Unified UI spacing and typography</li>
-                                        <li>Standardized header alignment</li>
-                                        <li>Responsive mobile layout adaptation</li>
-                                        <li>Narrow-screen Chromebook support</li>
-                                        <li>Touch interaction optimizations</li>
-                                        <li>Handled gesture feedback</li>
-                                        <li>Transition FPS optimization</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="text-[11px] font-bold text-red-500 uppercase mb-2">Bug Fixes</h4>
-                                    <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                                        <li>Fixed News/Messages toggle direction</li>
-                                        <li>Resolved transition black-screen flicker</li>
-                                        <li>Fixed layout shifts during load</li>
-                                        <li>Resolved back button failure in Cafeteria</li>
-                                        <li>Fixed orphaned Firebase listeners</li>
-                                        <li>Resolved lag from duplicate subscriptions</li>
-                                        <li>Fixed header centering issues</li>
-                                        <li>Resolved UI offset in no-permission state</li>
-                                        <li>Fixed z-index layering conflicts</li>
-                                        <li>Resolved modal occlusion</li>
-                                        <li>Fixed QR overlay depth errors</li>
-                                        <li>Resolved occasional startup freezes</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-
-                <div id="donationView" class="hidden space-y-5">
-                    <div class="text-center space-y-2">
-                        <div
-                            class="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto">
-                            <svg class="w-8 h-8 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm px-4">Support CHSchat development. Your
-                            contributions help keep the project running!</p>
-                    </div>
-                    <div id="donationButtons" class="space-y-3">
-                        <button onclick="openDonationQR('paypal', './donate/paypal-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">PayPal</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#003087] text-white font-black text-sm flex items-center justify-center">P</span>
-                        </button>
-                        <button onclick="openDonationQR('wechat', './donate/wechat-qr.png')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">WeChat Pay</span>
-                            <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M8.6 13.5c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zm6.8 0c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zM12 2C6.5 2 2 5.8 2 10.5c0 2.6 1.4 4.9 3.6 6.4L5 19.3c-.1.3.1.6.4.5l3.2-1.6c1.1.3 2.2.5 3.4.5 5.5 0 10-3.8 10-8.5S17.5 2 12 2zm6.6 13.9c1.6-1.1 2.6-2.8 2.6-4.6 0-3.8-3.6-6.9-8-6.9s-8 3.1-8 6.9c0 1.9 1 3.6 2.6 4.7l-.4 2c0 .2.1.3.3.3l2.2-1.1c.9.2 1.8.3 2.7.3s1.9-.1 2.8-.3l2.1 1.1c.2.1.4-.1.3-.3l-.4-2.1z" />
-                            </svg>
-                        </button>
-                        <button onclick="openDonationQR('alipay', './donate/alipay-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">Alipay</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#1677FF] text-white font-black text-sm flex items-center justify-center">A</span>
-                        </button>
-                    </div>
-                    <div id="donationQRContainer" class="hidden space-y-4">
-                        <button onclick="closeDonationQR()"
-                            class="text-[#007AFF] text-sm font-medium flex items-center gap-1">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back
-                        </button>
-                        <div class="bg-white rounded-2xl p-4 flex items-center justify-center">
-                            <img id="donationQRImg" src="" class="max-w-full max-h-[50vh] rounded-xl object-contain" />
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="galleryModal" onclick="if(event.target === this) closeGallery()"
-        class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
-        <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
-            <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity"
-                onclick="window.downloadImage(); event.stopPropagation();">Save</button>
-            <button onclick="closeGallery(); event.stopPropagation();"
-                class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
-        </header>
-
-        <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12"
-            onclick="if(event.target === this) closeGallery()">
-            <!-- Prev Button -->
-            <button id="galleryPrevBtn" onclick="window.prevGalleryImg(); event.stopPropagation();"
-                class="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg>
-            </button>
-
-            <img id="mainGalleryImg" src=""
-                class="max-w-full max-h-full lg:max-w-[85vw] lg:max-h-[85vh] object-contain rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)] select-none">
-
-            <!-- Next Button -->
-            <button id="galleryNextBtn" onclick="window.nextGalleryImg(); event.stopPropagation();"
-                class="absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <div id="mainPage"
-        class="hidden flex app-container relative overflow-hidden bg-white dark:bg-black transition-colors duration-300">
-
-        <div id="bottomNav"
-            class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 flex items-center z-50 px-6">
-            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative" id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" style="color: #9CA3AF;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
-                </svg>
-                <span class="text-xs font-medium transition-colors" id="text-news" style="color: #9CA3AF;">News</span>
-            </button>
-            <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
-                id="tabBtn-messages">
-                <div class="relative">
-                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor"
-                        viewBox="0 0 24 24" style="color: #007AFF;">
-                        <path fill-rule="evenodd"
-                            d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    <div id="mainUnreadDot"
-                        class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
-                    </div>
-                </div>
-                <span class="text-xs font-medium transition-colors" id="text-messages"
-                    style="color: #007AFF;">Messages</span>
-            </button>
-        </div>
-        <div id="newsSection"
-            class="hidden lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
-            <!-- Header with synchronized height -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
-                <div class="flex gap-4 items-center justify-between h-9">
-                    <div class="flex gap-4 items-end">
-                        <button id="headTabNews" onclick="switchLeftTab('news')"
-                            class="text-2xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
-                        <button id="headTabTools" onclick="switchLeftTab('tools')"
-                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
-                        <button id="headTabMore" onclick="switchLeftTab('more')"
-                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Social</button>
-                        <div id="newsSyncHint"
-                            class="mb-1 text-xs font-bold text-blue-500 opacity-0 transition-opacity duration-300">
-                            Updating...</div>
-                    </div>
-                    <button id="addAnnouncementBtn" onclick="openNewsPostForm()"
-                        class="hidden text-[#007AFF] mb-1 pr-2 hover:opacity-80 transition-opacity active:scale-95"
-                        title="New Announcement">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
-                <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
-                    <div class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 h-full items-center">
-                        <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">School
-                            News</button>
-                        <button id="btnClubNews" onclick="toggleNewsTab('club')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all">Club
-                            News</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Scrollable content area with min-h-0 fix -->
-            <div class="flex-1 relative min-h-0 overflow-hidden">
-                <div id="newsMainContent"
-                    class="relative h-full flex flex-col transition-all duration-300 transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-0">
-                        <div id="schoolNewsContent" class="space-y-4 transition-opacity duration-150">
-                            <!-- Announcements injected here -->
-                        </div>
-                        <div id="clubNewsContent" class="hidden space-y-4 transition-opacity duration-150 opacity-0">
-                            <!-- Club News injected here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Global Tools / Extensions List -->
-                <div id="toolsMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <!-- School Tools Section -->
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-4 px-1">
-                            School Tools
-                        </div>
-                        <div id="schoolToolsList" class="space-y-3">
-                            <div onclick="openEagleTime()"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center text-red-600 dark:text-red-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">CHS Eagle Time</h3>
-                                    <p class="text-sm text-gray-500">Sign up for your enrichment period.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="window.openExtension('grade_calculator')"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                        </path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">Grade Calculator</h3>
-                                    <p class="text-sm text-gray-500">Calculate your HCPSS final grades.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="openCafeteria()"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
-                                        </path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z">
-                                        </path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">Cafeteria Menu</h3>
-                                    <p class="text-sm text-gray-500">View today's and tomorrow's menus.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="openModule('info')"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
-                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">CHS Info</h3>
-                                    <p class="text-sm text-gray-500">School links and resources.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="dynamicExtensionsList" class="space-y-3">
-                            <!-- Extensions will be automatically injected here -->
-                            <div class="flex justify-center py-10">
-                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
-                            </div>
-                        </div>
-
-                        <div
-                            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
-                            <span>Coming Soon</span>
-                            <button onclick="openExtensionRequest()"
-                                class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What
-                                extensions do you want? Tell us!</button>
-                        </div>
-                        <div
-                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
-                            <div
-                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-gray-400">More Tools...</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="moreMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <div onclick="openModule('peer_tutoring')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Peer Tutoring</h3>
-                                <p class="text-sm text-gray-500">Get or offer academic help.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('suggestions')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Suggestions</h3>
-                                <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('lost_and_found')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Lost and Found</h3>
-                                <p class="text-sm text-gray-500">Report or find lost items.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('marketplace')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Marketplace</h3>
-                                <p class="text-sm text-gray-500">Buy and sell within the school.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Desktop Edge Trigger & Handle -->
-        <div id="sidebarTrigger"></div>
-        <div id="sidebarHandle" onclick="toggleSidebarPin()">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-        </div>
-
-        <div id="sidePanel"
-            class="flex lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
-            <!-- Header synchronized with News panel -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
-                <div class="flex justify-between items-center h-9">
-                    <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
-                    <div class="flex items-center gap-3 mb-1">
-                        <button id="donationBtn" onclick="toggleDonation()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </button>
-
-                        <button id="settingsBtn" onclick="toggleSettings()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-                                </path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <!-- Search bar pill: standardized to 36px height -->
-                <div class="relative mt-3">
-                    <div class="relative flex items-center bg-[#E9E9EB] dark:bg-white/10 rounded-xl h-9 px-3 gap-2">
-                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input id="globalSearchInput" type="text" placeholder="Search people, messages, news..."
-                            oninput="handleGlobalSearch(event)"
-                            class="flex-1 bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
-                        <button id="globalSearchClear" onclick="clearGlobalSearch()"
-                            class="hidden text-gray-400 hover:text-gray-600">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div id="globalSearchResults"
-                        class="hidden ios-glass absolute top-[calc(100%+8px)] left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col">
-                        <!-- Search Categories Bar: Centered Layout (Big Tech Style) -->
-                        <div class="flex-shrink-0 border-b border-white/10 p-5 space-y-5">
-                            <!-- Row 1: Long Labels centered -->
-                            <div class="flex justify-center items-center gap-10">
-                                <button onclick="setSearchCategory('messages')" id="searchCat-messages"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">MESSAGES</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('community')" id="searchCat-community"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">COMMUNITY</button>
-                            </div>
-                            <!-- Row 2: Short Labels centered -->
-                            <div class="flex justify-center items-center gap-8">
-                                <button onclick="setSearchCategory('news')" id="searchCat-news"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">NEWS</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('tools')" id="searchCat-tools"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">TOOLS</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('people')" id="searchCat-people"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">PEOPLE</button>
-                            </div>
-                        </div>
-                        <!-- Scrollable Results Area -->
-                        <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-20 lg:pb-8"></div>
-        </div>
-
-
-
-        <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-black overflow-x-hidden relative">
-            <header
-                class="h-16 mt-safe bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b dark:border-gray-800 flex items-center px-4 z-20 absolute top-0 w-full justify-between">
-                <div class="flex-1 flex justify-start items-center">
-                    <button onclick="showSidebar()" class="lg:hidden text-[#007AFF] flex items-center z-10">
-                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path d="M15 19l-7-7 7-7" />
-                        </svg>
-                        <span class="ml-[-6px] relative">Back</span>
-                    </button>
-                </div>
-
-                <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
-                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">
-                        ...</div>
-                    <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
-                </div>
-
-                <div class="flex-1 flex justify-end items-center relative h-full">
-                    <div
-                        class="flex relative transition-all duration-300 w-28 lg:w-32 focus-within:w-40 lg:focus-within:w-48 h-8">
-                        <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input id="chatSearchInput" type="text" placeholder="Search"
-                            oninput="handleSearch(event, 'chat')"
-                            class="w-full h-full bg-[#E9E9EB] dark:bg-[#2C2C2E] border-none rounded-full pl-8 pr-8 text-sm outline-none placeholder-gray-400">
-                        <button id="clearSearchBtn" onclick="clearSearch()"
-                            class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div id="searchResults"
-                        class="hidden absolute top-full right-0 w-[80vw] lg:w-64 max-h-80 overflow-y-auto bg-white/80 dark:bg-[#1C1C1E]/70 backdrop-blur-[24px] shadow-2xl rounded-b-2xl border border-gray-200 dark:border-white/10 border-t-0 fade-in overscroll-contain z-50">
-                    </div>
-                </div>
-            </header>
-
-            <div id="chatBox" class="flex-1 overflow-y-auto px-4 pt-20 pb-4 space-y-[2px] relative z-0"></div>
-
-            <!-- Reply/Quote Area -->
-            <div id="quoteArea"
-                class="hidden px-4 py-2 bg-[#F2F2F7] dark:bg-white/5 border-l-4 border-[#007AFF] mb-1.5 mx-3 rounded-r-xl relative animate-in slide-in-from-bottom-2 duration-200 z-10">
-                <div class="text-xs font-bold text-[#007AFF] mb-0.5" id="quoteUser">User</div>
-                <div id="quoteText" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">...</div>
-                <button onclick="clearQuote()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                            clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-
-            <div
-                class="px-3 pt-2 pb-safe bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t dark:border-gray-800 z-10 w-full">
-                <div class="flex gap-2 items-end max-w-4xl mx-auto">
-                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer transition-all duration-200"
-                        style="${window.isPhotoDisabled ? 'display:none' : 'display:block'}">
-                        <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
-                            <path
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
-                        </svg>
-                        <input type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
-                    </label>
-                    <div
-                        class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-full pl-[14px] pr-[4px] h-[38px] mb-1.5 overflow-hidden">
-                        <input id="u-msg" type="text" maxlength="1000" onkeydown="if(event.key==='Enter') sendMsg()"
-                            placeholder="Type a message..."
-                            class="flex-1 bg-transparent outline-none text-base h-full placeholder-[#8E8E93] py-0 leading-none">
-                        <button onclick="sendMsg()"
-                            class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
-                            <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Message Context Menu -->
-    <div id="messageContextMenu"
-        class="hidden fixed z-[250] bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[150px] animate-in fade-in zoom-in-95 duration-150">
-        <button onclick="handleMsgCopy()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-            </svg>
-            Copy
-        </button>
-        <button onclick="handleMsgQuote()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5" />
-            </svg>
-            Reply
-        </button>
-        <button onclick="handleMsgForward()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Forward
-        </button>
-        <button onclick="handleMsgReport()"
-            class="w-full px-4 py-3 text-left text-[14px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex items-center gap-3">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            Report
-        </button>
-    </div>
-
-    <!-- Forward User Picker -->
-    <div id="forwardPicker" class="hidden fixed inset-0 z-[260] flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeForwardPicker()"></div>
-        <div
-            class="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div class="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-white/5">
-                <h3 class="text-lg font-bold">Forward to...</h3>
-            </div>
-            <div id="forwardUserList" class="flex-1 overflow-y-auto max-h-[60vh] p-2"></div>
-            <div class="p-4 bg-gray-50 dark:bg-white/5 flex justify-end">
-                <button onclick="closeForwardPicker()"
-                    class="px-5 py-2 text-[15px] font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <!-- Dedicated Module Pages for Stacked Navigation -->
-    <div id="lostFoundPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Lost and Found</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="marketplacePage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Marketplace</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="tutoringPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Peer Tutoring</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="suggestionsPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Suggestions</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="infoPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                CHS Info</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <!-- Post Form Full Screen Page -->
-    <div id="postPage" class="hidden fixed inset-0 lg:left-80 z-[500] flex flex-col justify-end pointer-events-none">
-        <div id="postPageBackdrop"
-            class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-[400ms] pointer-events-auto"
-            onclick="closePostForm()"></div>
-        <div id="postPageContent"
-            class="pointer-events-auto w-full h-[90vh] bg-white dark:bg-[#1C1C1E] rounded-t-3xl shadow-2xl flex flex-col relative transform translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] pb-20 lg:pb-0">
-            <!-- Handle bar -->
-            <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-            <!-- Header -->
-            <div
-                class="flex-shrink-0 flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5">
-                <button onclick="closePostForm()"
-                    class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
-                <div id="postPageTitle"
-                    class="font-bold text-lg text-black dark:text-white truncate flex-1 text-center">New Post</div>
-                <button onclick="submitPost()"
-                    class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Post</button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-safe">
-                <input id="postInputTitle" type="text" placeholder="Subject" maxlength="200"
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base font-medium outline-none border-none placeholder-gray-400">
-                <textarea id="postInputDesc" placeholder="What's on your mind?" rows="6" maxlength="1000"
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base outline-none border-none resize-none placeholder-gray-400"></textarea>
-
-                <div id="postImagePreviewContainer"
-                    class="bg-[#F2F2F7] dark:bg-black rounded-2xl p-5 flex flex-col items-center justify-center relative min-h-[140px] border-2 border-dashed border-gray-300 dark:border-gray-700 transition-colors hover:border-[#007AFF] dark:hover:border-[#007AFF]">
-                    <input type="file" id="postFileInput" accept="image/*"
-                        class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-                        onchange="handlePostImageSelect(event)">
-
-                    <div id="postImagePlaceholder" class="flex flex-col items-center pointer-events-none">
-                        <div
-                            class="w-12 h-12 bg-[#007AFF]/10 text-[#007AFF] rounded-full flex items-center justify-center mb-3">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <span class="text-sm text-gray-500 font-medium">Tap to upload a photo</span>
-                    </div>
-
-                    <img id="postImagePreview"
-                        class="hidden w-full h-auto max-h-[300px] object-cover rounded-xl z-20 shadow-sm">
-
-
-                    <button id="postImageClearBtn" onclick="clearPostImage(event)"
-                        class="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hidden hover:bg-black/80 transition-colors z-30">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <button id="batchImportBtn" onclick="openBatchImport()"
-                    class="w-full py-3 mt-1 text-[#007AFF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Batch Import Announcements (JSON)
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Post Detail & Comments Page -->
-    <div id="detailPage"
-        class="hidden fixed inset-0 lg:left-80 z-[510] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <button onclick="closeDetail()"
-                class="text-[#007AFF] text-base flex items-center w-20 active:opacity-50 transition-opacity">
-                <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg> Back
-            </button>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Details</div>
-            <div class="w-20"></div>
-        </div>
-        <div id="detailContent" class="flex-1 overflow-y-auto p-4 space-y-6 pb-[90px] lg:pb-safe">
-            <!-- Details and comments injected here -->
-        </div>
-        <!-- Comment Input Area -->
-        <div id="commentInputArea"
-            class="hidden flex-shrink-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-gray-200/80 dark:border-white/10 p-3 pb-[90px] lg:pb-safe px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-            <div class="flex items-center gap-3">
-                <div
-                    class="flex-1 bg-[#F2F2F7] dark:bg-black border border-gray-200 dark:border-gray-800 rounded-full px-5 py-2.5 flex items-center">
-                    <input id="commentInput" type="text" placeholder="Add a comment..."
-                        onkeydown="if(event.key==='Enter') submitComment()"
-                        class="flex-1 bg-transparent text-base outline-none text-black dark:text-white placeholder-gray-400">
-                </div>
-                <button onclick="submitComment()"
-                    class="w-10 h-10 bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30 active:scale-95 transition-transform">
-                    <svg class="w-5 h-5 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cafeteria Menu Page -->
-    <div id="cafeteriaPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Cafeteria Menu
-            </div>
-            <div class="w-20 flex justify-end">
-                <button id="cafeteriaEditBtn" onclick="openCafeteriaEdit()"
-                    class="hidden text-[#007AFF] text-base font-medium active:opacity-50 transition-opacity">Edit</button>
-            </div>
-        </div>
-
-        <div id="cafeteriaContent" class="flex-1 overflow-y-auto p-5 space-y-6 pb-[90px] lg:pb-safe">
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Today <span class="text-sm font-bold text-gray-400" id="cafeteriaTodayDate"></span>
-                </h2>
-                <div id="cafeteriaTodayList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Tomorrow <span class="text-sm font-bold text-gray-400" id="cafeteriaTomorrowDate"></span>
-                </h2>
-                <div id="cafeteriaTomorrowList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cafeteria Edit Sheet (bottom sheet modal, same pattern as postPage) -->
-    <div id="cafeteriaEditSheet"
-        class="hidden fixed inset-0 lg:left-80 z-[200] flex flex-col justify-end pointer-events-none">
-        <div id="cafeteriaEditBackdrop"
-            class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-[400ms] pointer-events-auto"
-            onclick="closeCafeteriaEdit()"></div>
-        <div id="cafeteriaEditContent"
-            class="relative pointer-events-auto bg-white dark:bg-[#1C1C1E] rounded-t-3xl shadow-2xl transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] translate-y-full flex flex-col w-full h-[90vh]">
-            <!-- Handle bar -->
-            <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-            <!-- Header -->
-            <div
-                class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
-                <button onclick="closeCafeteriaEdit()"
-                    class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
-                <div class="font-bold text-base text-black dark:text-white flex-1 text-center">Edit Menu</div>
-                <button onclick="saveCafeteriaMenu()"
-                    class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Save</button>
-            </div>
-            <!-- Day tabs -->
-            <div class="px-5 pb-3 flex-shrink-0">
-                <div class="flex bg-[#E9E9EB] dark:bg-gray-800 rounded-xl p-0.5 h-8">
-                    <button id="cafeteriaTabToday" onclick="switchCafeteriaTab('today')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">Today</button>
-                    <button id="cafeteriaTabTomorrow" onclick="switchCafeteriaTab('tomorrow')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center text-gray-500 rounded-lg transition-all">Tomorrow</button>
-                </div>
-            </div>
-            <!-- Add food input -->
-            <div class="flex gap-2 px-5 pb-3 flex-shrink-0">
-                <input type="text" id="newFoodInput" placeholder="Add new food to pool..."
-                    class="flex-1 bg-[#F2F2F7] dark:bg-black px-4 py-3 rounded-2xl outline-none text-black dark:text-white font-medium placeholder-gray-400">
-                <button onclick="addFoodToPool()"
-                    class="bg-[#007AFF] text-white px-5 rounded-2xl font-bold active:scale-95 transition-transform">Add</button>
-            </div>
-            <!-- Food pool list -->
-            <div class="flex-1 overflow-y-auto px-5 pb-safe">
-                <div class="bg-[#F2F2F7] dark:bg-black rounded-3xl overflow-hidden">
-                    <div id="cafeteriaPoolList" class="divide-y divide-gray-200 dark:divide-white/5">
-                    </div>
-                </div>
-                <div class="h-6"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CHS Eagle Time Full Screen Page -->
-    <div id="eagleTimePage"
-        class="hidden fixed inset-0 lg:left-80 z-[150] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeEagleTime()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Eagle Time
-            </div>
-            <div class="w-20 flex justify-end">
-                <button id="eagleAddBtn" onclick="openCreateEagleForm()"
-                    class="hidden text-[#007AFF] text-2xl font-bold active:opacity-50 transition-opacity">+</button>
-            </div>
-        </div>
-
-        <div id="eagleTimeContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-[90px] lg:pb-safe">
-            <div id="eagleCreateForm"
-                class="hidden bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 space-y-4 mb-6">
-                <h3 class="font-bold text-lg">Create Session</h3>
-                <input id="eagleTitleInput" type="text" placeholder="Session Title (e.g. Math Help)"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none">
-                <input id="eagleRoomInput" type="text" placeholder="Room Number"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none">
-                <select id="eagleTeacherSelect"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none"></select>
-                <button onclick="submitEagleSession()"
-                    class="w-full bg-[#007AFF] text-white py-3 rounded-xl font-bold shadow-md shadow-blue-500/20">Create</button>
-            </div>
-
-            <div id="sessionListContainer" class="space-y-4">
-                <!-- Session items -->
-            </div>
-        </div>
-
-        <div id="studentPassContainer"
-            class="hidden flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center pb-[90px] lg:pb-safe">
-            <!-- Digital Pass Card -->
-        </div>
-    </div>
-    <!-- Grade Calculator Page -->
-    <!-- Database Admin Console -->
-    <div id="adminConsolePage"
-        class="hidden fixed inset-0 lg:left-80 z-[160] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeAdminConsole()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Database Console
-            </div>
-            <div class="w-20 flex justify-end gap-2">
-                <button id="adminShowAllBtn" onclick="resetAdminList()"
-                    class="hidden text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Show
-                    All</button>
-                <button onclick="scanUserIssues()"
-                    class="text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Scan Issues</button>
-            </div>
-        </div>
-
-        <div
-            class="flex-shrink-0 px-5 py-3 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5 space-y-3">
-            <div class="relative">
-                <input type="text" id="adminUserSearch" placeholder="Search by name, email or ID..."
-                    oninput="filterAdminUsers()"
-                    class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 rounded-xl px-10 py-2.5 text-[15px] outline-none">
-                <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </div>
-            <div id="scanStatus" class="hidden text-xs text-red-500 font-bold px-2 animate-pulse">Scanning database for
-                corrupted accounts...</div>
-        </div>
-
-        <div id="adminUserList" class="flex-1 overflow-y-auto p-4 space-y-3 pb-[90px] lg:pb-safe">
-            <div class="text-center text-gray-400 mt-20">Enter search or scan to list users</div>
-        </div>
-    </div>
-
-    <!-- Extension View Page -->
-    <div id="extensionPage"
-        class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
-            <div class="w-auto z-10">
-                <button onclick="closeExtension()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-
-            <div id="extensionTitle"
-                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-base text-black dark:text-white truncate max-w-[50%] text-center pointer-events-none">
-                Tool
-            </div>
-
-            <div class="w-auto flex justify-end items-center gap-1 z-10">
-                <button id="extensionCustomBtn"
-                    class="hidden font-bold text-[#007AFF] px-2 py-1 text-base active:opacity-50 transition-opacity whitespace-nowrap">Post</button>
-                <button onclick="openExtensionExternally()" title="Open in New Window"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                        <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-                <button onclick="reloadExtension()" title="Refresh"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                        <path
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="flex-1 relative bg-white dark:bg-black">
-            <iframe id="extensionIframe" class="w-full h-full border-none" src="about:blank"></iframe>
-            <div id="extensionLoading"
-                class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10">
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Launching Tool...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Terms of Service Page -->
-    <div id="tosPage" class="hidden fixed inset-0 z-[200] bg-[#F2F2F7] dark:bg-black flex flex-col">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button id="tosCloseBtn" onclick="closeTos()"
-                    class="hidden text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    Done
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Terms of
-                Service
-            </div>
-            <div class="w-20"></div>
-        </div>
-        <div class="flex-1 overflow-y-auto p-6 text-[15px] leading-relaxed text-gray-800 dark:text-gray-300">
-            <div class="max-w-2xl mx-auto space-y-6 pb-24">
-                <h1 class="text-2xl font-black text-black dark:text-white">Terms of Service for CHS-Communicate
-                    (CHSchat)
-                </h1>
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Last Updated: May 2, 2026</p>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">1. Acceptance of Terms</h2>
-                    <p>By accessing or using CHS iMESSage Ultimate (the "Service"), you agree to be bound by these Terms
-                        of
-                        Service ("Terms"). If you do not agree to these Terms, you may not access or use the Service.
-                        These
-                        Terms apply to all visitors, users, and others who access the Service.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">2. Eligibility and Account Security</h2>
-                    <p><strong>Authorized Users:</strong> This Service is designed for students and staff of Centennial
-                        High School and the Howard County Public School System (HCPSS).</p>
-                    <p><strong>Authentication:</strong> Users are required to authenticate using their official
-                        HCPSS-provided email addresses.</p>
-                    <p><strong>Account Responsibility:</strong> You are responsible for maintaining the confidentiality
-                        of
-                        your login credentials. You agree to accept responsibility for all activities that occur under
-                        your account.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">3. Nature of Service (Student Project Disclosure)
-                    </h2>
-                    <p><strong>Non-Commercial/Educational Use:</strong> CHS-Communicate is a non-profit,
-                        student-developed
-                        experimental project. It is not an official product of HCPSS or any commercial entity.</p>
-                    <p><strong>"As-Is" Provision:</strong> The Service is provided on an "AS IS" and "AS AVAILABLE"
-                        basis.
-                        The developer makes no warranties, expressed or implied, regarding the reliability,
-                        availability,
-                        or lack of errors within the application.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">4. Third-Party Services and Infrastructure</h2>
-                    <p>The Service relies on third-party infrastructure to function:</p>
-                    <p><strong>Hosting:</strong> The Service is hosted via Vercel.</p>
-                    <p><strong>Database and Authentication:</strong> Data storage and user authentication are managed
-                        through Google Firebase.</p>
-                    <p><strong>Limitation of Third-Party Liability:</strong> You acknowledge that the developer has no
-                        control over the uptime or security practices of Vercel or Firebase. Any service interruptions
-                        or
-                        data loss caused by these third-party providers are outside the developer’s liability.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">5. User Conduct and Content Standards</h2>
-                    <p>To maintain a safe educational environment, you agree NOT to:</p>
-                    <ul class="list-disc ml-5 space-y-1">
-                        <li><strong>Harassment:</strong> Engage in bullying, stalking, or sending threatening/insulting
-                            messages to other users.</li>
-                        <li><strong>Impersonation:</strong> Use a name other than your own or attempt to impersonate
-                            school
-                            officials, teachers, or other students.</li>
-                        <li><strong>Illegal Activity:</strong> Post content that violates U.S. federal law, Maryland
-                            state
-                            law, or HCPSS Board of Education policies.</li>
-                        <li><strong>Malicious Use:</strong> Attempt to interfere with the Service’s operation, including
-                            but not limited to "spamming," "DDoS attacks," or unauthorized data scraping.</li>
-                    </ul>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">6. Administrative Rights and Content Moderation
-                    </h2>
-                    <p>The developer and appointed administrators reserve the right to:</p>
-                    <ul class="list-disc ml-5 space-y-1">
-                        <li><strong>Monitor:</strong> Review content posted on the Service to ensure compliance with
-                            these
-                            Terms.</li>
-                        <li><strong>Remove:</strong> Delete any message, announcement, or post at their sole discretion
-                            without prior notice.</li>
-                        <li><strong>Suspend:</strong> Terminate or suspend access to the Service for any user who
-                            violates
-                            these Terms or school policies.</li>
-                    </ul>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">7. Privacy and Data Access</h2>
-                    <p>While we strive to protect user data, please be aware that:</p>
-                    <p><strong>No Expectation of Privacy:</strong> As this is a school-focused communication tool,
-                        administrators may access message logs if required for safety, security, or disciplinary
-                        investigations.</p>
-                    <p><strong>Data Usage:</strong> Your HCPSS email and name are used solely for identification and
-                        functional purposes within the app.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">8. Limitation of Liability</h2>
-                    <p>To the maximum extent permitted by applicable law, in no event shall the developer (Moss Mo) be
-                        liable for any indirect, incidental, special, consequential, or punitive damages, including
-                        without limitation, loss of profits, data, use, or other intangible losses, resulting from your
-                        access to or use of the Service.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">9. Indemnification</h2>
-                    <p>You agree to defend, indemnify, and hold harmless the developer from and against any and all
-                        claims,
-                        damages, obligations, losses, liabilities, costs, or debt, and expenses resulting from your use
-                        of
-                        the Service.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">10. Governing Law</h2>
-                    <p>These Terms shall be governed and construed in accordance with the laws of the State of Maryland,
-                        United States.</p>
-                </section>
-
-                <section class="space-y-2">
-                    <h2 class="font-bold text-black dark:text-white">11. Changes to Terms</h2>
-                    <p>We reserve the right to modify or replace these Terms at any time. Your continued use of the
-                        Service
-                        after such changes constitutes acceptance of the new Terms.</p>
-                </section>
-
-                <div id="tosAcceptSection" class="pt-8 text-center space-y-4">
-                    <p class="text-sm text-gray-500">By clicking "Agree", you acknowledge that you have read and
-                        understood these terms.</p>
-                    <button onclick="acceptTerms()"
-                        class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">Agree
-                        and Continue</button>
-                </div>
-            </div>
-        </div>
-        <script>
             // Initial bottom nav sync
             if (window.innerWidth < 1024 && window.refreshBottomNav) {
                 window.refreshBottomNav('messages');
             }
-        </script>
-    </div>
-</body>
-
-</html>
+        
