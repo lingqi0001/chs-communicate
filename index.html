@@ -46,13 +46,17 @@
         */
         html,
         body {
-            /* 强制禁止水平方向滚动：这是 Web 开发的铁律，防止因为 1px 的布局误差导致页面左右晃动 */
+            /* 强制禁止水平方向滚动：防止因为 1px 的布局误差导致页面左右晃动 */
             overflow-x: hidden;
             /* 宽度始终撑满屏幕 */
             width: 100%;
+            /* 彻底修复页面整体被拖拽产生的“黑洞”或回弹 (Rubber-banding) 现象 */
+            height: 100%;
+            height: 100dvh;
+            overscroll-behavior: none;
             /* 
                iOS 核心流畅度优化：启用原生弹性滚动效果。
-               当用户滑动到页面顶部或底部时，会有苹果标志性的“橡皮筋”回弹感。
+               当用户滑动到内部具体容器的顶部或底部时，依然会有苹果标志性的“橡皮筋”回弹感。
             */
             -webkit-overflow-scrolling: touch;
         }
@@ -2281,6 +2285,15 @@
             img.src = ORIGINAL_FAVICON;
         };
 
+        // Listen for tab focus to clear unread dots for the active chat
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && activeTargetId) {
+                UNREAD_CHATS.delete(activeTargetId);
+                document.getElementById(`dot-${activeTargetId}`)?.classList.add('hidden');
+                window.updateGlobalUnreadStatus();
+            }
+        });
+
         function initGlobalNotificationMonitor() {
             // Only listen to users we have already interacted with
             Object.keys(ALL_USERS).forEach(targetId => {
@@ -2289,13 +2302,18 @@
                 onChildAdded(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(1)), (snap) => {
                     const msg = snap.val();
                     if (msg && msg.senderId !== currentUser.id && msg.timestamp > APP_START_TIME) {
-                        if (SETTINGS.soundEnabled) notifySound.play().catch(() => { });
-                        UNREAD_CHATS.add(targetId);
-                        document.getElementById(`dot-${targetId}`)?.classList.remove('hidden');
-                        window.updateGlobalUnreadStatus();
+                        if (!document.hidden && activeTargetId === targetId) {
+                            // Already actively viewing this chat, do not notify or mark unread
+                            update(ref(db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
+                        } else {
+                            if (SETTINGS.soundEnabled) notifySound.play().catch(() => { });
+                            UNREAD_CHATS.add(targetId);
+                            document.getElementById(`dot-${targetId}`)?.classList.remove('hidden');
+                            window.updateGlobalUnreadStatus();
 
-                        // Also update chat timestamp to bring to top
-                        update(ref(db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
+                            // Also update chat timestamp to bring to top
+                            update(ref(db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
+                        }
                     }
                 });
                 globalListeners.add(targetId);
@@ -6137,7 +6155,7 @@
                 top: 0;
                 width: 12px;
                 height: 100vh;
-                z-index: 999;
+                z-index: 40;
                 cursor: pointer;
             }
 
@@ -6156,7 +6174,7 @@
                 justify-content: center;
                 color: white;
                 box-shadow: 4px 0 15px rgba(0, 122, 255, 0.3);
-                z-index: 1000;
+                z-index: 41;
                 transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 cursor: pointer;
             }
