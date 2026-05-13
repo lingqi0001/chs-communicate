@@ -334,11 +334,7 @@
     </style>
     <script type="module">
         /* 
-          第四部分：核心引擎初始化 (Core Engine Initialization)
-          - 负责与 Google Firebase 后台建立实时连接。
-          - 导入身份验证 (Auth)、数据库 (DB)、存储 (Storage) 和消息推送 (Messaging) 模块。
         */
-        // 导入 Firebase 应用主程序
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         // 导入身份验证库：包含登录、退出、重定向等所有鉴权逻辑
         import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -348,6 +344,18 @@
         import { getStorage, ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
         // 导入云消息库：处理移动端 PWA 推送通知
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
+        import { NotifyModule } from './js/notify.js';
+
+        // 命名空间初始化
+        window.AppModules = {
+            Notify: NotifyModule
+        };
+
+        // 兼容性桥接 (Bridge)
+        window.updateGlobalUnreadStatus = () => AppModules.Notify.updateUI();
+        window.requestNotificationPermission = () => AppModules.Notify.requestPermission();
+        window.initGlobalNotificationMonitor = () => AppModules.Notify.initMonitor();
 
         // Firebase 生产环境配置（CHS 专属节点）
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
@@ -402,8 +410,6 @@
             }
         });
 
-        // 推送通知对象初始化
-        let messaging = null;
         /**
          * [函数] 检查环境是否支持 Firebase Messaging
          * 因为有些浏览器（如 iOS Safari 旧版）不支持，所以需要先探测
@@ -412,9 +418,18 @@
             if (supported) {
                 try {
                     // 环境支持，初始化推送引擎
-                    messaging = getMessaging(app);
+                    AppModules.Notify.engine = getMessaging(app);
                     console.log('App: Firebase Messaging initialized.');
-                    setupMessagingListeners(); // 设置监听器（该函数在文档后部定义）
+                    
+                    // 启动通知模块并传入上下文依赖
+                    AppModules.Notify.init({
+                        db: db,
+                        currentUser: currentUser,
+                        allUsers: ALL_USERS,
+                        settings: SETTINGS,
+                        globalListeners: globalListeners,
+                        appStartTime: APP_START_TIME
+                    });
                 } catch (e) {
                     console.error('App: Messaging initialization failed:', e);
                 }
@@ -580,7 +595,7 @@
                     /**
                      * 3. 增量实时监听 (Incremental Real-time Sync)：
                      * 核心算法：利用 Firebase 的 query + startAfter。
-                     * 我们只监听比本地最新一条消息“还要新”的内容，这样可以极大地减少监听范围，
+                     * We just notify比本地最新一条消息“还要新”的内容，这样可以极大地减少监听范围，
                      * 避免每次有新消息都重新拉取全量列表，极其省电省流量。
                      */
                     const lastKey = remoteKeys.sort().pop();
@@ -811,7 +826,7 @@
             { name: "Bell", url: "https://assets.mixkit.co/active_storage/sfx/2341/2341-preview.mp3" }
         ];
 
-        let notifySound = new Audio(SETTINGS.soundUrl);
+        // 通知音效对象由 AppModules.Notify 管理
         const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
 
         // --- 发送频率限制 (Rate Limiting) ---
@@ -1086,7 +1101,7 @@
                 updateNewsAccess(); // 检查是否有发公告的权限
                 initNewsObserver(); // 挂载公告栏实时流
                 showSidebar();      // 展开侧边栏
-                requestNotificationPermission(); // 尝试申请消息推送权限
+                AppModules.Notify.requestPermission(); // 尝试申请消息推送权限
                 globalDataSync();   // 执行大规模离线同步（IndexedDB）
                 syncGroupChats();   // 同步班级群聊列表
 
@@ -1246,58 +1261,7 @@
             }
         };
 
-        /**
-         * [黑科技] 申请并绑定 PWA 推送通知权限
-         * 逻辑：
-         * 1. 检查浏览器是否支持 Notification API 和 Firebase Messaging。
-         * 2. 申请权限。
-         * 3. 注册 Service Worker (SW)。注意：GitHub Pages 的子目录路径需要特殊处理。
-         * 4. 获取 FCM Token 并存入数据库，这样后台云函数（Cloud Functions）才能定向推送。
-         */
-        async function requestNotificationPermission() {
-            try {
-                if (!('Notification' in window) || !messaging) {
-                    console.log('App: Notifications not supported or messaging not ready.');
-                    return;
-                }
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    /**
-                     * [路径适配技巧] 
-                     * 因为 GitHub Pages 部署在子目录下，Service Worker 的注册路径必须手动修正，
-                     * 否则浏览器会因为 404 导致推送功能彻底失效。
-                     */
-                    const swUrl = window.location.pathname.includes('chs-communicate') ? '/chs-communicate/firebase-messaging-sw.js' : '/firebase-messaging-sw.js';
-                    const token = await getToken(messaging, {
-                        vapidKey: 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w',
-                        serviceWorkerRegistration: await navigator.serviceWorker.register(swUrl)
-                    });
-
-                    if (token) {
-                        // 将 Token 存入用户的私密区域，供推送服务器调用
-                        await update(ref(db, `user_private/${currentUser.id}`), { fcmToken: token });
-                        console.log('App: FCM Token registered successfully.');
-                    }
-                }
-            } catch (err) {
-                console.log('FCM Token error:', err);
-            }
-        }
-
-        /**
-         * [监听器] 处理前台收到的推送消息
-         * 逻辑：如果用户正开着 App 且收到了推送，我们不显示横幅，而是显示一个应用内的 Alert。
-         */
-        function setupMessagingListeners() {
-            if (!messaging) return;
-            onMessage(messaging, (payload) => {
-                console.log('Foreground message received:', payload);
-                if (payload.notification) {
-                    // 应用内强提醒
-                    alert(`${payload.notification.title}\n${payload.notification.body}`);
-                }
-            });
-        }
+        // 通知方法已迁移至 AppModules.Notify
 
         /**
          * [UI 权限控制] 更新“发布公告”按钮的可见性
@@ -2012,7 +1976,14 @@
             document.getElementById('currentThemeLabel').innerText = SETTINGS.theme.charAt(0).toUpperCase() + SETTINGS.theme.slice(1);
         }
 
-        window.updateSound = (url) => { SETTINGS.soundUrl = url; localStorage.setItem('soundUrl', url); notifySound = new Audio(url); notifySound.play(); };
+        window.updateSound = (url) => { 
+            SETTINGS.soundUrl = url; 
+            localStorage.setItem('soundUrl', url); 
+            if (AppModules.Notify.audio) {
+                AppModules.Notify.audio = new Audio(url);
+                AppModules.Notify.audio.play();
+            }
+        };
         window.toggleSound = (enabled) => { SETTINGS.soundEnabled = enabled; localStorage.setItem('soundEnabled', enabled); };
         window.showChangelog = () => {
             document.getElementById('settingsView').classList.add('hidden');
@@ -2232,93 +2203,12 @@
                 setTimeout(() => { if (dropdown.classList.contains('opacity-0')) dropdown.classList.add('hidden'); }, 200);
             }
         };
-        const UNREAD_CHATS = new Set();
-        let ORIGINAL_FAVICON = document.querySelector('link[rel="icon"]')?.href || '';
-
-        window.updateGlobalUnreadStatus = () => {
-            const unreadCount = UNREAD_CHATS.size;
-            const mainDot = document.getElementById('mainUnreadDot');
-
-            if (unreadCount > 0) {
-                if (mainDot) mainDot.classList.remove('hidden');
-                document.title = `(${unreadCount}) CHS Chat & Social`;
-            } else {
-                if (mainDot) mainDot.classList.add('hidden');
-                document.title = `CHS Chat & Social`;
-            }
-            window.updateFaviconStatus(unreadCount > 0);
-        };
-
-        window.updateFaviconStatus = (hasUnread) => {
-            const favicon = document.querySelector('link[rel="icon"]');
-            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-            if (!favicon) return;
-
-            if (!hasUnread) {
-                favicon.href = ORIGINAL_FAVICON;
-                if (appleIcon) appleIcon.href = ORIGINAL_FAVICON;
-                return;
-            }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            img.onload = () => {
-                ctx.clearRect(0, 0, 64, 64);
-                ctx.drawImage(img, 0, 0, 64, 64);
-
-                // Draw Blue Dot in bottom right
-                ctx.beginPath();
-                ctx.arc(50, 50, 12, 0, 2 * Math.PI);
-                ctx.fillStyle = '#007AFF';
-                ctx.fill();
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.stroke();
-
-                const dataUrl = canvas.toDataURL('image/png');
-                favicon.href = dataUrl;
-                if (appleIcon) appleIcon.href = dataUrl;
-            };
-            img.src = ORIGINAL_FAVICON;
-        };
-
-        // Listen for tab focus to clear unread dots for the active chat
+        // 监听标签页切换来清除当前聊天的未读点
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && activeTargetId) {
-                UNREAD_CHATS.delete(activeTargetId);
-                document.getElementById(`dot-${activeTargetId}`)?.classList.add('hidden');
-                window.updateGlobalUnreadStatus();
+                AppModules.Notify.markAsRead(activeTargetId);
             }
         });
-
-        function initGlobalNotificationMonitor() {
-            // Only listen to users we have already interacted with
-            Object.keys(ALL_USERS).forEach(targetId => {
-                if (targetId === currentUser.id || globalListeners.has(targetId)) return;
-                const chatId = getChatId(currentUser.id, targetId);
-                onChildAdded(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(1)), (snap) => {
-                    const msg = snap.val();
-                    if (msg && msg.senderId !== currentUser.id && msg.timestamp > APP_START_TIME) {
-                        if (!document.hidden && activeTargetId === targetId) {
-                            // Already actively viewing this chat, do not notify or mark unread
-                            update(ref(db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
-                        } else {
-                            if (SETTINGS.soundEnabled) notifySound.play().catch(() => { });
-                            UNREAD_CHATS.add(targetId);
-                            document.getElementById(`dot-${targetId}`)?.classList.remove('hidden');
-                            window.updateGlobalUnreadStatus();
-
-                            // Also update chat timestamp to bring to top
-                            update(ref(db, `user_chats/${currentUser.id}`), { [targetId]: serverTimestamp() });
-                        }
-                    }
-                });
-                globalListeners.add(targetId);
-            });
-        }
 
         let isRenderingSidebar = false;
         window.sidebarMode = 'recent'; // 'recent', 'all', or 'class'
@@ -3116,7 +3006,7 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${UNREAD_CHATS.has(id) ? '' : 'hidden'}"></span>
+                            <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${AppModules.Notify.unreadSet.has(id) ? '' : 'hidden'}"></span>
                             <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
@@ -3208,9 +3098,7 @@
                     cameraBtn.style.display = window.isPhotoDisabled ? 'none' : 'block';
                 }
             }
-            UNREAD_CHATS.delete(targetId);
-            window.updateGlobalUnreadStatus();
-            document.getElementById(`dot-${targetId}`)?.classList.add('hidden');
+            AppModules.Notify.markAsRead(targetId);
 
             const titleEl = document.getElementById('chatTitle');
             const statusEl = document.getElementById('chatStatus');
