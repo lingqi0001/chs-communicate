@@ -307,7 +307,6 @@
             }
 
             to {
-                transform: translateX(0);
                 opacity: 1;
             }
         }
@@ -347,15 +346,14 @@
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         // Firebase 生产环境配置（CHS 专属节点）
-        const firebaseConfig = {
-            apiKey: "AIzaSyCJX0prT18UJDn-hPsUWxVkXMdWAVrjgeM", // API 访问密钥
-            authDomain: "chscommunication.firebaseapp.com", // 鉴权域名
-            databaseURL: "https://chscommunication-default-rtdb.firebaseio.com", // 数据库实时端点
-            projectId: "chscommunication", // 项目唯一 ID
-            storageBucket: "chscommunication.firebasestorage.app", // 文件存储桶
-            messagingSenderId: "61899173277", // 推送发送者 ID
-            appId: "1:61899173277:web:330ad28d8de3c0527a5374" // 网页应用识别码
-        };
+        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
+        import { UIUtils, DateUtils } from './js/utils.js';
+        import { UIComponents } from './js/ui-components.js';
+        import { UserModule } from './js/user.js';
+        import { localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
+
+
+
 
         // 打印应用版本号，方便调试时确认缓存状态
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -445,94 +443,46 @@
           - UIUtils 提供了一些轻量级的界面处理逻辑（如时间格式化、XSS 防护）。
         */
         // 全局静态常量池：集中管理应用中的硬编码字符串，方便一处修改全站同步。
-        window.CONSTANTS = {
-            // 寿司默认头像的 SVG：为什么用 SVG？因为它不需要网络请求，且在任何分辨率下都保持绝对清晰。
-            SUSHI_AVATAR: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='%23FFF' d='M20 60c0-10 10-20 30-20s30 10 30 20-10 20-30 20-30-10-30-20z'/%3E%3Cpath fill='%23FF7F50' d='M15 55c0-15 20-30 35-30s35 15 35 30c0 5-10 10-35 10S15 60 15 55z'/%3E%3Cpath fill='none' stroke='%23FFF' stroke-width='1.5' d='M30 35c10 5 30 5 40 0M25 45c10 5 35 5 45 0M20 55c10 5 40 5 50 0'/%3E%3Cpath fill='%23333' d='M45 25c2 2 8 2 10 0l-2-3-6 1z'/%3E%3C/svg%3E`,
-            SAFETY_BOT_ID: 'safety_bot', // 安全卫士：负责规则提醒和冲突处理
-            ADVICE_BOT_ID: 'advice_bot', // 建议助手：负责收集用户反馈和功能引导
-            ADMIN_EMAIL: 'moss104088@gmail.com' // 应用终极管理员邮箱，拥有最高权限（如进入数据库控制台）
-        };
+        window.CONSTANTS = APP_CONSTANTS;
 
         // UI 增强工具箱：封装常用的 UI 处理逻辑
-        window.UIUtils = {
-            /**
-             * [高级时间算法]：将原始毫秒时间戳转换为人性化的模糊时间。
-             * 这种设计比具体的日期更能让用户感受到聊天的“即时性”。
-             */
-            formatTime: function (timestamp) {
-                if (!timestamp) return "";
-                const date = new Date(timestamp);
-                const now = new Date();
-                const diff = (now - date) / 1000; // 换算为秒
+        window.UIUtils = UIUtils;
+        window.escapeHTML = UIUtils.escape;
+        window.linkify = UIUtils.linkify;
+        window.formatLastSeen = UIUtils.formatLastSeen;
+        window.getLocalDateString = DateUtils.getLocalDateString;
 
-                if (diff < 60) return "Just now"; // 1分钟内
-                if (diff < 3600) return Math.floor(diff / 60) + "m ago"; // 1小时内
-                if (diff < 86400) return Math.floor(diff / 3600) + "h ago"; // 1天内
-                return date.toLocaleDateString(); // 超过1天显示具体日期
-            },
-
-            /**
-             * [函数] XSS 安全转义函数
-             * 将用户输入的字符串转换为纯文本渲染，防止 HTML 注入攻击
-             */
-            escape: (str) => {
-                const p = document.createElement('p');
-                p.textContent = str; // 利用 innerText/textContent 的自动转义特性
-                return p.innerHTML;
-            },
-
-            /**
-             * [函数] 原子化高亮提示
-             * 给指定元素添加一个短暂的闪烁类，1.2秒后自动移除
-             */
-            highlight: (el) => {
-                if (!el) return;
-                el.classList.add('highlight-pulse'); // 添加闪烁动画类
-                // 1200ms 对应 CSS 动画的时长
-                setTimeout(() => el.classList.remove('highlight-pulse'), 1200);
-            }
-        };
+        // 桥接 UserModule：确保原有的 isAppStaff() 等调用依然有效，但逻辑已迁移至外部。
+        window.UserModule = UserModule;
+        window.isAppAdmin = () => UserModule.isAdmin(auth.currentUser?.email);
+        window.isAppTeacher = () => UserModule.isTeacher(auth.currentUser?.email);
+        window.isAppStaff = () => UserModule.isStaff(auth.currentUser?.email);
+        window.fetchUser = (id) => UserModule.fetchUser(id, db, ALL_USERS);
 
         // 应用运行时状态管理
-        let ALL_USERS = {
-            'safety_bot': {
-                id: 'safety_bot',
-                name: 'Safety Bot',
-                email: 'safety@chschat.xyz',
-                avatar: 'https://ui-avatars.com/api/?name=Safety+Bot&background=007AFF&color=fff'
-            }
-        };
-        let currentUser = null; // 当前登录用户信息容器
-        let DONATIONS = {}; // 捐款状态同步对象
-        let activeTargetId = null; // 当前正在查看的对话/对象 ID
-        let stopCurrentChatListener = null; // Firebase 实时监听器的销毁函数
+        let ALL_USERS = { ...SYSTEM_USERS };
+        let currentUser = null;
+        let DONATIONS = {};
+        let activeTargetId = null;
+        let stopCurrentChatListener = null;
         const globalListeners = new Set();
-        const ADMIN_EMAIL = 'moss104088@gmail.com';
-        const SAFETY_BOT_ID = 'safety_bot';
-        const ADVICE_BOT_ID = 'advice_bot';
+        const ADMIN_EMAIL = APP_CONSTANTS.ADMIN_EMAIL;
+        const SAFETY_BOT_ID = APP_CONSTANTS.SAFETY_BOT_ID;
+        const ADVICE_BOT_ID = APP_CONSTANTS.ADVICE_BOT_ID;
         const APP_START_TIME = Date.now();
 
-
-
-        // SYSTEM CONFIG: Loaded from Firebase at runtime to avoid GitHub hardcoding.
         window.isPhotoDisabled = false;
         window.isSidebarAnimating = false;
         let currentNewsTab = 'school';
         const cnCache = {};
-        const ctCache = {}; // Cache for class teacher names
+        const ctCache = {};
         let isSyncDone = false;
         window.currentClassId = null;
-        let sidebarClasses = {}; // Cache for classes user is part of
+        let sidebarClasses = {};
 
-        const EAGLE_ICON = `<svg class="w-10 h-10" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-            <polygon fill="white" points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-            <path fill="#ED2129" d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-        </svg>`;
+        const EAGLE_ICON = APP_CONSTANTS.EAGLE_ICON;
+        const EAGLE_ICON_BW = APP_CONSTANTS.EAGLE_ICON_BW;
 
-        const EAGLE_ICON_BW = `<svg class="w-10 h-10" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-            <polygon fill="white" points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 233.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-            <path fill="#000000" d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-        </svg>`;
 
         /* 
           第六部分：模块配置中心 (Module Configuration)
@@ -577,6 +527,10 @@
             independent_research: 'extensionPage'
         };
 
+        window.MODULE_CONFIG = MODULE_CONFIG;
+        window.OVERLAY_PAGE_IDS = OVERLAY_PAGE_IDS;
+        window.MODULE_PAGE_MAP = MODULE_PAGE_MAP;
+
         let currentModule = null;
         let currentModuleSort = 'latest';
         let moduleListener = null;
@@ -585,270 +539,7 @@
         let postDetailListener = null;
         let currentPostBase64 = null;
 
-        /* 
-          第七部分：本地离线缓存引擎 (IndexedDB Storage)
-          - 离线优先 (Offline-First)：系统会优先从浏览器本地数据库读取数据，从而实现“秒开”体验。
-          - 自动同步：后台会自动将 Firebase 的最新数据刷入 IndexedDB，解决网络抖动带来的卡顿问题。
-        */
-        let localDB;
-        function initLocalDB() {
-            return new Promise((resolve) => {
-                // 设置 10 秒超时保护：如果浏览器数据库启动太慢，系统会自动切换到“无缓存模式”，保证程序不卡死
-                const timeout = setTimeout(() => {
-                    console.warn("DB Ready timeout (10s) - Falling back to no-cache mode");
-                    resolve(null);
-                }, 10000);
-
-                const dbReq = indexedDB.open("CHSChatCache", 2);
-                dbReq.onblocked = () => {
-                    console.warn("DB Open Blocked. Please close other tabs.");
-                    clearTimeout(timeout);
-                    resolve(null);
-                };
-                // IndexedDB 数据库骨架定义 (Schema Definition)
-                dbReq.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    /* 
-                       1. 聊天消息库：
-                       - chatId 索引：这是为了在用户点击某个人的头像时，能瞬间从数万条消息中只捞出他们俩的对话。
-                    */
-                    if (!db.objectStoreNames.contains("messages")) {
-                        const store = db.createObjectStore("messages", { keyPath: "compositeId" });
-                        store.createIndex("chatId", "chatId", { unique: false });
-                    }
-                    /* 
-                       2. 功能模块内容库：
-                       - moduleName 索引：用于区分市场、互助等不同的信息流。
-                    */
-                    if (!db.objectStoreNames.contains("modules")) {
-                        const store = db.createObjectStore("modules", { keyPath: "compositeId" });
-                        store.createIndex("moduleName", "moduleName", { unique: false });
-                    }
-                    /* 
-                       3. 校园公告/新闻库：
-                       - tabType 索引：区分“校园公告”和“社团动态”。
-                    */
-                    if (!db.objectStoreNames.contains("news")) {
-                        const store = db.createObjectStore("news", { keyPath: "compositeId" });
-                        store.createIndex("tabType", "tabType", { unique: false });
-                    }
-                };
-                dbReq.onsuccess = (e) => {
-                    clearTimeout(timeout);
-                    localDB = e.target.result;
-                    localDB.onversionchange = () => {
-                        localDB.close();
-                        localDB = null;
-                        dbReady = initLocalDB();
-                    };
-                    resolve(localDB);
-                };
-                dbReq.onerror = (e) => {
-                    console.error("DB Open Error:", e.target.error);
-                    clearTimeout(timeout);
-                    resolve(null);
-                };
-            });
-        }
-        let dbReady = initLocalDB();
-
-        /**
-         * [核心底层：本地消息持久化] saveMessageLocal
-         * 为什么这个函数如此重要？
-         * 它是解决聊天卡顿的关键。我们不从网络拉取历史记录，而是从本地 IndexedDB 读取。
-         * 
-         * 逻辑重复点解释：
-         * 虽然这段代码和 saveModulePostLocal 极其相似，但这种重复是为了实现“零依赖隔离”。
-         * 即使消息数据库格式变了，也不会影响到新闻或社交模块的稳定性。
-         */
-        async function saveMessageLocal(chatId, key, msg) {
-            /**
-             * 1. 状态锁检查 (State Lock)：
-             * IndexedDB 是异步启动的。如果此时 localDB 还没初始化完成，
-             * await dbReady 会让代码在这里“静止”，直到连接成功。
-             * 这是防止在数据库还没开好就强行写入导致崩溃的第一道防线。
-             */
-            if (!localDB) await dbReady;
-            if (!localDB) return; 
-
-            try {
-                /**
-                 * 2. 独占事务 (Read-Write Transaction)：
-                 * "readwrite" 告诉浏览器：我要改数据了，请帮我锁住这个存储桶。
-                 * 这样可以防止两个函数同时写同一条数据导致的数据损坏。
-                 */
-                const tx = localDB.transaction("messages", "readwrite");
-                
-                // 3. 访问特定的存储表 "messages"
-                const store = tx.objectStore("messages");
-                
-                /**
-                 * 4. 复合主键黑科技 (Composite ID Strategy)：
-                 * 为什么要存成 `${chatId}_${key}`？
-                 * 在分布式数据库（Firebase）里，消息 Key 只有在同一路径下唯一。
-                 * 如果你同时和 A 和 B 聊天，极小概率会出现重复的 Key。
-                 * 组合 chatId 后，我们创造了一个物理层面的全局唯一索引，确保消息永远不会存错位。
-                 */
-                store.put({ compositeId: `${chatId}_${key}`, chatId, key, ...msg });
-            } catch (e) {
-                console.warn("DB Save failed (Message):", e);
-                /**
-                 * 5. 故障自愈逻辑 (Self-Healing)：
-                 * InvalidStateError 通常发生在浏览器为了省电关闭了数据库连接。
-                 * 我们不报错，而是通过 localDB = null 触发下一次调用时的自动重连。
-                 */
-                if (e.name === 'InvalidStateError') {
-                    localDB = null;
-                    dbReady = initLocalDB();
-                }
-            }
-        }
-
-        /**
-         * [异步函数] 从本地获取历史聊天记录
-         * @param {string} chatId 会话 ID
-         * @returns {Promise<Array>} 排序后的消息数组
-         */
-        async function getLocalMessages(chatId) {
-            if (!localDB) await dbReady;
-            return new Promise((resolve) => {
-                try {
-                    if (!localDB) return resolve([]);
-                    const tx = localDB.transaction("messages", "readonly");
-                    const store = tx.objectStore("messages");
-                    const index = store.index("chatId");
-                    const request = index.getAll(IDBKeyRange.only(chatId));
-                    request.onsuccess = () => {
-                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                        resolve(msgs);
-                    };
-                    request.onerror = () => resolve([]);
-                } catch (e) {
-                    console.warn("DB Transaction failed (Messages):", e);
-                    if (e.name === 'InvalidStateError') {
-                        localDB = null;
-                        dbReady = initLocalDB();
-                    }
-                    resolve([]);
-                }
-            });
-        }
-
-        /**
-         * [深度解析] 将模块动态（如二手交易、失物招领）存入本地 (saveModulePostLocal)
-         */
-        async function saveModulePostLocal(moduleName, key, post) {
-            // 同样的第一道防线：确保数据库准备好
-            if (!localDB) await dbReady;
-            if (!localDB) return;
-
-            try {
-                // 开启事务，专门访问 "modules" 表
-                const tx = localDB.transaction("modules", "readwrite");
-                const store = tx.objectStore("modules");
-                
-                // 构造复合主键：moduleName + postKey。
-                // 这样当你切换“互助”和“市场”模块时，数据不会互相覆盖。
-                store.put({ compositeId: `${moduleName}_${key}`, moduleName, key, ...post });
-            } catch (e) {
-                console.warn("DB Save failed (Module Post):", e);
-                // 同样的错误恢复：如果连接断开，自动重启数据库连接
-                if (e.name === 'InvalidStateError') {
-                    localDB = null;
-                    dbReady = initLocalDB();
-                }
-            }
-        }
-
-        /**
-         * [深度解析] 将校园新闻条目存入本地 (saveNewsItemLocal)
-         */
-        async function saveNewsItemLocal(tabType, key, item) {
-            // 确保数据库连接有效
-            if (!localDB) await dbReady;
-            if (!localDB) return;
-
-            try {
-                // 开启针对 "news" 表的写操作
-                const tx = localDB.transaction("news", "readwrite");
-                const store = tx.objectStore("news");
-                
-                // 这里的 tabType 分为 'school' 和 'club'。
-                // 存入后，我们可以通过 tabType 索引快速渲染对应的频道内容。
-                store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...item });
-            } catch (e) {
-                console.warn("DB Save failed (News Item):", e);
-                // 处理数据库失效，重连逻辑
-                if (e.name === 'InvalidStateError') {
-                    localDB = null;
-                    dbReady = initLocalDB();
-                }
-            }
-        }
-
-        async function saveLocalNews(tabType, posts) {
-            if (!localDB) await dbReady;
-            if (!localDB) return;
-            try {
-                const tx = localDB.transaction("news", "readwrite");
-                const store = tx.objectStore("news");
-                posts.forEach(post => {
-                    store.put({ compositeId: `${tabType}_${post.key}`, tabType, key: post.key, ...post });
-                });
-            } catch (e) {
-                console.warn("DB Save failed (Batch News):", e);
-            }
-        }
-
-        async function getLocalNews(tabType) {
-            if (!localDB) await dbReady;
-            return new Promise((resolve) => {
-                try {
-                    if (!localDB) return resolve([]);
-                    const tx = localDB.transaction("news", "readonly");
-                    const store = tx.objectStore("news");
-                    const index = store.index("tabType");
-                    const request = index.getAll(IDBKeyRange.only(tabType));
-                    request.onsuccess = () => {
-                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                        resolve(msgs);
-                    };
-                    request.onerror = () => resolve([]);
-                } catch (e) {
-                    console.warn("DB Transaction failed (News):", e);
-                    if (e.name === 'InvalidStateError') {
-                        localDB = null;
-                        dbReady = initLocalDB();
-                    }
-                    resolve([]);
-                }
-            });
-        }
-
-        async function getLastKey(storeName, indexName, indexValue) {
-            if (!localDB) await dbReady;
-            return new Promise((resolve) => {
-                try {
-                    if (!localDB) return resolve(null);
-                    const tx = localDB.transaction(storeName, "readonly");
-                    const store = tx.objectStore(storeName);
-                    const index = store.index(indexName);
-                    const request = index.getAll(IDBKeyRange.only(indexValue));
-                    request.onsuccess = () => {
-                        const items = request.result.sort((a, b) => a.key.localeCompare(b.key));
-                        resolve(items.length > 0 ? items[items.length - 1].key : null);
-                    };
-                    request.onerror = () => resolve(null);
-                } catch (e) {
-                    console.warn("DB Transaction failed (LastKey):", e);
-                    if (e.name === 'InvalidStateError') {
-                        localDB = null;
-                        dbReady = initLocalDB();
-                    }
-                    resolve(null);
-                }
-            });
-        }
+        // 本地离线缓存引擎已移至 js/db.js
 
         /**
          * [核心逻辑] 全局数据同步引擎 (Background Sync)
@@ -874,18 +565,9 @@
                     const localItems = await getLocalNews(tab);
                     const localKeys = localItems.map(it => it.key);
 
-                    // 2. 批量将云端数据刷入本地，保证本地缓存与云端强一致
-                    if (localDB) {
-                        const tx = localDB.transaction("news", "readwrite");
-                        const store = tx.objectStore("news");
-                        for (const key of remoteKeys) {
-                            store.put({ compositeId: `${tab}_${key}`, tabType: tab, key, ...remoteData[key] });
-                        }
-                        // 如果某条新闻在云端被管理员删了，本地也要同步删除，防止出现“僵尸消息”
-                        for (const k of localKeys) {
-                            if (!remoteKeys.includes(k)) store.delete(`${tab}_${k}`);
-                        }
-                    }
+                    // 2. [进阶重构] 批量对齐本地缓存与云端，保证强一致性
+                    // 相比以前手写 10 行 transaction 逻辑，现在只需调用封装好的 reconcileNews
+                    await reconcileNews(tab, remoteData, localKeys);
 
                     // 立即渲染一次本地内容，给用户“极速秒开”的错觉
                     const finalLocal = await getLocalNews(tab);
@@ -1004,7 +686,7 @@
                                      */
                                     const htmlFiles = files.filter(f => f.name.endsWith('.html'))
                                         .map(f => ({ name: f.name, url: f.path }));
-                                    
+
                                     if (htmlFiles.length > 0) {
                                         // 调用渲染引擎，在 UI 中生成插件入口卡片
                                         renderExtensionsCategory(categoryMap[item.name] || item.name, htmlFiles);
@@ -1076,7 +758,7 @@
                  */
                 let iconColor = "text-[#007AFF]"; // 默认蓝色
                 let iconBg = "bg-blue-100 dark:bg-blue-500/20";
-                
+
                 if (rawName.toLowerCase().includes('logic')) {
                     iconColor = "text-green-500"; // 逻辑相关：绿色
                     iconBg = "bg-green-100 dark:bg-green-500/20";
@@ -1133,16 +815,10 @@
         let lastMsgSentTime = 0;
         let lastPostSentTime = 0;
         let lastCommentSentTime = 0;
-        const MSG_COOLDOWN = 1000; // 消息发送间隔：1秒
-        const POST_COOLDOWN = 5000; // 发帖间隔：5秒
-        const COMMENT_COOLDOWN = 2000; // 评论间隔：2秒
+        const MSG_COOLDOWN = LIMITS.MSG_COOLDOWN;
+        const POST_COOLDOWN = LIMITS.POST_COOLDOWN;
+        const COMMENT_COOLDOWN = LIMITS.COMMENT_COOLDOWN;
 
-        // --- 安全鉴权辅助逻辑 ---
-        // 这些逻辑依赖于不可篡改的 Firebase Auth 状态。
-        // 注意：真正的安全规则是在 Firebase 后台的 database.rules.json 中强制执行的。
-        var isAppAdmin = () => auth.currentUser && auth.currentUser.email === window.CONSTANTS.ADMIN_EMAIL;
-        var isAppTeacher = () => auth.currentUser && auth.currentUser.email && auth.currentUser.email.endsWith('@hcpss.org');
-        var isAppStaff = () => isAppAdmin() || isAppTeacher();
 
 
         /**
@@ -1155,7 +831,7 @@
         onAuthStateChanged(auth, async (user) => {
             // 实时打印当前状态，方便在调试控制台追踪鉴权流
             console.log('App: Auth state changed. User:', user ? user.email : 'null');
-            
+
             try {
                 if (user) {
                     /**
@@ -1211,12 +887,12 @@
             }
             catch (error) {
                 console.error("Auth Error:", error);
-                
+
                 // 处理浏览器拦截弹窗的情况（常见于非 HTTPS 或极端安全设置）
                 if (error.code === 'auth/popup-blocked') {
                     hint.innerText = "Popup blocked. Redirecting...";
                     await signInWithRedirect(auth, googleProvider);
-                } 
+                }
                 // 处理用户主动关掉弹窗的情况
                 else if (error.code !== 'auth/popup-closed-by-user') {
                     alert("Google Sign-In failed: " + error.message);
@@ -1245,8 +921,8 @@
             hint.innerText = "Please check the Microsoft popup window...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-            try { 
-                await signInWithPopup(auth, microsoftProvider); 
+            try {
+                await signInWithPopup(auth, microsoftProvider);
             }
             catch (error) {
                 if (error.code !== 'auth/popup-closed-by-user') alert("Microsoft Sign-In failed: " + error.message);
@@ -1263,75 +939,12 @@
          */
         async function setupUser(user) {
             console.log('App: Entering setupUser for', user.email);
-            const email = user.email.toLowerCase();
-            
             /**
-             * [账户清洗] 
-             * 逻辑：提取邮箱前缀作为数据库中的唯一 ID (idPrefix)。
-             * 为什么不用 uid？因为本应用设计上希望账号在不同终端（如不同的 auth 提供商）只要邮箱一致即视为同一人。
+             * [账户清洗与资料比对]
+             * 调用 UserModule 进行统一的角色分配和数据库同步。
              */
-            const idPrefix = email.split('@')[0].replace(/\./g, '_');
-
-            // --- 动态角色分配系统 (Role Engine) ---
-            // 逻辑：纯字符串匹配，极其高效且安全（最终鉴权由 Firebase Rules 兜底）
-            let role = 'user';
-            if (email === ADMIN_EMAIL) role = 'admin'; // 全站唯一超级管理员
-            else if (email.endsWith('@hcpss.org')) role = 'teacher'; // 老师
-            else if (email.endsWith('@inst.hcpss.org')) role = 'student'; // 学生
-
-            // 预设默认显示名称（如果用户还没改过名字）
-            const defaultName = email.split('@')[0];
-            const capitalizedDefaultName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
-            
-            // 构建全局当前用户对象
-            currentUser = { name: capitalizedDefaultName, id: idPrefix, role: role, email: email };
-            window.currentUser = currentUser; // 导出到全局，方便扩展插件读取用户信息
-
-            // --- 数据库资料比对 (Database Sync) ---
-            const userRef = ref(db, `users/${idPrefix}`);
-            const snapshot = await get(userRef);
-
-            if (snapshot.exists()) {
-                /**
-                 * [老用户回归]
-                 * 逻辑：从数据库拉取最新的名字、头像、是否同意条款的状态。
-                 */
-                const userData = snapshot.val();
-                if (userData.name) currentUser.name = userData.name;
-                currentUser.avatar = userData.avatar || null;
-                currentUser.hasAcceptedTerms = userData.hasAcceptedTerms || false;
-                
-                // 更新数据库中的“最后在线时间”，这会触发好友列表里的“亮灯”状态
-                await update(userRef, { lastSeen: serverTimestamp(), role: role, email: email });
-
-                /**
-                 * [管理员彩蛋] 
-                 * 如果是超级管理员 Moss，强制将其头像设为预设的寿司 SVG。
-                 * 逻辑：确保系统的品牌形象（管理员身份）在 UI 上是稳固的。
-                 */
-                if (currentUser.id === 'moss104088' && userData.avatar !== window.CONSTANTS.SUSHI_AVATAR) {
-                    await update(userRef, { avatar: window.CONSTANTS.SUSHI_AVATAR });
-                    currentUser.avatar = window.CONSTANTS.SUSHI_AVATAR;
-                }
-            } else {
-                /**
-                 * [新用户注册]
-                 * 逻辑：如果数据库中查无此人，说明是第一次登录。
-                 */
-                currentUser.hasAcceptedTerms = false;
-                currentUser._isNewUser = true; // 临时标志位：用于后续引导流程
-                
-                // 在数据库中创建一个空的新用户档案
-                await set(userRef, {
-                    name: currentUser.name,
-                    role: role,
-                    email: email,
-                    lastSeen: serverTimestamp(),
-                    registeredAt: serverTimestamp(),
-                    hasAcceptedTerms: false
-                });
-            }
-            // 注册到全局本地索引
+            currentUser = await UserModule.syncProfile(user, db);
+            window.currentUser = currentUser;
             ALL_USERS[currentUser.id] = currentUser;
 
             /**
@@ -1342,7 +955,7 @@
             if (window._heartbeat) clearInterval(window._heartbeat);
             window._heartbeat = setInterval(() => {
                 if (auth.currentUser) {
-                    update(ref(db, `users/${idPrefix}`), { lastSeen: serverTimestamp() });
+                    update(ref(db, `users/${currentUser.id}`), { lastSeen: serverTimestamp() });
                 }
             }, 60000); // 间隔一分钟更新一次在线状态
 
@@ -1518,7 +1131,7 @@
         window.acceptTerms = async () => {
             if (!currentUser) return;
             const userRef = ref(db, `users/${currentUser.id}`);
-            
+
             // 写入数据库：标记该用户已合规
             await update(userRef, { hasAcceptedTerms: true });
             currentUser.hasAcceptedTerms = true;
@@ -1602,20 +1215,20 @@
                     const adminId = 'moss104088'; // 管理员 ID
                     const chatId = getChatId(currentUser.id, adminId);
                     // 构造系统自动私信正文
-                    const msg = { 
-                        senderId: currentUser.id, 
-                        senderName: currentUser.name, 
-                        text: "[Auto Sent By System] I'm a new user", 
-                        type: 'text', 
-                        timestamp: serverTimestamp() 
+                    const msg = {
+                        senderId: currentUser.id,
+                        senderName: currentUser.name,
+                        text: "[Auto Sent By System] I'm a new user",
+                        type: 'text',
+                        timestamp: serverTimestamp()
                     };
                     // 1. 写入消息列表
                     await push(ref(db, `messages/${chatId}`), msg);
                     // 2. 双向更新最近聊天记录列表，确保双方侧边栏都能看到对方
                     await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
                     await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
-                } catch (e) { 
-                    console.warn('New user notification failed:', e); 
+                } catch (e) {
+                    console.warn('New user notification failed:', e);
                 }
 
                 // 清理临时标志，正式入场
@@ -1655,7 +1268,7 @@
                         vapidKey: 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w',
                         serviceWorkerRegistration: await navigator.serviceWorker.register(swUrl)
                     });
-                    
+
                     if (token) {
                         // 将 Token 存入用户的私密区域，供推送服务器调用
                         await update(ref(db, `user_private/${currentUser.id}`), { fcmToken: token });
@@ -1747,58 +1360,11 @@
             },
 
             /**
-             * [核心 HTML 构建器] 渲染单个新闻卡片
-             * 包含了：权限删除按钮、时间格式化、XSS 转义、图片渲染。
+             * [组件映射] 渲染单个新闻卡片
+             * 已迁移至 js/ui-components.js
              */
             renderCard: function (post, type) {
-                const badge = this.getBadge(type);
-                const dateStr = window.UIUtils.formatTime(post.timestamp); // 转换为“几小时前”
-                const isStaff = isAppStaff(); // 判断当前登录人是否有删除权限
-
-                return `
-                    <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <div class="flex justify-between items-start">
-                            <!-- 动态标签 -->
-                            <span class="text-[11px] font-bold ${badge.color} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badge.text}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-400 font-medium">${dateStr}</span>
-                                <!-- 如果是老师，显示删除图标 -->
-                                ${isStaff ? `<button onclick="deleteNews('${post.key}', '${type}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
-                            </div>
-                        </div>
-                        <!-- 标题：必须经过 XSS 转义 -->
-                        <h3 class="font-bold text-base mt-1.5 mb-1.5 text-black dark:text-white leading-snug">${window.UIUtils.escape(post.title)}</h3>
-                        <!-- 正文：支持多行显示，并自动解析其中的 URL 链接 -->
-                        <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(window.UIUtils.escape(post.desc))}</p>
-                        <!-- 媒体内容块 -->
-                        ${this.renderMedia(post)}
-                    </div>`;
-            },
-
-            /**
-             * [媒体构建器] 处理公告中的图片
-             * 逻辑：如果管理员关闭了全局图片显示，这里会降级为一个提示框，而不是加载失败的叉叉。
-             */
-            renderMedia: function (post) {
-                if (!post.image) return '';
-                if (window.isPhotoDisabled) {
-                    // 全局禁用时的优雅降级提示
-                    return `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled by Admin</div>`;
-                }
-                
-                // 将图片 URL 数组编码，方便传入全局 openGallery 预览窗口
-                const enc = encodeURIComponent(JSON.stringify([post.image]));
-                return `
-                    <div class="relative w-full">
-                        <img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" 
-                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-                             onclick="openGallery('${enc}')">
-                        <!-- 图片失效时的占位反馈 -->
-                        <div class="hidden mt-3 px-4 py-3 bg-gray-50 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-dashed border-gray-200 dark:border-gray-800">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            Photo no longer available
-                        </div>
-                    </div>`;
+                return UIComponents.renderNewsCard(post, type, isAppStaff());
             }
         };
 
@@ -1849,7 +1415,7 @@
         async function fetchUser(userId) {
             if (!userId) return null;
             const cleanedId = userId.toLowerCase();
-            
+
             // --- 机器人账户拦截 (Bot Overrides) ---
             // 逻辑：如果 ID 是预设的机器人，则直接返回本地硬编码的数据和头像，不需要请求网络。
             if (cleanedId === window.CONSTANTS.SAFETY_BOT_ID) {
@@ -1858,7 +1424,7 @@
             if (cleanedId === window.CONSTANTS.ADVICE_BOT_ID) {
                 return { id: window.CONSTANTS.ADVICE_BOT_ID, name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
             }
-            
+
             // --- 管理员账户拦截 (Admin Overrides) ---
             // 逻辑：确保管理员 Moss 的头像始终是那份标志性的“寿司”。
             if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
@@ -1888,7 +1454,7 @@
          */
         function initUserObserver() {
             console.log('App: initUserObserver starting...');
-            
+
             /**
              * 1. 监听当前用户自己的档案变更
              * 逻辑：如果用户在另一台手机上改了名字，本手机的 UI 要立刻同步。
@@ -1916,7 +1482,7 @@
             console.log('App: Setting up user_chats listener...');
             onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
                 const chatMap = snapshot.val() || {};
-                
+
                 /**
                  * [数据清洗] 过滤掉早期的“幽灵 ID”
                  * 逻辑：早期版本生成的 ID 格式（如带有 gmail/inst 的后缀）可能导致侧边栏混乱，
@@ -2007,7 +1573,7 @@
             const results = document.getElementById('globalSearchResults');
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
-            
+
             if (input) input.value = '';
             if (results) results.classList.add('hidden'); // 隐藏浮层
             if (resultList) resultList.innerHTML = '';    // 清空 DOM 节点，释放内存
@@ -2204,12 +1770,12 @@
                             req.onsuccess = () => res(req.result || []);
                         });
                         const currentUserIdLower = currentUser.id.toLowerCase();
-                        
+
                         const filtered = allMsgs.filter(m => {
                             if (!m.text || !m.chatId) return false;
                             // 排除图片消息：因为图片的 URL 也是一段字符串，可能会干扰关键词匹配
                             if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
-                            
+
                             // 权限校验：只允许搜自己所在的群聊或私信，防止信息泄露（虽然 IDB 理论上是安全的）
                             if (m.chatId.startsWith('group_')) {
                                 const classId = m.chatId.replace('group_', '');
@@ -2240,7 +1806,7 @@
                                 }
                                 const escapedJumpId = jumpId.replace(/'/g, "\\'");
                                 const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
-                                
+
                                 /**
                                  * [点击跳转逻辑]
                                  * 这里的 onclick 非常精彩：
@@ -3840,44 +3406,11 @@
             }, 350);
         };
 
-        function escapeHTML(str) {
-            if (!str) return "";
-            return str.replace(/[&<>"']/g, function (m) {
-                return {
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;'
-                }[m];
-            });
-        }
 
-        function linkify(text) {
-            if (!text) return "";
-            // Use a regex that excludes trailing punctuation (brackets, periods, etc.)
-            const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g;
-            return text.replace(urlRegex, (url) => {
-                return `<a href="${url}" target="_blank" class="text-[#007AFF] font-bold hover:underline inline-flex items-center gap-0.5 mx-1">Link <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a>`;
-            });
-        }
 
-        function formatLastSeen(timestamp) {
-            if (!timestamp) return "";
-            const now = Date.now();
-            const diff = now - timestamp;
-            const mins = Math.floor(diff / 60000);
 
-            if (mins < 2) return "online";
-            if (mins < 60) return `last seen ${mins} minute${mins > 1 ? 's' : ''} ago`;
 
-            const hours = Math.floor(mins / 60);
-            if (hours < 24) return `last seen ${hours} hour${hours > 1 ? 's' : ''} ago`;
 
-            const days = Math.floor(hours / 24);
-            if (days === 1) return "last seen yesterday";
-            return `last seen ${days} days ago`;
-        }
 
         async function loadChatThread(chatId) {
             const chatBox = document.getElementById('chatBox');
@@ -3892,7 +3425,7 @@
             // Use a fragment for batch appending to minimize layout shifts
             const fragment = document.createDocumentFragment();
             displayMsgs.forEach(m => {
-                const msgEl = createMsgElement(m, m.key, chatId);
+                const msgEl = UIComponents.createChatBubble(m, m.key, currentUser, setupLongPress);
                 if (msgEl) fragment.appendChild(msgEl);
             });
             chatBox.appendChild(fragment);
@@ -4224,79 +3757,9 @@
             el.addEventListener('contextmenu', (e) => { e.preventDefault(); start(e); });
         }
 
-        function createMsgElement(msg, key, chatId = null) {
-            if (msg.isSecret && currentUser.email !== ADMIN_EMAIL) return null;
-            const isMe = msg.senderId === currentUser.id;
-            const div = document.createElement('div');
-            div.dataset.key = key;
-            div.className = `msg-pop flex flex-col mb-1.5 w-full ${isMe ? 'items-end' : 'items-start'}`;
-
-            if (msg.quote) {
-                const qDiv = document.createElement('div');
-                qDiv.className = `text-xs opacity-50 mb-0.5 px-3 py-1 border-l-2 border-gray-400 max-w-[70%] truncate ${isMe ? 'mr-1 text-right' : 'ml-1 text-left'}`;
-                qDiv.innerHTML = `<span class="font-bold">${escapeHTML(msg.quote.senderName)}:</span> ${escapeHTML(msg.quote.text)}`;
-                div.appendChild(qDiv);
-            }
-
-            let content = '';
-            let images = [];
-            if (msg.type === 'image_group' || (msg.text && msg.text.trim().startsWith('['))) try { images = JSON.parse(msg.text); } catch (e) { }
-            else if (msg.type === 'image' || (msg.text && msg.text.includes('data:image'))) images = [msg.text];
-
-            if (images.length > 0) {
-                if (window.isPhotoDisabled) {
-                    content = `<div class="px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-200 dark:border-white/10"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>`;
-                } else {
-                    const enc = encodeURIComponent(JSON.stringify(images));
-                    if (images.length === 1) {
-                        content = `<div class="relative w-36 h-48 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-sm">
-                                    <img src="${images[0]}" 
-                                         onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" 
-                                         onclick="openGallery('${enc}', 0)" 
-                                         class="w-full h-full object-cover cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}">
-                                    <div class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-4 text-center">
-                                        <svg class="w-6 h-6 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                        <span class="text-[9px] font-medium leading-tight">Photo<br>Unavailable</span>
-                                    </div>
-                                   </div>`;
-                    } else {
-                        let sH = '';
-                        for (let i = images.length - 1; i >= 0; i--) {
-                            let tX = isMe ? (i * 12) : -(i * 12);
-                            sH += `<div id="img-${key}-${i}" class="absolute left-0 w-36 h-48 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl shadow-md transition-all duration-300 ${isMe ? 'origin-left' : 'origin-right'} cursor-pointer overflow-hidden border border-gray-200 dark:border-white/5"
-                                        style="top:0px; z-index:${30 - i}; transform:translateX(${tX}px) scale(${1 - (i * 0.05)}); opacity:${i > 3 ? 0 : 1};"
-                                        onclick="openGallery('${enc}', ${i})">
-                                        <img src="${images[i]}" 
-                                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-                                             class="w-full h-full object-cover ${msg.isExpired ? 'opacity-20 grayscale' : ''}">
-                                        <div class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-4 text-center">
-                                            <svg class="w-5 h-5 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                            <span class="text-[8px] font-medium">Unavailable</span>
-                                        </div>
-                                   </div>`;
-                        }
-                        content = `<div id="stack-${key}" class="relative w-36 h-48 ${isMe ? 'ml-24 mr-8' : 'mr-24 ml-8'} mb-2 mt-1 transition-all duration-300">
-                                    <button id="btn-${key}" onclick="toggleStack('${key}', ${images.length}, ${isMe})" class="absolute ${isMe ? '-left-24' : '-right-24'} top-20 bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white text-xs px-3.5 py-1.5 rounded-full z-40 font-medium shadow-sm">Expand ${images.length}</button>
-                                    ${sH}
-                                   </div>`;
-                    }
-                }
-            } else {
-                const bS = isMe ? 'bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
-                content = `<div class="px-3.5 py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${linkify(window.UIUtils.escape(msg.text))}</div>`;
-            }
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = content;
-            const msgEl = wrapper.firstElementChild;
-            setupLongPress(msgEl, msg);
-
-            div.appendChild(!isMe ? (Object.assign(document.createElement('span'), { className: 'text-xs text-gray-400 mb-0.5 ml-3', innerText: msg.senderName || "Unknown" })) : document.createTextNode(''));
-            div.appendChild(msgEl);
-            return div;
-        }
 
         function appendMsg(msg, key, chatId = null, saveToLocal = true) {
-            const div = createMsgElement(msg, key, chatId);
+            const div = UIComponents.createChatBubble(msg, key, currentUser, setupLongPress);
             if (!div) return;
             const chatBox = document.getElementById('chatBox');
             chatBox.appendChild(div);
@@ -4838,30 +4301,6 @@
             loadModuleData();
         };
 
-        async function getLocalModulePosts(moduleName) {
-            if (!localDB) await dbReady;
-            return new Promise((resolve) => {
-                if (!localDB) return resolve([]);
-                try {
-                    const tx = localDB.transaction("modules", "readonly");
-                    const store = tx.objectStore("modules");
-                    const index = store.index("moduleName");
-                    const request = index.getAll(IDBKeyRange.only(moduleName));
-                    request.onsuccess = () => {
-                        const msgs = request.result.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                        resolve(msgs);
-                    };
-                    request.onerror = () => resolve([]);
-                } catch (e) {
-                    console.warn("DB Transaction failed (Module Posts):", e);
-                    if (e.name === 'InvalidStateError') {
-                        localDB = null;
-                        dbReady = initLocalDB();
-                    }
-                    resolve([]);
-                }
-            });
-        }
 
         async function loadModuleData() {
             const moduleName = currentModule;
@@ -5499,7 +4938,6 @@
                         </div>
                     </div>` : ''}
                     ${(post.image && window.isPhotoDisabled) ? `<div class="mt-5 px-5 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-gray-100 dark:border-white/5"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Blocked by Administrator</div>` : ''}
-                    ${getSuggestionVotingHtml({ ...post, id: postId })}
                     <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
                         <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
                             <svg class="w-7 h-7 ${isLiked ? 'fill-current' : 'fill-none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -5518,10 +4956,8 @@
                 } else {
                     html += `<div class="space-y-4">`;
                     for (const c of sorted) {
-                        const cAuthorName = config.anonymous ? 'Anonymous' : (c.authorName || 'Unknown');
                         const cAuthor = !config.anonymous ? await fetchUser(c.authorId) : null;
-                        const cAuthorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (cAuthor?.avatar || 'https://ui-avatars.com/api/?name=' + cAuthorName);
-                        html += `<div class="flex gap-4"><img src="${cAuthorAvatar}" class="w-10 h-10 rounded-full mt-1"><div class="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm"><div class="flex justify-between mb-1"><span class="font-bold text-sm text-black dark:text-white">${escapeHTML(cAuthorName)}</span><span class="text-gray-400 text-xs">${new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div class="text-base text-gray-700 dark:text-gray-300">${linkify(escapeHTML(c.text))}</div></div></div>`;
+                        html += UIComponents.renderComment(c, config, currentUser, cAuthor);
                     }
                     html += `</div>`;
                 }
@@ -5878,14 +5314,7 @@
         let cafeteriaListener1 = null;
         let cafeteriaListener2 = null;
 
-        function getLocalDateString(offsetDays = 0) {
-            const d = new Date();
-            d.setDate(d.getDate() + offsetDays);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
+
 
         window.openCafeteria = () => {
             currentModule = 'cafeteria';
