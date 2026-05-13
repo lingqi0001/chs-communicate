@@ -21,7 +21,19 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <!-- 网页在浏览器标签页显示的标题 -->
-    <title>CHS Chat & Social</title>
+    <title>CHS Communicate</title>
+    <script>
+        // Fast Theme Initializer - Prevents flash and ensures persistence on reload
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
     <!-- 网页图标 (Favicon)：使用内联 SVG 保证加载速度 -->
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpolygon fill='white' points='12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1'/%3E%3Cpath fill='%23ED2129' d='M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z'/%3E%3C/svg%3E">
@@ -349,13 +361,18 @@
         import { ModalModule } from './js/alert.js?v=2';
         import { initCloudRefs } from './js/db.js?v=2';
         import { UserModule } from './js/user.js?v=2';
+        import { ViewModule } from './js/view.js?v=2';
 
         // 命名空间初始化
         window.AppModules = {
             Notify: NotifyModule,
             Modal: ModalModule,
-            User: UserModule
+            User: UserModule,
+            View: ViewModule
         };
+
+        // 视图初始化 (VH Patch, Theme, Viewport)
+        AppModules.View.init();
 
         // 核心状态代理 (Core State Proxy)
         // 保证全局变量 currentUser 始终同步 AppModules.User.current
@@ -831,7 +848,6 @@
         // --- 用户偏好设置 (Settings Persistence) ---
         // 使用 localStorage 实现持久化存储，即便刷新页面或重启浏览器，设置依然有效。
         const SETTINGS = {
-            theme: localStorage.getItem('theme') || 'system', // 主题模式：支持跟随系统
             soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // 是否开启提示音
             soundUrl: localStorage.getItem('soundUrl') || "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" // 提示音音源
         };
@@ -1111,8 +1127,7 @@
              * B. 如果没同意：强制留在服务条款 (ToS) 页面，直到用户点击“我同意”。
              */
             if (currentUser.hasAcceptedTerms) {
-                document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainPage').classList.remove('hidden');
+                AppModules.View.showPage('mainPage');
                 initUserObserver(); // 监听好友列表和个人资料
                 initSettingsUI();   // 初始化设置菜单
                 updateNewsAccess(); // 检查是否有发公告的权限
@@ -1201,8 +1216,7 @@
          * 逻辑：执行一连串的 UI 切换和数据订阅，标志着用户正式开始使用应用。
          */
         window.enterApp = async () => {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('mainPage').classList.remove('hidden');
+            AppModules.View.showPage('mainPage');
             initUserObserver();         // 启动侧边栏用户更新监听
             initSettingsUI();           // 渲染设置界面
             updateNewsAccess();         // 计算公告发布权限
@@ -1528,26 +1542,17 @@
         };
 
         /**
-         * [UI 主题引擎] 全局皮肤切换
-         * @param {string} mode - 'light' | 'dark' | 'system'
-         * 逻辑：
-         * 1. 同步内存 SETTINGS 对象。
-         * 2. 写入 localStorage 确保下次打开页面不闪烁（Flash of Unstyled Content）。
-         * 3. 修改 <html> 标签的 class，触发 Tailwind 的 dark 变体样式。
+         * [UI 主题引擎] 全局皮肤切换 (已迁移至 ViewModule)
          */
         window.applyTheme = (mode) => {
-            SETTINGS.theme = mode;
-            localStorage.setItem('theme', mode);
-            const html = document.documentElement;
-            // 判断逻辑：如果是 'dark' 或者 (系统偏好为黑且设置为跟随系统)
-            if (mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                html.classList.add('dark');
+            if (mode === 'system') {
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                AppModules.View.setDarkMode(isDark, 'system');
             } else {
-                html.classList.remove('dark');
+                AppModules.View.setDarkMode(mode === 'dark', mode);
             }
+            if (window.updateSettingsLabels) window.updateSettingsLabels();
         };
-        // 初始执行一次，确保首屏颜色正确
-        applyTheme(SETTINGS.theme);
 
         /**
          * [搜索辅助] 清除全局搜索状态
@@ -1989,8 +1994,13 @@
         }
 
         function updateSettingsLabels() {
-            document.getElementById('currentSoundLabel') ? document.getElementById('currentSoundLabel').innerText = SOUNDS.find(s => s.url === SETTINGS.soundUrl)?.name || 'Note' : null;
-            document.getElementById('currentThemeLabel').innerText = SETTINGS.theme.charAt(0).toUpperCase() + SETTINGS.theme.slice(1);
+            if (document.getElementById('currentSoundLabel')) {
+                document.getElementById('currentSoundLabel').innerText = SOUNDS.find(s => s.url === SETTINGS.soundUrl)?.name || 'Note';
+            }
+            const theme = localStorage.getItem('theme') || 'system';
+            if (document.getElementById('currentThemeLabel')) {
+                document.getElementById('currentThemeLabel').innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
+            }
         }
 
         window.updateSound = (url) => { 
@@ -2087,119 +2097,9 @@
             if (donationButtons) donationButtons.classList.remove('hidden');
         };
 
-        /* --- STEP 1 & 2: UNIFIED VIEW MANAGER --- */
-        window.AppView = {
-            currentPanel: 'news', // Default panel
-            isMobile: () => window.innerWidth <= 850,
-
-            // Unified panel visibility controller
-            showPanel: function (panelId) {
-                const newsSec = document.getElementById('newsSection');
-                const sidePanel = document.getElementById('sidePanel');
-                const chatSec = document.getElementById('chatSection');
-                const bottomNav = document.getElementById('bottomNav');
-
-                if (!newsSec || !sidePanel || !chatSec) return;
-
-                this.currentPanel = panelId;
-                const mobile = this.isMobile();
-
-                // Logic for Desktop: Everything is visible (flex)
-                if (!mobile) {
-                    newsSec.classList.remove('hidden'); newsSec.classList.add('flex');
-                    sidePanel.classList.remove('hidden'); sidePanel.classList.add('flex');
-                    chatSec.classList.remove('hidden'); chatSec.classList.add('flex');
-                    if (bottomNav) bottomNav.classList.add('hidden');
-                    return;
-                }
-
-                // Logic for Mobile: One panel at a time
-                [newsSec, sidePanel, chatSec].forEach(p => {
-                    p.classList.add('hidden');
-                    p.classList.remove('flex', 'slide-in-left', 'slide-in-right');
-                });
-
-                if (panelId === 'news') {
-                    newsSec.classList.remove('hidden'); newsSec.classList.add('flex');
-                    if (bottomNav) bottomNav.classList.remove('hidden');
-                } else if (panelId === 'tools') {
-                    sidePanel.classList.remove('hidden'); sidePanel.classList.add('flex');
-                    if (bottomNav) bottomNav.classList.remove('hidden');
-                } else if (panelId === 'chat') {
-                    chatSec.classList.remove('hidden'); chatSec.classList.add('flex');
-                    // Hide bottom nav when actively chatting to maximize space
-                    if (bottomNav) bottomNav.classList.add('hidden');
-                }
-            }
-        };
-
-        window.switchLeftTab = (tab) => {
-            const tabs = ['news', 'tools', 'more'];
-            const labels = { 'news': 'headTabNews', 'tools': 'headTabTools', 'more': 'headTabMore' };
-            const contents = {
-                'news': document.getElementById('newsMainContent'),
-                'tools': document.getElementById('toolsMainContent'),
-                'more': document.getElementById('moreMainContent')
-            };
-
-            const currentTabId = document.querySelector('.head-tab-active')?.id || 'headTabNews';
-            const currentTab = currentTabId.replace('headTab', '').toLowerCase();
-            const currentIndex = tabs.indexOf(currentTab);
-            const targetIndex = tabs.indexOf(tab);
-
-            if (currentIndex === targetIndex) return;
-
-            // Update Header Styles
-            tabs.forEach(t => {
-                const el = document.getElementById(labels[t]);
-                if (!el) return;
-                if (t === tab) {
-                    el.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none head-tab-active";
-                } else {
-                    el.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none mb-0.5";
-                }
-            });
-
-            // Revert to original Style-based transitions
-            tabs.forEach((t, idx) => {
-                const content = contents[t];
-                if (!content) return;
-
-                if (t === tab) {
-                    content.style.opacity = '1';
-                    content.style.transform = 'translateX(0)';
-                    content.style.pointerEvents = 'auto';
-                    content.style.zIndex = '10';
-                } else {
-                    const offset = (idx < targetIndex) ? '-40px' : '40px';
-                    content.style.opacity = '0';
-                    content.style.transform = `translateX(${offset})`;
-                    content.style.pointerEvents = 'none';
-                    content.style.zIndex = '0';
-                }
-            });
-
-            // Special News Sub-tabs handling
-            const subTabs = document.getElementById('newsSubTabsWrapper');
-            const addBtn = document.getElementById('addAnnouncementBtn');
-            if (subTabs) {
-                if (tab === 'news') {
-                    subTabs.style.height = '32px'; subTabs.style.opacity = '1'; subTabs.style.marginTop = '0.75rem';
-                    if (addBtn && isAppStaff()) addBtn.classList.remove('hidden');
-                } else {
-                    subTabs.style.height = '0'; subTabs.style.opacity = '0'; subTabs.style.marginTop = '0';
-                    if (addBtn) addBtn.classList.add('hidden');
-                }
-            }
-
-            // Sync with AppView for visibility
-            if (window.AppView) {
-                const panelMap = { 'news': 'news', 'tools': 'tools', 'more': 'chat' };
-                window.AppView.showPanel(panelMap[tab]);
-            }
-
-            updateSettingsLabels();
-        };
+        // 核心视图与标签导航已迁移至 AppModules.View
+        window.AppView = AppModules.View;
+        window.switchLeftTab = (tab) => AppModules.View.switchLeftTab(tab);
         window.toggleDropdown = (id, e) => {
             if (e) e.stopPropagation();
             const dropdown = document.getElementById(id);
@@ -2230,9 +2130,12 @@
         let isRenderingSidebar = false;
         window.sidebarMode = 'recent'; // 'recent', 'all', or 'class'
 
-        window.switchSidebarTab = (mode) => {
+        window.switchSidebarTab = (mode, event) => {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
             if (window.sidebarMode === mode) {
-                // If already in class mode and inside a specific class, clicking 'Class' tab should go back to list
                 if (mode === 'class' && window.currentClassId) {
                     window.currentClassId = null;
                     window._isPopNav = true;
@@ -2241,7 +2144,7 @@
                 return;
             }
             window.sidebarMode = mode;
-            window.currentClassId = null; // Reset Level 2 view when switching tabs
+            window.currentClassId = null;
             window.renderSidebar(true);
         };
 
@@ -2282,11 +2185,11 @@
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
                     <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button onclick="window.switchSidebarTab('recent')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
+                        <button onclick="window.switchSidebarTab('recent', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.switchSidebarTab('all')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
+                        <button onclick="window.switchSidebarTab('all', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.switchSidebarTab('class')" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
+                        <button onclick="window.switchSidebarTab('class', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
                     </div>
                     <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                 `;
@@ -2390,7 +2293,7 @@
                         item.onclick = () => {
                             window.currentClassId = c.id;
                             window.renderSidebar();
-                            if (window.innerWidth >= 1024) switchChat('group_' + c.id);
+                            if (window.innerWidth >= 1024) window.switchChat('group_' + c.id);
                         };
                         item.innerHTML = `
                             <div class="flex items-center gap-4">
@@ -2482,7 +2385,7 @@
 
                         const div = document.createElement('div');
                         div.className = "p-3 pl-5 cursor-pointer flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group";
-                        div.onclick = () => switchChat(id);
+                        div.onclick = () => window.switchChat(id);
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
                                 <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${escapeHTML(u.name || id)}${badge}</span>
@@ -2615,7 +2518,7 @@
 
                 let html = `
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
-                    <div id="item-${c.teacherId}" onclick="switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div>
                             <div class="font-bold text-base text-black dark:text-white">${escapeHTML(teacher?.name || 'Teacher')}</div>
                             <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
@@ -2625,7 +2528,7 @@
                     ${extensionHtml}
 
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
-                    <div id="item-group_${window.currentClassId}" onclick="switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2">
                             ${EAGLE_ICON}
                         </div>
@@ -2654,7 +2557,7 @@
 
                     return `
                         <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
-                            <div onclick="switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
+                            <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div class="flex flex-col overflow-hidden">
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">${escapeHTML(u.name)}${badge} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}</div>
                                     <div class="text-xs text-gray-400 truncate">${escapeHTML(u.email || u.id)}</div>
@@ -3039,27 +2942,8 @@
             // Deleted in favor of refactored version above
         };
 
-        // Sidebar Sticky Toggle Logic
-        window.toggleSidebarPin = () => {
-            const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
-            localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
-
-            // Trigger a resize event to ensure chat scrolls correctly
-            setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-            }, 500);
-        };
-
-        // Initialize Sidebar State
-        (function initSidebarState() {
-            const pinned = localStorage.getItem('sidebarPinned');
-            // Default to true for new users, or respect existing preference
-            if (pinned === 'false') {
-                document.body.classList.add('sidebar-collapsed');
-            } else {
-                document.body.classList.remove('sidebar-collapsed');
-            }
-        })();
+        // 侧边栏状态管理已迁移至 AppModules.View
+        window.toggleSidebarPin = () => AppModules.View.toggleSidebarPin();
 
         window.switchChat = async (targetId) => {
             if (!targetId || targetId === currentUser.id) return;
@@ -3182,8 +3066,8 @@
             // Unified View Transition
             window.AppView.showPanel('chat');
 
-            // Apply animation if mobile
-            if (window.AppView.isMobile()) {
+            const chatSec = document.getElementById('chatSection');
+            if (window.AppView.isMobile() && chatSec) {
                 chatSec.classList.add('slide-in-right');
                 setTimeout(() => chatSec.classList.remove('slide-in-right'), 400);
             }
@@ -3238,96 +3122,12 @@
         };
 
         window.showSidebar = () => {
-            activeTargetId = null;
-            window.AppView.showPanel('tools');
-
-            if (window.AppView.isMobile()) {
-                ['news', 'more'].forEach(t => {
-                    document.getElementById(`icon-${t}`)?.classList.replace('text-[#007AFF]', 'text-gray-400');
-                    document.getElementById(`text-${t}`)?.classList.replace('text-[#007AFF]', 'text-gray-400');
-                });
-                document.getElementById('icon-messages').classList.replace('text-gray-400', 'text-[#007AFF]');
-                document.getElementById('text-messages').classList.replace('text-gray-400', 'text-[#007AFF]');
-            }
-            clearSearch();
+            window.activeTargetId = null;
+            AppModules.View.showSidebar();
         };
 
-        window.refreshBottomNav = (activeTab) => {
-            const newsBtn = document.getElementById('tabBtn-news');
-            const msgBtn = document.getElementById('tabBtn-messages');
-            const newsIconActive = `<svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #007AFF;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`;
-            const newsIconInactive = `<svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #9CA3AF;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`;
-            const msgIconActive = `<svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`;
-            const msgIconInactive = `<svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`;
-
-            if (newsBtn) {
-                const active = (activeTab === 'news');
-                newsBtn.innerHTML = (active ? newsIconActive : newsIconInactive) + `<span class="text-xs font-medium" style="color: ${active ? '#007AFF' : '#9CA3AF'}">News</span>`;
-            }
-            if (msgBtn) {
-                const active = (activeTab === 'messages');
-                msgBtn.innerHTML = `<div class="relative">${active ? msgIconActive : msgIconInactive}<div id="mainUnreadDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-xs font-medium" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Messages</span>`;
-            }
-        };
-
-        window.switchTab = (tab) => {
-            const isMobile = window.innerWidth < 1024;
-            if (!isMobile) return;
-
-            const newsEl = document.getElementById('newsSection');
-            const msgEl = document.getElementById('sidePanel');
-            const chatSec = document.getElementById('chatSection');
-
-            const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
-            const currentTab = isCurrentlyOnNews ? 'news' : 'messages';
-
-            let normalizedTab = tab;
-            if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
-
-            if (currentTab === normalizedTab) {
-                if (tab === 'news' || tab === 'more' || tab === 'tools') switchLeftTab(tab);
-                return;
-            }
-
-            // 1. INSTANT VISUAL FEEDBACK
-            window.refreshBottomNav(normalizedTab);
-
-            // 2. ANIMATION LOGIC
-            if (window.closeDetail) window.closeDetail();
-            if (window.closePostForm) window.closePostForm();
-
-            const isForward = (normalizedTab === 'messages');
-            const currentEl = isCurrentlyOnNews ? newsEl : msgEl;
-            const targetEl = isCurrentlyOnNews ? msgEl : newsEl;
-
-            if (normalizedTab === 'news' || normalizedTab === 'more' || normalizedTab === 'tools') switchLeftTab(normalizedTab);
-
-            chatSec.classList.add('hidden');
-            chatSec.classList.remove('flex');
-
-            currentEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform:translateX(0); transition:none; display:flex;`;
-            targetEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:11; transform:translateX(${isForward ? '100%' : '-100%'}); transition:none; display:flex;`;
-            targetEl.classList.remove('hidden');
-
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const ease = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
-                    currentEl.style.transition = ease;
-                    targetEl.style.transition = ease;
-                    currentEl.style.transform = `translateX(${isForward ? '-100%' : '100%'})`;
-                    targetEl.style.transform = 'translateX(0)';
-                });
-            });
-
-            setTimeout(() => {
-                currentEl.classList.add('hidden');
-                currentEl.classList.remove('flex');
-                currentEl.style.cssText = '';
-                targetEl.style.cssText = '';
-                targetEl.classList.remove('hidden');
-                targetEl.classList.add('flex');
-            }, 350);
-        };
+        window.refreshBottomNav = (tab) => AppModules.View.refreshBottomNav(tab);
+        window.switchTab = (tab) => AppModules.View.switchTab(tab);
 
 
 
