@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        body { 
+            background: transparent; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        }
+        select { -webkit-appearance: none; appearance: none; }
+        
+        /* Auto sync theme with parent window */
+        function syncTheme() {
+            try {
+                if (window.parent.document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch(e) {}
+        }
+        window.addEventListener('message', (e) => {
+            if(e.data === 'THEME_UPDATE') syncTheme();
+        });
+    </style>
+</head>
+<body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10" onload="syncTheme()">
+    <div class="px-5 pt-4 pb-20 max-w-2xl mx-auto">
+        <div class="bg-[#E9E9EB] dark:bg-white/10 rounded-2xl p-1 h-10 flex mb-6">
+            <button id="calcTabYear" onclick="switchCalcType('year')"
+                class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all">Year-Long</button>
+            <button id="calcTabSem" onclick="switchCalcType('semester')"
+                class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all">Semester</button>
+        </div>
+
+        <div id="calcYearView" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
+                    <select id="y-q1" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
+                    <select id="y-q2" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 3</label>
+                    <select id="y-q3" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 4</label>
+                    <select id="y-q4" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Midterm Exam</label>
+                    <select id="y-mid" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
+                    <select id="y-fin" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="calcSemView" class="hidden space-y-4">
+            <div class="grid grid-cols-1 gap-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
+                    <select id="s-q1" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
+                    <select id="s-q2" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
+                    <select id="s-exam" onchange="calculateGrade()"
+                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-white dark:bg-[#1C1C1E] rounded-3xl p-8 border border-gray-100 dark:border-white/5 shadow-sm text-center space-y-2">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Final Estimated Grade</p>
+            <div id="calcFinalGrade" class="text-5xl font-black">--</div>
+            <div class="flex justify-center gap-4 text-sm">
+                <span class="text-gray-500">Total Points: <span id="calcTotalPoints"
+                        class="font-bold text-black dark:text-white">0</span></span>
+            </div>
+            <p id="calcNote" class="text-xs text-red-500 font-medium mt-4 h-8"></p>
+        </div>
+
+        <div class="mt-6 bg-gray-100 dark:bg-white/5 rounded-2xl p-4 space-y-2">
+            <p class="text-xs font-bold text-gray-400 uppercase">Grading Scale Reference</p>
+            <div class="grid grid-cols-5 text-xs font-bold text-center">
+                <div class="text-green-500">A<br><span class="text-gray-400 font-normal">35-40</span></div>
+                <div class="text-blue-500">B<br><span class="text-gray-400 font-normal">25-34</span></div>
+                <div class="text-orange-500">C<br><span class="text-gray-400 font-normal">15-24</span></div>
+                <div class="text-yellow-600">D<br><span class="text-gray-400 font-normal">7.5-14</span></div>
+                <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-7.4</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCalcType = 'year';
+        window.switchCalcType = (type) => {
+            currentCalcType = type;
+            const btnYear = document.getElementById('calcTabYear');
+            const btnSem = document.getElementById('calcTabSem');
+            const yearView = document.getElementById('calcYearView');
+            const semView = document.getElementById('calcSemView');
+
+            if (type === 'year') {
+                btnYear.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all";
+                btnSem.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all";
+                yearView.classList.remove('hidden');
+                semView.classList.add('hidden');
+            } else {
+                btnSem.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all";
+                btnYear.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all";
+                semView.classList.remove('hidden');
+                yearView.classList.add('hidden');
+            }
+            calculateGrade();
+        };
+
+        window.calculateGrade = () => {
+            const qPoints = { 'A': 8, 'B': 6, 'C': 4, 'D': 2, 'E': 0 };
+            const ePoints = { 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'E': 0 };
+
+            let total = 0;
+            let resultGrade = '';
+            let note = '';
+
+            if (currentCalcType === 'year') {
+                const q1 = document.getElementById('y-q1').value;
+                const q2 = document.getElementById('y-q2').value;
+                const q3 = document.getElementById('y-q3').value;
+                const q4 = document.getElementById('y-q4').value;
+                const mid = document.getElementById('y-mid').value;
+                const fin = document.getElementById('y-fin').value;
+
+                total = qPoints[q1] + qPoints[q2] + qPoints[q3] + qPoints[q4] + ePoints[mid] + ePoints[fin];
+
+                if (total >= 35) resultGrade = 'A';
+                else if (total >= 25) resultGrade = 'B';
+                else if (total >= 15) resultGrade = 'C';
+                else if (total >= 7.5) resultGrade = 'D';
+                else resultGrade = 'E';
+
+                if (q3 === 'E' && q4 === 'E') {
+                    resultGrade = 'E';
+                    note = 'Note: Two "E"s in the 2nd semester (Q3 & Q4) results in a final "E".';
+                }
+            } else {
+                const q1 = document.getElementById('s-q1').value;
+                const q2 = document.getElementById('s-q2').value;
+                const exam = document.getElementById('s-exam').value;
+
+                total = qPoints[q1] + qPoints[q2] + ePoints[exam];
+
+                if (total >= 17.5) resultGrade = 'A';
+                else if (total >= 12.5) resultGrade = 'B';
+                else if (total >= 7.5) resultGrade = 'C';
+                else if (total >= 3.75) resultGrade = 'D';
+                else resultGrade = 'E';
+            }
+
+            document.getElementById('calcTotalPoints').innerText = total;
+            document.getElementById('calcFinalGrade').innerText = resultGrade;
+            document.getElementById('calcNote').innerText = note;
+
+            const gradeColors = { 'A': 'text-green-500', 'B': 'text-blue-500', 'C': 'text-orange-500', 'D': 'text-yellow-600', 'E': 'text-red-500' };
+            document.getElementById('calcFinalGrade').className = `text-5xl font-black ${gradeColors[resultGrade] || 'text-black dark:text-white'}`;
+        };
+        
+        // Initial Calculation
+        calculateGrade();
+    </script>
+</body>
+</html>

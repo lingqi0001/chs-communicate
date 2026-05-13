@@ -5066,6 +5066,9 @@
             } else if (eid === 'independent_research') {
                 url = 'extensions/IR Navigator.html';
                 title = 'Independent Research Hub';
+            } else if (eid === 'grade_calculator') {
+                url = 'extensions/grade_calculator.html';
+                title = 'Grade Calculator';
             }
 
             _currentExtensionUrl = url;
@@ -5077,9 +5080,62 @@
                 loader.classList.add('hidden');
             };
 
-            document.body.classList.add('is-fullscreen');
+            // Apply Panel vs Fullscreen logic based on extension type
+            const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine'].includes(eid);
+            const extPage = document.getElementById('extensionPage');
+            
+            if (isPanel) {
+                extPage.classList.add('lg:left-80');
+                extPage.classList.remove('z-[160]');
+                extPage.classList.add('z-[95]');
+                document.body.classList.remove('is-fullscreen');
+            } else {
+                extPage.classList.remove('lg:left-80');
+                extPage.classList.add('z-[160]');
+                extPage.classList.remove('z-[95]');
+                document.body.classList.add('is-fullscreen');
+            }
+
             openOverlayPage('extensionPage');
         };
+
+        // ==========================================
+        // APP BRIDGE PROTOCOL
+        // Provides safe access to main app functions for extensions
+        // ==========================================
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type) {
+                switch (event.data.type) {
+                    case 'GET_USER':
+                        if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: isAppAdmin(), isStaff: isAppStaff() }, '*');
+                        break;
+                    case 'SHOW_TOAST':
+                        showToast(event.data.message);
+                        break;
+                    case 'OPEN_GALLERY':
+                        openGallery(event.data.images, event.data.index || 0);
+                        break;
+                    case 'CLOSE_EXTENSION':
+                        closeExtension();
+                        break;
+                    case 'SET_HEADER_BTN':
+                        const customBtn = document.getElementById('extensionCustomBtn');
+                        if (customBtn && event.data.text) {
+                            customBtn.innerText = event.data.text;
+                            customBtn.classList.remove('hidden');
+                            customBtn.onclick = () => {
+                                const iframe = document.getElementById('extensionIframe');
+                                if (iframe && iframe.contentWindow) {
+                                    iframe.contentWindow.postMessage({ type: 'HEADER_BTN_CLICKED', actionId: event.data.actionId }, '*');
+                                }
+                            };
+                        } else if (customBtn) {
+                            customBtn.classList.add('hidden');
+                        }
+                        break;
+                }
+            }
+        });
 
         window.closeExtension = () => {
             closeOverlayPage('extensionPage', () => {
@@ -6167,93 +6223,6 @@
             await set(ref(db, `eagle_time/sessions/${id}`), null);
         };
         // Grade Calculator Logic
-        window.openGradeCalculator = () => {
-            currentModule = 'grade_calculator';
-            openOverlayPage('gradeCalculatorPage', calculateGrade);
-        };
-        window.closeGradeCalculator = () => {
-            closeOverlayPage('gradeCalculatorPage', () => {
-                currentModule = null;
-            });
-        };
-
-        let currentCalcType = 'year';
-        window.switchCalcType = (type) => {
-            currentCalcType = type;
-            const btnYear = document.getElementById('calcTabYear');
-            const btnSem = document.getElementById('calcTabSem');
-            const yearView = document.getElementById('calcYearView');
-            const semView = document.getElementById('calcSemView');
-
-            if (type === 'year') {
-                btnYear.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm', 'text-black', 'dark:text-white');
-                btnYear.classList.remove('text-gray-500');
-                btnSem.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm', 'text-black', 'dark:text-white');
-                btnSem.classList.add('text-gray-500');
-                yearView.classList.remove('hidden');
-                semView.classList.add('hidden');
-            } else {
-                btnSem.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm', 'text-black', 'dark:text-white');
-                btnSem.classList.remove('text-gray-500');
-                btnYear.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm', 'text-black', 'dark:text-white');
-                btnYear.classList.add('text-gray-500');
-                semView.classList.remove('hidden');
-                yearView.classList.add('hidden');
-            }
-            calculateGrade();
-        };
-
-        window.calculateGrade = () => {
-            const qPoints = { 'A': 8, 'B': 6, 'C': 4, 'D': 2, 'E': 0 };
-            const ePoints = { 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'E': 0 };
-
-            let total = 0;
-            let resultGrade = '';
-            let note = '';
-
-            if (currentCalcType === 'year') {
-                const q1 = document.getElementById('y-q1').value;
-                const q2 = document.getElementById('y-q2').value;
-                const q3 = document.getElementById('y-q3').value;
-                const q4 = document.getElementById('y-q4').value;
-                const mid = document.getElementById('y-mid').value;
-                const fin = document.getElementById('y-fin').value;
-
-                total = qPoints[q1] + qPoints[q2] + qPoints[q3] + qPoints[q4] + ePoints[mid] + ePoints[fin];
-
-                if (total >= 35) resultGrade = 'A';
-                else if (total >= 25) resultGrade = 'B';
-                else if (total >= 15) resultGrade = 'C';
-                else if (total >= 7.5) resultGrade = 'D';
-                else resultGrade = 'E';
-
-                // Special rule: 2 Es in 2nd semester
-                if (q3 === 'E' && q4 === 'E') {
-                    resultGrade = 'E';
-                    note = 'Note: Two "E"s in the 2nd semester (Q3 & Q4) results in a final "E".';
-                }
-            } else {
-                const q1 = document.getElementById('s-q1').value;
-                const q2 = document.getElementById('s-q2').value;
-                const exam = document.getElementById('s-exam').value;
-
-                total = qPoints[q1] + qPoints[q2] + ePoints[exam];
-
-                if (total >= 17.5) resultGrade = 'A';
-                else if (total >= 12.5) resultGrade = 'B';
-                else if (total >= 7.5) resultGrade = 'C';
-                else if (total >= 3.75) resultGrade = 'D';
-                else resultGrade = 'E';
-            }
-
-            document.getElementById('calcTotalPoints').innerText = total;
-            document.getElementById('calcFinalGrade').innerText = resultGrade;
-            document.getElementById('calcNote').innerText = note;
-
-            const gradeColors = { 'A': 'text-green-500', 'B': 'text-blue-500', 'C': 'text-orange-500', 'D': 'text-yellow-600', 'E': 'text-red-500' };
-            document.getElementById('calcFinalGrade').className = `text-5xl font-black ${gradeColors[resultGrade] || 'text-black dark:text-white'}`;
-        };
-
         let lastIsMobile = window.innerWidth < 1024;
         window.addEventListener('resize', () => {
             const isMobile = window.innerWidth < 1024;
@@ -8150,7 +8119,7 @@
                                 </div>
                             </div>
 
-                            <div onclick="openGradeCalculator()"
+                            <div onclick="window.openExtension('grade_calculator')"
                                 class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                 <div
                                     class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
@@ -8922,164 +8891,6 @@
         </div>
     </div>
     <!-- Grade Calculator Page -->
-    <div id="gradeCalculatorPage"
-        class="hidden fixed inset-0 lg:left-80 z-[95] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeGradeCalculator()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Grade
-                Calculator</div>
-            <div class="w-20"></div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto px-5 pt-4 pb-20">
-            <div class="bg-[#E9E9EB] dark:bg-white/10 rounded-2xl p-1 h-10 flex mb-6">
-                <button id="calcTabYear" onclick="switchCalcType('year')"
-                    class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all">Year-Long</button>
-                <button id="calcTabSem" onclick="switchCalcType('semester')"
-                    class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all">Semester</button>
-            </div>
-
-            <div id="calcYearView" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
-                        <select id="y-q1" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
-                        <select id="y-q2" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 3</label>
-                        <select id="y-q3" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 4</label>
-                        <select id="y-q4" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Midterm Exam</label>
-                        <select id="y-mid" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
-                        <select id="y-fin" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div id="calcSemView" class="hidden space-y-4">
-                <div class="grid grid-cols-1 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
-                        <select id="s-q1" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
-                        <select id="s-q2" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
-                        <select id="s-exam" onchange="calculateGrade()"
-                            class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none">
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                            <option value="E">E</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="mt-8 bg-white dark:bg-[#1C1C1E] rounded-3xl p-8 border border-gray-100 dark:border-white/5 shadow-sm text-center space-y-2">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Final Estimated Grade</p>
-                <div id="calcFinalGrade" class="text-5xl font-black">--</div>
-                <div class="flex justify-center gap-4 text-sm">
-                    <span class="text-gray-500">Total Points: <span id="calcTotalPoints"
-                            class="font-bold text-black dark:text-white">0</span></span>
-                </div>
-                <p id="calcNote" class="text-xs text-red-500 font-medium mt-4 h-8"></p>
-            </div>
-
-            <div class="mt-6 bg-gray-100 dark:bg-white/5 rounded-2xl p-4 space-y-2">
-                <p class="text-xs font-bold text-gray-400 uppercase">Grading Scale Reference</p>
-                <div class="grid grid-cols-5 text-xs font-bold text-center">
-                    <div class="text-green-500">A<br><span class="text-gray-400 font-normal">35-40</span></div>
-                    <div class="text-blue-500">B<br><span class="text-gray-400 font-normal">25-34</span></div>
-                    <div class="text-orange-500">C<br><span class="text-gray-400 font-normal">15-24</span></div>
-                    <div class="text-yellow-600">D<br><span class="text-gray-400 font-normal">7.5-14</span></div>
-                    <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-7.4</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Database Admin Console -->
     <div id="adminConsolePage"
         class="hidden fixed inset-0 lg:left-80 z-[160] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
@@ -9130,7 +8941,7 @@
         class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
         <div
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
-            <div class="w-20">
+            <div class="w-auto z-10">
                 <button onclick="closeExtension()"
                     class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
                     <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -9138,9 +8949,13 @@
                     </svg> Back
                 </button>
             </div>
-            <div id="extensionTitle" class="font-bold text-base text-black dark:text-white truncate flex-1 text-center">
-                Tool</div>
-            <div class="w-20 flex justify-end items-center gap-1">
+            
+            <div id="extensionTitle" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-base text-black dark:text-white truncate max-w-[50%] text-center pointer-events-none">
+                Tool
+            </div>
+
+            <div class="w-auto flex justify-end items-center gap-1 z-10">
+                <button id="extensionCustomBtn" class="hidden font-bold text-[#007AFF] px-2 py-1 text-base active:opacity-50 transition-opacity whitespace-nowrap">Post</button>
                 <button onclick="openExtensionExternally()" title="Open in New Window"
                     class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
