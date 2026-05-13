@@ -346,11 +346,18 @@
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         import { NotifyModule } from './js/notify.js';
+        import { ModalModule } from './js/alert.js';
 
         // 命名空间初始化
         window.AppModules = {
-            Notify: NotifyModule
+            Notify: NotifyModule,
+            Modal: ModalModule
         };
+
+        // 兼容性桥接 (Bridge)
+        window.showCustomAlert = (...args) => AppModules.Modal.alert(...args);
+        window.showCustomConfirm = (...args) => AppModules.Modal.confirm(...args);
+        window.showCustomPrompt = (...args) => AppModules.Modal.prompt(...args);
 
         // 兼容性桥接 (Bridge)
         window.updateGlobalUnreadStatus = () => AppModules.Notify.updateUI();
@@ -402,11 +409,9 @@
             // 登录失败时的错误处理
             console.error('App: Sign-in redirect error:', error);
             if (error.code === 'auth/internal-error' || error.code === 'auth/network-request-failed') {
-                alert('Connection error during login. Please try again.');
+                showCustomAlert("Connection Error", "Connection error during login. Please try again.");
             } else if (error.code !== 'auth/no-auth-event') {
-                // 忽略没有认证事件的常规情况，显示其他严重错误
-                if (window.showCustomAlert) window.showCustomAlert("Login Error", error.message);
-                else alert('Login Error: ' + error.message);
+                showCustomAlert("Login Error", error.message);
             }
         });
 
@@ -914,7 +919,7 @@
                 }
                 // 处理用户主动关掉弹窗的情况
                 else if (error.code !== 'auth/popup-closed-by-user') {
-                    alert("Google Sign-In failed: " + error.message);
+                    showCustomAlert("Login Failed", "Google Sign-In failed: " + error.message);
                     // 恢复按钮状态
                     btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                     hint.innerText = originalHint;
@@ -1372,7 +1377,7 @@
 
 
         window.deleteNews = async (id, tabType) => {
-            if (!confirm("Are you sure you want to delete this?")) return;
+            if (!await showCustomConfirm("Delete Announcement", "Are you sure you want to delete this?", "Delete")) return;
             await set(ref(db, `news/${tabType}/${id}`), null);
         };
 
@@ -1491,7 +1496,7 @@
             const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
             const newName = [first, last].filter(Boolean).join(' ');
 
-            if (!newName) return alert("Please enter a valid name");
+            if (!newName) return showCustomAlert("Name Required", "Please enter a valid name");
 
             const btn = e.target;
             const originalText = btn.innerText;
@@ -1504,7 +1509,7 @@
                 btn.innerText = "Saved!";
                 setTimeout(() => { btn.innerText = originalText; btn.disabled = false; }, 2000);
             } catch (error) {
-                alert("Failed to update name: " + error.message);
+                showCustomAlert("Error", "Failed to update name: " + error.message);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
@@ -1988,7 +1993,7 @@
         window.showChangelog = () => {
             document.getElementById('settingsView').classList.add('hidden');
             document.getElementById('changelogView').classList.remove('hidden');
-            document.getElementById('modalTitle').innerText = "Engineering Log";
+            document.getElementById('settingsModalTitle').innerText = "Engineering Log";
             const backBtn = document.createElement('button');
             backBtn.id = 'changelogBackBtn';
             backBtn.innerText = "Back";
@@ -1996,7 +2001,7 @@
             backBtn.onclick = () => {
                 document.getElementById('changelogView').classList.add('hidden');
                 document.getElementById('settingsView').classList.remove('hidden');
-                document.getElementById('modalTitle').innerText = "Settings";
+                document.getElementById('settingsModalTitle').innerText = "Settings";
                 backBtn.remove();
             };
             const header = document.querySelector('#settingsModal .rounded-t-2xl');
@@ -2006,7 +2011,7 @@
             window._restoreSettingsHeader = () => {
                 backBtn.remove();
                 doneBtn.classList.remove('hidden');
-                document.getElementById('modalTitle').innerText = "Settings";
+                document.getElementById('settingsModalTitle').innerText = "Settings";
             };
         };
 
@@ -2015,7 +2020,7 @@
             const sv = document.getElementById('settingsView');
             const dv = document.getElementById('donationView');
             const cv = document.getElementById('changelogView');
-            const title = document.getElementById('modalTitle');
+            const title = document.getElementById('settingsModalTitle');
 
             if (modal.classList.contains('hidden')) {
                 if (view === 'settings') {
@@ -3192,7 +3197,7 @@
         };
 
         window.deleteChatRecord = async (targetId) => {
-            if (!confirm("Remove this chat from your list? Messages will not be deleted.")) return;
+            if (!await showCustomConfirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
 
             const originalTarget = targetId.trim();
             const lowerTarget = originalTarget.toLowerCase();
@@ -3404,72 +3409,7 @@
             }
         };
 
-        let _modalTimer = null;
-        function _getModalEls() {
-            const modal = document.getElementById('customModal');
-            return {
-                modal,
-                inner: modal.querySelector('div'),
-                title: document.getElementById('modalTitle'),
-                body: document.getElementById('modalBody'),
-                cancel: document.getElementById('modalCancel'),
-                alt: document.getElementById('modalAlt'),
-                confirm: document.getElementById('modalConfirm')
-            };
-        }
-        function _closeModal(val, resolve) {
-            const { modal, inner, cancel, alt, confirm } = _getModalEls();
-            modal.classList.remove('opacity-100');
-            modal.classList.add('opacity-0');
-            inner.classList.remove('scale-100');
-            inner.classList.add('scale-90');
-            _modalTimer = setTimeout(() => {
-                modal.classList.add('hidden');
-                cancel.onclick = null;
-                alt.onclick = null;
-                confirm.onclick = null;
-                _modalTimer = null;
-                resolve(val);
-            }, 300);
-        }
-        function _openModal() {
-            const { modal, inner } = _getModalEls();
-            if (_modalTimer) { clearTimeout(_modalTimer); _modalTimer = null; }
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                modal.classList.remove('opacity-0');
-                inner.classList.add('scale-100');
-                inner.classList.remove('scale-90');
-            }, 10);
-        }
 
-        window.showCustomAlert = (title, body, btnText = "OK") => {
-            return new Promise(resolve => {
-                const els = _getModalEls();
-                els.title.innerText = title;
-                els.body.innerText = body;
-                els.confirm.innerText = btnText;
-                els.cancel.classList.add('hidden');
-                els.alt.classList.add('hidden');
-                els.confirm.onclick = () => _closeModal(true, resolve);
-                _openModal();
-            });
-        };
-
-        window.showCustomConfirm = (title, body, confirmText = "Continue") => {
-            return new Promise(resolve => {
-                const els = _getModalEls();
-                els.title.innerText = title;
-                els.body.innerHTML = body;
-                els.confirm.innerText = confirmText;
-                els.cancel.classList.remove('hidden');
-                els.alt.classList.add('hidden');
-                els.cancel.onclick = () => _closeModal(false, resolve);
-                els.confirm.onclick = () => _closeModal(true, resolve);
-                _openModal();
-            });
-        };
 
 
 
@@ -3954,7 +3894,7 @@
             try {
                 await update(ref(db, 'settings'), { isPhotoDisabled: enabled });
             } catch (err) {
-                alert("Failed to update setting: " + err.message);
+                showCustomAlert("Error", "Failed to update setting: " + err.message);
             }
         };
         window.selectSound = (val, e) => { if (e) e.stopPropagation(); updateSound(val); updateSettingsLabels(); toggleDropdown('soundDropdown'); };
@@ -4328,7 +4268,7 @@
                     }
                 }
             } catch (err) {
-                alert("Failed to vote: " + err.message);
+                showCustomAlert("Error", "Failed to vote: " + err.message);
                 console.error(err);
             }
         };
@@ -4461,11 +4401,11 @@
         }
 
         window.deletePost = async (postId) => {
-            if (!confirm("Are you sure you want to delete this post?")) return;
+            if (!await showCustomConfirm("Delete Post", "Are you sure you want to delete this post?", "Delete")) return;
             try {
                 await set(ref(db, `modules/${currentModule}/${postId}`), null);
             } catch (e) {
-                alert("Failed to delete post.");
+                showCustomAlert("Error", "Failed to delete post.");
             }
         };
 
@@ -4506,9 +4446,9 @@
                 });
                 update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
 
-                alert("Report sent successfully. You can track status in your chat with Safety Bot.");
+                showCustomAlert("Reported", "Report sent successfully. You can track status in your chat with Safety Bot.");
             } catch (e) {
-                alert("Failed to send report: " + e.message);
+                showCustomAlert("Error", "Failed to send report: " + e.message);
             }
         }
 
@@ -4892,7 +4832,7 @@
             try {
                 data = JSON.parse(raw);
             } catch (e) {
-                alert("Invalid JSON format. Please check the template.");
+                showCustomAlert("Import Error", "Invalid JSON format. Please check the template.");
                 return;
             }
 
@@ -5132,10 +5072,10 @@
         };
 
         window.leaveEagleSession = async (sessionId) => {
-            if (!confirm("Are you sure you want to cancel your registration?")) return;
+            if (!await showCustomConfirm("Cancel Registration", "Are you sure you want to cancel your registration?", "Leave")) return;
             try {
                 await set(ref(db, `eagle_time/sessions/${sessionId}/students/${currentUser.id}`), null);
-            } catch (e) { alert("Failed to leave: " + e.message); }
+            } catch (e) { showCustomAlert("Error", "Failed to leave: " + e.message); }
         };
 
         window.openCreateEagleForm = async () => {
@@ -5164,7 +5104,7 @@
             const room = document.getElementById('eagleRoomInput').value.trim();
             const teacherId = document.getElementById('eagleTeacherSelect').value;
 
-            if (!title || !room || !teacherId) return alert("Please fill all fields");
+            if (!title || !room || !teacherId) return showCustomAlert("Required", "Please fill all fields");
 
             try {
                 const newRef = push(ref(db, 'eagle_time/sessions'));
@@ -5172,12 +5112,12 @@
                 document.getElementById('eagleCreateForm').classList.add('hidden');
                 document.getElementById('eagleTitleInput').value = '';
                 document.getElementById('eagleRoomInput').value = '';
-                alert("Session created successfully!");
-            } catch (e) { alert("Failed to create: " + e.message); }
+                showCustomAlert("Success", "Session created successfully!");
+            } catch (e) { showCustomAlert("Error", "Failed to create: " + e.message); }
         };
 
         window.deleteEagleSession = async (id) => {
-            if (!confirm("Delete this session and all its registrations?")) return;
+            if (!await showCustomConfirm("Delete Session", "Delete this session and all its registrations?", "Delete")) return;
             await set(ref(db, `eagle_time/sessions/${id}`), null);
         };
         // Grade Calculator Logic
@@ -5380,7 +5320,7 @@
 
             const isDuplicate = Object.values(cafeteriaPool).some(item => item.name.toLowerCase() === name.toLowerCase());
             if (isDuplicate) {
-                alert("This food is already in the pool!");
+                showCustomAlert("Notice", "This food is already in the pool!");
                 return;
             }
 
@@ -5400,7 +5340,7 @@
         };
 
         window.clearAllLocalData = async () => {
-            if (!confirm("This will wipe all locally cached messages and reload. Continue?")) return;
+            if (!await showCustomConfirm("Reset App", "This will wipe all locally cached messages and reload. Continue?", "Reset")) return;
             try {
                 if (localDB) localDB.close();
                 // Short delay to ensure connection is closed
@@ -5425,7 +5365,7 @@
                 await update(ref(db), updates);
                 closeCafeteriaEdit();
             } catch (e) {
-                alert("Failed to save menu");
+                showCustomAlert("Error", "Failed to save menu");
             }
         };
 
@@ -5637,7 +5577,7 @@
                 status.innerText = `User ${userId} successfully purged from database.`;
                 setTimeout(() => status.classList.add('hidden'), 3000);
             } catch (err) {
-                alert("Purge failed: " + err.message);
+                showCustomAlert("Error", "Purge failed: " + err.message);
                 status.innerText = "Error during purge sequence.";
             }
         };
@@ -5710,28 +5650,7 @@
             }
         };
 
-        // Helper: Custom Prompt using the existing modal structure
-        window.showCustomPrompt = (title, body, defaultValue = "") => {
-            return new Promise(resolve => {
-                const els = _getModalEls();
-                els.title.innerText = title;
-                els.body.innerHTML = `${body}<br/><input type="text" id="modalInput" class="w-full mt-4 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${escapeHTML(defaultValue)}">`;
-                els.cancel.classList.remove('hidden');
-                els.alt.classList.add('hidden');
-                els.cancel.innerText = "Cancel";
-                els.confirm.innerText = "Save";
-                els.cancel.onclick = () => _closeModal(null, resolve);
-                els.confirm.onclick = () => {
-                    const val = document.getElementById('modalInput').value;
-                    _closeModal(val, resolve);
-                };
-                _openModal();
-                setTimeout(() => {
-                    const input = document.getElementById('modalInput');
-                    if (input) input.focus();
-                }, 50);
-            });
-        };
+
 
         // Initialize user interaction records for groups
         async function syncGroupChats() {
@@ -6138,27 +6057,6 @@
         </div>
     </div>
 
-    <!-- Custom Confirmation Modal -->
-    <div id="customModal"
-        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
-        <div
-            class="bg-white/80 dark:bg-gray-900/80 w-full max-w-[280px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
-            <div class="p-5 text-center">
-                <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-1.5 leading-tight">Title
-                </div>
-                <div id="modalBody" class="text-sm text-black/70 dark:text-white/60 leading-snug">Body</div>
-            </div>
-            <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
-                <button id="modalCancel"
-                    class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
-                <button id="modalAlt"
-                    class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">No</button>
-                <button id="modalConfirm"
-                    class="flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Continue</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Error Overlay -->
     <div id="errorOverlay"
         class="hidden fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-6 text-white">
@@ -6371,7 +6269,7 @@
         <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-2xl shadow-2xl slide-up overflow-visible">
             <div
                 class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E]">
-                <h3 id="modalTitle" class="font-bold text-lg">Settings</h3>
+                <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
                 <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>
             <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl max-h-[70vh] overflow-y-auto">
