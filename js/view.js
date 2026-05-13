@@ -11,7 +11,9 @@ export const ViewModule = {
         currentTab: 'news',
         currentPanel: 'news', // 同步原本 AppView 的面板状态
         isSidebarOpen: true,
-        isDarkMode: false
+        isDarkMode: false,
+        scrollLockCount: 0,
+        layerStack: [] // { id, closeFn }
     },
 
     // 兼容性属性桥接 (Legacy Property Bridges)
@@ -19,10 +21,70 @@ export const ViewModule = {
     set currentPanel(v) { this.state.currentPanel = v; },
 
     /**
+     * [层级管理] registerLayer / unregisterLayer / popLayer
+     * 管理所有弹窗、详情页的生命周期，支持物理返回键关闭
+     */
+    registerLayer: function(id, closeFn) {
+        // 1. 检查是否重复注册
+        if (this.state.layerStack.some(l => l.id === id)) return;
+        
+        // 2. 压入堆栈
+        this.state.layerStack.push({ id, closeFn });
+        this.lockScroll(true);
+        
+        // 3. 增加历史记录，使用 Hash 强制拦截物理返回键
+        const hash = '#layer-' + id;
+        if (window.location.hash !== hash) {
+            history.pushState({ layerId: id }, '', hash);
+        }
+        console.log(`%c[Layer] Registered: ${id}`, 'color: #34C759; font-weight: bold;');
+    },
+
+    unregisterLayer: function(id) {
+        const index = this.state.layerStack.findIndex(l => l.id === id);
+        if (index > -1) {
+            this.state.layerStack.splice(index, 1);
+            this.lockScroll(false);
+            
+            // 如果当前 Hash 还是这个层的，手动清除它
+            if (window.location.hash === '#layer-' + id && !window._isPopStateClosing) {
+                history.back();
+            }
+            console.log(`[Layer] Unregistered: ${id}`);
+        }
+    },
+
+    popLayer: function() {
+        const top = this.state.layerStack.pop();
+        if (top) {
+            top.closeFn();
+            this.lockScroll(false);
+            return true;
+        }
+        return false;
+    },
+
+    /**
+     * [滚动管理] lockScroll
+     * 锁定/解锁背景滚动，防止移动端滚动穿透
+     */
+    lockScroll: function(locked) {
+        if (locked) {
+            this.state.scrollLockCount++;
+            document.body.classList.add('no-scroll');
+        } else {
+            this.state.scrollLockCount = Math.max(0, this.state.scrollLockCount - 1);
+            if (this.state.scrollLockCount === 0) {
+                document.body.classList.remove('no-scroll');
+            }
+        }
+    },
+
+    /**
      * [辅助函数] isMobile
      * 判断当前是否处于移动端布局 (<= 850px)
      */
-    isMobile: function() {
+    isMobile: function () {
         return window.innerWidth <= 850;
     },
 
@@ -34,13 +96,49 @@ export const ViewModule = {
         this.initViewport();
         this.initTheme();
         this.initSidebar();
+        this.initNavigation(); // 启动返回键拦截
         console.log('ViewModule: Initialized.');
+    },
+
+    initNavigation: function() {
+        if (this._navInitialized) return;
+        this._navInitialized = true;
+
+        // 监听返回动作
+        const handleBack = (e) => {
+            const stack = this.state.layerStack;
+            if (stack.length > 0) {
+                console.log(`%c[Navigation] Intercepting Back. Stack Size: ${stack.length}`, 'color: #FF9500; font-weight: bold;');
+                this.popLayer();
+            }
+        };
+
+        window.addEventListener('popstate', handleBack);
+        // 某些老旧浏览器或特殊环境对 hashchange 更敏感
+        window.addEventListener('hashchange', (e) => {
+            if (!window.location.hash || window.location.hash === '#') {
+                handleBack();
+            }
+        });
+
+        // 暴露全局调试工具
+        window.checkViewStatus = () => {
+            console.table(this.state.layerStack);
+            return {
+                stack: this.state.layerStack,
+                lockCount: this.state.scrollLockCount,
+                currentPage: this.state.currentPage,
+                historyState: history.state
+            };
+        };
+
+        console.log('ViewModule: Navigation Protection Active.');
     },
 
     /**
      * [侧边栏管理] initSidebar & toggleSidebarPin
      */
-    initSidebar: function() {
+    initSidebar: function () {
         const pinned = localStorage.getItem('sidebarPinned');
         if (pinned === 'false') {
             document.body.classList.add('sidebar-collapsed');
@@ -51,11 +149,11 @@ export const ViewModule = {
         }
     },
 
-    toggleSidebarPin: function() {
+    toggleSidebarPin: function () {
         const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
         this.state.isSidebarOpen = !isCollapsed;
         localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
-        
+
         // 侧边栏切换时，触发 resize 以便聊天窗口滚动对齐
         setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
     },
@@ -64,14 +162,14 @@ export const ViewModule = {
      * [面板导航] showSidebar
      * 切换到侧边栏面板（联系人列表）
      */
-    showSidebar: function() {
+    showSidebar: function () {
         // activeTargetId 的清理仍由业务层处理，这里只管 UI
         this.showPanel('tools');
 
         if (this.isMobile()) {
             this.refreshBottomNav('messages'); // 侧边栏对应的是 messages 标签
         }
-        
+
         // 搜索清理逻辑 (如果全局可用)
         if (window.clearSearch) window.clearSearch();
     },
@@ -80,12 +178,12 @@ export const ViewModule = {
      * [视口管理] initViewport
      * 解决 100vh 在移动端被工具栏遮挡的问题，以及拦截橡皮筋效果
      */
-    initViewport: function() {
+    initViewport: function () {
         const fixVH = () => {
             let vh = window.innerHeight * 0.01;
             document.documentElement.style.setProperty('--vh', `${vh}px`);
         };
-        
+
         window.addEventListener('resize', fixVH);
         fixVH();
 
@@ -97,18 +195,18 @@ export const ViewModule = {
     /**
      * [主题管理] initTheme & toggleDarkMode
      */
-    initTheme: function() {
+    initTheme: function () {
         const savedTheme = localStorage.getItem('theme');
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
+
         // 逻辑：如果选过 dark 或者（选了 system 且系统是 dark）或者（没选过且系统是 dark）
-        const shouldBeDark = savedTheme === 'dark' || 
-                           ((savedTheme === 'system' || !savedTheme) && systemPrefersDark);
-        
-        this.setDarkMode(shouldBeDark, false); 
+        const shouldBeDark = savedTheme === 'dark' ||
+            ((savedTheme === 'system' || !savedTheme) && systemPrefersDark);
+
+        this.setDarkMode(shouldBeDark, false);
     },
 
-    setDarkMode: function(isDark, storageMode = null) {
+    setDarkMode: function (isDark, storageMode = null) {
         // storageMode 可以是 'dark', 'light', 'system' 或 null
         this.state.isDarkMode = isDark;
         if (isDark) {
@@ -125,7 +223,7 @@ export const ViewModule = {
         }
     },
 
-    toggleDarkMode: function() {
+    toggleDarkMode: function () {
         this.setDarkMode(!this.state.isDarkMode);
     },
 
@@ -134,13 +232,13 @@ export const ViewModule = {
      * 控制登录页、主页、服务条款页的切换
      * @param {string} pageId - 'loginPage', 'mainPage', 'tosPage'
      */
-    showPage: function(pageId) {
+    showPage: function (pageId) {
         const pages = ['loginPage', 'mainPage', 'tosPage', 'nameSetupPage'];
-        
+
         pages.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
-            
+
             if (id === pageId) {
                 el.classList.remove('hidden');
                 // 如果进入主页，强制触发一次视口刷新
@@ -151,7 +249,7 @@ export const ViewModule = {
                 el.classList.add('hidden');
             }
         });
-        
+
         this.state.currentPage = pageId.replace('Page', '');
         console.log(`ViewModule: Switched to page ${this.state.currentPage}`);
     },
@@ -160,7 +258,7 @@ export const ViewModule = {
      * [面板管理] showPanel (原 AppView.showPanel)
      * 控制主界面内部三个主要区域的显隐
      */
-    showPanel: function(panelId) {
+    showPanel: function (panelId) {
         const newsSec = document.getElementById('newsSection');
         const sidePanel = document.getElementById('sidePanel');
         const chatSec = document.getElementById('chatSection');
@@ -201,7 +299,7 @@ export const ViewModule = {
     /**
      * [标签页切换] switchTab (移动端底栏)
      */
-    switchTab: function(tab) {
+    switchTab: function (tab) {
         if (window.innerWidth >= 1024) return;
 
         const newsEl = document.getElementById('newsSection');
@@ -255,7 +353,7 @@ export const ViewModule = {
     /**
      * [左侧标签切换] switchLeftTab (桌面端/新闻区二级切换)
      */
-    switchLeftTab: function(tab) {
+    switchLeftTab: function (tab) {
         const tabs = ['news', 'tools', 'more'];
         const labels = { 'news': 'headTabNews', 'tools': 'headTabTools', 'more': 'headTabMore' };
         const contents = {
@@ -319,7 +417,7 @@ export const ViewModule = {
     /**
      * [底栏状态刷新] refreshBottomNav
      */
-    refreshBottomNav: function(activeTab) {
+    refreshBottomNav: function (activeTab) {
         const newsBtn = document.getElementById('tabBtn-news');
         const msgBtn = document.getElementById('tabBtn-messages');
         const icons = {

@@ -74,6 +74,17 @@ export const ModalModule = {
             alt.onclick = null;
             confirm.onclick = null;
             this._timer = null;
+            
+            // 卸载层级
+            if (window.AppModules && window.AppModules.View) {
+                window.AppModules.View.unregisterLayer('customModal');
+                
+                // 如果不是由 popstate 触发的关闭（即点击按钮关闭），则需要同步回退历史记录
+                if (!window._isPopStateClosing) {
+                    history.back();
+                }
+            }
+            
             resolve(val);
         }, 300);
     },
@@ -90,6 +101,17 @@ export const ModalModule = {
         }
 
         modal.classList.remove('hidden');
+        
+        // 注册到 View 模块层级管理
+        if (window.AppModules && window.AppModules.View) {
+            window.AppModules.View.registerLayer('customModal', () => {
+                // 这个回调会在按下返回键时被 View.popLayer 调用
+                window._isPopStateClosing = true;
+                this._close(null, () => {}); 
+                setTimeout(() => { window._isPopStateClosing = false; }, 400);
+            });
+        }
+
         setTimeout(() => {
             modal.classList.add('opacity-100');
             modal.classList.remove('opacity-0');
