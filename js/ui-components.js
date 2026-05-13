@@ -3,15 +3,14 @@
  * UI 组件工厂 (UI Component Factory)
  * 
  * [职责] 
- * 接收纯 JavaScript 对象形式的数据，通过模板字符串生成对应的 HTML 片段。
- * 实现“视图（HTML）”与“逻辑（JS）”的解耦，方便统一维护全站 UI 风格。
+ * 接收纯数据对象，产出带有 Tailwind 样式的 HTML 片段。
  * 
  * [包含组件清单]
- * 1. renderMedia(url, onclick): 渲染聊天或公告中的图片/视频容器。
- * 2. createChatBubble(msg, key, options): 生成聊天气泡（包含长按菜单、多图预览逻辑）。
- * 3. renderNewsCard(post, type, isStaff): 生成校园公告/社团新闻卡片。
- * 4. renderComment(comment, commentId, postId, isStaff): 生成详情页中的评论条目。
- * 5. getSuggestionVotingHtml(post): 生成建议模块特有的投票进度条和按钮。
+ * 1. renderMedia(url, onclick): [通用] 渲染聊天或公告中的图片/视频容器。
+ * 2. createChatBubble(msg, key, options): [聊天] 生成带长按菜单的消息气泡。
+ * 3. renderNewsCard(post, type, isStaff): [新闻] 生成校园公告或社团动态卡片。
+ * 4. renderComment(comment, commentId, postId, isStaff): [评论] 生成帖子详情页的评论条目。
+ * 5. getSuggestionVotingHtml(post): [功能] 生成建议模块的投票进度条与按钮。
  */
 
 import { UIUtils } from './utils.js';

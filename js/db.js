@@ -3,16 +3,19 @@
  * 本地存储与同步引擎 (Storage & Sync Engine)
  * 
  * [职责] 
- * 1. 管理浏览器的 IndexedDB 表结构，实现全站数据的本地镜像。
- * 2. 提供“离线优先”和“秒开”的底层支持。
- * 3. 封装智能数据比对算法（Reconcile），保持云端与本地数据强一致。
+ * 管理 IndexedDB 缓存，实现离线消息读取、新闻智能同步。
  * 
  * [包含函数清单]
- * 1. initLocalDB(): 核心初始化，定义消息、模块、新闻的表结构。
- * 2. saveMessageLocal / getLocalMessages: 聊天记录持久化。
- * 3. reconcileNews(tab, remoteData, localKeys): 新闻公告的差异化同步算法。
- * 4. saveLocalNews / getLocalNews: 批量新闻内容的存取。
- * 5. saveModulePostLocal / getLocalModulePosts: 市场等功能模块的内容缓存。
+ * 1. initLocalDB(): [基础] 数据库初始化与表结构定义。
+ * 2. saveMessageLocal(chatId, key, msg): [消息] 缓存单条聊天消息。
+ * 3. getLocalMessages(chatId): [消息] 获取特定聊天室的本地历史。
+ * 4. saveModulePostLocal(moduleName, key, post): [功能] 缓存模块帖子。
+ * 5. saveNewsItemLocal(tab, key, item): [新闻] 缓存单条公告。
+ * 6. saveLocalNews(tab, posts): [新闻] 批量写入公告。
+ * 7. getLocalNews(tab): [新闻] 获取本地分类公告。
+ * 8. getLastKey(store, indexName, val): [工具] 获取本地最后一条数据的 ID。
+ * 9. reconcileNews(tab, remoteData, localKeys): [同步] 云端与本地数据对齐算法。
+ * 10. getLocalModulePosts(moduleName): [功能] 读取模块历史。
  */
 
 export let localDB;

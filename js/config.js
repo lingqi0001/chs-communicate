@@ -1,24 +1,24 @@
-// js/config.js
-// 仅存放全站系统级配置，不涉及具体业务模块
-// 拆分逻辑：Layer 1 - 基础设施配置
-
 /**
  * js/config.js
- * 全站静态配置与常量池 (Global Configuration & Constants)
+ * 全站静态配置中心 (Global Configuration Center)
  * 
  * [职责] 
- * 1. 存储 Firebase 生产环境密钥。
- * 2. 管理全站通用的静态 ID (如管理员、机器人、默认头像)。
- * 3. 设定全局业务限制 (如发帖 CD、字符长度限制)。
- * 4. 定义预设的系统级账号 (ALL_USERS 的初始值)。
+ * 1. 存放 Firebase 核心连接参数。
+ * 2. 集中管理全站通用的静态 ID (管理员、机器人)。
+ * 3. 定义业务逻辑的阈值 (CD 时间、长度限制)。
+ * 4. 存储初始系统账号资料。
  * 
- * [包含函数/对象]
- * - firebaseConfig: 数据库连接参数。
- * - APP_CONSTANTS: 核心 ID 与资源路径。
- * - LIMITS: 业务逻辑约束值。
- * - SYSTEM_USERS: 内置账号资料。
+ * [原则] 
+ * 必须保持“无状态”，严禁涉及任何业务逻辑函数或模块间耦合变量。
+ * 
+ * [清单]
+ * - firebaseConfig: Firebase 初始化凭据。
+ * - APP_CONSTANTS: 管理员邮箱、机器人 ID、默认 SVG 资产。
+ * - LIMITS: 聊天、发帖、评论的冷却时间 (ms)。
+ * - SYSTEM_USERS: 初始内置账号池。
  */
 
+// 不能涉及到任何跟module相关的变量，因为后续module需要进行剥离
 export const firebaseConfig = {
     apiKey: "AIzaSyCJX0prT18UJDn-hPsUWxVkXMdWAVrjgeM",
     authDomain: "chscommunication.firebaseapp.com",

@@ -3,14 +3,14 @@
  * 用户与权限核心模块 (User & Auth Core)
  * 
  * [职责] 
- * 1. 负责用户身份的解析与角色分配（Admin / Teacher / Student / User）。
- * 2. 处理用户档案的云端获取与本地缓存映射。
- * 3. 管理用户登录后的首次初始化流（Sync Profile）。
+ * 身份解析、权限分发、档案同步。
  * 
  * [包含函数清单]
- * 1. isAdmin / isTeacher / isStaff: 基于邮箱后缀的权限判断。
- * 2. fetchUser(userId, db, cache): 抓取用户详细资料（含机器人、管理员账户拦截逻辑）。
- * 3. syncProfile(user, db): 登录后的首轮资料比对，更新最后上线时间，分配角色。
+ * 1. isAdmin(email): [权限] 判断是否为超级管理员。
+ * 2. isTeacher(email): [权限] 判断是否为 HCPSS 教职员工。
+ * 3. isStaff(email): [权限] 综合判断管理权限。
+ * 4. fetchUser(userId, db, cache): [数据] 抓取用户资料（含机器人拦截）。
+ * 5. syncProfile(user, db): [生命周期] 登录后的首轮资料对齐与心跳开启。
  */
 
 export const UserModule = {

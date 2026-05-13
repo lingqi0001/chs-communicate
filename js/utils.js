@@ -4,17 +4,16 @@
 
 /**
  * js/utils.js
- * 全局工具函数库 (Global Utility Toolbox)
+ * 全局工具函数库 (Universal Utilities)
  * 
  * [职责] 
- * 提供与业务无关的纯算法支持。负责文本清洗、格式转换、时间计算。
- * 该文件不依赖任何外部数据库，确保可以在任何环境下独立运行。
+ * 提供与业务解耦的纯算法支持，处理文本清洗、日期格式化、链接识别。
  * 
  * [包含函数清单]
- * 1. UIUtils.escape(text): 防 XSS 攻击，将敏感 HTML 字符转义。
- * 2. UIUtils.linkify(text): 自动识别文本中的 URL 并转换为可点击的 <a> 链接。
- * 3. UIUtils.formatLastSeen(date): 将时间戳转换为 "Just now", "5m ago" 等易读格式。
- * 4. DateUtils.getLocalDateString(offset): 获取本地日期字符串 (如 "2024-05-13")，支持天数偏移。
+ * 1. UIUtils.escape(text): [安全] 转义 HTML 敏感字符，防止 XSS 攻击。
+ * 2. UIUtils.linkify(text): [转换] 识别文本中的 URL 链接并转为 <a> 标签。
+ * 3. UIUtils.formatLastSeen(date): [美化] 将毫秒戳转为 "3m ago" 等易读时间。
+ * 4. DateUtils.getLocalDateString(offset): [日期] 生成 YYYY-MM-DD 格式的本地日期字符串。
  */
 
 export const UIUtils = {
