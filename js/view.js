@@ -139,7 +139,7 @@ export const ViewModule = {
      * [层级管理] registerLayer / unregisterLayer / popLayer
      * 管理所有弹窗、详情页的生命周期，支持物理返回键关闭
      */
-    registerLayer: function(id, closeFn) {
+    registerLayer: function(id, closeFn, options = {}) {
         // 1. 检查是否重复注册，如果是，则先移除旧的（以便将其移到最顶层）
         const index = this.state.layerStack.findIndex(l => l.id === id);
         if (index > -1) {
@@ -149,25 +149,36 @@ export const ViewModule = {
         // 2. 压入堆栈（确保当前层级在最顶层）
         this.state.layerStack.push({ id, closeFn });
         this.lockScroll(true);
+
+        // 核心修复：压入一个历史记录状态，拦截物理返回键
+        if (!options.isBackAction) {
+            history.pushState({ layerId: id }, "");
+        }
         
         console.log(`%c[Layer] Registered: ${id}`, 'color: #34C759; font-weight: bold;');
     },
 
-    unregisterLayer: function(id) {
+    unregisterLayer: function(id, options = {}) {
         const index = this.state.layerStack.findIndex(l => l.id === id);
         if (index > -1) {
             this.state.layerStack.splice(index, 1);
             this.lockScroll(false);
             
+            // 如果不是因为按下返回键导致的注销，则需要手动清理掉刚才压入的历史记录
+            if (!options.isBackAction) {
+                if (history.state && history.state.layerId === id) {
+                    history.back();
+                }
+            }
             console.log(`[Layer] Unregistered: ${id}`);
         }
     },
 
     popLayer: function() {
-        const top = this.state.layerStack.pop();
-        if (top) {
-            top.closeFn();
-            if (this.state.layerStack.length === 0) this.lockScroll(false);
+        if (this.state.layerStack.length > 0) {
+            const top = this.state.layerStack[this.state.layerStack.length - 1];
+            // 执行该层的关闭逻辑，并告知它是来自“返回动作”
+            top.closeFn({ isBackAction: true });
             return true;
         }
         return false;
@@ -231,9 +242,22 @@ export const ViewModule = {
         if (isFullscreen) document.body.classList.add('is-fullscreen');
 
         // 4. 注册层级
-        this.registerLayer(id, () => {
-            this.closeOverlay(id, options);
-        });
+        this.registerLayer(id, (navOpts = {}) => {
+            this.closeOverlay(id, { ...options, ...navOpts });
+        }, options);
+
+        // 核心优化：针对 Extension Iframe 的“首次握手”同步
+        const iframe = el.querySelector('iframe') || (id === 'extensionOverlay' ? document.getElementById('extensionIframe') : null);
+        if (iframe) {
+            const syncTheme = () => {
+                iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', isDarkMode: this.state.isDarkMode }, '*');
+            };
+            if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+                syncTheme();
+            } else {
+                iframe.onload = syncTheme;
+            }
+        }
 
         // 5. 核心：动画完成后，再真正关闭之前的层级并杀掉进程
         if (pendingCleanup.length > 0) {
@@ -277,7 +301,7 @@ export const ViewModule = {
         if (animation === 'slide-up') el.classList.add('translate-y-full');
         
         if (isFullscreen) document.body.classList.remove('is-fullscreen');
-        this.unregisterLayer(id);
+        this.unregisterLayer(id, options);
 
         setTimeout(() => {
             el.classList.add('hidden');
@@ -330,6 +354,15 @@ export const ViewModule = {
 
         if (this._navInitialized) return;
         this._navInitialized = true;
+
+        // 核心监听：拦截浏览器的前进后退信号
+        window.addEventListener('popstate', (event) => {
+            // 如果堆栈里有东西，说明用户按返回键是想关闭详情页
+            if (this.state.layerStack.length > 0) {
+                // 我们手动执行退栈逻辑
+                this.popLayer();
+            }
+        });
 
         // 暴露全局调试工具
         window.checkViewStatus = () => {
@@ -428,11 +461,11 @@ export const ViewModule = {
         if (storageMode) {
             localStorage.setItem('theme', storageMode);
         } else if (storageMode === null && arguments.length === 1) {
-            // 如果没传第二个参数，则默认根据 isDark 存 dark/light
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        // 通知当前开启的 Extension (Bridge)
+        // 优化：只有当主程序全局主题真的改变时，才通知【当前活跃】的插件
+        // 这样可以避免插件内部手动切换后被主程序强行拉回
         const iframe = document.getElementById('extensionIframe');
         if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', isDarkMode: isDark }, '*');

@@ -127,14 +127,49 @@ export let localDB;
 
 export function initLocalDB() {
     return new Promise((resolve) => {
-        const dbReq = indexedDB.open("CHSChatCache", 2);
+        // 升级版本到 4，增加 modules 存储表
+        const dbReq = indexedDB.open("CHSChatCache", 4);
+        
         dbReq.onupgradeneeded = (e) => {
             const db = e.target.result;
-            if (!db.objectStoreNames.contains("messages")) db.createObjectStore("messages", { keyPath: "compositeId" });
-            if (!db.objectStoreNames.contains("news")) db.createObjectStore("news", { keyPath: "compositeId" });
+            
+            // 1. 消息表优化
+            if (!db.objectStoreNames.contains("messages")) {
+                const msgStore = db.createObjectStore("messages", { keyPath: "compositeId" });
+                msgStore.createIndex("chatId", "chatId", { unique: false });
+                msgStore.createIndex("timestamp", "timestamp", { unique: false });
+            } else {
+                // 如果表已存在但索引丢失（补救逻辑）
+                const msgStore = e.currentTarget.transaction.objectStore("messages");
+                if (!msgStore.indexNames.contains("chatId")) msgStore.createIndex("chatId", "chatId", { unique: false });
+                if (!msgStore.indexNames.contains("timestamp")) msgStore.createIndex("timestamp", "timestamp", { unique: false });
+            }
+
+            // 2. 新闻表优化
+            if (!db.objectStoreNames.contains("news")) {
+                const newsStore = db.createObjectStore("news", { keyPath: "compositeId" });
+                newsStore.createIndex("tabType", "tabType", { unique: false });
+                newsStore.createIndex("timestamp", "timestamp", { unique: false });
+            } else {
+                const newsStore = e.currentTarget.transaction.objectStore("news");
+                if (!newsStore.indexNames.contains("tabType")) newsStore.createIndex("tabType", "tabType", { unique: false });
+                if (!newsStore.indexNames.contains("timestamp")) newsStore.createIndex("timestamp", "timestamp", { unique: false });
+            }
+
+            // 3. 社交模块表 (Marketplace, Suggestions, etc.)
+            if (!db.objectStoreNames.contains("modules")) {
+                const modStore = db.createObjectStore("modules", { keyPath: "id" });
+                modStore.createIndex("moduleName", "moduleName", { unique: false });
+                modStore.createIndex("timestamp", "timestamp", { unique: false });
+            } else {
+                const modStore = e.currentTarget.transaction.objectStore("modules");
+                if (!modStore.indexNames.contains("moduleName")) modStore.createIndex("moduleName", "moduleName", { unique: false });
+                if (!modStore.indexNames.contains("timestamp")) modStore.createIndex("timestamp", "timestamp", { unique: false });
+            }
         };
+        
         dbReq.onsuccess = (e) => { localDB = e.target.result; resolve(localDB); };
-        dbReq.onerror = () => resolve(null);
+        dbReq.onerror = () => { console.error("IDB Error"); resolve(null); };
     });
 }
 
@@ -197,16 +232,64 @@ export async function getLocalNews(tabType) {
     });
 }
 
-// 占位函数，确保主文件导入不报错
-export const reconcileNews = async () => { console.log("DB: reconcileNews placeholder"); };
-export const saveModulePostLocal = async () => {};
-export const getLocalModulePosts = async () => [];
-export const saveLocalNews = async () => {};
+/**
+ * [公告同步引擎] reconcileNews
+ * 逻辑：对比云端与本地数据，补全缺失条目。
+ * @param {string} tab - 'school' | 'club'
+ * @param {object} remoteData - Firebase 原始数据对象
+ * @param {Array} localKeys - 本地已有的 key 列表
+ */
+export const reconcileNews = async (tab, remoteData, localKeys) => {
+    console.log(`DB: Reconciling news for [${tab}]...`);
+    const remoteKeys = Object.keys(remoteData);
+    
+    // 找出本地缺失的 key
+    const missingKeys = remoteKeys.filter(k => !localKeys.includes(k));
+    
+    if (missingKeys.length === 0) {
+        console.log(`DB: [${tab}] is already up to date.`);
+        return;
+    }
 
-// 统一导出
+    console.log(`DB: Found ${missingKeys.length} missing items for [${tab}]. Syncing...`);
+    
+    for (const key of missingKeys) {
+        const post = { key, ...remoteData[key] };
+        await saveNewsItemLocal(tab, key, post);
+    }
+};
+
+export async function saveModulePostLocal(moduleName, postId, data) {
+    const db = await dbReady;
+    if (!db) return;
+    const transaction = db.transaction(["modules"], "readwrite");
+    const store = transaction.objectStore("modules");
+    store.put({ id: postId, moduleName, ...data });
+}
+
+export async function getLocalModulePosts(moduleName) {
+    const db = await dbReady;
+    if (!db) return [];
+    return new Promise((resolve) => {
+        const transaction = db.transaction(["modules"], "readonly");
+        const store = transaction.objectStore("modules");
+        const index = store.index("moduleName");
+        const request = index.getAll(IDBKeyRange.only(moduleName));
+        request.onsuccess = (e) => resolve(e.target.result || []);
+    });
+}
+
+export const saveLocalNews = async () => {};
+// 统一导出模块 (Namespace Bridge)
 export const DBModule = {
-    Cloud: CloudDB,
-    Paths: PATHS,
+    initCloudRefs,
+    get: CloudDB.get.bind(CloudDB),
+    set: CloudDB.set.bind(CloudDB),
+    update: CloudDB.update.bind(CloudDB),
+    push: CloudDB.push.bind(CloudDB),
+    remove: CloudDB.remove.bind(CloudDB),
+    serverTime: CloudDB.serverTime.bind(CloudDB),
+    PATHS,
     Local: {
         getLastKey,
         saveMessage: saveMessageLocal,

@@ -42,7 +42,7 @@
  * ==================================================================================
  */
 
-import { db, auth, CloudDB, PATHS } from './db.js?v=2';
+import { db, auth, CloudDB, PATHS } from './db.js?v=4';
 
 // 全局常量
 const ADMIN_EMAIL = 'moss104088@gmail.com';

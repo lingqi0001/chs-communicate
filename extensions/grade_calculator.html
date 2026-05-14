@@ -15,16 +15,25 @@
         }
         select { -webkit-appearance: none; appearance: none; }
         
-        /* Auto sync theme with parent window via App Bridge */
-        function syncTheme() {
-            try {
-                const isDark = window.parent.AppModules.View.state.isDarkMode;
-                document.documentElement.classList.toggle('dark', isDark);
-            } catch(e) {}
+        // Auto sync theme with parent window via App Bridge (Smart Handshake)
+        function applyTheme(isDark) {
+            document.documentElement.classList.toggle('dark', isDark);
         }
         
-        // Initial sync
-        syncTheme();
+        // Listen for messages from parent
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'THEME_UPDATE') {
+                applyTheme(event.data.isDarkMode);
+            }
+        });
+
+        window.onload = () => {
+            try {
+                const isDark = window.parent.AppModules.View.state.isDarkMode;
+                applyTheme(isDark);
+            } catch(e) {}
+            calculateGrade();
+        };
     </style>
 </head>
 <body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10">
@@ -42,66 +51,42 @@
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
                     <select id="y-q1" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
                     <select id="y-q2" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 3</label>
                     <select id="y-q3" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 4</label>
                     <select id="y-q4" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Midterm Exam</label>
                     <select id="y-mid" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
                     <select id="y-fin" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
             </div>
@@ -113,33 +98,21 @@
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
                     <select id="s-q1" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
                     <select id="s-q2" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
                     <select id="s-exam" onchange="calculateGrade()"
                         class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="E">E</option>
+                        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
             </div>
@@ -199,14 +172,16 @@
             let note = '';
 
             if (currentCalcType === 'year') {
-                const q1 = document.getElementById('y-q1').value;
-                const q2 = document.getElementById('y-q2').value;
-                const q3 = document.getElementById('y-q3').value;
-                const q4 = document.getElementById('y-q4').value;
+                const qs = [
+                    document.getElementById('y-q1').value,
+                    document.getElementById('y-q2').value,
+                    document.getElementById('y-q3').value,
+                    document.getElementById('y-q4').value
+                ];
                 const mid = document.getElementById('y-mid').value;
                 const fin = document.getElementById('y-fin').value;
 
-                total = qPoints[q1] + qPoints[q2] + qPoints[q3] + qPoints[q4] + ePoints[mid] + ePoints[fin];
+                total = qs.reduce((acc, q) => acc + qPoints[q], 0) + ePoints[mid] + ePoints[fin];
 
                 if (total >= 35) resultGrade = 'A';
                 else if (total >= 25) resultGrade = 'B';
@@ -214,22 +189,33 @@
                 else if (total >= 7.5) resultGrade = 'D';
                 else resultGrade = 'E';
 
-                if (q3 === 'E' && q4 === 'E') {
+                // Core Fix: Count total 'E's across all 4 quarters
+                const eCount = qs.filter(q => q === 'E').length;
+                if (eCount >= 2) {
                     resultGrade = 'E';
-                    note = 'Note: Two "E"s in the 2nd semester (Q3 & Q4) results in a final "E".';
+                    note = 'Note: Two or more "E"s in any quarters results in a final "E".';
                 }
             } else {
-                const q1 = document.getElementById('s-q1').value;
-                const q2 = document.getElementById('s-q2').value;
+                const qs = [
+                    document.getElementById('s-q1').value,
+                    document.getElementById('s-q2').value
+                ];
                 const exam = document.getElementById('s-exam').value;
 
-                total = qPoints[q1] + qPoints[q2] + ePoints[exam];
+                total = qs.reduce((acc, q) => acc + qPoints[q], 0) + ePoints[exam];
 
                 if (total >= 17.5) resultGrade = 'A';
                 else if (total >= 12.5) resultGrade = 'B';
                 else if (total >= 7.5) resultGrade = 'C';
                 else if (total >= 3.75) resultGrade = 'D';
                 else resultGrade = 'E';
+
+                // Semester Rule: Two E's in the semester = Fail
+                const eCount = qs.filter(q => q === 'E').length;
+                if (eCount >= 2) {
+                    resultGrade = 'E';
+                    note = 'Note: Two "E"s in the semester results in a final "E".';
+                }
             }
 
             document.getElementById('calcTotalPoints').innerText = total;

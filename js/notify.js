@@ -40,7 +40,7 @@
  */
 
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
-import { CloudDB, PATHS } from './db.js?v=2';
+import { CloudDB, PATHS } from './db.js?v=4';
 
 export const NotifyModule = {
     unreadSet: new Set(),

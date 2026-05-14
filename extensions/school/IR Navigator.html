@@ -6,6 +6,19 @@
     <title>IR Studio | Advanced Research Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('ir_theme');
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+            } else {
+                try {
+                    const isDark = window.parent.AppModules.View.state.isDarkMode;
+                    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+                } catch(e) {}
+            }
+        })();
+    </script>
     <style>
         :root {
             --bg: #000000; --sidebar: #0C0C0E; --card: #121214; --accent: #F59E0B;
@@ -326,12 +339,25 @@
             renderTasks();
         }
 
-        function toggleTheme() {
-            const b = document.body; const cur = b.getAttribute('data-theme');
-            const target = cur === 'dark' ? 'light' : 'dark';
+        function applyTheme(target, save = false) {
+            const b = document.body;
             b.setAttribute('data-theme', target);
-            document.getElementById('theme-icon').setAttribute('data-lucide', target === 'dark' ? 'sun' : 'moon');
-            lucide.createIcons();
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.setAttribute('data-lucide', target === 'dark' ? 'sun' : 'moon');
+            if (save) localStorage.setItem('ir_theme', target);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // Listen for parent messages
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'THEME_UPDATE') {
+                applyTheme(event.data.isDarkMode ? 'dark' : 'light', true);
+            }
+        });
+
+        function toggleTheme() {
+            const cur = document.body.getAttribute('data-theme') || 'dark';
+            applyTheme(cur === 'dark' ? 'light' : 'dark', true);
         }
 
         function jump(idx) { currentIdx = idx; document.getElementById('h-title').innerText = STAGES[idx].name; document.getElementById('matrix-card').style.display = idx === 2 ? 'block' : 'none'; renderNav(); syncData(); }
@@ -371,7 +397,18 @@
         };
         function seedTestData() { const b = getBridge(); alert("Seeding..."); const ns = ["Alice R.", "Bob S.", "Charlie L.", "Diana I.", "Ethan S."]; ns.forEach(async (n, i) => { await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/test_${i}`), { name: n, percent: 45, stage: 0 }); }); alert("Done."); }
         
-        jump(0);
+        window.onload = () => {
+            const saved = localStorage.getItem('ir_theme');
+            if (saved) {
+                applyTheme(saved);
+            } else {
+                try {
+                    const isDark = window.parent.AppModules.View.state.isDarkMode;
+                    applyTheme(isDark ? 'dark' : 'light');
+                } catch(e) {}
+            }
+            jump(0);
+        };
     </script>
 </body>
 </html>
