@@ -1,10 +1,35 @@
 /**
- * js/ui-components.js
- * UI 组件工厂 (UI Component Factory)
+ * ==================================================================================
+ * 模块名称：UIComponents (UI 组件工厂)
+ * 目标文件：js/ui-components.js
  * 
- * [职责] 
- * 接收纯数据对象，产出带有样式和交互逻辑的 HTML 片段。
- * 已适配 AppModules.User 1.0 标准。
+ * 【设计哲学】：
+ * UIComponents 是全站的“美工刀”。它是一个纯粹的渲染引擎，负责将云端的 JSON 
+ * 数据转化为带有高度复杂交互逻辑（如图片堆叠展开、投票状态高亮）的 HTML 片段。
+ * 它通过解耦渲染逻辑，确保了全站视觉风格的高度统一。
+ * 
+ * 【函数清单 & 使用手册】：
+ * 
+ * 1. createChatBubble(msg, key, currentUser, setupLongPressCallback) [核心气泡工厂]
+ *    - 【输入】：msg (Object) - 消息对象；key (String) - 消息 ID；currentUser (Object) - 当前登录用户。
+ *    - 【返回】：HTMLElement - 构造好的 DOM 节点。
+ *    - 【存在理由】：这是全站最复杂的渲染函数。它处理了：1. 消息引用逻辑；2. 敏感消息 (Secret) 拦截；3. 图片组 (Image Group) 的“堆叠-展开”动画生成。
+ * 
+ * 2. renderNewsCard(post, type, isStaff) [公告卡片]
+ *    - 【输入】：post (Object)；type (String)；isStaff (Boolean)。
+ *    - 【返回】：HTMLString - HTML 字符串。
+ *    - 【存在理由】：统一了“校园公告”与“俱乐部动态”的卡片样式，并根据身份注入删除权限。
+ * 
+ * 3. renderMedia(post) [媒体容器]
+ *    - 【存在理由】：处理发帖中的媒体预览。它内置了 `isPhotoDisabled` 全局开关检查，确保在管理员禁用图片时显示占位符。
+ * 
+ * 4. getSuggestionVotingHtml(post, currentUser) [投票系统]
+ *    - 【输入】：post (Object)；currentUser (Object)。
+ *    - 【存在理由】：这是一个“有状态”的渲染函数。它会根据 `post.votes` 里的记录，实时判定当前用户是否点过赞，并渲染对应的绿色/红色激活状态。
+ * 
+ * 5. renderComment(c, config, currentUser, author) [评论组件]
+ *    - 【存在理由】：处理帖子下方的单条评论，支持匿名模式下的身份混淆逻辑。
+ * ==================================================================================
  */
 
 import { UIUtils } from './utils.js';

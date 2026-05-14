@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,22 +15,19 @@
         }
         select { -webkit-appearance: none; appearance: none; }
         
-        /* Auto sync theme with parent window */
+        /* Auto sync theme with parent window via App Bridge */
         function syncTheme() {
             try {
-                if (window.parent.document.documentElement.classList.contains('dark')) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
+                const isDark = window.parent.AppModules.View.state.isDarkMode;
+                document.documentElement.classList.toggle('dark', isDark);
             } catch(e) {}
         }
-        window.addEventListener('message', (e) => {
-            if(e.data === 'THEME_UPDATE') syncTheme();
-        });
+        
+        // Initial sync
+        syncTheme();
     </style>
 </head>
-<body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10" onload="syncTheme()">
+<body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10">
     <div class="px-5 pt-4 pb-20 max-w-2xl mx-auto">
         <div class="bg-[#E9E9EB] dark:bg-white/10 rounded-2xl p-1 h-10 flex mb-6">
             <button id="calcTabYear" onclick="switchCalcType('year')"

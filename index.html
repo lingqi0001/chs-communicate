@@ -365,16 +365,24 @@
 
         import { NotifyModule } from './js/notify.js?v=2';
         import { ModalModule } from './js/alert.js?v=2';
-        import { initCloudRefs } from './js/db.js?v=2';
+        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js?v=2';
         import { UserModule } from './js/user.js?v=2';
         import { ViewModule } from './js/view.js?v=2';
+        import { UIComponents } from './js/ui-components.js?v=2';
+        import { UIUtils, DateUtils } from './js/utils.js?v=2';
+        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js?v=2';
+        import * as Config from './js/config.js?v=2';
 
-        // 命名空间初始化
+        // 命名空间初始化 (全站 8 大核心模块)
         window.AppModules = {
             Notify: NotifyModule,
             Modal: ModalModule,
+            DB: DBModule,
             User: UserModule,
-            View: ViewModule
+            View: ViewModule,
+            UI: UIComponents,
+            Utils: { ...UIUtils, ...DateUtils },
+            Config: Config
         };
 
         // 视图初始化 (VH Patch, Theme, Viewport)
@@ -398,12 +406,7 @@
         window.requestNotificationPermission = () => AppModules.Notify.requestPermission();
         window.initGlobalNotificationMonitor = () => AppModules.Notify.initMonitor();
 
-        // Firebase 生产环境配置（CHS 专属节点）
-        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
-        import { UIUtils, DateUtils } from './js/utils.js';
-        import { UIComponents } from './js/ui-components.js';
-
-        import { localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
+        // Firebase 生产环境配置与工具类已在顶部统一导入
 
 
 
@@ -2685,11 +2688,8 @@
                 extensionsState[eid] = !!isChecked;
             };
 
-            const modal = document.getElementById('customModal');
-            const tEl = modal.querySelector('#modalTitle');
-            const bEl = modal.querySelector('#modalBody');
-            const confirmBtn = document.getElementById('modalConfirm');
-            const cancelBtn = document.getElementById('modalCancel');
+            // 使用模块化接口获取元素，确保 modal 已注入 DOM
+            const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = AppModules.Modal._getEls();
 
             tEl.innerText = `Edit Class`;
             bEl.innerHTML = `
@@ -3852,6 +3852,13 @@
 
             iframe.onload = () => {
                 loader.classList.add('hidden');
+                // 当 iframe 加载完成后，主动推送当前的主题状态
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({ 
+                        type: 'THEME_UPDATE', 
+                        isDarkMode: ViewModule.state.isDarkMode 
+                    }, '*');
+                }
             };
 
             // Apply Panel vs Fullscreen logic based on extension type
@@ -3882,6 +3889,9 @@
                 switch (event.data.type) {
                     case 'GET_USER':
                         if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: isAppAdmin(), isStaff: isAppStaff() }, '*');
+                        break;
+                    case 'GET_THEME':
+                        if (event.source) event.source.postMessage({ type: 'THEME_UPDATE', isDarkMode: ViewModule.state.isDarkMode }, '*');
                         break;
                     case 'SHOW_TOAST':
                         showToast(event.data.message);

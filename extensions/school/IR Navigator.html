@@ -61,7 +61,7 @@
         .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 14px; color: var(--text); font-size: 14px; outline: none; }
     </style>
 </head>
-<body data-theme="dark">
+<body>
 
     <aside>
         <div style="font-weight:900; font-size:1.6rem; color:var(--accent); margin-bottom:40px; letter-spacing:-2px;">IR STUDIO</div>
@@ -161,7 +161,21 @@
             return null;
         }
 
+        function syncTheme() {
+            const b = getBridge();
+            if (b && b.AppModules && b.AppModules.View) {
+                try {
+                    const isDark = b.AppModules.View.state.isDarkMode;
+                    document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+                    const icon = document.getElementById('theme-icon');
+                    if (icon) icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+                } catch(e) {}
+            }
+        }
+
+        syncTheme();
         const bridgeInterval = setInterval(() => {
+            syncTheme();
             const b = getBridge();
             if (b && b.firebaseOnAuth) {
                 b.firebaseOnAuth(b.firebaseAuth, user => {

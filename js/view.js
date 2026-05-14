@@ -1,18 +1,133 @@
 /**
- * js/view.js
- * 视图导航模块 1.0 (View & Navigation Module)
- * [职责] 管理视口补丁、页面切换、主题控制、侧边栏及导航状态。
+ * ==================================================================================
+ * 模块名称：ViewModule (视图导航与路由状态机)
+ * 目标文件：js/view.js
+ * 
+ * 【设计哲学】：
+ * ViewModule 是全站的“导演”。它不负责数据，只负责“谁该显示、谁该隐藏、动画怎么走”。
+ * 它建立了一套严格的 Layer Stack (层级堆栈) 机制，确保无论用户打开多少个详情页，
+ * 物理返回键都能按照“先进后出”的顺序逐一关闭。同时，它通过 App Bridge 协议，
+ * 将主程序的主题状态实时“泵”给嵌套的 Extension Iframe。
+ * 
+ * 【成员清单 & 使用手册 (共 23 项)】：
+ * 
+ * 1. get/set currentPanel [兼容性桥接]
+ *    - 【功能】：将 state.currentPanel 暴露到顶层。
+ *    - 【存在理由】：兼容旧代码中大量直接读写 AppView.currentPanel 的逻辑。
+ * 
+ * 2. registerLayer(id, closeFn) [层级管理]
+ *    - 【输入】：id (String) - UI 元素 ID；closeFn (Function) - 关闭该 UI 的回调。
+ *    - 【存在理由】：将新打开的 Overlay 压入堆栈，是返回键拦截的核心。
+ * 
+ * 3. unregisterLayer(id) [层级管理]
+ *    - 【输入】：id (String)。
+ *    - 【存在理由】：当 UI 被关闭时，从堆栈中移除，释放内存并准备解锁滚动。
+ * 
+ * 4. popLayer() [物理退栈]
+ *    - 【返回】：Boolean - 是否成功消费了返回事件。
+ *    - 【存在理由】：处理手机返回键或 ESC 键。取出栈顶的 closeFn 并执行。
+ * 
+ * 5. openOverlay(id, options) [高级滑入逻辑]
+ *    - 【输入】：id (String)；options (Object: {animation, zIndex, isExclusive...})。
+ *    - 【存在理由】：全站最核心的 UI 入口。处理复杂的 CSS 进场动画和层级自动提升。
+ * 
+ * 6. closeOverlay(id, options) [高级退场逻辑]
+ *    - 【输入】：id (String)；options (Object)。
+ *    - 【存在理由】：处理退场动画，并在动画完成后执行注销逻辑。
+ * 
+ * 7. lockScroll(locked) [滚动拦截]
+ *    - 【输入】：locked (Boolean)。
+ *    - 【存在理由】：使用 lockScrollCount 计数器解决多个弹窗重叠时的滚动穿透问题。
+ * 
+ * 8. isMobile() [布局判定]
+ *    - 【返回】：Boolean。
+ *    - 【存在理由】：以 850px 为界限判定是否激活移动端 UI。
+ * 
+ * 9. init() [生命周期]
+ *    - 【功能】：初始化视口、主题、侧边栏和导航监听。
+ * 
+ * 10. initNavigation() [初始化辅助]
+ *    - 【功能】：挂载全局 AppView 引用并初始化 popLayer 监听。
+ * 
+ * 11. checkViewStatus() [全局调试]
+ *    - 【存在理由】：在控制台输入此函数可查看到当前堆栈里有哪些层级没关，排查内存泄漏。
+ * 
+ * 12. initSidebar() [侧边栏初始化]
+ *    - 【功能】：从本地存储恢复侧边栏的缩进状态。
+ * 
+ * 13. toggleSidebarPin() [侧边栏交互]
+ *    - 【功能】：切换侧边栏锁定状态并同步到 LocalStorage。
+ * 
+ * 14. showSidebar() [导航辅助]
+ *    - 【功能】：在移动端一键切回“工具/消息”面板。
+ * 
+ * 15. initViewport() [视口补丁]
+ *    - 【存在理由】：解决移动端 100vh 被地址栏遮挡的顽疾，注入 CSS 变量 --vh。
+ * 
+ * 16. initTheme() [主题初始化]
+ *    - 【功能】：根据系统偏好或用户选择设置初始深浅色。
+ * 
+ * 17. setDarkMode(isDark, storageMode) [主题控制]
+ *    - 【输入】：isDark (Boolean)；storageMode (String)。
+ *    - 【存在理由】：修改 DOM 样式并同步到 Extension Iframe。
+ * 
+ * 18. toggleDarkMode() [主题快捷键]
+ *    - 【功能】：一键反转当前的深浅色模式。
+ * 
+ * 19. showPage(pageId) [顶级路由]
+ *    - 【输入】：pageId (String: loginPage/mainPage...)。
+ *    - 【存在理由】：控制全站大容器的切换（如从登录页进入主页）。
+ * 
+ * 20. showPanel(panelId) [面板导航]
+ *    - 【输入】：panelId (String: news/tools/chat)。
+ *    - 【存在理由】：控制主界面内三栏布局在移动端的显示顺序。
+ * 
+ * 21. switchTab(tab) [平滑导航动画]
+ *    - 【功能】：实现移动端底栏 Tab 切换时的左右滑入滑出动画。
+ * 
+ * 22. switchLeftTab(tab) [二级导航]
+ *    - 【功能】：控制 News 面板内部（News/Tools/More）的平移动画。
+ * 
+ * 23. refreshBottomNav(activeTab) [UI 同步]
+ *    - 【功能】：根据当前激活的 Tab 实时重绘底栏 SVG 图标和红点。
+ * ==================================================================================
  */
 
 export const ViewModule = {
+    // 1. 统一常量定义
+    CONSTANTS: {
+        ANIMATION_DURATION: 380, // 统一动画时长
+        Z_INDEX: {
+            MODULE: 100,        // 基础模块页 (lostFound, marketplace, etc.)
+            SETTINGS: 110,      // 设置中心
+            SEARCH: 120,        // 搜索建议
+            EAGLE_TIME: 150,    // Eagle Time 专属
+            ADMIN: 160,         // 管理后台 / 扩展页
+            LOGIN: 190,         // 登录入口
+            NAME_SETUP: 192,    // 姓名设置
+            COMPATIBILITY: 195, // 兼容性提示
+            LOADING: 200,       // 加载屏 / 服务条款 / 底部抽屉
+            SHEET: 200,         // 底部抽屉 (同 LOADING)
+            OVERLAY: 150,       // 默认保底层级
+            CONTEXT_MENU: 250,  // 消息长按菜单
+            PICKER: 260,        // 转发选择器
+            FORM: 500,          // 发帖表单 (postPage)
+            DETAIL: 510,        // 帖子详情 (最高业务层)
+            GALLERY: 3000,      // 图片浏览器
+            IMPORT: 4001,       // 批量导入
+            CRITICAL: 10000     // 崩溃错误层
+        }
+    },
+
     // 内部状态
     state: {
         currentPage: 'login',
         currentTab: 'news',
-        currentPanel: 'news', // 同步原本 AppView 的面板状态
+        currentPanel: 'news',
         isSidebarOpen: true,
         isDarkMode: false,
         scrollLockCount: 0,
+        isAnimating: false,
         layerStack: [] // { id, closeFn }
     },
 
@@ -25,18 +140,16 @@ export const ViewModule = {
      * 管理所有弹窗、详情页的生命周期，支持物理返回键关闭
      */
     registerLayer: function(id, closeFn) {
-        // 1. 检查是否重复注册
-        if (this.state.layerStack.some(l => l.id === id)) return;
+        // 1. 检查是否重复注册，如果是，则先移除旧的（以便将其移到最顶层）
+        const index = this.state.layerStack.findIndex(l => l.id === id);
+        if (index > -1) {
+            this.state.layerStack.splice(index, 1);
+        }
         
-        // 2. 压入堆栈
+        // 2. 压入堆栈（确保当前层级在最顶层）
         this.state.layerStack.push({ id, closeFn });
         this.lockScroll(true);
         
-        // 3. 增加历史记录，使用 Hash 强制拦截物理返回键
-        const hash = '#layer-' + id;
-        if (window.location.hash !== hash) {
-            history.pushState({ layerId: id }, '', hash);
-        }
         console.log(`%c[Layer] Registered: ${id}`, 'color: #34C759; font-weight: bold;');
     },
 
@@ -46,10 +159,6 @@ export const ViewModule = {
             this.state.layerStack.splice(index, 1);
             this.lockScroll(false);
             
-            // 如果当前 Hash 还是这个层的，手动清除它
-            if (window.location.hash === '#layer-' + id && !window._isPopStateClosing) {
-                history.back();
-            }
             console.log(`[Layer] Unregistered: ${id}`);
         }
     },
@@ -58,10 +167,124 @@ export const ViewModule = {
         const top = this.state.layerStack.pop();
         if (top) {
             top.closeFn();
-            this.lockScroll(false);
+            if (this.state.layerStack.length === 0) this.lockScroll(false);
             return true;
         }
         return false;
+    },
+
+    /**
+     * [覆盖层管理] openOverlay
+     * 统一控制详情页、详情面板的打开、动画与层级注册
+     * @param {string} id - 元素 ID
+     * @param {Object} options - { onOpen, onClose, animation, zIndex, isFullscreen }
+     */
+    openOverlay: function(id, options = {}) {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const {
+            animation = 'slide-in',
+            zIndex = this.CONSTANTS.Z_INDEX.OVERLAY,
+            onOpen = null,
+            onClose = null,
+            isFullscreen = true,
+            isExclusive = false
+        } = options;
+
+        // 1. 识别需要后续清理的后台层级 (排他模式)
+        let pendingCleanup = [];
+        if (isExclusive) {
+            pendingCleanup = [...this.state.layerStack].filter(l => l.id !== id);
+        }
+
+        // 2. 更新内容与层级 (动态提升 z-index 确保滑入时在最顶层)
+        if (onOpen) onOpen();
+        
+        const topZ = this.state.layerStack.reduce((max, l) => {
+            const sel = document.getElementById(l.id);
+            const val = sel ? parseInt(sel.style.zIndex || 0) : 0;
+            return Math.max(max, val);
+        }, 0);
+        
+        // 确保新层级比背景任何层都高，但至少满足预设 zIndex
+        el.style.zIndex = String(Math.max(zIndex, topZ + 1));
+        
+        // 3. 执行滑入动画
+        const isHidden = el.classList.contains('hidden');
+        if (isHidden) {
+            if (animation === 'slide-in') el.classList.add('translate-x-full');
+            if (animation === 'slide-up') el.classList.add('translate-y-full');
+            
+            el.classList.remove('hidden');
+            // 触发回流并开始平滑过渡
+            void el.offsetWidth; 
+            
+            setTimeout(() => {
+                el.classList.remove('translate-x-full', 'translate-y-full', 'opacity-0');
+            }, 50);
+        } else {
+            // 如果已经在显示了（比如同一个 container 切换工具），就不走滑入，直接确保显示
+            el.classList.remove('hidden', 'translate-x-full', 'translate-y-full', 'opacity-0');
+        }
+
+        if (isFullscreen) document.body.classList.add('is-fullscreen');
+
+        // 4. 注册层级
+        this.registerLayer(id, () => {
+            this.closeOverlay(id, options);
+        });
+
+        // 5. 核心：动画完成后，再真正关闭之前的层级并杀掉进程
+        if (pendingCleanup.length > 0) {
+            setTimeout(() => {
+                pendingCleanup.forEach(layer => {
+                    // 再次确认新层级依然在栈顶
+                    if (this.state.layerStack.some(l => l.id === id)) {
+                        this.closeOverlay(layer.id, { animation: 'none', isFullscreen: false });
+                    }
+                });
+            }, this.CONSTANTS.ANIMATION_DURATION + 50);
+        }
+    },
+
+    /**
+     * [覆盖层管理] closeOverlay
+     * 统一控制详情页的关闭、动画与层级注销
+     */
+    closeOverlay: function(id, options = {}) {
+        const el = document.getElementById(id);
+        if (!el || el.classList.contains('hidden')) return;
+
+        const {
+            animation = 'slide-in',
+            onClose = null,
+            isFullscreen = true
+        } = options;
+
+        if (animation === 'none') {
+            el.classList.add('hidden');
+            el.style.zIndex = '';
+            el.classList.remove('translate-x-full', 'translate-y-full', 'opacity-0');
+            if (isFullscreen) document.body.classList.remove('is-fullscreen');
+            this.unregisterLayer(id);
+            if (onClose) onClose();
+            return;
+        }
+
+        // 触发退出动画
+        if (animation === 'slide-in') el.classList.add('translate-x-full');
+        if (animation === 'slide-up') el.classList.add('translate-y-full');
+        
+        if (isFullscreen) document.body.classList.remove('is-fullscreen');
+        this.unregisterLayer(id);
+
+        setTimeout(() => {
+            el.classList.add('hidden');
+            el.style.zIndex = '';
+            el.classList.remove('translate-x-full', 'translate-y-full', 'opacity-0');
+            if (onClose) onClose();
+        }, this.CONSTANTS.ANIMATION_DURATION);
     },
 
     /**
@@ -101,25 +324,12 @@ export const ViewModule = {
     },
 
     initNavigation: function() {
+        // 兼容性桥接
+        window.AppView = this;
+        window.popLayer = () => this.popLayer();
+
         if (this._navInitialized) return;
         this._navInitialized = true;
-
-        // 监听返回动作
-        const handleBack = (e) => {
-            const stack = this.state.layerStack;
-            if (stack.length > 0) {
-                console.log(`%c[Navigation] Intercepting Back. Stack Size: ${stack.length}`, 'color: #FF9500; font-weight: bold;');
-                this.popLayer();
-            }
-        };
-
-        window.addEventListener('popstate', handleBack);
-        // 某些老旧浏览器或特殊环境对 hashchange 更敏感
-        window.addEventListener('hashchange', (e) => {
-            if (!window.location.hash || window.location.hash === '#') {
-                handleBack();
-            }
-        });
 
         // 暴露全局调试工具
         window.checkViewStatus = () => {
@@ -132,7 +342,7 @@ export const ViewModule = {
             };
         };
 
-        console.log('ViewModule: Navigation Protection Active.');
+        console.log('ViewModule: Navigation Protection Disabled (Hash Removed).');
     },
 
     /**
@@ -221,6 +431,12 @@ export const ViewModule = {
             // 如果没传第二个参数，则默认根据 isDark 存 dark/light
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
+
+        // 通知当前开启的 Extension (Bridge)
+        const iframe = document.getElementById('extensionIframe');
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', isDarkMode: isDark }, '*');
+        }
     },
 
     toggleDarkMode: function () {
@@ -301,10 +517,13 @@ export const ViewModule = {
      */
     switchTab: function (tab) {
         if (window.innerWidth >= 1024) return;
+        if (this.state.isAnimating) return;
 
         const newsEl = document.getElementById('newsSection');
         const msgEl = document.getElementById('sidePanel');
         const chatSec = document.getElementById('chatSection');
+
+        if (!newsEl || !msgEl) return;
 
         const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
         const currentTab = isCurrentlyOnNews ? 'news' : 'messages';
@@ -313,22 +532,28 @@ export const ViewModule = {
         if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
 
         if (currentTab === normalizedTab) {
-            if (tab === 'news' || tab === 'more' || tab === 'tools') this.switchLeftTab(tab);
+            if (tab !== 'messages') this.switchLeftTab(tab);
             return;
         }
 
-        // 更新底栏 UI
+        this.state.isAnimating = true;
         this.refreshBottomNav(normalizedTab);
-        if (normalizedTab === 'news' || normalizedTab === 'more' || normalizedTab === 'tools') this.switchLeftTab(normalizedTab);
+        
+        // 如果切到 News 面板，同时触发内部的二级标签切换
+        if (normalizedTab === 'news') {
+            this.switchLeftTab(tab);
+        }
 
-        chatSec.classList.add('hidden');
-        chatSec.classList.remove('flex');
+        if (chatSec) {
+            chatSec.classList.add('hidden');
+            chatSec.classList.remove('flex');
+        }
 
-        // 动画逻辑
         const isForward = (normalizedTab === 'messages');
         const currentEl = isCurrentlyOnNews ? newsEl : msgEl;
         const targetEl = isCurrentlyOnNews ? msgEl : newsEl;
 
+        // 动画准备
         currentEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform:translateX(0); transition:none; display:flex;`;
         targetEl.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; z-index:11; transform:translateX(${isForward ? '100%' : '-100%'}); transition:none; display:flex;`;
         targetEl.classList.remove('hidden');
@@ -344,10 +569,14 @@ export const ViewModule = {
         });
 
         setTimeout(() => {
-            [currentEl, targetEl].forEach(el => { el.style.cssText = ''; el.classList.remove('flex'); });
+            [currentEl, targetEl].forEach(el => { 
+                el.style.cssText = ''; 
+                el.classList.remove('flex', 'hidden'); 
+            });
             targetEl.classList.add('flex');
             currentEl.classList.add('hidden');
-        }, 350);
+            this.state.isAnimating = false;
+        }, 320); // 略微缩短锁定时间，提高响应速度
     },
 
     /**
@@ -410,8 +639,12 @@ export const ViewModule = {
             }
         }
 
-        if (tab !== 'more') this.showPanel(tab === 'news' ? 'news' : 'tools');
-        else this.showPanel('messages');
+        // 修正：内部切换不应触发 showPanel，否则会把容器自身隐藏掉
+        // 只有当明确需要切换到独立的消息面板时（桌面端逻辑）才处理
+        if (window.innerWidth >= 1024) {
+            if (tab === 'more') this.showPanel('messages');
+            else this.showPanel('news');
+        }
     },
 
     /**

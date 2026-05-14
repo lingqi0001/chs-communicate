@@ -521,6 +521,26 @@
         document.getElementById('res').innerText = vStr;
         document.getElementById('float-val').innerText = vStr;
     }
+    // Theme Sync Logic via App Bridge
+    setInterval(() => {
+        try {
+            const b = window.parent;
+            if (b && b.AppModules && b.AppModules.View) {
+                const isDark = b.AppModules.View.state.isDarkMode;
+                const body = document.body;
+                const isCurrentlyLight = body.getAttribute('data-theme') === 'light';
+                
+                if (isDark && isCurrentlyLight) {
+                    body.removeAttribute('data-theme');
+                    render();
+                } else if (!isDark && !isCurrentlyLight) {
+                    body.setAttribute('data-theme', 'light');
+                    render();
+                }
+            }
+        } catch(e) {}
+    }, 500);
+
     window.onload = () => { updatePreview(); render(); };
 </script>
 

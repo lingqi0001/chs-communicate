@@ -1,8 +1,42 @@
 /**
- * js/notify.js
- * 通知系统 1.0 (Notification Module)
- * [职责] 处理 PWA 推送 (FCM)、未读消息红点、Favicon 徽章及提示音。
- * [依赖] 仅依赖 db.js?v=2 导出的标准接口，不直接操作数据库 SDK。
+ * ==================================================================================
+ * 模块名称：NotifyModule (通知与实时监控系统)
+ * 目标文件：js/notify.js
+ * 
+ * 【设计哲学】：
+ * 通知模块是全站的“触角”。它通过 PWA 推送 (FCM) 解决离线通知问题，通过 Canvas 
+ * 动态绘图解决浏览器徽章显示问题，并通过 initMonitor 实现了一套极轻量的“全量
+ * 实时消息监听器”，确保用户在任何界面都能第一时间收到未读红点。
+ * 
+ * 【函数清单 & 使用手册】：
+ * 
+ * 1. init(deps) [初始化]
+ *    - 【输入】：deps (Object) - 包含 {currentUser, allUsers, settings, globalListeners}。
+ *    - 【存在理由】：它不仅是依赖注入，还负责预加载提示音 (Audio)。
+ * 
+ * 2. updateUI() [UI 刷新]
+ *    - 【输入】：无。
+ *    - 【返回】：无。
+ *    - 【存在理由】：它是通知视觉的“中控台”，同时控制主红点、页面 Title 以及 Favicon 的同步更新。
+ * 
+ * 3. updateFavicon(hasUnread) [Canvas 绘图]
+ *    - 【输入】：hasUnread (Boolean)。
+ *    - 【存在理由】：这是一个“黑科技”函数。浏览器原生不支持动态修改图标徽章，我们通过 Canvas 在原始图标右下角强行画一个 12px 的蓝点，再转成 Base64 塞回给 Favicon。
+ * 
+ * 4. requestPermission() [PWA 授权]
+ *    - 【返回】：Promise(void)。
+ *    - 【存在理由】：申请浏览器通知权限，并注册 Service Worker (firebase-messaging-sw.js) 以获取 FCM Token，从而支持关闭网页后的系统级推送。
+ * 
+ * 5. setupListeners() [FCM 监听]
+ *    - 【存在理由】：处理网页处于前台（活跃状态）时收到的 FCM 消息，将其转化为自定义的 showCustomAlert 弹窗。
+ * 
+ * 6. initMonitor() [核心监控引擎]
+ *    - 【存在理由】：这是全站最重也最重要的函数。它会遍历所有联系人，为每个会话创建一个 limitToLast(1) 的监听器。它解决了“人在 A 聊，B 聊来了消息没提示”的问题，是实时性的底层保证。
+ * 
+ * 7. markAsRead(targetId) [状态清理]
+ *    - 【输入】：targetId (String)。
+ *    - 【存在理由】：当用户点开某个聊天室时，调用此函数清除对应的未读标记，并自动触发 updateUI 同步视觉状态。
+ * ==================================================================================
  */
 
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";

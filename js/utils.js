@@ -1,19 +1,43 @@
-// js/utils.js
-// 存放全站通用的纯工具函数
-// 拆分逻辑：Layer 10 - 文具盒 (Utilities)
-
 /**
- * js/utils.js
- * 全局工具函数库 (Universal Utilities)
+ * ==================================================================================
+ * 模块名称：AppUtils (全站工具箱)
+ * 目标文件：js/utils.js
  * 
- * [职责] 
- * 提供与业务解耦的纯算法支持，处理文本清洗、日期格式化、链接识别。
+ * 【设计哲学】：
+ * 本模块存放的是“绝对纯净”的辅助函数。它们不依赖任何业务逻辑，也不保存任何状态。
+ * 它们存在的意义是解决 JS 原生 API 在文本处理、日期计算、以及 UI 视觉反馈上的不足。
  * 
- * [包含函数清单]
- * 1. UIUtils.escape(text): [安全] 转义 HTML 敏感字符，防止 XSS 攻击。
- * 2. UIUtils.linkify(text): [转换] 识别文本中的 URL 链接并转为 <a> 标签。
- * 3. UIUtils.formatLastSeen(date): [美化] 将毫秒戳转为 "3m ago" 等易读时间。
- * 4. DateUtils.getLocalDateString(offset): [日期] 生成 YYYY-MM-DD 格式的本地日期字符串。
+ * 【函数清单 & 使用手册】：
+ * 
+ * 1. UIUtils.formatTime(timestamp) [模糊时间转换]
+ *    - 【输入】：timestamp (Number) - 毫秒时间戳。
+ *    - 【返回】：String - 如 "5m ago", "Just now"。
+ *    - 【存在理由】：比原生 `Date.toString()` 更符合人类阅读习惯，常用于公告卡片的时间显示。
+ * 
+ * 2. UIUtils.escape(str) [XSS 防御核心]
+ *    - 【输入】：str (String) - 待转义文本。
+ *    - 【返回】：String - 转义后的 HTML 编码字符串。
+ *    - 【存在理由】：这是一个极其高效的“奇技淫巧”。它通过创建一个内存中的 `p` 标签并设置其 `textContent`，利用浏览器自带的渲染引擎实现 100% 安全的转义，比手动正则替换更稳健。
+ * 
+ * 3. UIUtils.highlight(el) [交互反馈]
+ *    - 【输入】：el (HTMLElement) - 目标 DOM。
+ *    - 【存在理由】：为新加载的消息或刚点击的元素提供一个短暂的“呼吸灯”效果，增强用户视觉引导。
+ * 
+ * 4. UIUtils.linkify(text) [超链接识别]
+ *    - 【输入】：text (String) - 包含 URL 的原始文本。
+ *    - 【返回】：String - 带有 `<a>` 标签和 External Link 图标的 HTML 字符串。
+ *    - 【存在理由】：自动将用户发送的网址转化为可点击的链接，并统一注入样式规范。
+ * 
+ * 5. UIUtils.formatLastSeen(timestamp) [在线状态计算]
+ *    - 【输入】：timestamp (Number)。
+ *    - 【返回】：String - 如 "online", "last seen 2 hours ago"。
+ *    - 【存在理由】：专为联系人列表设计，定义了 2 分钟内的“活跃阈值”。
+ * 
+ * 6. DateUtils.getLocalDateString(offsetDays) [标准日期生成]
+ *    - 【输入】：offsetDays (Number) - 偏移天数（如 -1 代表昨天）。
+ *    - 【返回】：String - "YYYY-MM-DD" 格式。
+ *    - 【存在理由】：全站数据库的日期节点（如 `eagle_time/2026-05-13`）都依赖此函数生成的唯一字符串作为索引。
+ * ==================================================================================
  */
 
 export const UIUtils = {

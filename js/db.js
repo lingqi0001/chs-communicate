@@ -1,7 +1,70 @@
 /**
- * js/db.js
- * 数据中枢 1.0 (Data Hub)
- * [职责] 统一管理本地 IndexedDB 缓存与云端 Firebase 数据读写。
+ * ==================================================================================
+ * 模块名称：DBModule (全站数据中枢)
+ * 目标文件：js/db.js
+ * 
+ * 【设计哲学】：
+ * 本模块是全站的“心脏”，负责打通云端 (Firebase) 与本地 (IndexedDB) 的数据流。
+ * 它通过 CloudDB 命名空间封装了所有云端原子操作，确保业务层不需要关心 Firebase
+ * 的底层引用。同时，它管理的 LocalDB 引擎保证了在弱网或离线状态下，用户依然能
+ * 秒开已加载过的消息和公告。
+ * 
+ * 【成员清单 & 使用手册 (共 20 项)】：
+ * 
+ * 1. initCloudRefs(instances) [核心注入]
+ *    - 【输入】：instances (Object: {db, auth, storage})。
+ *    - 【存在理由】：遵循“单一实例”原则，由主入口初始化后注入。
+ * 
+ * 2. PATHS (Object) [路径字典]
+ *    - 【包含】：user, userPrivate, news, settings, chats, messages。
+ *    - 【存在理由】：全站路径统一定义中心。
+ * 
+ * 3. CloudDB._check() [私有防御]
+ *    - 【存在理由】：确保数据库接通前操作报错，防止静默失败。
+ * 
+ * 4. CloudDB._db() [私有引用]
+ *    - 【返回】：Firebase Database 实例。
+ * 
+ * 5. CloudDB.get(path) [原子读取]
+ *    - 【输入】：path (String)。【返回】：Promise(Any)。
+ * 
+ * 6. CloudDB.set(path, data) [原子写入]
+ *    - 【输入】：path (String)；data (Any)。
+ * 
+ * 7. CloudDB.update(path, data) [局部更新]
+ * 
+ * 8. CloudDB.push(path, data) [序列推入]
+ *    - 【返回】：Promise(String: newKey)。
+ * 
+ * 9. CloudDB.remove(path) [原子删除]
+ * 
+ * 10. CloudDB.serverTime() [系统时间]
+ *     - 【返回】：Firebase.ServerTimestamp。
+ * 
+ * 11. initLocalDB() [本地库启动]
+ *     - 【返回】：Promise(IDBDatabase)。
+ * 
+ * 12. getLastKey(storeName, indexName, indexValue) [增量同步辅助]
+ *     - 【输入】：storeName, indexName, indexValue。【返回】：Promise(Number: timestamp)。
+ *     - 【存在理由】：查询本地最后记录时间，实现极速同步。
+ * 
+ * 13. saveMessageLocal(chatId, msgId, data) [本地持久化]
+ * 
+ * 14. getLocalMessages(chatId) [本地读取]
+ * 
+ * 15. saveNewsItemLocal(tabType, key, data) [本地持久化]
+ * 
+ * 16. getLocalNews(tabType) [本地读取]
+ * 
+ * 17. reconcileNews() [同步逻辑桩]
+ * 
+ * 18. saveModulePostLocal() [占位桩]
+ * 
+ * 19. getLocalModulePosts() [占位桩]
+ * 
+ * 20. saveLocalNews() [占位桩]
+ *     - 【注】：占位桩确保重构期间旧逻辑不崩溃。
+ * ==================================================================================
  */
 
 import { getDatabase, ref, get, set, update, push, remove, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
