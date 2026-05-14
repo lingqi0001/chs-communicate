@@ -60,7 +60,7 @@
         // 导入云消息库：处理移动端 PWA 推送通知
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
-        import { NotifyModule } from './js/notify.js?v=4';
+        import { NotifyModule } from './js/notify.js?v=23';
         import { ModalModule } from './js/alert.js?v=4';
         import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js?v=4';
         import { UserModule } from './js/user.js?v=4';
@@ -752,8 +752,15 @@
              */
             const settingsData = settingsSnap?.val() || {};
             SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
+            SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl; 
+            
             const soundToggle = document.getElementById('soundToggle');
             if (soundToggle) soundToggle.checked = SETTINGS.soundEnabled;
+
+            // 核心修复：提前装弹，确保第一声不响的问题消失
+            if (AppModules.Notify && SETTINGS.soundUrl) {
+                AppModules.Notify.setSound(SETTINGS.soundUrl);
+            }
 
             onValue(ref(db, 'settings'), (snap) => {
                 const s = snap.val() || {};
@@ -853,6 +860,7 @@
                 updateNewsAccess(); // 检查是否有发公告的权限
                 initNewsObserver(); // 挂载公告栏实时流
                 showSidebar();      // 展开侧边栏
+                AppModules.Notify.initMonitor();       // 核心：启动全局消息监控（红点提示）
                 AppModules.Notify.requestPermission(); // 尝试申请消息推送权限
                 globalDataSync();   // 执行大规模离线同步（IndexedDB）
                 syncGroupChats();   // 同步班级群聊列表
@@ -1726,9 +1734,11 @@
         window.updateSound = (url) => { 
             SETTINGS.soundUrl = url; 
             localStorage.setItem('soundUrl', url); 
-            if (AppModules.Notify.audio) {
-                AppModules.Notify.audio = new Audio(url);
-                AppModules.Notify.audio.play();
+            // 核心修复：使用预加载引擎而不是暴力 new Audio
+            if (AppModules.Notify) {
+                AppModules.Notify.setSound(url);
+                // 试听一下
+                if (AppModules.Notify.audio) AppModules.Notify.audio.play();
             }
         };
         window.toggleSound = (enabled) => { SETTINGS.soundEnabled = enabled; localStorage.setItem('soundEnabled', enabled); };
@@ -1905,19 +1915,24 @@
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
                     <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button onclick="window.switchSidebarTab('recent', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Recent</button>
+                        <button onclick="window.switchSidebarTab('recent', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">
+                            Recent
+                            <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
+                        </button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
                         <button onclick="window.switchSidebarTab('all', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Contacts</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button onclick="window.switchSidebarTab('class', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">Class</button>
+                        <button onclick="window.switchSidebarTab('class', event)" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}">
+                            Class
+                        </button>
                     </div>
                     <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
                 `;
             } else {
                 const btns = container.querySelectorAll('.sidebar-tabs button');
-                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
-                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
-                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full transition-colors ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
+                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-600'}`;
             }
 
             const subList = document.getElementById('sidebarSubList');
@@ -1940,6 +1955,10 @@
                         subList.classList.add('sidebar-pop');
                         window._isPopNav = false;
                     });
+                }
+                // 3. Sync Notification UI
+                if (window.AppModules && window.AppModules.Notify) {
+                    window.AppModules.Notify.updateUI();
                 }
             } catch (err) {
                 console.error('renderSidebar error:', err);
@@ -2124,11 +2143,11 @@
         // Helper: Level 2 Class Member List
         async function renderClassLevel2(container, isTabSwitch) {
             try {
-                // Optimization: If already in Level 2 for this class, don't re-render shell and trigger animation
-                const existingSubList = document.getElementById('sidebarSubList');
-                const isAlreadyInLevel2 = existingSubList && container.querySelector('.uppercase.tracking-widest')?.innerText.toUpperCase().includes("STUDENTS"); // Simple check
+                // Optimization: Use a more reliable check (ID-based) to see if we are already showing this class's shell
+                const checkTitleEl = document.getElementById('sidebarLevel2Title');
+                const isAlreadyInLevel2 = checkTitleEl && checkTitleEl.innerText === (cnCache[window.currentClassId] || "Class");
 
-                // Show shell immediately if not already there
+                // Show shell immediately ONLY if we are switching from another view or another class
                 if (!isAlreadyInLevel2) {
                     const cachedName = cnCache[window.currentClassId] || "Class";
                     container.innerHTML = `
@@ -2249,8 +2268,9 @@
 
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
                     <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
-                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2">
+                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2 relative">
                             ${EAGLE_ICON}
+                            <span id="dot-group_${window.currentClassId}" class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#007AFF] border-2 border-white dark:border-[#1C1C1E] rounded-full ${AppModules.Notify.unreadSet.has('group_' + window.currentClassId) ? '' : 'hidden'}"></span>
                         </div>
                         <div class="flex-1">
                             <div class="font-bold text-base text-black dark:text-white">${escapeHTML(c.name)}</div>
@@ -2279,9 +2299,14 @@
                         <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                             <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div class="flex flex-col overflow-hidden">
-                                    <div class="font-bold text-sm text-black dark:text-white flex items-center">${escapeHTML(u.name)}${badge} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}</div>
+                                    <div class="font-bold text-sm text-black dark:text-white flex items-center">
+                                        ${escapeHTML(u.name)}${badge} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
+                                    </div>
                                     <div class="text-xs text-gray-400 truncate">${escapeHTML(u.email || u.id)}</div>
                                 </div>
+                            </div>
+                            <div class="flex items-center gap-2 pr-5">
+                                <span id="dot-${u.id}" class="w-2.5 h-2.5 bg-[#007AFF] rounded-full ${AppModules.Notify.unreadSet.has(u.id) ? '' : 'hidden'}"></span>
                             </div>
                             ${canEdit && u.id !== c.teacherId ? `
                                 <button onclick="removeStudentFromClass('${window.currentClassId}', '${u.id}', '${escapeHTML(u.name)}')" 
@@ -2353,6 +2378,7 @@
         };
 
         window.openStudentSelector = async (classId) => {
+            let _modalTimer = null;
             const classSnap = await get(ref(db, `classes/${classId}`));
             if (!classSnap.exists()) return;
             const classData = classSnap.val();
@@ -2704,7 +2730,7 @@
                 }
             } else {
                 msgInput.disabled = false;
-                msgInput.placeholder = "Type a message...";
+                msgInput.placeholder = "Type a message...Use Shift+Enter to change lines";
                 if (sendBtn) {
                     sendBtn.style.opacity = '1';
                     sendBtn.style.pointerEvents = 'auto';
@@ -2795,6 +2821,7 @@
             // void chatBox.offsetWidth;
             // chatBox.classList.add('slide-up');
 
+            console.log(`DEBUG [Switch]: 准备加载聊天线程，ChatID: ${chatId}`);
             loadChatThread(chatId);
 
             // Update sidebar active state manually to avoid flash
@@ -2899,9 +2926,12 @@
             let isSyncing = true;
             let syncBuffer = [];
             let q = lastKey ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
+            
+            console.log(`DEBUG [Thread]: 正在尝试监听 Firebase 路径: messages/${chatId}`);
 
             stopCurrentChatListener = onChildAdded(q, (snap) => {
                 const msg = snap.val();
+                console.log(`DEBUG [Thread]: 监听到新消息，Key: ${snap.key}, 来源: ${msg?.senderId}`);
                 if (!loadedMsgKeys.has(snap.key)) {
                     loadedMsgKeys.add(snap.key);
                     if (isSyncing) {
@@ -2914,6 +2944,11 @@
                             chatBox.scrollTop = chatBox.scrollHeight;
                         }
                     }
+                }
+            }, (error) => {
+                console.error(`DEBUG [Thread]: 聊天监听器权限被拒 [${chatId}]:`, error.message);
+                if (error.message.includes('permission_denied')) {
+                    showCustomAlert("Permission Error", "You do not have permission to view messages in this chat.");
                 }
             });
 
@@ -3178,6 +3213,11 @@
 
 
         function appendMsg(msg, key, chatId = null, saveToLocal = true) {
+            // 如果收到的消息属于当前正在聊天的窗口，直接清除所有未读提示（红点、总数）
+            if (activeTargetId && (chatId === activeTargetId || chatId === getChatId(currentUser.id, activeTargetId))) {
+                AppModules.Notify.markAsRead(activeTargetId);
+            }
+
             const div = UIComponents.createChatBubble(msg, key, currentUser, setupLongPress);
             if (!div) return;
             const chatBox = document.getElementById('chatBox');
@@ -3329,7 +3369,7 @@
             } finally {
                 if (input) {
                     input.disabled = false;
-                    input.placeholder = "iMessage";
+                    input.placeholder = "Type a message...Use Shift+Enter to change lines";
                 }
                 e.target.value = '';
             }
@@ -5330,7 +5370,18 @@
 
                 // Update participant cache
                 sidebarClasses = {};
-                myClasses.forEach(id => sidebarClasses[id] = true);
+                myClasses.forEach(id => {
+                    sidebarClasses[id] = true;
+                    // 核心修复：直接把群聊 ID 喂给通知模块的监听器
+                    if (window.AppModules && window.AppModules.Notify) {
+                        window.AppModules.Notify._startChatListener(`group_${id}`);
+                    }
+                });
+
+                // 通知模块重新同步
+                if (window.AppModules && window.AppModules.Notify) {
+                    window.AppModules.Notify.initMonitor();
+                }
 
                 // For each class, ensure the group chat timestamp exists in user_chats if it has activity
                 for (const cid of myClasses) {
@@ -6253,7 +6304,7 @@
                     <div
                         class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-[20px] pl-[14px] pr-[4px] min-h-[38px] mb-1.5 overflow-hidden">
                         <textarea id="u-msg" rows="1"
-                            placeholder="Type a message..."
+                            placeholder="Type a message...Use Shift+Enter to change lines"
                             class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
