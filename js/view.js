@@ -420,12 +420,13 @@ export const ViewModule = {
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        // 优化：只有当主程序全局主题真的改变时，才通知【当前活跃】的插件
-        // 这样可以避免插件内部手动切换后被主程序强行拉�?        
-        const iframe = document.getElementById('extensionIframe');
-        if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', isDarkMode: isDark }, '*');
-        }
+        // 广播：当主程序全局主题改变时，同步给页面上所有正在运行的插件
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', isDarkMode: isDark }, '*');
+            }
+        });
     },
 
     toggleDarkMode: function () {

@@ -393,7 +393,9 @@
         const nS = parseInt(document.getElementById('nSl').value), sh = document.getElementById('shape').value;
         const f = getFn(fR), g = getFn(gR);
         const errLog = document.getElementById('errLog'), btn = document.getElementById('mainBtn');
-        const isLight = document.body.hasAttribute('data-theme');
+        
+        // 核心修复：检查 html 标签上的 data-theme 属性，而不是 body
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
 
         document.getElementById('fIn').classList.remove('invalid'); document.getElementById('gIn').classList.remove('invalid');
         if (!f || !g) {
@@ -552,11 +554,8 @@
     window.addEventListener('message', (event) => {
         // 1. 响应主站的同步指令
         if (event.data && event.data.type === 'THEME_UPDATE') {
-            const saved = localStorage.getItem('bc_theme');
-            // 策略：如果用户没手动改过（没有本地缓存），才听从主站的初始建议
-            if (!saved) {
-                applyTheme(event.data.isDarkMode);
-            }
+            // 修复：始终听从主站的实时切换指令，确保全站风格统一
+            applyTheme(event.data.isDarkMode);
         }
     });
 

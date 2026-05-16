@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" class="">
 
 <head>
@@ -24,7 +24,7 @@
     <title>CHS Communicate</title>
     <script>
         // Fast Theme Initializer - Prevents flash and ensures persistence on reload
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme');
             const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
@@ -47,19 +47,35 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     <link rel="stylesheet" href="style.css?v=4">
+    <!-- 
+      核心：Import Map 缓存失效方案
+      通过定义全局映射，确保所有 JS 文件共享同一个版本号，解决单例冲突并强制浏览器更新缓存。
+    -->
+    <script type="importmap">
+    {
+      "imports": {
+        "./js/config.js": "./js/config.js?v=20260516-2240",
+        "./js/db.js": "./js/db.js?v=20260516-2240",
+        "./js/user.js": "./js/user.js?v=20260516-2240",
+        "./js/view.js": "./js/view.js?v=20260516-2240",
+        "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2240",
+        "./js/modal.js": "./js/modal.js?v=20260516-2240",
+        "./js/utils.js": "./js/utils.js?v=20260516-2240",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260516-2240",
+        "./js/content.js": "./js/content.js?v=20260516-2240"
+      }
+    }
+    </script>
+
     <script type="module">
-        /* 
-        */
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // 导入身份验证库：包含登录、退出、重定向等所有鉴权逻辑
         import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        // 导入实时数据库库：处理消息同步、帖子更新等
         import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-        // 导入云存储库：处理图片上传、头像托管等
         import { getStorage, ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-        // 导入云消息库：处理移动端 PWA 推送通知
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
+        // 核心模块导入 (使用 importmap 自动映射版本号)
+        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
         import { NotifyModule } from './js/notify_v2.js';
         import { ModalModule } from './js/modal.js';
         import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
@@ -67,17 +83,9 @@
         import { ViewModule } from './js/view.js';
         import { UIComponents } from './js/ui-components.js';
         import { UIUtils, DateUtils } from './js/utils.js';
-        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
-        import * as Config from './js/config.js';
 
-        // 命名空间初始化 (全站 8 大核心模块)
-        // 注入长文本内容
-        const cv = document.getElementById('changelogView');
-        if (cv) cv.innerHTML = CHANGELOG_CONTENT;
-        const tv = document.getElementById('tosContentArea');
-        if (tv) tv.innerHTML = TOS_CONTENT;
-
+        // 挂载到全局
         window.AppModules = {
             Notify: NotifyModule,
             Modal: ModalModule,
@@ -86,8 +94,18 @@
             View: ViewModule,
             UI: UIComponents,
             Utils: { ...UIUtils, ...DateUtils },
-            Config: Config
+            Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         };
+
+        // 注入长文本内容 (Changelog & TOS)
+        const cv = document.getElementById('changelogView');
+        if (cv) cv.innerHTML = CHANGELOG_CONTENT;
+        const tv = document.getElementById('tosContentArea');
+        if (tv) tv.innerHTML = TOS_CONTENT;
+
+        // 注入版本号
+        const av = document.getElementById('appVersionLabel');
+        if (av) av.innerText = `Build: 20260516-2240`;
 
         // 视图初始化 (VH Patch, Theme, Viewport)
         AppModules.View.init();
@@ -171,7 +189,7 @@
                     // 环境支持，初始化推送引擎
                     AppModules.Notify.engine = getMessaging(app);
                     console.log('App: Firebase Messaging initialized.');
-                    
+
                     // 启动通知模块并传入上下文依赖
                     AppModules.Notify.init({
                         db: db,
@@ -746,8 +764,8 @@
              */
             const settingsData = settingsSnap?.val() || {};
             SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
-            SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl; 
-            
+            SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl;
+
             const soundToggle = document.getElementById('soundToggle');
             if (soundToggle) soundToggle.checked = SETTINGS.soundEnabled;
 
@@ -1723,9 +1741,9 @@
             }
         }
 
-        window.updateSound = (url) => { 
-            SETTINGS.soundUrl = url; 
-            localStorage.setItem('soundUrl', url); 
+        window.updateSound = (url) => {
+            SETTINGS.soundUrl = url;
+            localStorage.setItem('soundUrl', url);
             // 核心修复：使用预加载引擎而不是暴力 new Audio
             if (AppModules.Notify) {
                 AppModules.Notify.setSound(url);
@@ -2646,7 +2664,7 @@
                     displayName = user?.name || id;
                     displayEmail = user?.email || id;
                     avatarHtml = ''; // Individual users have no avatar as per request
-                    
+
                     const isAdminUser = user ? (user.role === 'admin' || user.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) : false;
                     const isTeacherUser = user ? (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'))) : false;
 
@@ -2891,12 +2909,12 @@
             // 1. 冷却保护
             const now = Date.now();
             if (chatLoadingLock === chatId && (now - lastLoadTime < 1500)) return;
-            
+
             chatLoadingLock = chatId;
             lastLoadTime = now;
 
             const chatBox = document.getElementById('chatBox');
-            
+
             // 只有切换聊天时才彻底重置
             if (lastChatId !== chatId) {
                 // 关键优化：先隐身，防止用户看到两次渲染的过程
@@ -2928,7 +2946,7 @@
             let isSyncing = true;
             let syncBuffer = [];
             let q = lastKey ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
-            
+
             console.log(`DEBUG [Thread]: 正在尝试监听 Firebase 路径: messages/${chatId}`);
 
             stopCurrentChatListener = onChildAdded(q, (snap) => {
@@ -2966,7 +2984,7 @@
                     });
                     chatBox.appendChild(batchFrag);
                 }
-                
+
                 // 最终滚动：使用双重 RAF 确保高度计算已由浏览器完成
                 requestAnimationFrame(() => {
                     chatBox.scrollTop = chatBox.scrollHeight;
@@ -3648,7 +3666,7 @@
             const page = document.getElementById(pageId);
             if (!page || page.classList.contains('hidden')) return;
             page.classList.add('translate-x-full');
-            
+
             // 卸载层级
             if (window.AppModules && window.AppModules.View) {
                 window.AppModules.View.unregisterLayer(pageId);
@@ -3697,9 +3715,9 @@
                 loader.classList.add('hidden');
                 // 当 iframe 加载完成后，主动推送当前的主题状态
                 if (iframe.contentWindow) {
-                    iframe.contentWindow.postMessage({ 
-                        type: 'THEME_UPDATE', 
-                        isDarkMode: ViewModule.state.isDarkMode 
+                    iframe.contentWindow.postMessage({
+                        type: 'THEME_UPDATE',
+                        isDarkMode: ViewModule.state.isDarkMode
                     }, '*');
                 }
             };
@@ -4499,7 +4517,7 @@
         window.closeDetail = () => {
             const page = document.getElementById('detailPage');
             page.classList.add('translate-x-full');
-            
+
             // 卸载层级
             if (window.AppModules && window.AppModules.View) {
                 window.AppModules.View.unregisterLayer('detailPage');
@@ -5218,7 +5236,7 @@
 
         window.confirmDeleteUser = async (userId) => {
             const u = adminAllUsers[userId] || { name: userId };
-            
+
             const firstOk = await AppModules.Modal.confirm(
                 "Destroy User Account?",
                 `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs. Irreversible action.`,
@@ -5720,6 +5738,11 @@
                             class="w-full text-gray-400 text-xs font-medium py-2 hover:text-red-500 transition-colors">
                             Trouble? Clear Local Cache
                         </button>
+                    </div>
+
+                    <div class="pt-4 pb-2 text-center">
+                        <span id="appVersionLabel"
+                            class="text-[10px] text-gray-400 dark:text-gray-600 font-mono tracking-widest uppercase"></span>
                     </div>
 
                     <div id="adminPanel"
@@ -6266,8 +6289,7 @@
                     </label>
                     <div
                         class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-[20px] pl-[14px] pr-[4px] min-h-[38px] mb-1.5 overflow-hidden">
-                        <textarea id="u-msg" rows="1"
-                            placeholder="Type a message...Use Shift+Enter to change lines"
+                        <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
                             class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">

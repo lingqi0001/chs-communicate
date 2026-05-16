@@ -23,15 +23,16 @@
         // Listen for messages from parent
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'THEME_UPDATE') {
+                console.log("GradeCalc: Theme update received:", event.data.isDarkMode);
                 applyTheme(event.data.isDarkMode);
             }
         });
 
         window.onload = () => {
-            try {
-                const isDark = window.parent.AppModules.View.state.isDarkMode;
-                applyTheme(isDark);
-            } catch(e) {}
+            // 初始同步：尝试从父窗口获取当前状态
+            if (window.parent && window.parent.AppModules && window.parent.AppModules.View) {
+                applyTheme(window.parent.AppModules.View.state.isDarkMode);
+            }
             calculateGrade();
         };
     </style>

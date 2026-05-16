@@ -243,11 +243,17 @@ export const reconcileNews = async (tab, remoteData, localKeys) => {
 };
 
 export async function saveModulePostLocal(moduleName, postId, data) {
-    const db = await dbReady;
-    if (!db) return;
-    const transaction = db.transaction(["modules"], "readwrite");
-    const store = transaction.objectStore("modules");
-    store.put({ id: postId, moduleName, ...data });
+    console.log(`[DEBUG] DB: Attempting to save to modules store. ID=${postId}, Module=${moduleName}`);
+    try {
+        const db = await dbReady;
+        if (!db) return;
+        const transaction = db.transaction(["modules"], "readwrite");
+        const store = transaction.objectStore("modules");
+        // 核心修复：确保 id 在最后，防止被 data 中的 undefined id 覆盖
+        store.put({ ...data, moduleName, id: postId });
+    } catch (e) {
+        console.error(`DB: Failed to save module post [${postId}]:`, e);
+    }
 }
 
 export async function getLocalModulePosts(moduleName) {
