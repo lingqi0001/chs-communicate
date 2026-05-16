@@ -61,7 +61,7 @@
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         import { NotifyModule } from './js/notify.js?v=23';
-        import { ModalModule } from './js/alert.js?v=4';
+        import { ModalModule } from './js/modal.js?v=4';
         import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js?v=4';
         import { UserModule } from './js/user.js?v=4';
         import { ViewModule } from './js/view.js?v=4';
@@ -101,9 +101,7 @@
         });
 
         // 兼容性桥接 (Bridge)
-        window.showCustomAlert = (...args) => AppModules.Modal.alert(...args);
-        window.showCustomConfirm = (...args) => AppModules.Modal.confirm(...args);
-        window.showCustomPrompt = (...args) => AppModules.Modal.prompt(...args);
+        // 兼容性桥接已废弃，直接使用 AppModules.Modal 命名空间
 
         // 兼容性桥接 (Bridge)
         window.updateGlobalUnreadStatus = () => AppModules.Notify.updateUI();
@@ -157,9 +155,9 @@
             // 登录失败时的错误处理
             console.error('App: Sign-in redirect error:', error);
             if (error.code === 'auth/internal-error' || error.code === 'auth/network-request-failed') {
-                showCustomAlert("Connection Error", "Connection error during login. Please try again.");
+                AppModules.Modal.alert("Connection Error", "Connection error during login. Please try again.");
             } else if (error.code !== 'auth/no-auth-event') {
-                showCustomAlert("Login Error", error.message);
+                AppModules.Modal.alert("Login Error", error.message);
             }
         });
 
@@ -224,11 +222,8 @@
         window.formatLastSeen = UIUtils.formatLastSeen;
         window.getLocalDateString = DateUtils.getLocalDateString;
 
-        // 桥接 UserModule：确保原有的 isAppStaff() 等调用依然有效，但逻辑已迁移至外部。
+        // 桥接 UserModule：逻辑已全面迁移至 AppModules.User 命名空间
         window.UserModule = UserModule;
-        window.isAppAdmin = () => AppModules.User.isAdmin();
-        window.isAppTeacher = () => AppModules.User.isTeacher();
-        window.isAppStaff = () => AppModules.User.isTeacher() || AppModules.User.isAdmin();
         window.fetchUser = (id) => AppModules.User.fetchUser(id, ALL_USERS);
 
         // 应用运行时状态管理
@@ -237,7 +232,6 @@
         let activeTargetId = null;
         let stopCurrentChatListener = null;
         const globalListeners = new Set();
-        const ADMIN_EMAIL = APP_CONSTANTS.ADMIN_EMAIL;
         const SAFETY_BOT_ID = APP_CONSTANTS.SAFETY_BOT_ID;
         const ADVICE_BOT_ID = APP_CONSTANTS.ADVICE_BOT_ID;
         const APP_START_TIME = Date.now();
@@ -665,7 +659,7 @@
                 }
                 // 处理用户主动关掉弹窗的情况
                 else if (error.code !== 'auth/popup-closed-by-user') {
-                    showCustomAlert("Login Failed", "Google Sign-In failed: " + error.message);
+                    AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
                     // 恢复按钮状态
                     btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                     hint.innerText = originalHint;
@@ -695,7 +689,7 @@
                 await signInWithPopup(auth, microsoftProvider);
             }
             catch (error) {
-                if (error.code !== 'auth/popup-closed-by-user') alert("Microsoft Sign-In failed: " + error.message);
+                if (error.code !== 'auth/popup-closed-by-user') AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -778,11 +772,9 @@
                 if (!window._settingsInit && !isNewOrTest) {
                     window._settingsInit = true;
                     if (window.isPhotoDisabled) {
-                        setTimeout(() => {
-                            const statusTitle = "⚠️ Photos Temporarily Disabled";
-                            const statusMsg = "Image sharing is currently disabled to ensure platform stability during high traffic. You can still send text messages. Contact administrator for details.";
-                            if (window.showCustomAlert) window.showCustomAlert(statusTitle, statusMsg);
-                        }, 2500);
+                        const statusTitle = "⚠️ Photos Temporarily Disabled";
+                        const statusMsg = "Image sharing is currently disabled to ensure platform stability during high traffic. You can still send text messages.";
+                        AppModules.Modal.alert(statusTitle, statusMsg);
                     }
                 }
 
@@ -820,7 +812,7 @@
 
             // --- 最后的初始化决策 ---
             // 逻辑：管理员面板显示权限判断
-            if (isAppAdmin()) {
+            if (AppModules.User.isAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             } else {
                 document.getElementById('adminPanel')?.classList.add('hidden');
@@ -971,7 +963,7 @@
             const newName = [first, last].filter(Boolean).join(' ');
 
             if (!newName || !first || !last) {
-                return showCustomAlert("Name Required", "Please enter both your first and last name to continue.");
+                return AppModules.Modal.alert("Name Required", "Please enter both your first and last name to continue.");
             }
 
             const btn = document.getElementById('setupSubmitBtn');
@@ -1016,7 +1008,7 @@
             } catch (err) {
                 btn.disabled = false;
                 btn.innerText = "Start Chatting";
-                showCustomAlert("Error", "Failed to save profile: " + err.message);
+                AppModules.Modal.alert("Error", "Failed to save profile: " + err.message);
             }
         };
 
@@ -1030,7 +1022,7 @@
             const btn = document.getElementById('addAnnouncementBtn');
             if (btn) {
                 // 利用全局权限辅助函数判断
-                if (isAppStaff()) {
+                if ((AppModules.User.isTeacher() || AppModules.User.isAdmin())) {
                     btn.classList.remove('hidden');
                 } else {
                     btn.classList.add('hidden');
@@ -1091,7 +1083,7 @@
              * 已迁移至 js/ui-components.js
              */
             renderCard: function (post, type) {
-                return UIComponents.renderNewsCard(post, type, isAppStaff());
+                return UIComponents.renderNewsCard(post, type, (AppModules.User.isTeacher() || AppModules.User.isAdmin()));
             }
         };
 
@@ -1131,7 +1123,7 @@
 
 
         window.deleteNews = async (id, tabType) => {
-            if (!await showCustomConfirm("Delete Announcement", "Are you sure you want to delete this?", "Delete")) return;
+            if (!await AppModules.Modal.confirm("Delete Announcement", "Are you sure you want to delete this?", "Delete")) return;
             await set(ref(db, `news/${tabType}/${id}`), null);
         };
 
@@ -1155,7 +1147,7 @@
             // --- 管理员账户拦截 (Admin Overrides) ---
             // 逻辑：确保管理员 Moss 的头像始终是那份标志性的“寿司”。
             if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
-                const adminUser = { id: 'moss104088', name: 'Moss', avatar: window.CONSTANTS.SUSHI_AVATAR, email: window.CONSTANTS.ADMIN_EMAIL };
+                const adminUser = { id: 'moss104088', name: 'Moss', avatar: AppModules.Config.APP_CONSTANTS.SUSHI_AVATAR, email: AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL };
                 ALL_USERS[cleanedId] = adminUser;
                 return adminUser;
             }
@@ -1250,7 +1242,7 @@
             const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
             const newName = [first, last].filter(Boolean).join(' ');
 
-            if (!newName) return showCustomAlert("Name Required", "Please enter a valid name");
+            if (!newName) return AppModules.Modal.alert("Name Required", "Please enter a valid name");
 
             const btn = e.target;
             const originalText = btn.innerText;
@@ -1263,7 +1255,7 @@
                 btn.innerText = "Saved!";
                 setTimeout(() => { btn.innerText = originalText; btn.disabled = false; }, 2000);
             } catch (error) {
-                showCustomAlert("Error", "Failed to update name: " + error.message);
+                AppModules.Modal.alert("Error", "Failed to update name: " + error.message);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
@@ -1416,7 +1408,7 @@
                                 const isMe = id === currentUser.id;
                                 const u = isMe ? currentUser : ALL_USERS[id];
                                 let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || id)}&background=random`;
-                                if (u.email === ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
+                                if (u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
 
                                 const escapedId = id.replace(/'/g, "\\'");
                                 html += `<div onclick="switchChat('${escapedId}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
@@ -1716,7 +1708,7 @@
                 });
             }
 
-            if (isAppAdmin()) {
+            if (AppModules.User.isAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             }
         }
@@ -2002,7 +1994,7 @@
                 container.innerHTML = '';
                 const wrapper = document.createElement('div');
 
-                if (isAppStaff()) {
+                if ((AppModules.User.isTeacher() || AppModules.User.isAdmin())) {
                     const createBtn = document.createElement('div');
                     createBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all group';
                     createBtn.onclick = () => addNewClass();
@@ -2119,8 +2111,11 @@
 
                         // Check for Teacher badge logic (unified with main sidebar)
                         let badge = '';
-                        if (u.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
-                        else if (u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                        const isAdminUser = u.role === 'admin' || u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
+                        const isTeacherUser = u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'));
+
+                        if (isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                        else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
 
                         const div = document.createElement('div');
                         div.className = "p-3 pl-5 cursor-pointer flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group";
@@ -2194,7 +2189,7 @@
                 if (titleEl) titleEl.innerText = c.name;
 
                 // Add Edit/Delete buttons if admin/teacher
-                if (isAppAdmin() || c.teacherId === currentUser.id) {
+                if (AppModules.User.isAdmin() || c.teacherId === currentUser.id) {
                     const header = container.querySelector('.relative');
                     if (header && !header.querySelector('.admin-actions')) {
                         const actionDiv = document.createElement('div');
@@ -2285,15 +2280,18 @@
                     const data = await fetchUser(uid);
                     return data ? { ...data, id: uid } : null;
                 }));
-                const canEdit = (isAppAdmin() || c.teacherId === currentUser.id);
+                const canEdit = (AppModules.User.isAdmin() || c.teacherId === currentUser.id);
 
                 html += studentData.map(u => {
                     if (!u) return '';
                     const isActive = activeTargetId === u.id;
                     // Unified badge logic
                     let badge = '';
-                    if (u.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
-                    else if (u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                    const isAdminUser = u.role === 'admin' || u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
+                    const isTeacherUser = u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'));
+
+                    if (isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                    else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
 
                     return `
                         <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
@@ -2323,20 +2321,20 @@
         }
 
         window.removeStudentFromClass = async (classId, studentId, studentName) => {
-            const confirmed = await showCustomConfirm("Remove Student", `Are you sure you want to remove <b>${studentName}</b> from this class?`, "Remove");
+            const confirmed = await AppModules.Modal.confirm("Remove Student", `Are you sure you want to remove <b>${studentName}</b> from this class?`, "Remove");
             if (confirmed) {
                 try {
                     await set(ref(db, `classes/${classId}/students/${studentId}`), null);
                     // Reverted: Do NOT delete user_chats entry so student can still view history
                     window.renderSidebar();
                 } catch (e) {
-                    showCustomAlert("Error", "Failed to remove student: " + e.message);
+                    AppModules.Modal.alert("Error", "Failed to remove student: " + e.message);
                 }
             }
         };
 
         window.handleDeleteClass = async (classId) => {
-            const confirm1 = await showCustomConfirm(
+            const confirm1 = await AppModules.Modal.confirm(
                 "Delete Class",
                 "Are you sure you want to delete this class? This will permanently remove the roster and the group chat for all members.",
                 "Delete Class"
@@ -2346,7 +2344,7 @@
             // Small delay for smooth modal transition
             await new Promise(r => setTimeout(r, 150));
 
-            const confirm2 = await showCustomConfirm(
+            const confirm2 = await AppModules.Modal.confirm(
                 "Final Confirmation",
                 "This action cannot be undone. Are you absolutely certain you want to proceed with the deletion?",
                 "Yes, Delete Permanently"
@@ -2373,7 +2371,7 @@
                 // Removed showCustomAlert to prevent modal sticking issues
             } catch (e) {
                 console.error('Delete Class Error:', e);
-                showCustomAlert("Error", "Failed to delete class: " + e.message);
+                AppModules.Modal.alert("Error", "Failed to delete class: " + e.message);
             }
         };
 
@@ -2498,7 +2496,7 @@
 
                 confirmBtn.onclick = async () => {
                     const newName = nameInput.value.trim();
-                    if (!newName) { showCustomAlert("Required", "Please enter a class name."); return; }
+                    if (!newName) { AppModules.Modal.alert("Required", "Please enter a class name."); return; }
 
                     modal.classList.add('opacity-0');
                     _modalTimer = setTimeout(() => {
@@ -2518,7 +2516,7 @@
                         window.renderSidebar();
                         // Removed showCustomAlert to prevent modal sticking issues
                     } catch (e) {
-                        showCustomAlert("Error", "Failed to update class: " + e.message);
+                        AppModules.Modal.alert("Error", "Failed to update class: " + e.message);
                     }
                     cleanup();
                     resolve(true);
@@ -2648,8 +2646,11 @@
                     displayName = user?.name || id;
                     displayEmail = user?.email || id;
                     avatarHtml = ''; // Individual users have no avatar as per request
-                    if (user && user.email === ADMIN_EMAIL) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
-                    else if (user && (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org')))) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                    const isAdminUser = user.role === 'admin' || user.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
+                    const isTeacherUser = user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'));
+
+                    if (user && isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
+                    else if (user && isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
                 }
 
                 const isDisbandedGroup = id.startsWith('group_') && !cnCache[id.replace('group_', '')];
@@ -2838,7 +2839,7 @@
         };
 
         window.deleteChatRecord = async (targetId) => {
-            if (!await showCustomConfirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
+            if (!await AppModules.Modal.confirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
 
             const originalTarget = targetId.trim();
             const lowerTarget = originalTarget.toLowerCase();
@@ -2948,7 +2949,7 @@
             }, (error) => {
                 console.error(`DEBUG [Thread]: 聊天监听器权限被拒 [${chatId}]:`, error.message);
                 if (error.message.includes('permission_denied')) {
-                    showCustomAlert("Permission Error", "You do not have permission to view messages in this chat.");
+                    AppModules.Modal.alert("Permission Error", "You do not have permission to view messages in this chat.");
                 }
             });
 
@@ -3269,13 +3270,13 @@
                 if (!val) return;
 
                 if (val.length > 8000) {
-                    await showCustomAlert("Too Long", "Message limit is 8000 chars.");
+                    await AppModules.Modal.alert("Too Long", "Message limit is 8000 chars.");
                     return;
                 }
 
                 const lines = val.split(/\r\n|\r|\n/);
                 if (lines.length > 50) {
-                    await showCustomAlert("Too Many Lines", "Message cannot exceed 50 lines.");
+                    await AppModules.Modal.alert("Too Many Lines", "Message cannot exceed 50 lines.");
                     return;
                 }
 
@@ -3307,7 +3308,7 @@
             // Block disbanded
             if (activeTargetId && activeTargetId.startsWith('group_')) {
                 if (!cnCache[activeTargetId.replace('group_', '')]) {
-                    showCustomAlert("Disbanded", "Cannot message a disbanded class.");
+                    AppModules.Modal.alert("Disbanded", "Cannot message a disbanded class.");
                     return;
                 }
             }
@@ -3322,7 +3323,7 @@
 
             // Hard Cap: Only allow first 5 images in one go (Simplified Limit)
             if (files.length > 5) {
-                await showCustomAlert("Limit Exceeded", "Maximum 5 images allowed per message. The rest will be ignored.");
+                await AppModules.Modal.alert("Limit Exceeded", "Maximum 5 images allowed per message. The rest will be ignored.");
                 files = files.slice(0, 5);
             }
 
@@ -3365,7 +3366,7 @@
                 }
             } catch (err) {
                 console.error("Image sending error:", err);
-                await showCustomAlert("Upload Error", "Upload failed. Check your network.");
+                await AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
             } finally {
                 if (input) {
                     input.disabled = false;
@@ -3393,7 +3394,7 @@
                 // Character limit alert (8000 chars)
                 if (input.value.length > 8000) {
                     if (!hasAlertedLimit) {
-                        showCustomAlert("Limit Exceeded", "You have reached the 8000 character limit.");
+                        AppModules.Modal.alert("Limit Exceeded", "You have reached the 8000 character limit.");
                         hasAlertedLimit = true;
                     }
                 } else {
@@ -3429,14 +3430,14 @@
 
             if (currentTotalImages + files.length > 15) {
                 // Step 1: First Confirmation
-                const step1 = await showCustomConfirm(
+                const step1 = await AppModules.Modal.confirm(
                     "Storage Limit Reached",
                     `You currently have ${currentTotalImages} images saved. Sending these ${files.length} images will exceed your 15-image limit.`
                 );
                 if (!step1) return false;
 
                 // Step 2: Final Warning
-                const step2 = await showCustomConfirm(
+                const step2 = await AppModules.Modal.confirm(
                     "Confirm Expiration",
                     "Are you REALLY sure? This will cause your oldest photos to be marked as expired and removed from the server history.",
                     "Yes, I'm Sure"
@@ -3466,8 +3467,8 @@
         }
 
         window.adminPurgeImages = async () => {
-            if (currentUser.email !== ADMIN_EMAIL) return;
-            const confirmed = await showCustomConfirm(
+            if (!AppModules.User.isAdmin()) return;
+            const confirmed = await AppModules.Modal.confirm(
                 "PRIVATE PHOTO PURGE",
                 "WARNING: This will PHYSICALLY DELETE all images from PRIVATE CHATS (non-group) for all users. Group chats and public posts will NOT be affected. Proceed?",
                 "Yes, Shred Private Photos"
@@ -3483,7 +3484,7 @@
             };
 
             try {
-                showCustomAlert("Purge Started", "Shredding private chat files...");
+                AppModules.Modal.alert("Purge Started", "Shredding private chat files...");
                 let dbCount = 0;
                 let storageCount = 0;
 
@@ -3513,9 +3514,9 @@
                 // 2. Clear Quota Indices
                 await set(ref(db, 'user_image_index'), null);
 
-                await showCustomAlert("Purge Complete", `Deleted ${storageCount} private files and cleaned ${dbCount} entries. Group chats and news remain untouched.`);
+                await AppModules.Modal.alert("Purge Complete", `Deleted ${storageCount} private files and cleaned ${dbCount} entries. Group chats and news remain untouched.`);
             } catch (err) {
-                await showCustomAlert("Error", "Purge failed: " + err.message);
+                await AppModules.Modal.alert("Error", "Purge failed: " + err.message);
             }
         };
 
@@ -3543,17 +3544,17 @@
                 return downloadURL;
             } catch (error) {
                 console.error('Storage: Upload failed', error);
-                showCustomAlert("Upload Error", "Failed to save image to cloud. Using temporary local data instead.");
+                AppModules.Modal.alert("Upload Error", "Failed to save image to cloud. Using temporary local data instead.");
                 return base64Data; // Fallback to base64 if storage fails (emergency mode)
             }
         };
 
         window.toggleGlobalPhotos = async (enabled) => {
-            if (currentUser.email !== ADMIN_EMAIL) return;
+            if (!AppModules.User.isAdmin()) return;
             try {
                 await update(ref(db, 'settings'), { isPhotoDisabled: enabled });
             } catch (err) {
-                showCustomAlert("Error", "Failed to update setting: " + err.message);
+                AppModules.Modal.alert("Error", "Failed to update setting: " + err.message);
             }
         };
         window.selectSound = (val, e) => { if (e) e.stopPropagation(); updateSound(val); updateSettingsLabels(); toggleDropdown('soundDropdown'); };
@@ -3729,7 +3730,7 @@
             if (event.data && event.data.type) {
                 switch (event.data.type) {
                     case 'GET_USER':
-                        if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: isAppAdmin(), isStaff: isAppStaff() }, '*');
+                        if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: AppModules.User.isAdmin(), isStaff: (AppModules.User.isTeacher() || AppModules.User.isAdmin()) }, '*');
                         break;
                     case 'GET_THEME':
                         if (event.source) event.source.postMessage({ type: 'THEME_UPDATE', isDarkMode: ViewModule.state.isDarkMode }, '*');
@@ -3955,7 +3956,7 @@
                     }
                 }
             } catch (err) {
-                showCustomAlert("Error", "Failed to vote: " + err.message);
+                AppModules.Modal.alert("Error", "Failed to vote: " + err.message);
                 console.error(err);
             }
         };
@@ -4050,7 +4051,7 @@
                     interactions += `</div>`;
 
                     let adminDeleteBtn = '';
-                    if (isAppAdmin() || isAppTeacher()) {
+                    if (AppModules.User.isAdmin() || AppModules.User.isTeacher()) {
                         adminDeleteBtn = `<button onclick="deletePost('${post.id}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 active:scale-95 transition-transform p-1 ml-2" title="Delete Post"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
                     }
 
@@ -4088,26 +4089,27 @@
         }
 
         window.deletePost = async (postId) => {
-            if (!await showCustomConfirm("Delete Post", "Are you sure you want to delete this post?", "Delete")) return;
+            if (!await AppModules.Modal.confirm("Delete Post", "Are you sure you want to delete this post?", "Delete")) return;
             try {
                 await set(ref(db, `modules/${currentModule}/${postId}`), null);
             } catch (e) {
-                showCustomAlert("Error", "Failed to delete post.");
+                AppModules.Modal.alert("Error", "Failed to delete post.");
             }
         };
 
-        window.handleMsgReport = () => {
+        window.handleMsgReport = async () => {
             if (!selectedMsgData) return;
             const menu = document.getElementById('messageContextMenu');
             menu.classList.add('hidden');
-            if (confirm("Report this message for harassment or inappropriate content?")) {
+            const confirmReport = await AppModules.Modal.confirm("Report Content", "Report this message for harassment or inappropriate content?", "Report");
+            if (confirmReport) {
                 reportMessage(selectedMsgData);
             }
         };
 
         async function reportMessage(msg) {
             try {
-                const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+                const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
 
                 // 1. Send to Admin from Safety Bot
                 const adminChatId = getChatId(SAFETY_BOT_ID, adminId);
@@ -4133,14 +4135,14 @@
                 });
                 update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
 
-                showCustomAlert("Reported", "Report sent successfully. You can track status in your chat with Safety Bot.");
+                AppModules.Modal.alert("Reported", "Report sent successfully. You can track status in your chat with Safety Bot.");
             } catch (e) {
-                showCustomAlert("Error", "Failed to send report: " + e.message);
+                AppModules.Modal.alert("Error", "Failed to send report: " + e.message);
             }
         }
 
         window.reportPost = async (postId) => {
-            const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+            const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
             const post = modulePosts.find(p => p.id === postId);
             if (!post) return;
             const author = await fetchUser(post.authorId);
@@ -4169,9 +4171,9 @@
                 });
                 update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
 
-                alert("Post reported successfully! Administrators will review it via Safety Bot.");
+                AppModules.Modal.alert("Reported", "Post reported successfully! Administrators will review it via Safety Bot.");
             } catch (e) {
-                alert("Reporting failed: " + e.message);
+                AppModules.Modal.alert("Error", "Reporting failed: " + e.message);
             }
         };
 
@@ -4189,7 +4191,7 @@
 
         window.handlePostImageSelect = (e) => {
             if (window.isPhotoDisabled) {
-                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
+                AppModules.Modal.alert("Restricted", "Photo uploads are currently disabled by the administrator.");
                 e.target.value = '';
                 return;
             }
@@ -4246,7 +4248,7 @@
 
             const batchBtn = document.getElementById('batchImportBtn');
             if (batchBtn) {
-                batchBtn.classList.toggle('hidden', !isAppAdmin());
+                batchBtn.classList.toggle('hidden', !AppModules.User.isAdmin());
             }
 
             const imgArea = document.querySelector('#postPage .bg-gray-100.dark\\:bg-black.rounded-2xl.p-8');
@@ -4318,25 +4320,78 @@
             }, 400);
         };
 
+        window.openBatchImport = async () => {
+            const html = `
+                <div class="space-y-4 text-left">
+                    <p class="text-sm text-gray-500 leading-relaxed">Paste your AI-generated JSON array below. It should include <b>title</b>, <b>desc</b>, and <b>type</b> (school or club).</p>
+                    <textarea id="batchJsonInput" rows="10" placeholder='[{"title": "Morning Meeting", "desc": "Join us...", "type": "school"}]'
+                        class="w-full bg-gray-100 dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border border-gray-200 dark:border-gray-800 focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
+                </div>
+            `;
+            const result = await AppModules.Modal.showCustom("Batch Import", html, [
+                { text: 'Import & Publish', value: 'import', primary: true },
+                { text: 'Cancel', value: 'cancel', primary: false }
+            ]);
 
-        window.submitPost = () => {
+            if (result === 'import') {
+                const raw = document.getElementById('batchJsonInput').value.trim();
+                if (raw) await processBatchData(raw);
+            }
+        };
+
+        async function processBatchData(raw) {
+            if (!AppModules.User.isAdmin()) return;
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (e) {
+                AppModules.Modal.alert("Import Error", "Invalid JSON format.");
+                return;
+            }
+
+            if (!Array.isArray(data)) {
+                AppModules.Modal.alert("Error", "Data must be an array.");
+                return;
+            }
+
+            try {
+                const promises = data.map(item => {
+                    const type = (item.type === 'club' || item.type === 'club_news') ? 'club' : 'school';
+                    return set(push(ref(db, `news/${type}`)), {
+                        title: item.title || "Untitled",
+                        desc: item.desc || "",
+                        image: null,
+                        authorId: currentUser.id,
+                        authorName: currentUser.name,
+                        timestamp: Date.now(),
+                        type: type
+                    });
+                });
+                await Promise.all(promises);
+                AppModules.Modal.alert("Success", `Successfully published ${data.length} items.`);
+            } catch (e) {
+                AppModules.Modal.alert("Error", "Failed to publish: " + e.message);
+            }
+        }
+
+        window.submitPost = async () => {
             const now = Date.now();
             if (now - lastPostSentTime < POST_COOLDOWN) {
-                alert(`Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostSentTime)) / 1000)}s before posting again.`);
+                AppModules.Modal.alert("Cooldown", `Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostSentTime)) / 1000)}s before posting again.`);
                 return;
             }
 
             const title = document.getElementById('postInputTitle').value.trim();
             const desc = document.getElementById('postInputDesc').value.trim();
-            if (!title || !desc) { alert("Title and description are required."); return; }
+            if (!title || !desc) { AppModules.Modal.alert("Required", "Title and description are required."); return; }
 
             if (title.length > 200 || desc.length > 1000) {
-                showCustomAlert("Content Too Long", "Titles are limited to 200 characters and descriptions to 1000 characters.");
+                AppModules.Modal.alert("Content Too Long", "Titles are limited to 200 characters and descriptions to 1000 characters.");
                 return;
             }
 
             if (currentPostBase64 && window.isPhotoDisabled) {
-                showCustomAlert("Restricted", "Photo uploads are currently disabled by the administrator.");
+                AppModules.Modal.alert("Restricted", "Photo uploads are currently disabled by the administrator.");
                 window.clearPostImage();
                 return;
             }
@@ -4346,7 +4401,7 @@
             lastPostSentTime = now;
 
             if (isRequestingExtension) {
-                const adminId = ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+                const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
                 const requestText = `[EXTENSION REQUEST]\nTool Name: ${title}\nDescription: ${desc}\nSubmitted by: ${currentUser.name} (${currentUser.id})`;
 
                 const adminChatId = getChatId(ADVICE_BOT_ID, adminId);
@@ -4368,7 +4423,7 @@
                 });
                 update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
 
-                showCustomAlert("Success", "Your suggestion has been sent to Admin. Thank you!");
+                AppModules.Modal.alert("Success", "Your suggestion has been sent to Admin. Thank you!");
                 closePostForm();
                 return;
             }
@@ -4389,12 +4444,12 @@
                     timestamp: Date.now(),
                     likes: {}
                 }).then(() => {
-                    showCustomAlert("Success", "Published successfully!");
+                    AppModules.Modal.alert("Success", "Published successfully!");
                     closePostForm();
                     if (isPostingNews) globalDataSync();
                 }).catch(err => {
                     lastPostSentTime = 0;
-                    alert("Failed to post: " + err.message);
+                    AppModules.Modal.alert("Error", "Failed to post: " + err.message);
                 });
             };
 
@@ -4517,69 +4572,8 @@
         }
 
 
-        window.openBatchImport = () => {
-            document.getElementById('batchJsonInput').value = '';
-            document.getElementById('batchImportModal').classList.remove('hidden');
-        };
-
-        window.closeBatchImport = () => {
-            document.getElementById('batchImportModal').classList.add('hidden');
-        };
-
-        window.processBatchImport = async () => {
-            if (!isAppAdmin()) {
-                showCustomAlert("Unauthorized", "Only administrators can perform batch imports.");
-                return;
-            }
-            const raw = document.getElementById('batchJsonInput').value.trim();
-            if (!raw) return;
-            let data;
-            try {
-                data = JSON.parse(raw);
-            } catch (e) {
-                showCustomAlert("Import Error", "Invalid JSON format. Please check the template.");
-                return;
-            }
-
-            if (!Array.isArray(data)) {
-                alert("Data must be an array of announcements.");
-                return;
-            }
-
-            const btn = document.querySelector('#batchImportModal button[onclick="processBatchImport()"]');
-            const originalText = btn.innerText;
-            btn.innerText = "Publishing...";
-            btn.disabled = true;
-
-            try {
-                const promises = data.map(item => {
-                    const type = (item.type === 'club' || item.type === 'club_news') ? 'club' : 'school';
-                    return set(push(ref(db, `news/${type}`)), {
-                        title: item.title || "Untitled",
-                        desc: item.desc || "",
-                        image: null,
-                        authorId: currentUser.id,
-                        authorName: currentUser.name,
-                        timestamp: Date.now(),
-                        likes: {}
-                    });
-                });
-
-                await Promise.all(promises);
-                showCustomAlert("Success", `Successfully imported ${data.length} announcements!`);
-                closeBatchImport();
-                closePostForm();
-                globalDataSync();
-            } catch (err) {
-                alert("Import failed: " + err.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        };
 
         window.submitComment = () => {
-
             const now = Date.now();
             if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
             const input = document.getElementById('commentInput');
@@ -4594,13 +4588,13 @@
                 authorId: isAnonymous ? 'anonymous' : currentUser.id,
                 authorName: isAnonymous ? 'Anonymous' : currentUser.name,
                 timestamp: Date.now()
-            }).then(() => { input.value = ''; }).catch(e => alert(e.message));
+            }).then(() => { input.value = ''; }).catch(e => AppModules.Modal.alert("Error", e.message));
         };
 
         window.openEagleTime = () => {
             currentModule = 'eagle_time';
             const btn = document.getElementById('eagleAddBtn');
-            if (btn) btn.classList.toggle('hidden', !isAppStaff());
+            if (btn) btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
             openOverlayPage('eagleTimePage', renderEagleTime);
         };
 
@@ -4679,7 +4673,7 @@
                                 class="w-full bg-[#007AFF] text-white py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-transform">
                                 Join Session
                             </button>
-                            ${(isAppAdmin() || currentUser.id === s.teacherId) ? `
+                            ${(AppModules.User.isAdmin() || currentUser.id === s.teacherId) ? `
                                 <div class="pt-2 border-t border-gray-100 dark:border-white/5">
                                     <p class="text-xs font-bold text-gray-400 uppercase mb-2">Roster</p>
                                     <div class="space-y-1 max-h-32 overflow-y-auto">
@@ -4772,15 +4766,15 @@
         window.joinEagleSession = async (sessionId) => {
             try {
                 await update(ref(db, `eagle_time/sessions/${sessionId}/students`), { [currentUser.id]: true });
-                alert("Successfully joined Eagle Time session!");
-            } catch (e) { alert("Failed to join: " + e.message); }
+                AppModules.Modal.alert("Success", "Successfully joined Eagle Time session!");
+            } catch (e) { AppModules.Modal.alert("Error", "Failed to join: " + e.message); }
         };
 
         window.leaveEagleSession = async (sessionId) => {
-            if (!await showCustomConfirm("Cancel Registration", "Are you sure you want to cancel your registration?", "Leave")) return;
+            if (!await AppModules.Modal.confirm("Cancel Registration", "Are you sure you want to cancel your registration?", "Leave")) return;
             try {
                 await set(ref(db, `eagle_time/sessions/${sessionId}/students/${currentUser.id}`), null);
-            } catch (e) { showCustomAlert("Error", "Failed to leave: " + e.message); }
+            } catch (e) { AppModules.Modal.alert("Error", "Failed to leave: " + e.message); }
         };
 
         window.openCreateEagleForm = async () => {
@@ -4795,7 +4789,7 @@
             select.innerHTML = '<option value="">Select Teacher</option>';
             for (const uid in ALL_USERS) {
                 const u = ALL_USERS[uid];
-                if (u.email && (u.email.endsWith('@hcpss.org') || u.email === ADMIN_EMAIL)) {
+                if (u.email && (u.email.endsWith('@hcpss.org') || u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL)) {
                     const opt = document.createElement('option');
                     opt.value = uid;
                     opt.innerText = u.name;
@@ -4809,7 +4803,7 @@
             const room = document.getElementById('eagleRoomInput').value.trim();
             const teacherId = document.getElementById('eagleTeacherSelect').value;
 
-            if (!title || !room || !teacherId) return showCustomAlert("Required", "Please fill all fields");
+            if (!title || !room || !teacherId) return AppModules.Modal.alert("Required", "Please fill all fields");
 
             try {
                 const newRef = push(ref(db, 'eagle_time/sessions'));
@@ -4817,12 +4811,12 @@
                 document.getElementById('eagleCreateForm').classList.add('hidden');
                 document.getElementById('eagleTitleInput').value = '';
                 document.getElementById('eagleRoomInput').value = '';
-                showCustomAlert("Success", "Session created successfully!");
-            } catch (e) { showCustomAlert("Error", "Failed to create: " + e.message); }
+                AppModules.Modal.alert("Success", "Session created successfully!");
+            } catch (e) { AppModules.Modal.alert("Error", "Failed to create: " + e.message); }
         };
 
         window.deleteEagleSession = async (id) => {
-            if (!await showCustomConfirm("Delete Session", "Delete this session and all its registrations?", "Delete")) return;
+            if (!await AppModules.Modal.confirm("Delete Session", "Delete this session and all its registrations?", "Delete")) return;
             await set(ref(db, `eagle_time/sessions/${id}`), null);
         };
         // Grade Calculator Logic
@@ -4871,7 +4865,7 @@
             currentModule = 'cafeteria';
             const btn = document.getElementById('cafeteriaEditBtn');
             if (btn) {
-                btn.classList.toggle('hidden', !isAppStaff());
+                btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
             }
 
             document.getElementById('cafeteriaTodayDate').innerText = getLocalDateString(0);
@@ -5025,7 +5019,7 @@
 
             const isDuplicate = Object.values(cafeteriaPool).some(item => item.name.toLowerCase() === name.toLowerCase());
             if (isDuplicate) {
-                showCustomAlert("Notice", "This food is already in the pool!");
+                AppModules.Modal.alert("Notice", "This food is already in the pool!");
                 return;
             }
 
@@ -5036,7 +5030,8 @@
 
         window.deleteFoodFromPool = async (id, event) => {
             event.stopPropagation();
-            if (!confirm("Are you sure you want to delete this food from the pool?")) return;
+            const ok = await AppModules.Modal.confirm("Delete Food", "Are you sure you want to delete this food from the pool?", "Delete");
+            if (!ok) return;
             await set(ref(db, `cafeteria/pool/${id}`), null);
 
             selectedFoods.today.delete(id);
@@ -5045,7 +5040,7 @@
         };
 
         window.clearAllLocalData = async () => {
-            if (!await showCustomConfirm("Reset App", "This will wipe all locally cached messages and reload. Continue?", "Reset")) return;
+            if (!await AppModules.Modal.confirm("Reset App", "This will wipe all locally cached messages and reload. Continue?", "Reset")) return;
             try {
                 if (localDB) localDB.close();
                 // Short delay to ensure connection is closed
@@ -5070,13 +5065,13 @@
                 await update(ref(db), updates);
                 closeCafeteriaEdit();
             } catch (e) {
-                showCustomAlert("Error", "Failed to save menu");
+                AppModules.Modal.alert("Error", "Failed to save menu");
             }
         };
 
         let adminAllUsers = {};
         window.openAdminConsole = async () => {
-            if (!isAppAdmin()) return;
+            if (!AppModules.User.isAdmin()) return;
             openOverlayPage('adminConsolePage');
             const listEl = document.getElementById('adminUserList');
             listEl.innerHTML = '<div class="text-center text-gray-400 mt-20 animate-pulse">Fetching all users...</div>';
@@ -5222,28 +5217,21 @@
 
         window.confirmDeleteUser = async (userId) => {
             const u = adminAllUsers[userId] || { name: userId };
-            if (window.showCustomConfirm) {
-                const firstOk = await window.showCustomConfirm(
-                    "Destroy User Account?",
-                    `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs. Irreversible action.`,
-                    "DELETE ACCOUNT"
-                );
-                if (!firstOk) return;
+            
+            const firstOk = await AppModules.Modal.confirm(
+                "Destroy User Account?",
+                `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs. Irreversible action.`,
+                "DELETE ACCOUNT"
+            );
+            if (!firstOk) return;
 
-                const secondOk = await window.showCustomConfirm(
-                    "FINAL WARNING",
-                    `Are you absolutely sure? You are about to wipe all data for ${escapeHTML(u.name || userId)}.`,
-                    "YES, WIPE EVERYTHING"
-                );
-                if (secondOk) {
-                    deleteUserFully(userId);
-                }
-            } else {
-                if (confirm(`Delete ${u.name}? ALL chat history will be lost.`)) {
-                    if (confirm("FINAL CONFIRMATION: Wipe all data?")) {
-                        deleteUserFully(userId);
-                    }
-                }
+            const secondOk = await AppModules.Modal.confirm(
+                "FINAL WARNING",
+                `Are you absolutely sure? You are about to wipe all data for ${escapeHTML(u.name || userId)}.`,
+                "YES, WIPE EVERYTHING"
+            );
+            if (secondOk) {
+                deleteUserFully(userId);
             }
         };
 
@@ -5282,7 +5270,7 @@
                 status.innerText = `User ${userId} successfully purged from database.`;
                 setTimeout(() => status.classList.add('hidden'), 3000);
             } catch (err) {
-                showCustomAlert("Error", "Purge failed: " + err.message);
+                AppModules.Modal.alert("Error", "Purge failed: " + err.message);
                 status.innerText = "Error during purge sequence.";
             }
         };
@@ -5294,41 +5282,41 @@
             if (!c) return;
 
             // 1. Edit Name
-            const newName = await showCustomPrompt("Edit Class Name", "Enter the new name for this class:", c.name);
+            const newName = await AppModules.Modal.prompt("Edit Class Name", "Enter the new name for this class:", c.name);
             if (newName === null) return;
             if (newName.trim() && newName.trim() !== c.name) {
                 await update(ref(db, `classes/${classId}`), { name: newName.trim() });
             }
 
             // 2. Manage Roster
-            const rosterAction = await showCustomConfirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
+            const rosterAction = await AppModules.Modal.confirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
             if (rosterAction) {
-                const email = await showCustomPrompt("Add Student", "Enter the student's HCPSS email address:");
+                const email = await AppModules.Modal.prompt("Add Student", "Enter the student's HCPSS email address:");
                 if (email) {
                     const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase().trim())));
                     if (!usersSnap.exists()) {
-                        await showCustomAlert("Error", "No registered user found with that email.");
+                        await AppModules.Modal.alert("Error", "No registered user found with that email.");
                     } else {
                         const uid = Object.keys(usersSnap.val())[0];
                         await update(ref(db, `classes/${classId}/students`), { [uid]: true });
-                        await showCustomAlert("Success", "Student added to the class roster.");
+                        await AppModules.Modal.alert("Success", "Student added to the class roster.");
                     }
                 }
             }
 
-            const extAction = await showCustomConfirm("Manage Extensions", "Which extension would you like to manage?", "IR Hub", "3D Volume");
+            const extAction = await AppModules.Modal.confirm("Manage Extensions", "Which extension would you like to manage?", "IR Hub", "3D Volume");
             if (extAction !== null) {
                 const eid = extAction ? 'independent_research' : 'calc_volume_3d';
                 const name = extAction ? 'IR Navigator' : '3D Volume Visualizer';
                 const isEnabled = c.extensions && c.extensions[eid];
-                const toggle = await showCustomConfirm(
+                const toggle = await AppModules.Modal.confirm(
                     name,
                     `${name} is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b>. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
                     isEnabled ? "DEACTIVATE" : "ACTIVATE"
                 );
                 if (toggle) {
                     await update(ref(db, `classes/${classId}/extensions`), { [eid]: !isEnabled });
-                    await showCustomAlert("Success", `Extension updated successfully.`);
+                    await AppModules.Modal.alert("Success", `Extension updated successfully.`);
                 }
             }
 
@@ -5336,7 +5324,7 @@
         };
 
         window.addNewClass = async () => {
-            const name = await showCustomPrompt("Create New Class", "Enter the name for the new class:");
+            const name = await AppModules.Modal.prompt("Create New Class", "Enter the name for the new class:");
             if (!name || !name.trim()) return;
 
             try {
@@ -5349,9 +5337,9 @@
                     students: {}
                 });
                 window.renderSidebar();
-                // Removed showCustomAlert to prevent modal sticking issues
+                AppModules.Modal.alert("Success", "Class created successfully.");
             } catch (e) {
-                showCustomAlert("Error", "Failed to create class: " + e.message);
+                AppModules.Modal.alert("Error", "Failed to create class: " + e.message);
             }
         };
 
@@ -5427,32 +5415,6 @@
 
 <body class="overflow-hidden bg-[#f2f2f7] dark:bg-black text-black dark:text-white transition-colors duration-300">
 
-    <!-- Batch Import Modal -->
-    <div id="batchImportModal"
-        class="hidden fixed inset-0 z-[4001] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-all duration-300">
-        <div
-            class="bg-white dark:bg-[#1C1C1E] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col scale-100 transition-all">
-            <div class="p-5 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
-                <h3 class="font-bold text-lg">Batch Import</h3>
-                <button onclick="closeBatchImport()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-            <div class="p-6 space-y-4">
-                <p class="text-sm text-gray-500 leading-relaxed">Paste your AI-generated JSON array below. It should
-                    include <b>title</b>, <b>desc</b>, and <b>type</b> (school or club) for each item.</p>
-                <textarea id="batchJsonInput" rows="10"
-                    placeholder='[{"title": "Morning Meeting", "desc": "Join us at 8am...", "type": "school"}]'
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border-none resize-none focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
-                <button onclick="processBatchImport()"
-                    class="w-full bg-[#007AFF] text-white py-3.5 rounded-xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20">Import
-                    & Publish All</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Error Overlay -->
     <div id="errorOverlay"
@@ -5508,7 +5470,7 @@
 
         // Removed redundant showCustomAlert definition
 
-        // Removed redundant showCustomConfirm definition
+        // Removed redundant await AppModules.Modal.confirm( definition
 
         // Catch all uncaught errors
         window.addEventListener('error', function (e) { showError(e.error || e.message); });

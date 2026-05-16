@@ -43,11 +43,11 @@
  */
 
 import { db, auth, CloudDB, PATHS } from './db.js?v=4';
+import { SYSTEM_USERS, APP_CONSTANTS } from './config.js?v=4';
 
-// 全局常量
-const ADMIN_EMAIL = 'moss104088@gmail.com';
+// 全局常量 (从 Config 继承)
+const ADMIN_EMAIL = APP_CONSTANTS.ADMIN_EMAIL;
 const MOSS_ID = 'moss104088';
-const SUSHI_AVATAR = 'https://raw.githubusercontent.com/yikuansun/chs-static/main/sushi.png';
 
 export const UserModule = {
     current: null, // 当前用户状态持有者
@@ -114,9 +114,12 @@ export const UserModule = {
             });
 
             // 管理员强制头像补偿
-            if (profile.id === MOSS_ID && profile.avatar !== SUSHI_AVATAR) {
-                await CloudDB.update(PATHS.user(idPrefix), { avatar: SUSHI_AVATAR });
-                profile.avatar = SUSHI_AVATAR;
+            if (profile.id === MOSS_ID) {
+                const sysAdmin = SYSTEM_USERS[MOSS_ID];
+                if (profile.avatar !== sysAdmin.avatar) {
+                    await CloudDB.update(PATHS.user(idPrefix), { avatar: sysAdmin.avatar });
+                    profile.avatar = sysAdmin.avatar;
+                }
             }
         } else {
             // 新用户初始化
@@ -143,15 +146,19 @@ export const UserModule = {
         if (!userId) return null;
         const cleanedId = userId.toLowerCase();
 
-        // 机器人与管理员拦截逻辑
-        if (cleanedId === 'safety_bot') return { id: 'safety_bot', name: 'Safety Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png' };
-        if (cleanedId === 'advice_bot') return { id: 'advice_bot', name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
-        if (cleanedId === MOSS_ID || cleanedId === 'admin_moss') return { id: MOSS_ID, name: 'Moss', avatar: SUSHI_AVATAR, email: ADMIN_EMAIL };
+        // 1. 优先检查系统预定义账户 (Bots/Admin)
+        if (SYSTEM_USERS[cleanedId]) {
+            return SYSTEM_USERS[cleanedId];
+        }
 
+        // 2. 兼容性拦截 (针对旧代码中可能存在的 admin_moss 变体)
+        if (cleanedId === 'admin_moss') return SYSTEM_USERS[MOSS_ID];
+
+        // 3. 检查内存缓存
         if (cache && cache[cleanedId]) return cache[cleanedId];
 
         try {
-            // 使用 CloudDB 标准接口
+            // 4. 使用 CloudDB 标准接口从云端拉取
             const userData = await CloudDB.get(PATHS.user(userId));
             if (userData && cache) cache[userId] = userData;
             return userData;
