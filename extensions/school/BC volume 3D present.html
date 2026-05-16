@@ -7,18 +7,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script>
-        // 【防闪烁引擎】在 DOM 加载前立即锁定主题，防止“白闪黑”或“黑闪白”
-        (function() {
-            const saved = localStorage.getItem('bc_theme');
-            if (saved) {
-                document.documentElement.setAttribute('data-theme', saved);
-            } else {
-                // 如果是第一次加载，默认保持黑暗模式（保护眼睛），直到握手成功
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
-    </script>
+    <!-- 核心：App Bridge SDK (处理深浅色握手与同步) -->
+    <script src="../../js/app-bridge.js"></script>
+    
     
 <style>
     :root {
@@ -535,10 +526,20 @@
         document.getElementById('res').innerText = vStr;
         document.getElementById('float-val').innerText = vStr;
     }
+    // --- 核心握手协议 (Passive Initialization) ---
+    window.addEventListener('load', () => {
+        updatePreview(); 
+        // 初始同步：进入时强制对齐主程序，实现“自动识别”
+        if (AppBridge.isDark()) {
+            applyTheme('dark');
+        } else {
+            applyTheme('light');
+        }
+        render(); 
+    });
+
     /**
-     * [主题核心引擎]
-     * @param {boolean} isDark - 是否进入暗黑模式
-     * @param {boolean} persist - 是否存入本地存储（用户手动切换时为 true）
+     * [插件自主主题引擎] - 不再受主程序干预
      */
     function applyTheme(isDark, persist = false) {
         const theme = isDark ? 'dark' : 'light';
@@ -546,25 +547,10 @@
         if (persist) {
             localStorage.setItem('bc_theme', theme);
         }
-        // 如果渲染引擎已就绪，立即重绘 Plotly 图表以适应新配色
         if (typeof render === 'function') render();
     }
 
-    // --- 核心握手协议 (Smart Handshake) ---
-    window.addEventListener('message', (event) => {
-        // 1. 响应主站的同步指令
-        if (event.data && event.data.type === 'THEME_UPDATE') {
-            // 修复：始终听从主站的实时切换指令，确保全站风格统一
-            applyTheme(event.data.isDarkMode);
-        }
-    });
-
-    // 告知父窗口：握手准备就绪，可以发送初始主题了
-    try {
-        window.parent.postMessage({ type: 'EXTENSION_READY' }, '*');
-    } catch(e) {}
-
-    // 手动切换按钮逻辑
+    // 手动切换按钮逻辑 (100% 自主控制)
     const themeBtn = document.getElementById('theme-toggle');
     if (themeBtn) {
         themeBtn.onclick = () => {
@@ -572,11 +558,6 @@
             applyTheme(!isCurrentlyDark, true); // 切换并保存
         };
     }
-
-    window.onload = () => { 
-        updatePreview(); 
-        render(); 
-    };
 </script>
 
 </body>

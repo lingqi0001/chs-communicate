@@ -6,19 +6,9 @@
     <title>IR Studio | Advanced Research Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        (function() {
-            const saved = localStorage.getItem('ir_theme');
-            if (saved) {
-                document.documentElement.setAttribute('data-theme', saved);
-            } else {
-                try {
-                    const isDark = window.parent.AppModules.View.state.isDarkMode;
-                    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                } catch(e) {}
-            }
-        })();
-    </script>
+    <!-- 1. 引入 App Bridge SDK -->
+    <script src="../../js/app-bridge.js"></script>
+    
     <style>
         :root {
             --bg: #000000; --sidebar: #0C0C0E; --card: #121214; --accent: #F59E0B;
@@ -174,21 +164,10 @@
             return null;
         }
 
-        function syncTheme() {
-            const b = getBridge();
-            if (b && b.AppModules && b.AppModules.View) {
-                try {
-                    const isDark = b.AppModules.View.state.isDarkMode;
-                    document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                    const icon = document.getElementById('theme-icon');
-                    if (icon) icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
-                } catch(e) {}
-            }
-        }
+        // SDK 已处理初始化，此处不再需要 syncTheme 函数
+        
 
-        syncTheme();
         const bridgeInterval = setInterval(() => {
-            syncTheme();
             const b = getBridge();
             if (b && b.firebaseOnAuth) {
                 b.firebaseOnAuth(b.firebaseAuth, user => {
@@ -340,23 +319,20 @@
         }
 
         function applyTheme(target, save = false) {
-            const b = document.body;
-            b.setAttribute('data-theme', target);
+            const root = document.documentElement;
+            root.setAttribute('data-theme', target);
             const icon = document.getElementById('theme-icon');
             if (icon) icon.setAttribute('data-lucide', target === 'dark' ? 'sun' : 'moon');
             if (save) localStorage.setItem('ir_theme', target);
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // Listen for parent messages
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'THEME_UPDATE') {
-                applyTheme(event.data.isDarkMode ? 'dark' : 'light', true);
-            }
-        });
+        // 已迁移至 SDK，移除本地冗余监听
+        
 
         function toggleTheme() {
-            const cur = document.body.getAttribute('data-theme') || 'dark';
+            // 核心修复：去 html 标签（documentElement）上获取属性，而不是 body
+            const cur = document.documentElement.getAttribute('data-theme') || 'dark';
             applyTheme(cur === 'dark' ? 'light' : 'dark', true);
         }
 
@@ -398,15 +374,20 @@
         function seedTestData() { const b = getBridge(); alert("Seeding..."); const ns = ["Alice R.", "Bob S.", "Charlie L.", "Diana I.", "Ethan S."]; ns.forEach(async (n, i) => { await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/test_${i}`), { name: n, percent: 45, stage: 0 }); }); alert("Done."); }
         
         window.onload = () => {
-            const saved = localStorage.getItem('ir_theme');
-            if (saved) {
-                applyTheme(saved);
-            } else {
-                try {
-                    const isDark = window.parent.AppModules.View.state.isDarkMode;
-                    applyTheme(isDark ? 'dark' : 'light');
-                } catch(e) {}
-            }
+            // 核心：使用 SDK 进行初始化同步
+            const initTheme = () => {
+                // 核心修复：进入时优先对齐主程序，实现“自动识别”
+                if (AppBridge.isDark()) {
+                    applyTheme('dark');
+                } else {
+                    applyTheme('light');
+                }
+            };
+
+            initTheme();
+            // 延迟 150ms 再校准一次，防止主程序加载过慢
+            setTimeout(initTheme, 150);
+            
             jump(0);
         };
     </script>
