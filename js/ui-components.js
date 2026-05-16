@@ -21,7 +21,7 @@
  */
 
 import { UIUtils } from './utils.js';
-import { UserModule } from './user.js?v=2';
+import { UserModule } from './user.js';
 
 export const UIComponents = {
     /**

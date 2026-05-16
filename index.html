@@ -60,16 +60,16 @@
         // 导入云消息库：处理移动端 PWA 推送通知
         import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
-        import { NotifyModule } from './js/notify.js?v=23';
-        import { ModalModule } from './js/modal.js?v=4';
-        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js?v=4';
-        import { UserModule } from './js/user.js?v=4';
-        import { ViewModule } from './js/view.js?v=4';
-        import { UIComponents } from './js/ui-components.js?v=4';
-        import { UIUtils, DateUtils } from './js/utils.js?v=4';
-        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js?v=4';
-        import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js?v=4';
-        import * as Config from './js/config.js?v=4';
+        import { NotifyModule } from './js/notify_v2.js';
+        import { ModalModule } from './js/modal.js';
+        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
+        import { UserModule } from './js/user.js';
+        import { ViewModule } from './js/view.js';
+        import { UIComponents } from './js/ui-components.js';
+        import { UIUtils, DateUtils } from './js/utils.js';
+        import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
+        import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
+        import * as Config from './js/config.js';
 
         // 命名空间初始化 (全站 8 大核心模块)
         // 注入长文本内容
@@ -2646,8 +2646,9 @@
                     displayName = user?.name || id;
                     displayEmail = user?.email || id;
                     avatarHtml = ''; // Individual users have no avatar as per request
-                    const isAdminUser = user.role === 'admin' || user.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
-                    const isTeacherUser = user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'));
+                    
+                    const isAdminUser = user ? (user.role === 'admin' || user.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) : false;
+                    const isTeacherUser = user ? (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'))) : false;
 
                     if (user && isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
                     else if (user && isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';

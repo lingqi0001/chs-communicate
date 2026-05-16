@@ -42,8 +42,8 @@
  * ==================================================================================
  */
 
-import { db, auth, CloudDB, PATHS } from './db.js?v=4';
-import { SYSTEM_USERS, APP_CONSTANTS } from './config.js?v=4';
+import { db, auth, CloudDB, PATHS } from './db.js';
+import { SYSTEM_USERS, APP_CONSTANTS } from './config.js';
 
 // 全局常量 (从 Config 继承)
 const ADMIN_EMAIL = APP_CONSTANTS.ADMIN_EMAIL;
