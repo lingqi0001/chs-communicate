@@ -657,5 +657,133 @@ export const ViewModule = {
             const active = (activeTab === 'messages');
             msgBtn.innerHTML = `<div class="relative">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-xs font-medium" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Messages</span>`;
         }
+    },
+
+    /**
+     * Apply dark/light/system theme
+     */
+    applyTheme: function (mode) {
+        if (mode === 'system') {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.setDarkMode(isDark, 'system');
+        } else {
+            this.setDarkMode(mode === 'dark', mode);
+        }
+        if (typeof window.updateSettingsLabels === 'function') {
+            window.updateSettingsLabels();
+        }
+    },
+
+    /**
+     * Toggle settings modal visibility
+     */
+    toggleSettings: function (view = 'settings', currentUser = None) {
+        const modal = document.getElementById('settingsModal');
+        const sv = document.getElementById('settingsView');
+        const dv = document.getElementById('donationView');
+        const title = document.getElementById('settingsModalTitle');
+        if (!modal || !sv || !dv || !title) return;
+
+        if (modal.classList.contains('hidden')) {
+            if (view === 'settings') {
+                sv.classList.remove('hidden');
+                dv.classList.add('hidden');
+                title.innerText = "Settings";
+                if (currentUser && currentUser.name) {
+                    const parts = currentUser.name.split(' ');
+                    const firstNameEl = document.getElementById('firstNameInput');
+                    const lastNameEl = document.getElementById('lastNameInput');
+                    if (firstNameEl) firstNameEl.value = parts[0] || '';
+                    if (lastNameEl) lastNameEl.value = parts.slice(1).join(' ') || '';
+                }
+            } else {
+                sv.classList.add('hidden');
+                dv.classList.remove('hidden');
+                title.innerText = "Support Development";
+                // Reset QR view to show buttons
+                const qrContainer = document.getElementById('donationQRContainer');
+                const donationButtons = document.getElementById('donationButtons');
+                if (qrContainer) qrContainer.classList.add('hidden');
+                if (donationButtons) donationButtons.classList.remove('hidden');
+            }
+            modal.classList.remove('hidden', 'fade-out');
+            modal.classList.add('fade-in');
+        } else {
+            modal.classList.add('fade-out');
+            setTimeout(() => modal.classList.add('hidden'), 250);
+        }
+    },
+
+    /**
+     * Open Donation QR code view
+     */
+    openDonationQR: function (method, fallbackUrl, donations = {}) {
+        const qrContainer = document.getElementById('donationQRContainer');
+        const qrImg = document.getElementById('donationQRImg');
+        const donationButtons = document.getElementById('donationButtons');
+        if (!qrContainer || !qrImg) return;
+
+        qrImg.src = '';
+        qrImg.onerror = () => {
+            qrImg.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect width="200" height="200" fill="%23f9f9fb"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="system-ui" font-size="14" fill="%23999"%3EQR Code Coming Soon%3C/text%3E%3C/svg%3E';
+        };
+
+        qrImg.src = donations[method] || fallbackUrl;
+        qrContainer.classList.remove('hidden');
+        if (donationButtons) donationButtons.classList.add('hidden');
+    },
+
+    /**
+     * Close Donation QR view
+     */
+    closeDonationQR: function () {
+        const qrContainer = document.getElementById('donationQRContainer');
+        const donationButtons = document.getElementById('donationButtons');
+        if (qrContainer) qrContainer.classList.add('hidden');
+        if (donationButtons) donationButtons.classList.remove('hidden');
+    },
+
+    /**
+     * Toggle custom dropdown visibility
+     */
+    toggleDropdown: function (id, e) {
+        if (e) e.stopPropagation();
+        const dropdown = document.getElementById(id);
+        if (!dropdown) return;
+        const isHidden = dropdown.classList.contains('hidden');
+
+        document.querySelectorAll('.custom-dropdown').forEach(el => {
+            if (el.id !== id) {
+                el.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => { if (el.classList.contains('opacity-0')) el.classList.add('hidden'); }, 200);
+            }
+        });
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+            requestAnimationFrame(() => dropdown.classList.remove('opacity-0', 'scale-95'));
+        } else {
+            dropdown.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => { if (dropdown.classList.contains('opacity-0')) dropdown.classList.add('hidden'); }, 200);
+        }
+    },
+
+    /**
+     * Sidebar navigation going back
+     */
+    goBackToClassList: function () {
+        window.currentClassId = null;
+        window._isPopNav = true;
+        if (typeof window.renderSidebar === 'function') {
+            window.renderSidebar(true);
+        }
+    },
+
+    goBackToRecent: function () {
+        window.sidebarMode = 'recent';
+        window._isPopNav = true;
+        if (typeof window.renderSidebar === 'function') {
+            window.renderSidebar(true);
+        }
     }
 };

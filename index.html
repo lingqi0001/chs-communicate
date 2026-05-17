@@ -34,8 +34,8 @@
             }
         })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="apple-touch-icon" href="apple-touch-icon.svg">
+    <link rel="icon" type="image/svg+xml" href="resources/favicon.svg">
+    <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">
     <!-- PWA 配置：支持离线运行和安装到桌面 -->
     <link rel="manifest" href="manifest.json">
     <!-- 移动端顶部状态栏颜色 (Android/Chrome) -->
@@ -54,16 +54,16 @@
     <script type="importmap">
     {
       "imports": {
-        "./js/config.js": "./js/config.js?v=20260516-2240",
-        "./js/db.js": "./js/db.js?v=20260516-2240",
-        "./js/user.js": "./js/user.js?v=20260516-2240",
-        "./js/view.js": "./js/view.js?v=20260516-2240",
-        "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2240",
-        "./js/modal.js": "./js/modal.js?v=20260516-2240",
-        "./js/utils.js": "./js/utils.js?v=20260516-2240",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260516-2240",
-        "./js/content.js": "./js/content.js?v=20260516-2240",
-        "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2240"
+        "./js/config.js": "./js/config.js?v=20260516-2380",
+        "./js/db.js": "./js/db.js?v=20260516-2380",
+        "./js/user.js": "./js/user.js?v=20260516-2380",
+        "./js/view.js": "./js/view.js?v=20260516-2380",
+        "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
+        "./js/modal.js": "./js/modal.js?v=20260516-2380",
+        "./js/utils.js": "./js/utils.js?v=20260516-2380",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260516-2380",
+        "./js/content.js": "./js/content.js?v=20260516-2380",
+        "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380"
       }
     }
     </script>
@@ -83,7 +83,7 @@
         import { UserModule } from './js/user.js';
         import { ViewModule } from './js/view.js';
         import { UIComponents } from './js/ui-components.js';
-        import { UIUtils, DateUtils } from './js/utils.js';
+        import { UIUtils, DateUtils, ImageUtils } from './js/utils.js';
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
 
         // 挂载到全局
@@ -94,7 +94,7 @@
             User: UserModule,
             View: ViewModule,
             UI: UIComponents,
-            Utils: { ...UIUtils, ...DateUtils },
+            Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         };
 
@@ -106,7 +106,7 @@
 
         // 注入版本号
         const av = document.getElementById('appVersionLabel');
-        if (av) av.innerText = `Build: 20260516-2240`;
+        if (av) av.innerText = `Build: 20260516-2380`;
 
         // 视图初始化 (VH Patch, Theme, Viewport)
         AppModules.View.init();
@@ -1283,15 +1283,7 @@
         /**
          * [UI 主题引擎] 全局皮肤切换 (已迁移至 ViewModule)
          */
-        window.applyTheme = (mode) => {
-            if (mode === 'system') {
-                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                AppModules.View.setDarkMode(isDark, 'system');
-            } else {
-                AppModules.View.setDarkMode(mode === 'dark', mode);
-            }
-            if (window.updateSettingsLabels) window.updateSettingsLabels();
-        };
+
 
         /**
          * [搜索辅助] 清除全局搜索状态
@@ -1778,89 +1770,19 @@
             };
         };
 
-        window.toggleSettings = (view = 'settings') => {
-            const modal = document.getElementById('settingsModal');
-            const sv = document.getElementById('settingsView');
-            const dv = document.getElementById('donationView');
-            const cv = document.getElementById('changelogView');
-            const title = document.getElementById('settingsModalTitle');
 
-            if (modal.classList.contains('hidden')) {
-                if (view === 'settings') {
-                    sv.classList.remove('hidden');
-                    dv.classList.add('hidden');
-                    title.innerText = "Settings";
-                    if (currentUser && currentUser.name) {
-                        const parts = currentUser.name.split(' ');
-                        document.getElementById('firstNameInput').value = parts[0] || '';
-                        document.getElementById('lastNameInput').value = parts.slice(1).join(' ') || '';
-                    }
-                } else {
-                    sv.classList.add('hidden');
-                    dv.classList.remove('hidden');
-                    title.innerText = "Support Development";
-                    // Reset QR view to show buttons
-                    document.getElementById('donationQRContainer')?.classList.add('hidden');
-                    document.getElementById('donationButtons')?.classList.remove('hidden');
-                }
-                modal.classList.remove('hidden', 'fade-out');
-                modal.classList.add('fade-in');
-            } else {
-                modal.classList.add('fade-out');
-                setTimeout(() => modal.classList.add('hidden'), 250);
-            }
-        };
-
-        window.toggleDonation = () => toggleSettings('donation');
-
-        window.openDonationQR = (method, fallbackUrl) => {
-            const qrContainer = document.getElementById('donationQRContainer');
-            const qrImg = document.getElementById('donationQRImg');
-            const donationButtons = document.getElementById('donationButtons');
-            if (!qrContainer || !qrImg) return;
-
-            // Clear previous image and show loading state if needed
-            qrImg.src = '';
-            qrImg.onerror = () => {
-                qrImg.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect width="200" height="200" fill="%23f9f9fb"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="system-ui" font-size="14" fill="%23999"%3EQR Code Coming Soon%3C/text%3E%3C/svg%3E';
-            };
-
-            // Use database URL if available, otherwise fallback to local path
-            qrImg.src = DONATIONS[method] || fallbackUrl;
-            qrContainer.classList.remove('hidden');
-            donationButtons.classList.add('hidden');
-        };
-
-        window.closeDonationQR = () => {
-            const qrContainer = document.getElementById('donationQRContainer');
-            const donationButtons = document.getElementById('donationButtons');
-            if (qrContainer) qrContainer.classList.add('hidden');
-            if (donationButtons) donationButtons.classList.remove('hidden');
-        };
 
         // 核心视图与标签导航已迁移至 AppModules.View
         window.AppView = AppModules.View;
         window.switchLeftTab = (tab) => AppModules.View.switchLeftTab(tab);
-        window.toggleDropdown = (id, e) => {
-            if (e) e.stopPropagation();
-            const dropdown = document.getElementById(id);
-            const isHidden = dropdown.classList.contains('hidden');
-
-            document.querySelectorAll('.custom-dropdown').forEach(el => {
-                if (el.id !== id) {
-                    el.classList.add('opacity-0', 'scale-95');
-                    setTimeout(() => { if (el.classList.contains('opacity-0')) el.classList.add('hidden'); }, 200);
-                }
-            });
-
-            if (isHidden) {
-                dropdown.classList.remove('hidden');
-                requestAnimationFrame(() => dropdown.classList.remove('opacity-0', 'scale-95'));
-            } else {
-                dropdown.classList.add('opacity-0', 'scale-95');
-                setTimeout(() => { if (dropdown.classList.contains('opacity-0')) dropdown.classList.add('hidden'); }, 200);
-            }
-        };
+        window.applyTheme = (mode) => AppModules.View.applyTheme(mode);
+        window.toggleSettings = (view = 'settings') => AppModules.View.toggleSettings(view, currentUser);
+        window.toggleDonation = () => AppModules.View.toggleSettings('donation', currentUser);
+        window.openDonationQR = (method, fallbackUrl) => AppModules.View.openDonationQR(method, fallbackUrl, DONATIONS);
+        window.closeDonationQR = () => AppModules.View.closeDonationQR();
+        window.toggleDropdown = (id, e) => AppModules.View.toggleDropdown(id, e);
+        window.goBackToClassList = () => AppModules.View.goBackToClassList();
+        window.goBackToRecent = () => AppModules.View.goBackToRecent();
         // 监听标签页切换来清除当前聊天的未读点
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && activeTargetId) {
@@ -2550,17 +2472,7 @@
             });
         };
 
-        window.goBackToClassList = () => {
-            window.currentClassId = null;
-            window._isPopNav = true;
-            window.renderSidebar(true);
-        };
 
-        window.goBackToRecent = () => {
-            window.sidebarMode = 'recent';
-            window._isPopNav = true;
-            window.renderSidebar(true);
-        };
 
         // Helper: Existing User Sidebar Logic (Extracted)
         async function renderUserSidebarItems(subList) {
@@ -3337,64 +3249,7 @@
             await window.MessageEngine.sendText(customVal);
         };
 
-        window.handleImg = async (e) => {
-            let files = Array.from(e.target.files);
-            if (!files.length) return;
-
-            // Hard Cap: Only allow first 5 images in one go (Simplified Limit)
-            if (files.length > 5) {
-                await AppModules.Modal.alert("Limit Exceeded", "Maximum 5 images allowed per message. The rest will be ignored.");
-                files = files.slice(0, 5);
-            }
-
-            const input = document.getElementById('u-msg');
-            const originalPlaceholder = input ? input.placeholder : "iMessage";
-
-            try {
-                if (input) {
-                    input.placeholder = "Processing...";
-                    input.disabled = true;
-                }
-
-                const processAndCompress = async (file) => {
-                    return await new Promise((res, rej) => {
-                        const r = new FileReader();
-                        r.onload = (ev) => {
-                            const i = new Image();
-                            i.onerror = () => rej(new Error("Image failed"));
-                            i.src = ev.target.result;
-                            i.onload = () => {
-                                const c = document.createElement('canvas');
-                                const ctx = c.getContext('2d');
-                                const MAX_SIZE = 800;
-                                let width = i.width; let height = i.height;
-                                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
-                                else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-                                c.width = width; c.height = height;
-                                ctx.drawImage(i, 0, 0, width, height);
-                                res(c.toDataURL('image/jpeg', 0.6));
-                            };
-                        };
-                        r.readAsDataURL(file);
-                    });
-                };
-
-                const base64s = await Promise.all(files.map(processAndCompress));
-                if (base64s.length > 0) {
-                    if (input) input.placeholder = "Uploading images...";
-                    await window.MessageEngine.sendImages(base64s);
-                }
-            } catch (err) {
-                console.error("Image sending error:", err);
-                await AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
-            } finally {
-                if (input) {
-                    input.disabled = false;
-                    input.placeholder = "Type a message...Use Shift+Enter to change lines";
-                }
-                e.target.value = '';
-            }
-        };
+        window.handleImg = (e) => AppModules.Utils.Image.handleUploadEvent(e, db, auth, get, ref, update, set);
 
         // Advanced Textarea Logic: Auto-resize, Shortcuts, and Limits
         (function setupChatInput() {
@@ -3435,56 +3290,7 @@
             setTimeout(adjustHeight, 100);
         })();
 
-        // Helper: Upload to Storage and record in DB
-        async function checkImageLimitAndCleanup(files) {
-            const uidLower = currentUser.id.toLowerCase();
-            const snap = await get(ref(db, `user_image_index/${uidLower}`));
-            const uploads = snap.val() || {};
-            const keys = Object.keys(uploads);
 
-            // Calculate current TOTAL images
-            let currentTotalImages = 0;
-            for (const k in uploads) currentTotalImages += (uploads[k].imgCount || 1);
-
-            console.log(`Quota Check: Current stored=${currentTotalImages}, New=${files.length}, Total=${currentTotalImages + files.length}/15`);
-
-            if (currentTotalImages + files.length > 15) {
-                // Step 1: First Confirmation
-                const step1 = await AppModules.Modal.confirm(
-                    "Storage Limit Reached",
-                    `You currently have ${currentTotalImages} images saved. Sending these ${files.length} images will exceed your 15-image limit.`
-                );
-                if (!step1) return false;
-
-                // Step 2: Final Warning
-                const step2 = await AppModules.Modal.confirm(
-                    "Confirm Expiration",
-                    "Are you REALLY sure? This will cause your oldest photos to be marked as expired and removed from the server history.",
-                    "Yes, I'm Sure"
-                );
-                if (!step2) return false;
-
-                // Execution
-                const sortedKeys = keys.sort((a, b) => (uploads[a].timestamp || 0) - (uploads[b].timestamp || 0));
-                let neededToDelete = (currentTotalImages + files.length) - 15;
-
-                for (const k of sortedKeys) {
-                    if (neededToDelete <= 0) break;
-                    const item = uploads[k];
-                    if (!item || !item.chatId || !item.msgKey) continue;
-                    try {
-                        await update(ref(db, `messages/${item.chatId}/${item.msgKey}`), {
-                            text: "Image Expired",
-                            type: "text",
-                            isExpired: true
-                        });
-                        neededToDelete -= (item.imgCount || 1);
-                    } catch (e) { }
-                    await set(ref(db, `user_image_index/${uidLower}/${k}`), null);
-                }
-            }
-            return true;
-        }
 
         window.adminPurgeImages = async () => {
             if (!AppModules.User.isAdmin()) return;
@@ -3542,31 +3348,14 @@
 
         /* --- FIREBASE STORAGE MIGRATION HELPER --- */
         window.uploadImageToStorage = async function (base64Data, folder = 'uploads') {
-            if (!base64Data || !base64Data.startsWith('data:image')) return null;
-            try {
-                // Generate a unique filename using timestamp and random string
-                const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-
-                // Generate path based on security rules (Chats are isolated by UID)
-                let path = `${folder}/${filename}`;
-                if (folder === 'chats' && auth.currentUser) {
-                    path = `chats/${auth.currentUser.uid}/${filename}`;
-                }
-
-                const storageRef = sRef(storage, path);
-
-                // Upload the base64 string as a DATA_URL
-                const snapshot = await uploadString(storageRef, base64Data, 'data_url');
-                console.log('Storage: Upload successful', snapshot.metadata.fullPath);
-
-                // Get and return the public download URL
-                const downloadURL = await getDownloadURL(storageRef);
-                return downloadURL;
-            } catch (error) {
-                console.error('Storage: Upload failed', error);
-                AppModules.Modal.alert("Upload Error", "Failed to save image to cloud. Using temporary local data instead.");
-                return base64Data; // Fallback to base64 if storage fails (emergency mode)
-            }
+            return await AppModules.Utils.Image.uploadToStorage(
+                base64Data,
+                (path) => sRef(storage, path),
+                uploadString,
+                getDownloadURL,
+                auth,
+                folder
+            );
         };
 
         window.toggleGlobalPhotos = async (enabled) => {
@@ -3616,72 +3405,72 @@
         };
 
 
-        let _overlayZBase = 150;
 
-        function openOverlayPage(pageId, init) {
-            document.body.classList.add('is-fullscreen');
-            const page = document.getElementById(pageId);
-            if (!page) return;
 
-            const prevActiveId = OVERLAY_PAGE_IDS.find(id => {
-                if (id === pageId) return false;
-                const el = document.getElementById(id);
-                return el && !el.classList.contains('hidden');
-            });
 
-            OVERLAY_PAGE_IDS.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.zIndex = String(_overlayZBase);
-            });
-            page.style.zIndex = String(_overlayZBase + 2);
 
-            page.classList.add('translate-x-full');
-            page.classList.remove('hidden');
-            requestAnimationFrame(() => requestAnimationFrame(() => page.classList.remove('translate-x-full')));
 
-            // 注册到层级管理
-            if (window.AppModules && window.AppModules.View) {
-                window.AppModules.View.registerLayer(pageId, () => {
-                    window._isPopStateClosing = true;
-                    closeOverlayPage(pageId);
-                    setTimeout(() => { window._isPopStateClosing = false; }, 420);
-                });
-            }
 
-            if (init) init();
 
-            if (prevActiveId) {
-                setTimeout(() => {
-                    const prev = document.getElementById(prevActiveId);
-                    if (prev) {
-                        prev.classList.add('hidden');
-                        prev.classList.add('translate-x-full');
-                        prev.style.zIndex = '';
-                    }
-                }, 420);
-            }
-        }
 
-        function closeOverlayPage(pageId, callback) {
-            document.body.classList.remove('is-fullscreen');
-            const page = document.getElementById(pageId);
-            if (!page || page.classList.contains('hidden')) return;
-            page.classList.add('translate-x-full');
 
-            // 卸载层级
-            if (window.AppModules && window.AppModules.View) {
-                window.AppModules.View.unregisterLayer(pageId);
-                if (!window._isPopStateClosing) {
-                    history.back();
-                }
-            }
 
-            setTimeout(() => {
-                page.classList.add('hidden');
-                page.style.zIndex = '';
-                if (callback) callback();
-            }, 400);
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         // Extension Management Logic
         let _currentExtensionUrl = '';
@@ -3739,7 +3528,7 @@
                 document.body.classList.add('is-fullscreen');
             }
 
-            openOverlayPage('extensionPage');
+            AppModules.View.openOverlay('extensionPage', { zIndex: AppModules.View.CONSTANTS.Z_INDEX.ADMIN, isExclusive: true });
         };
 
         // ==========================================
@@ -3784,10 +3573,11 @@
         });
 
         window.closeExtension = () => {
-            closeOverlayPage('extensionPage', () => {
-                document.body.classList.remove('is-fullscreen');
-                document.getElementById('extensionIframe').src = 'about:blank';
-                _currentExtensionUrl = '';
+            AppModules.View.closeOverlay('extensionPage', {
+                onClose: () => {
+                    document.getElementById('extensionIframe').src = 'about:blank';
+                    _currentExtensionUrl = '';
+                }
             });
         };
 
@@ -3831,14 +3621,16 @@
                 }
             }
 
-            openOverlayPage(pageId, () => setModuleSort('latest'));
+            AppModules.View.openOverlay(pageId, { onOpen: () => setModuleSort('latest'), zIndex: AppModules.View.CONSTANTS.Z_INDEX.MODULE, isExclusive: true });
         };
 
         window.closeModule = () => {
             const pageId = MODULE_PAGE_MAP[currentModule];
-            closeOverlayPage(pageId, () => {
-                if (moduleListener) { moduleListener(); moduleListener = null; }
-                currentModule = null;
+            AppModules.View.closeOverlay(pageId, {
+                onClose: () => {
+                    if (moduleListener) { moduleListener(); moduleListener = null; }
+                    currentModule = null;
+                }
             });
         };
 
@@ -4615,12 +4407,14 @@
             currentModule = 'eagle_time';
             const btn = document.getElementById('eagleAddBtn');
             if (btn) btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
-            openOverlayPage('eagleTimePage', renderEagleTime);
+            AppModules.View.openOverlay('eagleTimePage', { onOpen: renderEagleTime, zIndex: AppModules.View.CONSTANTS.Z_INDEX.EAGLE_TIME, isExclusive: true });
         };
 
         window.closeEagleTime = () => {
-            closeOverlayPage('eagleTimePage', () => {
-                currentModule = null;
+            AppModules.View.closeOverlay('eagleTimePage', {
+                onClose: () => {
+                    currentModule = null;
+                }
             });
         };
 
@@ -4896,7 +4690,7 @@
                 if (cafeteriaListener2) { cafeteriaListener2(); cafeteriaListener2 = null; }
             };
 
-            openOverlayPage('cafeteriaPage', loadCafeteriaData);
+            AppModules.View.openOverlay('cafeteriaPage', { onOpen: loadCafeteriaData, zIndex: AppModules.View.CONSTANTS.Z_INDEX.MODULE, isExclusive: true });
         };
 
         function loadCafeteriaData() {
@@ -5092,7 +4886,7 @@
         let adminAllUsers = {};
         window.openAdminConsole = async () => {
             if (!AppModules.User.isAdmin()) return;
-            openOverlayPage('adminConsolePage');
+            AppModules.View.openOverlay('adminConsolePage', { zIndex: AppModules.View.CONSTANTS.Z_INDEX.ADMIN, isExclusive: true });
             const listEl = document.getElementById('adminUserList');
             listEl.innerHTML = '<div class="text-center text-gray-400 mt-20 animate-pulse">Fetching all users...</div>';
             try {
@@ -5105,9 +4899,12 @@
         };
 
         window.closeAdminConsole = () => {
-            closeOverlayPage('adminConsolePage');
-            document.getElementById('adminUserSearch').value = '';
-            document.getElementById('scanStatus').classList.add('hidden');
+            AppModules.View.closeOverlay('adminConsolePage', {
+                onClose: () => {
+                    document.getElementById('adminUserSearch').value = '';
+                    document.getElementById('scanStatus').classList.add('hidden');
+                }
+            });
         };
 
         window.filterAdminUsers = () => {
@@ -5468,18 +5265,10 @@
         };
         // Global UI helpers
         window.hideLoading = function () {
-            const lp = document.getElementById('loadingPage');
-            if (lp) {
-                lp.classList.add('opacity-0');
-                setTimeout(function () {
-                    lp.classList.add('hidden');
-                    // Show compatibility info for first-time users
-                    if (!localStorage.getItem('compatibility_dismissed')) {
-                        var cp = document.getElementById('compatibilityPage');
-                        if (cp) cp.classList.remove('hidden');
-                    }
-                }, 500);
-            }
+            AppModules.Utils.hideLoading(() => {
+                var cp = document.getElementById('compatibilityPage');
+                if (cp) cp.classList.remove('hidden');
+            });
         };
 
         window.dismissCompatibility = function () {
@@ -5798,13 +5587,13 @@
                             contributions help keep the project running!</p>
                     </div>
                     <div id="donationButtons" class="space-y-3">
-                        <button onclick="openDonationQR('paypal', './donate/paypal-qr.jpg')"
+                        <button onclick="openDonationQR('paypal', './resources/donate/paypal-qr.jpg')"
                             class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
                             <span class="font-bold">PayPal</span>
                             <span
                                 class="w-6 h-6 rounded-full bg-[#003087] text-white font-black text-sm flex items-center justify-center">P</span>
                         </button>
-                        <button onclick="openDonationQR('wechat', './donate/wechat-qr.png')"
+                        <button onclick="openDonationQR('wechat', './resources/donate/wechat-qr.png')"
                             class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
                             <span class="font-bold">WeChat Pay</span>
                             <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
@@ -5812,7 +5601,7 @@
                                     d="M8.6 13.5c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zm6.8 0c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zM12 2C6.5 2 2 5.8 2 10.5c0 2.6 1.4 4.9 3.6 6.4L5 19.3c-.1.3.1.6.4.5l3.2-1.6c1.1.3 2.2.5 3.4.5 5.5 0 10-3.8 10-8.5S17.5 2 12 2zm6.6 13.9c1.6-1.1 2.6-2.8 2.6-4.6 0-3.8-3.6-6.9-8-6.9s-8 3.1-8 6.9c0 1.9 1 3.6 2.6 4.7l-.4 2c0 .2.1.3.3.3l2.2-1.1c.9.2 1.8.3 2.7.3s1.9-.1 2.8-.3l2.1 1.1c.2.1.4-.1.3-.3l-.4-2.1z" />
                             </svg>
                         </button>
-                        <button onclick="openDonationQR('alipay', './donate/alipay-qr.jpg')"
+                        <button onclick="openDonationQR('alipay', './resources/donate/alipay-qr.jpg')"
                             class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
                             <span class="font-bold">Alipay</span>
                             <span

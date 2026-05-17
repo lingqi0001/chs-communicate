@@ -217,7 +217,7 @@ export const NotifyModule = {
         if (!favicon) return;
 
         if (!show) {
-            favicon.href = 'favicon.svg';
+            favicon.href = 'resources/favicon.svg';
             return;
         }
 

@@ -1,0 +1,6 @@
+{
+  "files.exclude": {
+    "_config.yml": true,
+    ".nojekyll": true
+  }
+}
