@@ -1,0 +1,895 @@
+﻿diff --git a/index.html b/index.html
+index 26130b9..3f6c2a1 100644
+--- a/index.html
++++ b/index.html
+@@ -89,6 +89,8 @@
+         import { SyncModule } from './js/sync.js';
+         import { ExtensionModule } from './js/extensions.js';
+         import { AuthModule } from './js/auth.js';
++        import { SecurityModule } from './js/security.js';
++        import { SearchModule } from './js/search.js';
+ 
+         // 鎵撳嵃搴旂敤鐗堟湰鍙凤紝鏂逛究璋冭瘯鏃剁‘璁ょ紦瀛樼姸鎬?         console.log('App: Version 2026-05-02-2115 (Latest)');
+@@ -104,6 +106,8 @@
+             UI: UIComponents,
+             Sync: SyncModule,
+             Extension: ExtensionModule,
++            Security: SecurityModule,
++            Search: SearchModule,
+             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
+             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
+         });
+@@ -142,7 +146,7 @@
+ 
+         // 妗ユ帴 UserModule锛氶€昏緫宸插叏闈㈣縼绉昏嚦 AppModules.User 鍛藉悕绌洪棿
+         window.UserModule = UserModule;
+-        window.fetchUser = (id) => AppModules.User.fetchUser(id, ALL_USERS);
++        window.fetchUser = (id) => AppModules.Security.fetchUser(id);
+ 
+         // 搴旂敤杩愯鏃剁姸鎬佺鐞?         let ALL_USERS = { ...SYSTEM_USERS };
+@@ -201,6 +205,12 @@
+             configurable: true
+         });
+ 
++        Object.defineProperty(window, 'modulePosts', {
++            get: () => modulePosts,
++            set: (val) => { modulePosts = val; },
++            configurable: true
++        });
++
+         const EAGLE_ICON = APP_CONSTANTS.EAGLE_ICON;
+         const EAGLE_ICON_BW = APP_CONSTANTS.EAGLE_ICON_BW;
+ 
+@@ -310,16 +320,9 @@
+         // 閫氱煡闊虫晥瀵硅薄鐢?AppModules.Notify 绠＄悊
+         const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
+ 
+-        // --- 鍙戦€侀鐜囬檺鍒?(Rate Limiting) ---
+-        // 鏍稿績瀹夊叏绛栫暐锛氶€氳繃鍓嶇 CD (鍐峰嵈鏃堕棿) 鍑忓皯鏈嶅姟鍣ㄨ礋鎷呭苟鎷︽埅鑴氭湰鐏屾按銆?-        let lastMsgSentTime = 0;
+-        let lastPostSentTime = 0;
+-        let lastCommentSentTime = 0;
+-        const MSG_COOLDOWN = LIMITS.MSG_COOLDOWN;
+-        const POST_COOLDOWN = LIMITS.POST_COOLDOWN;
+-        const COMMENT_COOLDOWN = LIMITS.COMMENT_COOLDOWN;
+-
+-
++        // --- 鍒濆鍖?SecurityModule ---
++        console.log('App: Initializing SecurityModule...');
++        SecurityModule.init(db);
+ 
+         // --- 鍒濆鍖?AuthModule ---
+         console.log('App: Initializing AuthModule...');
+@@ -416,9 +419,10 @@
+             }
+ 
+             AppModules.View.showPage('mainPage');
+-            initUserObserver();         // 鍚姩渚ц竟鏍忕敤鎴锋洿鏂扮洃鍚?+            AppModules.Security.initSecurityObserver(); // 鍚姩鐢ㄦ埛鍒犻櫎瀹夊叏鐩戞祴
++            initChatListObserver();     // 鍚姩渚ц竟鏍忕敤鎴峰強鑱婂ぉ鍒楄〃鏇存柊鐩戝惉
+             initSettingsUI();           // 娓叉煋璁剧疆鐣岄潰
+-            updateNewsAccess();         // 璁＄畻鍏憡鍙戝竷鏉冮檺
++            AppModules.Security.updateNewsAccess();     // 璁＄畻鍏憡鍙戝竷鏉冮檺
+             showSidebar();              // 灞曠ず宸︿晶瀵艰埅鏍?             AppModules.Notify.initMonitor();       // 鏍稿績锛氬惎鍔ㄥ叏灞€娑堟伅鐩戞帶锛堢孩鐐规彁绀猴級
+             AppModules.Notify.requestPermission(); // 灏濊瘯鐢宠娑堟伅鎺ㄩ€佹潈闄?@@ -461,21 +465,7 @@
+         };
+         // 閫氱煡鏂规硶宸茶縼绉昏嚦 AppModules.Notify
+ 
+-        /**
+-         * [UI 鏉冮檺鎺у埗] 鏇存柊鈥滃彂甯冨叕鍛娾€濇寜閽殑鍙鎬?-         * 閫昏緫锛氬彧鏈夎€佸笀 (Teacher) 鎴栫鐞嗗憳 (Admin) 鎵嶆湁鏉冨彂甯冩牎鍥柊闂汇€?-         */
+-        function updateNewsAccess() {
+-            const btn = document.getElementById('addAnnouncementBtn');
+-            if (btn) {
+-                // 鍒╃敤鍏ㄥ眬鏉冮檺杈呭姪鍑芥暟鍒ゆ柇
+-                if ((AppModules.User.isTeacher() || AppModules.User.isAdmin())) {
+-                    btn.classList.remove('hidden');
+-                } else {
+-                    btn.classList.add('hidden');
+-                }
+-            }
+-        }
++
+ 
+         /**
+          * [鐩戝惉鍣╙ 鍒濆鍖栨柊闂诲疄鏃跺悓姝ユ祦
+@@ -551,76 +541,10 @@
+         };
+ 
+         /**
+-         * [寮傛鍑芥暟] 鑾峰彇鐢ㄦ埛淇℃伅
+-         * 璇ュ嚱鏁板寘鍚€滃鎴风閲嶅啓閫昏緫鈥濓紝浼樺厛澶勭悊绯荤粺绾х壒娈婅处鍙枫€?+         * [鐩戝惉鍣╙ 鍒濆鍖栫敤鎴风淇″垪琛ㄧ殑瑙傚療鑰?          */
+-        async function fetchUser(userId) {
+-            if (!userId) return null;
+-            const cleanedId = userId.toLowerCase();
+-
+-            // --- 鏈哄櫒浜鸿处鎴锋嫤鎴?(Bot Overrides) ---
+-            // 閫昏緫锛氬鏋?ID 鏄璁剧殑鏈哄櫒浜猴紝鍒欑洿鎺ヨ繑鍥炴湰鍦扮‖缂栫爜鐨勬暟鎹拰澶村儚锛屼笉闇€瑕佽姹傜綉缁溿€?-            if (cleanedId === window.CONSTANTS.SAFETY_BOT_ID) {
+-                return { id: window.CONSTANTS.SAFETY_BOT_ID, name: 'Safety Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png' };
+-            }
+-            if (cleanedId === window.CONSTANTS.ADVICE_BOT_ID) {
+-                return { id: window.CONSTANTS.ADVICE_BOT_ID, name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
+-            }
+-
+-            // --- 绠＄悊鍛樿处鎴锋嫤鎴?(Admin Overrides) ---
+-            // 閫昏緫锛氱‘淇濈鐞嗗憳 Moss 鐨勫ご鍍忓缁堟槸閭ｄ唤鏍囧織鎬х殑鈥滃鍙糕€濄€?-            if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
+-                const adminUser = { id: 'moss104088', name: 'Moss', avatar: AppModules.Config.APP_CONSTANTS.SUSHI_AVATAR, email: AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL };
+-                ALL_USERS[cleanedId] = adminUser;
+-                return adminUser;
+-            }
+-
+-            // [鎬ц兘浼樺寲] 浼樺厛浠庡唴瀛樼紦瀛?(ALL_USERS) 涓鍙?-            if (ALL_USERS[cleanedId]) return ALL_USERS[cleanedId];
+-
+-            try {
+-                // 缂撳瓨鏈懡涓紝鍒欒姹?Firebase 鏁版嵁搴?-                const snap = await get(ref(db, `users/${userId}`));
+-                if (snap.exists()) {
+-                    ALL_USERS[userId] = snap.val();
+-                    return ALL_USERS[userId];
+-                }
+-            } catch (err) {
+-                console.warn(`Failed to fetch user ${userId}:`, err);
+-            }
+-            return null;
+-        }
+-
+-        /**
+-         * [鐩戝惉鍣╙ 鍒濆鍖栫敤鎴风浉鍏虫暟鎹殑瑙傚療鑰?-         */
+-        function initUserObserver() {
+-            console.log('App: initUserObserver starting...');
+-
+-            /**
+-             * 1. 鐩戝惉褰撳墠鐢ㄦ埛鑷繁鐨勬。妗堝彉鏇?-             * 閫昏緫锛氬鏋滅敤鎴峰湪鍙︿竴鍙版墜鏈轰笂鏀逛簡鍚嶅瓧锛屾湰鎵嬫満鐨?UI 瑕佺珛鍒诲悓姝ャ€?-             */
+-            onValue(ref(db, `users/${currentUser.id}`), (snapshot) => {
+-                const data = snapshot.val();
+-                if (data) {
+-                    console.log('App: Current user profile updated.');
+-                    if (data.name) currentUser.name = data.name;
+-                    currentUser.hasAcceptedTerms = data.hasAcceptedTerms || false;
+-                    ALL_USERS[currentUser.id] = data;
+-                } else {
+-                    // [鏋佺瀹夊叏鎯呭喌] 濡傛灉鐢ㄦ埛璐﹀彿鍦ㄤ簯绔绠＄悊鍛樺交搴曞垹闄?-                    console.warn('App: User account no longer exists in database. Forcing logout.');
+-                    clearAllLocalData(); // 绔嬪嵆娓呴櫎鏈湴涓€鍒囩紦瀛橈紝寮哄埗鐧诲嚭
+-                }
+-            });
+-
+-            /**
+-             * 2. 鐩戝惉鐢ㄦ埛鐨勨€滅淇″垪琛ㄢ€?(Chat List)
+-             * 閫昏緫锛?-             * - 姣忓綋鏈変汉鍙戞柊娑堟伅缁欎綘锛屾垨鑰呬綘鍙戠粰鍒汉锛寀ser_chats 閲岀殑瀵瑰簲 ID 鏃堕棿鎴充細鏇存柊銆?-             * - 渚ц竟鏍忎細鑷姩鎸夌収杩欎釜鍒楄〃閲嶆柊娓叉煋銆?-             */
++        function initChatListObserver() {
++            console.log('App: initChatListObserver starting...');
+             console.log('App: Setting up user_chats listener...');
+             onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
+                 const chatMap = snapshot.val() || {};
+@@ -634,9 +558,9 @@
+ 
+                 console.log(`App: Found ${chatIds.length} valid recent chats.`);
+ 
+-                // 寮傛鎷夊彇杩欎簺鑱婂ぉ瀵硅薄鐨勫悕瀛楀拰澶村儚锛屾媺鍙栨垚鍔熷悗浼氳嚜鍔ㄥ埛鏂颁晶杈规爮
++                // 寮傛鎷夊彇杩欎簺鑱婂ぉ瀵硅薄鐨勫悕瀛?and 澶村儚锛屾媺鍙栨垚鍔熷悗浼氳嚜鍔ㄥ埛鏂颁晶杈规爮
+                 chatIds.forEach(id => {
+-                    fetchUser(id).then(() => renderSidebar()).catch(e => console.warn(e));
++                    window.fetchUser(id).then(() => renderSidebar()).catch(e => console.warn(e));
+                 });
+ 
+                 renderSidebar(); // 绔嬪嵆鍒濇娓叉煋锛堟樉绀哄崰浣嶇鎴栨棫缂撳瓨锛?@@ -684,15 +608,22 @@
+             }
+         };
+ 
+-        /**
+-         * [UI 涓婚寮曟搸] 鍏ㄥ眬鐨偆鍒囨崲 (宸茶縼绉昏嚦 ViewModule)
+-         */
++        window.showGlobalSearchResults = () => {
++            const results = document.getElementById('globalSearchResults');
++            if (results) {
++                results.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
++                results.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
++            }
++        };
+ 
++        window.hideGlobalSearchResults = () => {
++            const results = document.getElementById('globalSearchResults');
++            if (results) {
++                results.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
++                results.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
++            }
++        };
+ 
+-        /**
+-         * [鎼滅储杈呭姪] 娓呴櫎鍏ㄥ眬鎼滅储鐘舵€?-         * 閫昏緫锛氶噸缃墍鏈夎緭鍏ユ銆佹悳绱㈢粨鏋滃垪琛紝骞堕殣钘忕粨鏋滈伄缃╁眰銆?-         */
+         window.clearGlobalSearch = () => {
+             const input = document.getElementById('globalSearchInput');
+             const results = document.getElementById('globalSearchResults');
+@@ -700,11 +631,72 @@
+             const clearBtn = document.getElementById('globalSearchClear');
+ 
+             if (input) input.value = '';
+-            if (results) results.classList.add('hidden'); // 闅愯棌娴眰
+-            if (resultList) resultList.innerHTML = '';    // 娓呯┖ DOM 鑺傜偣锛岄噴鏀惧唴瀛?+            hideGlobalSearchResults();
++            if (resultList) {
++                // 绛夊緟娣″嚭鍔ㄧ敾缁撴潫鍚庡啀娓呯┖鍐呭锛岄伩鍏嶇獊鍏€闂儊
++                setTimeout(() => {
++                    if (results && results.classList.contains('opacity-0')) {
++                        resultList.innerHTML = '';
++                    }
++                }, 200);
++            }
+             if (clearBtn) clearBtn.classList.add('hidden');
+         };
+ 
++        // Click outside search container to close results
++        document.addEventListener('click', (e) => {
++            const searchContainer = document.getElementById('globalSearchInput')?.parentElement?.parentElement;
++            if (searchContainer && !searchContainer.contains(e.target)) {
++                clearGlobalSearch();
++            }
++        });
++
++        // Search History Window UI Helpers
++        window.triggerAddHistory = (term) => {
++            if (AppModules.Search) AppModules.Search.addHistory(term);
++        };
++
++        window.fillGlobalSearch = (term) => {
++            const input = document.getElementById('globalSearchInput');
++            if (input) {
++                input.value = term;
++                handleGlobalSearch({ target: input });
++            }
++        };
++
++        window.deleteSearchHistoryUI = (event, term) => {
++            event.stopPropagation();
++            if (AppModules.Search) AppModules.Search.removeHistoryItem(term);
++            const input = document.getElementById('globalSearchInput');
++            if (input) {
++                handleGlobalSearch({ target: input });
++            }
++        };
++
++        window.clearSearchHistoryUI = (event) => {
++            event.stopPropagation();
++            if (AppModules.Search) AppModules.Search.clearHistory();
++            const input = document.getElementById('globalSearchInput');
++            if (input) {
++                handleGlobalSearch({ target: input });
++            }
++        };
++
++        // Bind keydown event for Enter on search input to save history
++        setTimeout(() => {
++            const input = document.getElementById('globalSearchInput');
++            if (input) {
++                input.addEventListener('keydown', (e) => {
++                    if (e.key === 'Enter') {
++                        const term = input.value.trim();
++                        if (term.length >= 2) {
++                            window.triggerAddHistory(term);
++                        }
++                    }
++                });
++            }
++        }, 1000);
++
+         /**
+          * [鎼滅储鏍稿績] 鍒囨崲鎼滅储鍒嗙被杩囨护鍣?(Category Filter)
+          * @param {string} cat - 'people' | 'messages' | 'tools' | 'news' | 'community'
+@@ -721,27 +713,24 @@
+                 window.currentSearchCategory = cat; // 鍒囨崲鍒嗙被
+             }
+ 
+-            // 鏇存柊 UI 鎸夐挳楂樹寒鐘舵€?+            // 鏇存柊鍒嗙被鎸夐挳鐨勬牱寮忛珮浜?             document.querySelectorAll('.search-cat-btn').forEach(btn => {
+                 const btnCat = btn.id.replace('searchCat-', '');
+                 if (window.currentSearchCategory === 'all') {
+-                    // 鍏ㄥ眬妯″紡涓嬶細鎵€鏈夊垎绫绘寜閽彉鐏帮紝琛ㄧず褰撳墠涓嶆槸鐗瑰畾杩囨护妯″紡
+-                    btn.classList.remove('text-white', 'opacity-100');
+-                    btn.classList.add('text-gray-400', 'opacity-50');
++                    // 鍏ㄥ眬妯″紡涓嬶紝鎵€鏈夋寜閽仮澶嶉粯璁よ兌鍥婃€?+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap";
+                 } else if (btnCat === window.currentSearchCategory) {
+-                    // 婵€娲绘ā寮忥細鏂囧瓧鍙樼櫧涓斿叏涓嶉€忔槑
+-                    btn.classList.add('text-white', 'opacity-100');
+-                    btn.classList.remove('text-gray-400', 'opacity-50');
++                    // 婵€娲荤殑鐗瑰畾鍒嗙被鎸夐挳锛岃摑鑹查珮瀵规瘮搴﹁儗鏅兌鍥婃€?+ 鐧借壊鏂囧瓧
++                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-white bg-[#007AFF] dark:bg-[#0A84FF] shadow-sm whitespace-nowrap";
+                 } else {
+-                    // 闈炴縺娲诲垎绫伙細鍙樼伆
+-                    btn.classList.remove('text-white', 'opacity-100');
+-                    btn.classList.add('text-gray-400', 'opacity-50');
++                    // 鏈縺娲荤殑鍏朵粬鐗瑰畾鍒嗙被锛屽崐閫忔槑闅愯棌
++                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-white/5 opacity-40 hover:opacity-75 whitespace-nowrap";
+                 }
+             });
+ 
+             // 濡傛灉鎼滅储妗嗛噷鏈夊唴瀹癸紝绔嬪嵆閲嶆柊鎵ц鎼滅储
+             const input = document.getElementById('globalSearchInput');
+-            if (input && input.value.trim().length >= 2) {
++            if (input) {
+                 handleGlobalSearch({ target: input });
+             }
+         };
+@@ -752,38 +741,67 @@
+          */
+         let searchTimeout;
+         window.handleGlobalSearch = (e) => {
+-            // 1. 闃叉姈澶勭悊 (Debounce)锛?-            // 閫昏緫锛氭瘡娆℃寜閿兘浼氭竻闄や箣鍓嶇殑璁℃椂鍣ㄥ苟閲嶅紑 300ms 璁℃椂銆?-            // 杩欐牱鍙湁褰撶敤鎴峰仠姝㈡墦瀛?300ms 鍚庢墠鎵ц澶嶆潅鎼滅储锛岄伩鍏嶆祻瑙堝櫒鍦ㄦ瘡杈撳叆涓€涓瓧绗︽椂閮藉崱椤裤€?+            // 1. 闃查槻鎶栧鐞?(Debounce)
+             clearTimeout(searchTimeout);
+             const term = e.target.value.trim();
+             const results = document.getElementById('globalSearchResults');
+             const resultList = document.getElementById('searchResultList');
+             const clearBtn = document.getElementById('globalSearchClear');
+ 
++            if (!term) {
++                if (clearBtn) clearBtn.classList.add('hidden');
++                // Show search history if any
++                const history = AppModules.Search ? AppModules.Search.getHistory() : [];
++                if (history && history.length > 0) {
++                    let html = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
++                        <span>Recent Searches</span>
++                        <button onclick="clearSearchHistoryUI(event)" class="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
++                    </div>`;
++                    history.forEach(item => {
++                        html += `<div onclick="fillGlobalSearch('${item.replace(/'/g, "\\'")}')" class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors group">
++                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
++                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
++                                <span>${escapeHTML(item)}</span>
++                            </div>
++                            <button onclick="deleteSearchHistoryUI(event, '${item.replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
++                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
++                            </button>
++                        </div>`;
++                    });
++                    if (resultList) resultList.innerHTML = html;
++                    showGlobalSearchResults();
++                } else {
++                    hideGlobalSearchResults();
++                    setTimeout(() => {
++                        if (results && results.classList.contains('opacity-0')) {
++                            if (resultList) resultList.innerHTML = '';
++                        }
++                    }, 200);
++                }
++                return;
++            }
++
++            if (clearBtn) clearBtn.classList.remove('hidden');
++
+             // 鎼滅储闂ㄦ锛氳嚦灏戣緭鍏?2 涓瓧绗︽墠寮€鍚绱紝鑺傜渷鎬ц兘銆?             if (term.length < 2) {
+-                if (clearBtn) term ? clearBtn.classList.remove('hidden') : clearBtn.classList.add('hidden');
+-                if (results) { results.classList.add('hidden'); if (resultList) resultList.innerHTML = ''; }
++                hideGlobalSearchResults();
++                setTimeout(() => {
++                    if (results && results.classList.contains('opacity-0')) {
++                        if (resultList) resultList.innerHTML = '';
++                    }
++                }, 200);
+                 return;
+             }
+ 
+             searchTimeout = setTimeout(async () => {
+-                if (clearBtn) clearBtn.classList.remove('hidden');
+-                let html = ''; // 鐢ㄤ簬鎷兼帴鏈€缁堟覆鏌撶殑 HTML 瀛楃涓?+                let html = '';
+                 const cat = window.currentSearchCategory;
+-                const termLower = term.toLowerCase();
+ 
+                 // --- 缁村害 1锛氫汉鍚嶄笌鐢ㄦ埛妫€绱?(People Search) ---
+                 if (cat === 'all' || cat === 'messages' || cat === 'people') {
+                     try {
+                         const now = Date.now();
+-                        /**
+-                         * [鐑储寮曠淮鎶锛?-                         * 鐢变簬 Firebase 鏃犳硶杩涜楂樻晥鐨勪汉鍚嶆ā绯婃绱紙鍙兘鍓嶇紑鍖归厤锛夛紝
+-                         * 鎴戜滑鐨勭瓥鐣ユ槸姣?5 鍒嗛挓鍏ㄩ噺鍚屾涓€娆＄敤鎴风储寮曞埌 ALL_USERS 鍐呭瓨涓€?-                         * 杩欐牱鎼滅储鏃剁洿鎺ヨ蛋鍐呭瓨杩囨护锛屽搷搴旈€熷害鑳借揪鍒?1ms 绾с€?-                         */
+                         if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(ALL_USERS).length < 10) {
+                             const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
+                             if (allSnap.exists()) {
+@@ -792,86 +810,34 @@
+                             }
+                         }
+ 
+-                        /**
+-                         * [澶氱淮鍐呭瓨杩囨护]锛氬悓鏃跺尮閰?ID銆佷汉鍚嶃€侀偖绠便€?-                         */
+-                        const matchedIds = Object.keys(ALL_USERS).filter(id => {
+-                            if (id === currentUser.id) return false; // 鎺掗櫎鑷繁
+-                            const u = ALL_USERS[id];
+-                            const n = (u.name || '').toLowerCase();
+-                            const e = (u.email || '').toLowerCase();
+-                            const i = id.toLowerCase();
+-                            return n.includes(termLower) || e.includes(termLower) || i.includes(termLower);
+-                        });
+-
+-                        if (matchedIds.length > 0) {
++                        const peopleResults = AppModules.Search.searchPeople(term, currentUser, ALL_USERS);
++                        if (peopleResults.length > 0) {
+                             html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
+-                            /**
+-                             * [鏅鸿兘鎺掑簭鏉冮噸绠楁硶]锛?-                             * 閫昏緫锛氬鏋滃悕瀛楁槸浠ユ悳绱㈣瘝寮€澶寸殑锛屾潈閲嶆渶楂橈紙鏀惧湪绗竴浣嶏級銆?-                             * 浣跨敤 startsWith 杩涜鍓嶇紑鍖归厤鍔犳潈锛岀‘淇濆 "Moss" 浼氭帓鍦ㄥ惈鏈?"mo" 浣嗛潪鍓嶇紑鍖归厤鐨?"Amo" 鍓嶉潰銆?-                             */
+-                            const sortedMatches = matchedIds.sort((a, b) => {
+-                                const nameA = (ALL_USERS[a].name || '').toLowerCase();
+-                                const nameB = (ALL_USERS[b].name || '').toLowerCase();
+-                                if (nameA.startsWith(termLower) && !nameB.startsWith(termLower)) return -1;
+-                                if (!nameA.startsWith(termLower) && nameB.startsWith(termLower)) return 1;
+-                                return 0;
+-                            }).slice(0, 10); // 鍙彇鍓?10 鍚嶏紝闃叉鍒楄〃澶暱鎷栨參 UI
+-
+-                            for (const id of sortedMatches) {
+-                                const isMe = id === currentUser.id;
+-                                const u = isMe ? currentUser : ALL_USERS[id];
+-                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || id)}&background=random`;
++                            peopleResults.forEach(u => {
++                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
+                                 if (u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
+ 
+-                                const escapedId = id.replace(/'/g, "\\'");
+-                                html += `<div onclick="switchChat('${escapedId}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
++                                const escapedId = u.id.replace(/'/g, "\\'");
++                                html += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${term.replace(/'/g, "\\'")}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                     <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
+-                                    <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email || id)}</div></div>
++                                    <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>
+                                 </div>`;
+-                            }
++                            });
+                         }
+                     } catch (err) { console.warn('Aggressive search failed:', err); }
+                 }
+ 
+-                /**
+-                 * [缁村害 2] 宸ュ叿涓庡唴缃墿灞曠▼搴忔悳绱?(Tools Search)
+-                 * 閫昏緫锛氬姣旂‖缂栫爜鐨勬ā鍧楁敞鍐岃〃锛屽疄鐜板鈥滅哗鐐硅绠楀櫒鈥濈瓑宸ュ叿鐨勫揩閫熷鑸€?-                 */
++                // --- 缁村害 2锛氬伐鍏蜂笌鍐呯疆鎵╁睍绋嬪簭鎼滅储 (Tools Search) ---
+                 if (cat === 'all' || cat === 'tools') {
+-                    const toolsResults = [];
+-                    const fullRegistry = [
+-                        { id: 'grade_calc', name: 'Grade Calculator', desc: 'Calculate your HCPSS final grades', type: 'module' },
+-                        { id: 'cafeteria', name: 'Cafeteria Menu', desc: 'View today\'s menus', type: 'module' },
+-                        { id: 'chs_info', name: 'CHS Info', desc: 'School links and resources', type: 'module' }
+-                    ];
+-
+                     const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
+-                    Object.keys(registry).forEach(eid => {
+-                        if (['calc_volume_3d', 'independent_research', 'selection_logic', 'grade_calc'].includes(eid)) return;
+-                        const item = registry[eid];
+-                        fullRegistry.push({
+-                            id: eid,
+-                            name: item.title,
+-                            desc: item.category || 'Extension Tool',
+-                            type: 'extension'
+-                        });
+-                    });
+-
+-                    fullRegistry.forEach(t => {
+-                        if (t.name.toLowerCase().includes(termLower) || t.desc.toLowerCase().includes(termLower)) {
+-                            toolsResults.push(t);
+-                        }
+-                    });
++                    const toolsResults = AppModules.Search.searchTools(term, registry);
+ 
+                     if (toolsResults.length > 0) {
+                         html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
+                         toolsResults.forEach(t => {
+-                            // 鏍规嵁 type 鍐冲畾鏄皟鐢?openModule 杩樻槸 openExtension
+                             const onClick = t.type === 'module' ? `openModule('${t.id}')` : `openExtension('${t.id}')`;
+                             html += `
+-                                <div onclick="${onClick}; clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
++                                <div onclick="${onClick}; triggerAddHistory('${term.replace(/'/g, "\\'")}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                     <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
+                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                     </div>
+@@ -884,114 +850,58 @@
+                     }
+                 }
+ 
+-
+                 // --- 缁村害 3锛氳亰澶╂秷鎭绱?(Messages Search) ---
+                 if (cat === 'all' || cat === 'messages') {
+                     if (!localDB) await dbReady;
+-                    try {
+-                        /**
+-                         * [閲嶇锛氭湰鍦板叏鏂囨绱㈤€昏緫]
+-                         * 閫昏緫锛?-                         * 1. 浠?IndexedDB 鎻愬彇鍑虹敤鎴疯澶囦笂瀛樿繃鐨勬墍鏈夋秷鎭€?-                         * 2. 鍦ㄥ墠绔繘琛屽瓧绗︿覆鍏ㄩ噺鍖归厤銆?-                         * 3. 杩囨护鎺夊浘鐗囥€佺郴缁熼€氱煡绛夋棤鏂囨湰鍐呭銆?-                         */
+-                        const tx = localDB.transaction("messages", "readonly");
+-                        const store = tx.objectStore("messages");
+-                        const allMsgs = await new Promise(res => {
+-                            const req = store.getAll();
+-                            req.onsuccess = () => res(req.result || []);
+-                        });
+-                        const currentUserIdLower = currentUser.id.toLowerCase();
+-
+-                        const filtered = allMsgs.filter(m => {
+-                            if (!m.text || !m.chatId) return false;
+-                            // 鎺掗櫎鍥剧墖娑堟伅锛氬洜涓哄浘鐗囩殑 URL 涔熸槸涓€娈靛瓧绗︿覆锛屽彲鑳戒細骞叉壈鍏抽敭璇嶅尮閰?-                            if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
+-
+-                            // 鏉冮檺鏍￠獙锛氬彧鍏佽鎼滆嚜宸辨墍鍦ㄧ殑缇よ亰鎴栫淇★紝闃叉淇℃伅娉勯湶锛堣櫧鐒?IDB 鐞嗚涓婃槸瀹夊叏鐨勶級
+-                            if (m.chatId.startsWith('group_')) {
+-                                const classId = m.chatId.replace('group_', '');
+-                                if (!sidebarClasses[classId]) return false;
+-                            } else {
+-                                const participants = m.chatId.toLowerCase().split('_');
+-                                if (!participants.includes(currentUserIdLower)) return false;
++                    const messageResults = await AppModules.Search.searchMessages(term, currentUser, localDB, sidebarClasses, cnCache);
++
++                    if (messageResults.length > 0) {
++                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
++                        messageResults.forEach(m => {
++                            let resolvedChatName = m.chatName;
++                            if (!m.chatId.startsWith('group_')) {
++                                resolvedChatName = ALL_USERS[m.chatName]?.name || m.chatName;
+                             }
+-                            return m.text.toLowerCase().includes(termLower);
+-                        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15); // 鍙彇鏈€杩?15 鏉″尮閰嶆秷鎭?-
+-                        if (filtered.length > 0) {
+-                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
+-                            filtered.forEach(m => {
+-                                let chatName = "Chat";
+-                                let jumpId = m.chatId;
+-                                if (m.chatId.startsWith('group_')) {
+-                                    const classId = m.chatId.replace('group_', '');
+-                                    chatName = cnCache[classId] || "Class Chat";
+-                                } else {
+-                                    // 绉佷俊鍚嶈В鏋愶細鎵惧埌瀵规柟鐨勫悕瀛?-                                    const parts = m.chatId.split('_');
+-                                    if (parts.length >= 2) {
+-                                        const otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
+-                                        chatName = ALL_USERS[otherId]?.name || otherId;
+-                                        jumpId = otherId;
+-                                    }
+-                                }
+-                                const escapedJumpId = jumpId.replace(/'/g, "\\'");
+-                                const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
+-
+-                                /**
+-                                 * [鐐瑰嚮璺宠浆閫昏緫]
+-                                 * 杩欓噷鐨?onclick 闈炲父绮惧僵锛?-                                 * 1. 鍏堟墽琛?switchChat 鍒囨崲鍒板搴旂殑瀵硅瘽绐楀彛銆?-                                 * 2. 寤惰繜 500ms锛堢瓑寰?DOM 娓叉煋瀹屾垚锛夋墽琛?jumpToMessage锛岃鑱婂ぉ绐楀彛鑷姩婊氬姩鍒拌繖琛屾秷鎭€?-                                 */
+-                                html += `<div onclick="switchChat('${escapedJumpId}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+-                                    <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(chatName)}</div>
+-                                    <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
+-                                </div>`;
+-                            });
+-                        }
+-                    } catch (e) { }
++                            const escapedJumpId = m.jumpId.replace(/'/g, "\\'");
++                            const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
++
++                            html += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${term.replace(/'/g, "\\'")}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
++                                <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(resolvedChatName)}</div>
++                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
++                            </div>`;
++                        });
++                    }
+                 }
+ 
+                 // --- 缁村害 4锛氭柊闂诲叕鍛婁笌绀惧尯鍔ㄦ€佹悳绱?(News & Modules Search) ---
+                 if (cat === 'all' || cat === 'news' || cat === 'community') {
+-                    /**
+-                     * [楂橀樁鎼滅储鍑芥暟]锛氬鐢ㄥ悓涓€娈甸€昏緫鎵弿涓嶅悓鐨?IndexedDB 琛?-                     */
+-                    const searchLocalStore = async (storeName, label, targetCat) => {
+-                        // 濡傛灉鐢ㄦ埛褰撳墠鍦ㄤ竴涓壒瀹氱殑鍒嗙被杩囨护鍣ㄤ笅锛屼笖涓嶆槸鎼滅储鐩爣锛屽垯璺宠繃
+-                        if (cat !== 'all' && cat !== targetCat) return;
+-                        try {
+-                            const tx = localDB.transaction(storeName, "readonly");
+-                            const store = tx.objectStore(storeName);
+-                            const items = await new Promise(res => {
+-                                const req = store.getAll();
+-                                req.onsuccess = () => res(req.result || []);
++                    if (localDB) {
++                        const newsResults = await AppModules.Search.searchNewsAndModules(term, localDB, cat);
++                        
++                        let newsHtml = '';
++                        if (newsResults.news.length > 0) {
++                            newsResults.news.forEach(item => {
++                                newsHtml += `<div onclick="handlePostJump('${item.storeName}', '${item.key}', '${item.typeOrModule}'); triggerAddHistory('${term.replace(/'/g, "\\'")}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
++                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
++                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title)}</div>
++                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc)}</div>
++                                </div>`;
+                             });
+-                            let tempHtml = '';
+-                            items.forEach(item => {
+-                                // 鍚屾椂鍖归厤鏍囬鍜屾弿杩?-                                const t = (item.title || item.name || '').toLowerCase();
+-                                const d = (item.desc || item.text || '').toLowerCase();
+-                                if (t.includes(termLower) || d.includes(termLower)) {
+-                                    const typeOrModule = storeName === 'news' ? item.tabType : item.moduleName;
+-                                    // 鎼滅储鐐瑰嚮鍚庣殑璺宠浆閫昏緫锛歨andlePostJump 浼氭牴鎹?storeName 鍐冲畾璺冲埌鏂伴椈椤佃繕鏄ā鍧楅〉
+-                                    tempHtml += `<div onclick="handlePostJump('${storeName}', '${item.key}', '${typeOrModule}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+-                                        <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">${label}</div>
+-                                        <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title || item.name || 'Post')}</div>
+-                                        <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc || item.text || '')}</div>
+-                                    </div>`;
+-                                }
++                        }
++                        
++                        let communityHtml = '';
++                        if (newsResults.community.length > 0) {
++                            newsResults.community.forEach(item => {
++                                communityHtml += `<div onclick="handlePostJump('${item.storeName}', '${item.key}', '${item.typeOrModule}'); triggerAddHistory('${term.replace(/'/g, "\\'")}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
++                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Community</div>
++                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title)}</div>
++                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc)}</div>
++                                </div>`;
+                             });
+-                            if (tempHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">${storeName === 'news' ? 'Announcements' : 'Community'}</div>` + tempHtml;
+-                        } catch (e) { }
+-                    };
++                        }
+ 
+-                    if (localDB) {
+-                        await searchLocalStore('news', 'Announcement', 'news');
+-                        await searchLocalStore('modules', 'Community', 'community');
++                        if (newsHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Announcements</div>` + newsHtml;
++                        if (communityHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Community</div>` + communityHtml;
+                     }
+                 }
+ 
+@@ -1001,7 +911,7 @@
+                 } else {
+                     if (resultList) resultList.innerHTML = html;
+                 }
+-                if (results) results.classList.remove('hidden');
++                showGlobalSearchResults();
+             }, 300);
+         };
+ 
+@@ -2689,8 +2599,7 @@
+         };
+ 
+         window.sendMsg = async (type = 'text', customVal = null) => {
+-            const now = Date.now();
+-            if (now - lastMsgSentTime < MSG_COOLDOWN) return;
++            if (!AppModules.Security.checkRateLimit('msg', true)) return;
+ 
+             // Block disbanded
+             if (activeTargetId && activeTargetId.startsWith('group_')) {
+@@ -2700,11 +2609,11 @@
+                 }
+             }
+ 
+-            lastMsgSentTime = now;
++            AppModules.Security.recordRateLimit('msg');
+             await window.MessageEngine.sendText(customVal);
+         };
+ 
+-        window.handleImg = (e) => AppModules.Utils.Image.handleUploadEvent(e, db, auth, get, ref, update, set);
++        window.handleImg = (e) => AppModules.Utils.Image.handleUploadEvent(e);
+ 
+         // Advanced Textarea Logic: Auto-resize, Shortcuts, and Limits
+         (function setupChatInput() {
+@@ -3418,79 +3327,11 @@
+             menu.classList.add('hidden');
+             const confirmReport = await AppModules.Modal.confirm("Report Content", "Report this message for harassment or inappropriate content?", "Report");
+             if (confirmReport) {
+-                reportMessage(selectedMsgData);
++                AppModules.Security.reportMessage(selectedMsgData);
+             }
+         };
+ 
+-        async function reportMessage(msg) {
+-            try {
+-                const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+-
+-                // 1. Send to Admin from Safety Bot
+-                const adminChatId = getChatId(SAFETY_BOT_ID, adminId);
+-                const reportText = `[REPORT - MESSAGE]\nFrom: ${msg.senderName} (${msg.senderId})\nReported by: ${currentUser.name} (${currentUser.id})\nContent: ${msg.text}\nReason: User reported harassment.`;
+-                await push(ref(db, `messages/${adminChatId}`), {
+-                    senderId: SAFETY_BOT_ID,
+-                    senderName: 'Safety Bot',
+-                    text: reportText,
+-                    type: 'text',
+-                    timestamp: serverTimestamp()
+-                });
+-                update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
+-
+-                // 2. Send confirmation to Reporter from Safety Bot
+-                const userChatId = getChatId(SAFETY_BOT_ID, currentUser.id);
+-                const confirmationText = `[REPORT - MESSAGE - SUCCESSFUL]\nYour report regarding message "${msg.text}" has been received. Our administration will review it shortly. Thank you for keeping our community safe.`;
+-                await push(ref(db, `messages/${userChatId}`), {
+-                    senderId: SAFETY_BOT_ID,
+-                    senderName: 'Safety Bot',
+-                    text: confirmationText,
+-                    type: 'text',
+-                    timestamp: serverTimestamp()
+-                });
+-                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
+-
+-                AppModules.Modal.alert("Reported", "Report sent successfully. You can track status in your chat with Safety Bot.");
+-            } catch (e) {
+-                AppModules.Modal.alert("Error", "Failed to send report: " + e.message);
+-            }
+-        }
+-
+-        window.reportPost = async (postId) => {
+-            const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+-            const post = modulePosts.find(p => p.id === postId);
+-            if (!post) return;
+-            const author = await fetchUser(post.authorId);
+-            const receiverName = author?.name || 'Unknown';
+-
+-            try {
+-                // 1. Notify Admin
+-                const adminChatId = getChatId(SAFETY_BOT_ID, adminId);
+-                const reportText = `[REPORT - POST]\nModule: ${currentModule}\nSubject: ${post.title}\nContent: ${post.desc}\nAuthor: ${receiverName} (${post.authorId})\nReported by: ${currentUser.name} (${currentUser.id})`;
+-                await push(ref(db, `messages/${adminChatId}`), {
+-                    senderId: SAFETY_BOT_ID,
+-                    senderName: 'Safety Bot',
+-                    text: reportText,
+-                    timestamp: serverTimestamp()
+-                });
+-                update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
+-
+-                // 2. Notify Reporter
+-                const userChatId = getChatId(SAFETY_BOT_ID, currentUser.id);
+-                const confirmText = `[REPORT - POST - SUCCESSFUL]\nYour report regarding the post "${post.title}" has been submitted. Thank you.`;
+-                await push(ref(db, `messages/${userChatId}`), {
+-                    senderId: SAFETY_BOT_ID,
+-                    senderName: 'Safety Bot',
+-                    text: confirmText,
+-                    timestamp: serverTimestamp()
+-                });
+-                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
+ 
+-                AppModules.Modal.alert("Reported", "Post reported successfully! Administrators will review it via Safety Bot.");
+-            } catch (e) {
+-                AppModules.Modal.alert("Error", "Reporting failed: " + e.message);
+-            }
+-        };
+ 
+         window.startModuleChat = (authorId) => {
+             closeModule();
+@@ -3506,41 +3347,24 @@
+ 
+         let currentPostBase64 = null;
+ 
+-        window.handlePostImageSelect = (e) => {
+-            if (window.isPhotoDisabled) {
+-                AppModules.Modal.alert("Restricted", "Photo uploads are currently disabled by the administrator.");
++        window.handlePostImageSelect = async (e) => {
++            if (!AppModules.Security.checkPhotoUploadAllowed()) {
+                 e.target.value = '';
+                 return;
+             }
+             const file = e.target.files[0];
+             if (!file) return;
+-            const reader = new FileReader();
+-            reader.onload = (event) => {
+-                const img = new Image();
+-                img.onload = () => {
+-                    const canvas = document.createElement('canvas');
+-                    const MAX_WIDTH = 800;
+-                    const MAX_HEIGHT = 800;
+-                    let width = img.width;
+-                    let height = img.height;
+-                    if (width > height) {
+-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+-                    } else {
+-                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+-                    }
+-                    canvas.width = width; canvas.height = height;
+-                    const ctx = canvas.getContext('2d');
+-                    ctx.drawImage(img, 0, 0, width, height);
+-                    currentPostBase64 = canvas.toDataURL('image/jpeg', 0.8);
+-
+-                    document.getElementById('postImagePreview').src = currentPostBase64;
+-                    document.getElementById('postImagePreview').classList.remove('hidden');
+-                    document.getElementById('postImageClearBtn').classList.remove('hidden');
+-                    document.getElementById('postImagePlaceholder').classList.add('hidden');
+-                };
+-                img.src = event.target.result;
+-            };
+-            reader.readAsDataURL(file);
++
++            try {
++                currentPostBase64 = await AppModules.Utils.Image.compress(file, 800, 0.8);
++                document.getElementById('postImagePreview').src = currentPostBase64;
++                document.getElementById('postImagePreview').classList.remove('hidden');
++                document.getElementById('postImageClearBtn').classList.remove('hidden');
++                document.getElementById('postImagePlaceholder').classList.add('hidden');
++            } catch (err) {
++                console.error("Failed to compress post image:", err);
++                AppModules.Modal.alert("Error", "Failed to load or compress image.");
++            }
+         };
+ 
+         window.clearPostImage = (e) => {
+@@ -3692,11 +3516,7 @@
+         }
+ 
+         window.submitPost = async () => {
+-            const now = Date.now();
+-            if (now - lastPostSentTime < POST_COOLDOWN) {
+-                AppModules.Modal.alert("Cooldown", `Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostSentTime)) / 1000)}s before posting again.`);
+-                return;
+-            }
++            if (!AppModules.Security.checkRateLimit('post', false)) return;
+ 
+             const title = document.getElementById('postInputTitle').value.trim();
+             const desc = document.getElementById('postInputDesc').value.trim();
+@@ -3715,7 +3535,7 @@
+ 
+             const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
+             const isAnonymous = config.anonymous || false;
+-            lastPostSentTime = now;
++            AppModules.Security.recordRateLimit('post');
+ 
+             if (isRequestingExtension) {
+                 const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
+@@ -3765,7 +3585,7 @@
+                     closePostForm();
+                     if (isPostingNews) globalDataSync();
+                 }).catch(err => {
+-                    lastPostSentTime = 0;
++                    AppModules.Security.recordRateLimit('post', 0);
+                     AppModules.Modal.alert("Error", "Failed to post: " + err.message);
+                 });
+             };
+@@ -3894,15 +3714,14 @@
+ 
+ 
+         window.submitComment = () => {
+-            const now = Date.now();
+-            if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
++            if (!AppModules.Security.checkRateLimit('comment', true)) return;
+             const input = document.getElementById('commentInput');
+             const text = input.value.trim();
+             if (!text || !currentPostId) return;
+ 
+             const config = MODULE_CONFIG[currentModule] || {};
+             const isAnonymous = config.anonymous || false;
+-            lastCommentSentTime = now;
++            AppModules.Security.recordRateLimit('comment');
+             set(push(ref(db, `modules/${currentModule}/${currentPostId}/comments`)), {
+                 text,
+                 authorId: isAnonymous ? 'anonymous' : currentUser.id,
+@@ -5437,7 +5256,9 @@
+                         </svg>
+                         <input id="globalSearchInput" type="text" placeholder="Search people, messages, news..."
+                             oninput="handleGlobalSearch(event)"
+-                            class="flex-1 bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
++                            onfocus="handleGlobalSearch(event)"
++                            autocomplete="off"
++                            class="flex-1 h-full bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
+                         <button id="globalSearchClear" onclick="clearGlobalSearch()"
+                             class="hidden text-gray-400 hover:text-gray-600">
+                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+@@ -5448,28 +5269,19 @@
+                         </button>
+                     </div>
+                     <div id="globalSearchResults"
+-                        class="hidden ios-glass absolute top-[calc(100%+8px)] left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col">
+-                        <!-- Search Categories Bar: Centered Layout (Big Tech Style) -->
+-                        <div class="flex-shrink-0 border-b border-white/10 p-5 space-y-5">
+-                            <!-- Row 1: Long Labels centered -->
+-                            <div class="flex justify-center items-center gap-10">
+-                                <button onclick="setSearchCategory('messages')" id="searchCat-messages"
+-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">MESSAGES</button>
+-                                <div class="h-3 w-[1px] bg-white/10"></div>
+-                                <button onclick="setSearchCategory('community')" id="searchCat-community"
+-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">COMMUNITY</button>
+-                            </div>
+-                            <!-- Row 2: Short Labels centered -->
+-                            <div class="flex justify-center items-center gap-8">
+-                                <button onclick="setSearchCategory('news')" id="searchCat-news"
+-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">NEWS</button>
+-                                <div class="h-3 w-[1px] bg-white/10"></div>
+-                                <button onclick="setSearchCategory('tools')" id="searchCat-tools"
+-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">TOOLS</button>
+-                                <div class="h-3 w-[1px] bg-white/10"></div>
+-                                <button onclick="setSearchCategory('people')" id="searchCat-people"
+-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">PEOPLE</button>
+-                            </div>
++                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
++                        <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
++                        <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
++                            <button onclick="setSearchCategory('messages')" id="searchCat-messages"
++                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
++                            <button onclick="setSearchCategory('community')" id="searchCat-community"
++                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
++                            <button onclick="setSearchCategory('news')" id="searchCat-news"
++                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
++                            <button onclick="setSearchCategory('tools')" id="searchCat-tools"
++                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
++                            <button onclick="setSearchCategory('people')" id="searchCat-people"
++                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
+                         </div>
+                         <!-- Scrollable Results Area -->
+                         <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
+@@ -5509,6 +5321,7 @@
+                         </svg>
+                         <input id="chatSearchInput" type="text" placeholder="Search"
+                             oninput="handleSearch(event, 'chat')"
++                            autocomplete="off"
+                             class="w-full h-full bg-[#E9E9EB] dark:bg-[#2C2C2E] border-none rounded-full pl-8 pr-8 text-sm outline-none placeholder-gray-400">
+                         <button id="clearSearchBtn" onclick="clearSearch()"
+                             class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
