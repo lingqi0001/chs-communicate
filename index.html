@@ -55,16 +55,18 @@
     {
       "imports": {
         "./js/config.js": "./js/config.js?v=20260516-2380",
-        "./js/db.js": "./js/db.js?v=20260516-2380",
+        "./js/db.js": "./js/db.js?v=20260519-0925",
         "./js/user.js": "./js/user.js?v=20260516-2380",
         "./js/view.js": "./js/view.js?v=20260516-2380",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
         "./js/modal.js": "./js/modal.js?v=20260516-2380",
-        "./js/utils.js": "./js/utils.js?v=20260516-2380",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260516-2380",
+        "./js/utils.js": "./js/utils.js?v=20260519-0220",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260519-0220",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
-        "./js/gallery.js": "./js/gallery.js?v=20260516-2380"
+        "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
+        "./js/sync.js": "./js/sync.js?v=20260519-0925",
+        "./js/extensions.js": "./js/extensions.js?v=20260519-0925"
       }
     }
     </script>
@@ -80,13 +82,15 @@
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
         import { NotifyModule } from './js/notify_v2.js';
         import { ModalModule } from './js/modal.js';
-        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, reconcileNews, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
+        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, saveMessageLocal, getLocalMessages, saveModulePostLocal, saveNewsItemLocal, saveLocalNews, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
         import { UserModule } from './js/user.js';
         import { ViewModule } from './js/view.js';
         import { UIComponents } from './js/ui-components.js';
         import { UIUtils, DateUtils, ImageUtils } from './js/utils.js';
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
         import { GalleryModule } from './js/gallery.js';
+        import { SyncModule } from './js/sync.js';
+        import { ExtensionModule } from './js/extensions.js';
 
         // 挂载到全局
         window.AppModules = {
@@ -97,6 +101,8 @@
             View: ViewModule,
             Gallery: GalleryModule,
             UI: UIComponents,
+            Sync: SyncModule,
+            Extension: ExtensionModule,
             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         };
@@ -262,11 +268,47 @@
         window.isPhotoDisabled = false;
         window.isSidebarAnimating = false;
         let currentNewsTab = 'school';
-        const cnCache = {};
-        const ctCache = {};
-        let isSyncDone = false;
         window.currentClassId = null;
-        let sidebarClasses = {};
+
+        Object.defineProperty(window, 'isSyncDone', {
+            get: () => AppModules.Sync.isSyncDone,
+            set: (val) => { AppModules.Sync.isSyncDone = val; },
+            configurable: true
+        });
+
+        Object.defineProperty(window, 'cnCache', {
+            get: () => AppModules.Sync.cnCache,
+            set: (val) => { AppModules.Sync.cnCache = val; },
+            configurable: true
+        });
+
+        Object.defineProperty(window, 'ctCache', {
+            get: () => AppModules.Sync.ctCache,
+            set: (val) => { AppModules.Sync.ctCache = val; },
+            configurable: true
+        });
+
+        Object.defineProperty(window, 'sidebarClasses', {
+            get: () => AppModules.Sync.sidebarClasses,
+            set: (val) => { AppModules.Sync.sidebarClasses = val; },
+            configurable: true
+        });
+
+        // 状态同步引擎的全局属性代理，以解决严格模式 (Module Strict Mode) 下隐式全局变量未定义的 ReferenceError 错误
+        let currentModule = null;
+        let currentModuleSort = 'latest';
+
+        Object.defineProperty(window, 'currentModule', {
+            get: () => currentModule,
+            set: (val) => { currentModule = val; },
+            configurable: true
+        });
+
+        Object.defineProperty(window, 'currentModuleSort', {
+            get: () => currentModuleSort,
+            set: (val) => { currentModuleSort = val; },
+            configurable: true
+        });
 
         const EAGLE_ICON = APP_CONSTANTS.EAGLE_ICON;
         const EAGLE_ICON_BW = APP_CONSTANTS.EAGLE_ICON_BW;
@@ -284,234 +326,10 @@
           - title: 显示在界面上的名字。
           - postBtn: 发布按钮的文案（如果是 null 则表示禁止用户直接发布，如 Eagle Time）。
           - hasComments: 该模块是否需要开启评论功能。
-          - anonymous: 是否允许匿名发布（保护用户隐私）。
-        */
-        const MODULE_CONFIG = {
-            lost_and_found: { title: 'Lost and Found', postBtn: 'Report', hasComments: false, anonymous: false },
-            marketplace: { title: 'Marketplace', postBtn: 'Sell', hasComments: false, anonymous: false },
-            peer_tutoring: { title: 'Peer Tutoring', postBtn: 'Help', hasComments: true, anonymous: false },
-            suggestions: { title: 'Suggestions', postBtn: 'Suggest', hasComments: true, anonymous: true },
-            info: { title: 'CHS Info', postBtn: 'Add', hasComments: false, anonymous: false },
-            eagle_time: { title: 'Eagle Time', postBtn: null, hasComments: false, anonymous: false },
-            grade_calculator: { title: 'Grade Calculator', postBtn: null, hasComments: false, anonymous: false },
-            independent_research: { title: 'Independent Research', postBtn: null, hasComments: false, anonymous: false }
-        };
-
-        // 叠加层页面 ID 列表：用于在页面切换时统一关闭所有已打开的子页面弹窗
-        const OVERLAY_PAGE_IDS = [
-            'lostFoundPage', 'marketplacePage', 'tutoringPage', 'suggestionsPage', 'infoPage',
-            'eagleTimePage', 'gradeCalculatorPage', 'cafeteriaPage', 'adminConsolePage', 'extensionPage'
-        ];
-
-        const MODULE_PAGE_MAP = {
-            lost_and_found: 'lostFoundPage',
-            marketplace: 'marketplacePage',
-            peer_tutoring: 'tutoringPage',
-            suggestions: 'suggestionsPage',
-            info: 'infoPage',
-            eagle_time: 'eagleTimePage',
-            grade_calculator: 'gradeCalculatorPage',
-            cafeteria: 'cafeteriaPage',
-            independent_research: 'extensionPage'
-        };
-
-        window.MODULE_CONFIG = MODULE_CONFIG;
-        window.OVERLAY_PAGE_IDS = OVERLAY_PAGE_IDS;
-        window.MODULE_PAGE_MAP = MODULE_PAGE_MAP;
-
-        let currentModule = null;
-        let currentModuleSort = 'latest';
-        let moduleListener = null;
-        let modulePosts = [];
-        let currentPostId = null;
-        let postDetailListener = null;
-        let currentPostBase64 = null;
-
-        // 本地离线缓存引擎已移至 js/db.js
-
-        /**
-         * [核心逻辑] 全局数据同步引擎 (Background Sync)
-         * 该函数负责：
-         * 1. 显示同步进度提示。
-         * 2. 对比本地与云端数据，找出缺失的条目并补全。
-         * 3. 挂载实时监听器，确保应用运行期间能收到秒级的更新通知。
-         */
-        async function globalDataSync() {
-            console.log('App: Starting background globalDataSync...');
-            const syncHint = document.getElementById('newsSyncHint');
-            // 显示“同步中...”的小灯，提升用户体验
-            if (syncHint) syncHint.classList.add('opacity-100');
-
-            const newsTabs = ['school', 'club'];
-            for (const tab of newsTabs) {
-                try {
-                    const remoteSnap = await get(ref(db, `news/${tab}`));
-                    const remoteData = remoteSnap.val() || {};
-                    const remoteKeys = Object.keys(remoteData);
-
-                    // 1. 先读取本地已有内容，确定同步的“断点”
-                    const localItems = await getLocalNews(tab);
-                    const localKeys = localItems.map(it => it.key);
-
-                    // 2. [进阶重构] 批量对齐本地缓存与云端，保证强一致性
-                    // 相比以前手写 10 行 transaction 逻辑，现在只需调用封装好的 reconcileNews
-                    await reconcileNews(tab, remoteData, localKeys);
-
-                    // 立即渲染一次本地内容，给用户“极速秒开”的错觉
-                    const finalLocal = await getLocalNews(tab);
-                    renderNewsContentFromData(finalLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
-
-                    /**
-                     * 3. 增量实时监听 (Incremental Real-time Sync)：
-                     * 核心算法：利用 Firebase 的 query + startAfter。
-                     * We just notify比本地最新一条消息“还要新”的内容，这样可以极大地减少监听范围，
-                     * 避免每次有新消息都重新拉取全量列表，极其省电省流量。
-                     */
-                    const lastKey = remoteKeys.sort().pop();
-                    const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), orderByKey(), limitToLast(1));
-                    onChildAdded(q, async (snap) => {
-                        console.log(`App: New item received for news/${tab}`);
-                        await saveNewsItemLocal(tab, snap.key, snap.val());
-                        renderNewsContentFromData(await getLocalNews(tab), tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
-                    });
-                } catch (err) {
-                    console.error(`Sync failed for news/${tab}:`, err);
-                    const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
-                    const container = document.getElementById(containerId);
-                    if (container) container.innerHTML = `<div class="text-center text-red-500 py-10 text-[13px]">Sync Error: ${err.message}<br/>Check internet or browser security settings.</div>`;
-                }
-            }
-            console.log('App: News sync complete.');
-
-            // 第二步：同步社交功能模块 (Modules Sync)
-            // 包含二手交易、建议反馈等，逻辑与新闻同步类似。
-            const moduleNames = Object.keys(MODULE_CONFIG);
-            for (const name of moduleNames) {
-                try {
-                    const lastKey = await getLastKey('modules', 'moduleName', name);
-                    const q = lastKey ? query(ref(db, `modules/${name}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `modules/${name}`), orderByKey(), limitToLast(50));
-                    onChildAdded(q, async (snap) => {
-                        try {
-                            const post = { id: snap.key, ...snap.val() };
-                            await saveModulePostLocal(name, snap.key, post);
-                        } catch (e) { console.error('Module sync error:', e); }
-                    });
-                } catch (err) {
-                    console.warn(`Sync failed for module/${name}:`, err);
-                }
-            }
-
-            // 3. Sync Extensions Automatically (New)
-            syncExtensions();
-
-            // Final hide of sync hint
-            if (syncHint) {
-                syncHint.classList.add('hidden');
-                setTimeout(() => syncHint.remove(), 1000);
-            }
-            isSyncDone = true;
-        }
-
-        /**
-         * [异步函数] 扩展功能同步引擎 (Extension Sync Engine)
-         * 逻辑：
-         * 1. 尝试从本地 `/extensions/` 目录扫描（开发环境）。
-         * 2. 如果本地扫描不到，则回退到通过 GitHub API 动态抓取仓库中的 HTML 文件（生产环境）。
-         * 这样即使不发版，只要在 GitHub 对应的文件夹下扔一个 HTML，应用里就会自动出现新工具。
-         */
-        window.syncExtensions = async function () {
-            const container = document.getElementById('dynamicExtensionsList');
-            if (!container) return;
-            container.innerHTML = ''; // 清除加载中的进度条
-
-            const categoryMap = { 'school': 'Learning Tools', 'staff': 'Staff Tools' };
-
-            /**
-             * [辅助函数] 尝试从本地目录扫描文件列表
-             * 这种方式仅在本地开发服务器（如 VS Code Live Server）环境下生效。
-             */
-            const syncFolderLocal = async (folder) => {
-                try {
-                    const resp = await fetch(`/extensions/${folder}/`);
-                    if (resp.ok) {
-                        const text = await resp.text();
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(text, 'text/html');
-                        const links = Array.from(doc.querySelectorAll('a'))
-                            .map(a => a.getAttribute('href'))
-                            .filter(href => href && href.endsWith('.html') && !href.startsWith('/'));
-                        if (links.length > 0) {
-                            renderExtensionsCategory(categoryMap[folder] || folder, links.map(l => ({ name: decodeURIComponent(l), url: `extensions/${folder}/${l}` })));
-                            return true;
-                        }
-                    }
-                } catch (e) { }
-                return false;
-            };
-
-            /**
-             * [黑科技]：通过 GitHub API 动态发现扩展。
-             * 为什么这么做？因为我们的应用部署在静态服务器上，没有后台扫描文件系统。
-             * 通过调用 GitHub 的 API，我们可以知道 extensions 目录下有哪些子文件夹和 HTML，
-             * 从而实现无需重新打包应用，直接在线热更新功能。
-             */
-            const syncViaGitHub = async () => {
-                try {
-                    // 调用 GitHub 仓库内容 API
-                    const ghResp = await fetch('https://api.github.com/repos/lingqi0001/chs-communicate/contents/extensions');
-                    if (ghResp.ok) {
-                        const items = await ghResp.json();
-                        for (const item of items) {
-                            if (item.type === 'dir') {
-                                // 如果是文件夹，则深入扫描其中的 .html 文件
-                                const subResp = await fetch(item.url);
-                                if (subResp.ok) {
-                                    const files = await subResp.json();
-                                    /**
-                                     * [过滤与映射] 
-                                     * 1. 只提取以 .html 结尾的文件，防止把 README 或图片当成插件。
-                                     * 2. map 构建一个包含文件名和 URL 的标准对象，统一后续渲染接口。
-                                     */
-                                    const htmlFiles = files.filter(f => f.name.endsWith('.html'))
-                                        .map(f => ({ name: f.name, url: f.path }));
-
-                                    if (htmlFiles.length > 0) {
-                                        // 调用渲染引擎，在 UI 中生成插件入口卡片
-                                        renderExtensionsCategory(categoryMap[item.name] || item.name, htmlFiles);
-                                    }
-                                }
-                            }
-                        }
-                        return true; // 标志位：抓取成功
-                    }
-                } catch (e) {
-                    console.error("GitHub Extension Fetch Failed:", e);
-                }
-                return false; // 标志位：网络错误或仓库权限问题导致失败
-            };
-
-            /**
-             * [加载策略决策]
-             * 逻辑：
-             * 1. 优先扫描本地服务器：方便开发者在本地测试新写的 HTML 插件。
-             * 2. 如果本地没有响应，则回退到 GitHub 远程抓取：这是为了保证外网用户能看到最新动态内容。
-             */
-            let foundLocal = false;
-            for (const cat of Object.keys(categoryMap)) {
-                // 遍历分类目录，如 /extensions/school/
-                if (await syncFolderLocal(cat)) foundLocal = true;
-            }
-
-            // 如果本地开发目录为空（生产环境常态），则请求 GitHub API
-            if (!foundLocal) {
-                await syncViaGitHub();
-            }
-
-            // 异常提示：如果两边都没找到任何 HTML 文件
-            if (container.innerHTML === '') {
-                container.innerHTML = `<div class="text-xs text-gray-400 text-center py-6 italic">No extensions found in /extensions/ folders.</div>`;
-            }
-        };
+          - anonymous: 是否允许匿名发布（保护用户隐私�        // ==================================================================================
+        // 全局后台同步与插件扩展扫描引擎已全面重构并解耦至外部 js/sync.js 模块中
+        // 由 AppModules.Sync 统一接管，保持主页面逻辑精简。
+        // ==================================================================================
 
         /**
          * [UI 渲染引擎] 动态生成扩展卡片
@@ -737,12 +555,7 @@
              * 核心逻辑：每 60 秒向服务器报一次平安。
              * 为什么不实时报？为了省流量，也为了防止被 Firebase 当作恶意刷频封锁。
              */
-            if (window._heartbeat) clearInterval(window._heartbeat);
-            window._heartbeat = setInterval(() => {
-                if (auth.currentUser) {
-                    update(ref(db, `users/${currentUser.id}`), { lastSeen: serverTimestamp() });
-                }
-            }, 60000); // 间隔一分钟更新一次在线状态
+            // [用户心跳已迁移] 心跳与在线状态检测逻辑已转移至 AppModules.Sync.initPresence 中统一接管
 
             // --- 2. 并行获取全局关键数据 (Batch Fetching) ---
             // 策略：使用 Promise.all 让四个请求并发，总耗时由最慢的那个决定，而不是逐一排队。
@@ -869,19 +682,8 @@
              * B. 如果没同意：强制留在服务条款 (ToS) 页面，直到用户点击“我同意”。
              */
             if (currentUser.hasAcceptedTerms) {
-                AppModules.View.showPage('mainPage');
-                initUserObserver(); // 监听好友列表和个人资料
-                initSettingsUI();   // 初始化设置菜单
-                updateNewsAccess(); // 检查是否有发公告的权限
-                initNewsObserver(); // 挂载公告栏实时流
-                showSidebar();      // 展开侧边栏
-                AppModules.Notify.initMonitor();       // 核心：启动全局消息监控（红点提示）
-                AppModules.Notify.requestPermission(); // 尝试申请消息推送权限
-                globalDataSync();   // 执行大规模离线同步（IndexedDB）
-                syncGroupChats();   // 同步班级群聊列表
-
-                console.log('App: All components initialized. Hiding loading.');
-                hideLoading(); // 关掉全屏白色加载遮罩，正式揭晓主界面
+                console.log('App: User accepted ToS. Entering App...');
+                enterApp();
             } else {
                 console.log('App: User must accept ToS.');
                 showTos(true); // 弹出强制性条款页面
@@ -963,9 +765,39 @@
             initUserObserver();         // 启动侧边栏用户更新监听
             initSettingsUI();           // 渲染设置界面
             updateNewsAccess();         // 计算公告发布权限
-            initNewsObserver();         // 订阅新闻公告流
             showSidebar();              // 展示左侧导航栏
-            requestNotificationPermission(); // 触发 PWA 推送弹窗
+            AppModules.Notify.initMonitor();       // 核心：启动全局消息监控（红点提示）
+            AppModules.Notify.requestPermission(); // 尝试申请消息推送权限
+            
+            // 初始化模块化同步引擎的回调函数
+            AppModules.Sync.init({
+                renderNews: renderNewsContentFromData,
+                renderSidebar: () => window.renderSidebar(),
+                onNewChatDiscovered: (chatId) => {
+                    if (window.AppModules && window.AppModules.Notify) {
+                        window.AppModules.Notify._startChatListener(chatId);
+                        window.AppModules.Notify.initMonitor();
+                    }
+                }
+            });
+
+            // 初始化插件加载引擎的回调函数
+            AppModules.Extension.init({
+                renderCategory: renderExtensionsCategory,
+                onComplete: (container) => {
+                    container.innerHTML = `<div class="text-xs text-gray-400 text-center py-6 italic">No extensions found in /extensions/ folders.</div>`;
+                }
+            });
+
+            // 启动全局数据同步与实时增量监听
+            AppModules.Sync.globalDataSync(db);
+            // 启动插件自动扫描同步
+            AppModules.Extension.syncExtensions();
+            // 启动用户在线状态实时心跳与 Presence 系统
+            AppModules.Sync.initPresence(db, currentUser);
+            // 启动群聊同步与轮询
+            AppModules.Sync.startGroupSync(db, currentUser);
+
             closeTos();                 // 确保关闭条款页
             hideLoading();              // 彻底移除加载遮罩
         };
@@ -1059,31 +891,7 @@
          * 1. 遍历两个分类：'school' (学校公告) 和 'club' (社团动态)。
          * 2. 挂载 onValue 实时监听云端数据库。
          */
-        function initNewsObserver() {
-            for (const tab of ['school', 'club']) {
-                const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
-                const container = document.getElementById(containerId);
-                // 渲染初始状态：骨架屏效果（Loading 提示）
-                if (container) container.innerHTML = '<div class="text-center text-gray-400 py-20 animate-pulse">Loading...</div>';
-
-                // Firebase 实时订阅
-                onValue(ref(db, `news/${tab}`), async (snapshot) => {
-                    const data = snapshot.val() || {};
-                    // 将对象转换为数组，并注入 snapKey
-                    const posts = Object.keys(data).map(key => ({ ...data[key], key }));
-
-                    // [重要：离线化] 将同步到的数据写入本地 IndexedDB
-                    saveLocalNews(tab, posts);
-
-                    /**
-                     * [渲染逻辑] 
-                     * 为什么不用直接渲染？
-                     * 因为渲染引擎里包含入场动画逻辑，需要对比新旧数据。
-                     */
-                    renderNewsContentFromData(posts, containerId, tab);
-                });
-            }
-        }
+        // initNewsObserver 已经被移除，其增量对账同步逻辑已由 AppModules.Sync.globalDataSync 接管
 
         /* 
            统一新闻公告引擎 (Unified News Engine) 
@@ -3172,10 +2980,29 @@
             sendImages: async function (base64s) {
                 if (!base64s || !base64s.length) return;
                 const imageUrls = await Promise.all(base64s.map(b => uploadImageToStorage(b, 'chats')));
-                await this.commit({
+                const msgKey = await this.commit({
                     text: JSON.stringify(imageUrls),
                     type: 'image_group'
                 });
+
+                // Add to user image index for regular users to enforce storage quota
+                if (msgKey && currentUser && !AppModules.User.isAdmin()) {
+                    const uidLower = currentUser.uid.toLowerCase();
+                    const targetId = activeTargetId;
+                    const isGroup = targetId.startsWith('group_');
+                    const chatId = isGroup ? targetId : getChatId(currentUser.id, targetId);
+
+                    try {
+                        await update(ref(db, `user_image_index/${uidLower}/${msgKey}`), {
+                            timestamp: serverTimestamp(),
+                            chatId: chatId,
+                            msgKey: msgKey,
+                            imgCount: imageUrls.length
+                        });
+                    } catch (e) {
+                        console.error("Failed to update user_image_index:", e);
+                    }
+                }
             }
         };
 
@@ -5109,70 +4936,7 @@
 
 
         // Initialize user interaction records for groups
-        async function syncGroupChats() {
-            if (!currentUser) return;
-            try {
-                const snap = await get(ref(db, 'classes'));
-                const classes = snap.val() || {};
-                const myClasses = Object.keys(classes).filter(id => {
-                    const c = classes[id];
-                    return c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]);
-                });
-
-                // Update participant cache
-                sidebarClasses = {};
-                myClasses.forEach(id => {
-                    sidebarClasses[id] = true;
-                    // 核心修复：直接把群聊 ID 喂给通知模块的监听器
-                    if (window.AppModules && window.AppModules.Notify) {
-                        window.AppModules.Notify._startChatListener(`group_${id}`);
-                    }
-                });
-
-                // 通知模块重新同步
-                if (window.AppModules && window.AppModules.Notify) {
-                    window.AppModules.Notify.initMonitor();
-                }
-
-                // For each class, ensure the group chat timestamp exists in user_chats if it has activity
-                for (const cid of myClasses) {
-                    const c = classes[cid];
-                    cnCache[cid] = c.name;
-
-                    // Pre-fetch teacher name for sidebar
-                    if (c.teacherId) {
-                        fetchUser(c.teacherId).then(u => {
-                            if (u && u.name) {
-                                ctCache[cid] = u.name;
-                                window.renderSidebar();
-                            }
-                        });
-                    }
-
-                    const classData = classes[cid];
-                    if (classData.lastActivity) {
-                        const chatId = `group_${cid}`;
-                        const localPath = `user_chats/${currentUser.id.toLowerCase()}/${chatId}`;
-                        const localSnap = await get(ref(db, localPath));
-                        if (!localSnap.exists() || localSnap.val() < classData.lastActivity) {
-                            await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [chatId]: classData.lastActivity });
-                        }
-                    }
-                }
-                const firstSync = !isSyncDone;
-                isSyncDone = true;
-                if (firstSync) {
-                    window.renderSidebar();
-                }
-
-                // Removed redundant switchChat call that caused periodic reloads
-
-            } catch (e) { console.warn("Group sync failed:", e); }
-        }
-
-        // Run sync periodically
-        setInterval(syncGroupChats, 30000);
-        syncGroupChats();
+        // syncGroupChats 已经迁移，轮询逻辑已由 AppModules.Sync.startGroupSync 接管
     </script>
 </head>
 

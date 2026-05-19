@@ -158,6 +158,12 @@ export const ImageUtils = {
      */
     checkLimitAndCleanup: async function (files, db, auth, get, ref, update, set) {
         if (!auth.currentUser) return false;
+
+        // Admin bypass - administrators have unlimited storage quota
+        if (window.AppModules && window.AppModules.User && window.AppModules.User.isAdmin()) {
+            return true;
+        }
+
         const uidLower = auth.currentUser.uid.toLowerCase();
         const snap = await get(ref(db, `user_image_index/${uidLower}`));
         const uploads = snap.val() || {};

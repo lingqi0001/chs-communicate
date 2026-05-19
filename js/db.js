@@ -171,7 +171,9 @@ export async function getLastKey(storeName, indexName, indexValue) {
         const request = index.openCursor(IDBKeyRange.only(indexValue), "prev");
         request.onsuccess = (e) => {
             const cursor = e.target.result;
-            resolve(cursor ? cursor.value.timestamp : 0);
+            // 核心修复：Firebase 的 push ID（如 -N...）是天然按时间排序的字符串。
+            // 当配合 Firebase DB 的 orderByKey() 时，必须返回记录的主键（id / Firebase key 字符串），而不是时间戳数值。
+            resolve(cursor ? cursor.primaryKey : null);
         };
     });
 }
@@ -216,31 +218,7 @@ export async function getLocalNews(tabType) {
     });
 }
 
-/**
- * [公告同步引擎] reconcileNews
- * 逻辑：对比云端与本地数据，补全缺失条目�? * @param {string} tab - 'school' | 'club'
- * @param {object} remoteData - Firebase 原始数据对象
- * @param {Array} localKeys - 本地已有�?key 列表
- */
-export const reconcileNews = async (tab, remoteData, localKeys) => {
-    console.log(`DB: Reconciling news for [${tab}]...`);
-    const remoteKeys = Object.keys(remoteData);
-
-    // 找出本地缺失�?key
-    const missingKeys = remoteKeys.filter(k => !localKeys.includes(k));
-
-    if (missingKeys.length === 0) {
-        console.log(`DB: [${tab}] is already up to date.`);
-        return;
-    }
-
-    console.log(`DB: Found ${missingKeys.length} missing items for [${tab}]. Syncing...`);
-
-    for (const key of missingKeys) {
-        const post = { key, ...remoteData[key] };
-        await saveNewsItemLocal(tab, key, post);
-    }
-};
+// reconcileNews 已迁移至 js/sync.js
 
 export async function saveModulePostLocal(moduleName, postId, data) {
     console.log(`[DEBUG] DB: Attempting to save to modules store. ID=${postId}, Module=${moduleName}`);
@@ -284,6 +262,8 @@ export const DBModule = {
         saveMessage: saveMessageLocal,
         getMessages: getLocalMessages,
         saveNews: saveNewsItemLocal,
-        getNews: getLocalNews
+        getNews: getLocalNews,
+        saveModulePost: saveModulePostLocal,
+        getModulePosts: getLocalModulePosts
     }
 };

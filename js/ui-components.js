@@ -61,7 +61,10 @@ export const UIComponents = {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                         </svg>
                         <span class="text-[10px] font-bold tracking-wide uppercase opacity-60">Image Expired</span>
-                        <span class="text-[8px] opacity-40 mt-0.5">Quota Exceeded</span>
+                        <div class="flex items-center gap-1 mt-0.5">
+                            <span class="text-[8px] opacity-40">Quota Exceeded</span>
+                            <button onclick="event.stopPropagation(); AppModules.Modal.alert('Storage Limit Details', 'To guarantee stable performance and optimize server storage, every user is limited to a maximum of 15 active images across their chat history. Once this quota is exceeded, older photos are automatically expired and marked as unavailable to free up server space.')" class="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[7px] text-gray-500 hover:text-black dark:hover:text-white transition-colors cursor-pointer" title="Storage Quota Info">?</button>
+                        </div>
                        </div>`;
         } else if (images.length > 0) {
             if (window.isPhotoDisabled) {
