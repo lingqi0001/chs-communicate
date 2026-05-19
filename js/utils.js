@@ -262,7 +262,9 @@ export const ImageUtils = {
         } finally {
             if (input) {
                 input.disabled = false;
-                input.placeholder = "Type a message...Use Shift+Enter to change lines";
+                input.placeholder = window.innerWidth < 640 
+                    ? "Type a message..." 
+                    : "Type a message...Use Shift+Enter to change lines";
             }
             e.target.value = '';
         }

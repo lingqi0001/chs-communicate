@@ -54,6 +54,7 @@
     <script type="importmap">
     {
       "imports": {
+        "./js/core.js": "./js/core.js?v=20260519-0935",
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260519-0925",
         "./js/user.js": "./js/user.js?v=20260516-2380",
@@ -72,11 +73,7 @@
     </script>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-        import { getStorage, ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-        import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+        import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, sRef, uploadString, getDownloadURL, deleteObject } from './js/core.js';
 
         // 核心模块导入 (使用 importmap 自动映射版本号)
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
@@ -92,8 +89,11 @@
         import { SyncModule } from './js/sync.js';
         import { ExtensionModule } from './js/extensions.js';
 
-        // 挂载到全局
-        window.AppModules = {
+        // 打印应用版本号，方便调试时确认缓存状态
+        console.log('App: Version 2026-05-02-2115 (Latest)');
+
+        // 使用 CoreModule 统筹初始化 AppModules、Firebase 服务、状态代理及桥接
+        const { db, auth, storage, googleProvider, microsoftProvider, signInWithPopup, signInWithRedirect } = CoreModule.init({ firebaseConfig }, {
             Notify: NotifyModule,
             Modal: ModalModule,
             DB: DBModule,
@@ -105,7 +105,7 @@
             Extension: ExtensionModule,
             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
-        };
+        });
 
         // 注入长文本内容 (Changelog & TOS)
         const cv = document.getElementById('changelogView');
@@ -121,120 +121,8 @@
         AppModules.View.init();
         AppModules.Gallery.init();
 
-        // 核心状态代理 (Core State Proxy)
-        // 保证全局变量 currentUser 始终同步 AppModules.User.current
-        Object.defineProperty(window, 'currentUser', {
-            get: () => AppModules.User.current,
-            set: (val) => { AppModules.User.current = val; },
-            configurable: true
-        });
-
-        // 兼容性桥接 (Bridge)
-        // 兼容性桥接已废弃，直接使用 AppModules.Modal 命名空间
-
-        // 兼容性桥接 (Bridge)
-        window.updateGlobalUnreadStatus = () => AppModules.Notify.updateUI();
-        window.requestNotificationPermission = () => AppModules.Notify.requestPermission();
-        window.initGlobalNotificationMonitor = () => AppModules.Notify.initMonitor();
-
-        // Firebase 生产环境配置与工具类已在顶部统一导入
-
-
-
-
-        // 打印应用版本号，方便调试时确认缓存状态
-        console.log('App: Version 2026-05-02-2115 (Latest)');
-        // 正式初始化 Firebase 应用
-        const app = initializeApp(firebaseConfig);
-        window.firebaseApp = app; // 挂载到全局方便调试
-
-        // 提取数据库对象
-        const db = getDatabase(app);
-        window.firebaseDb = db;
-        // 缩写数据库常用操作符，提升代码简洁度
-        window.fRef = ref; window.fSet = set; window.fUpdate = update; window.fPush = push; window.fGet = get; window.fOnValue = onValue;
-
-        // 提取文件存储对象
-        const storage = getStorage(app);
-        window.firebaseStorage = storage;
-        window.sRef = sRef; window.sUpload = uploadString; window.sGetUrl = getDownloadURL;
-
-        // 提取鉴权对象
-        const auth = getAuth(app);
-        window.firebaseAuth = auth;
-
-        // 【最高优先级】核心注入：在任何业务逻辑运行前，必须打通数据库连接
-        AppModules.DB.initCloudRefs({ db, auth, storage });
-
-        window.firebaseOnAuth = onAuthStateChanged;
-
         // 初始化外部模块的云端引用
         initCloudRefs({ db, auth, storage });
-
-        /**
-         * [回调函数] 处理第三方登录重定向结果
-         * 该函数在从 Google/Microsoft 登录页面跳转回来时自动触发
-         */
-        getRedirectResult(auth).then((result) => {
-            if (result) {
-                // 如果结果存在，说明登录成功
-                console.log('App: Sign-in redirect result handled.', result.user.email);
-            }
-        }).catch((error) => {
-            // 登录失败时的错误处理
-            console.error('App: Sign-in redirect error:', error);
-            if (error.code === 'auth/internal-error' || error.code === 'auth/network-request-failed') {
-                AppModules.Modal.alert("Connection Error", "Connection error during login. Please try again.");
-            } else if (error.code !== 'auth/no-auth-event') {
-                AppModules.Modal.alert("Login Error", error.message);
-            }
-        });
-
-        /**
-         * [函数] 检查环境是否支持 Firebase Messaging
-         * 因为有些浏览器（如 iOS Safari 旧版）不支持，所以需要先探测
-         */
-        isSupported().then(supported => {
-            if (supported) {
-                try {
-                    // 环境支持，初始化推送引擎
-                    AppModules.Notify.engine = getMessaging(app);
-                    console.log('App: Firebase Messaging initialized.');
-
-                    // 启动通知模块并传入上下文依赖
-                    AppModules.Notify.init({
-                        db: db,
-                        currentUser: currentUser,
-                        allUsers: ALL_USERS,
-                        settings: SETTINGS,
-                        globalListeners: globalListeners,
-                        appStartTime: APP_START_TIME
-                    });
-                } catch (e) {
-                    console.error('App: Messaging initialization failed:', e);
-                }
-            } else {
-                console.warn('App: Firebase Messaging not supported in this environment.');
-            }
-        });
-
-        // 初始化第三方登录提供者
-        const googleProvider = new GoogleAuthProvider();
-        const microsoftProvider = new OAuthProvider('microsoft.com');
-
-        /**
-         * [函数块] 服务工作线程清理逻辑
-         * 强制卸载旧的 Service Worker，防止旧代码导致的缓存 Bug。
-         */
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                // 遍历并卸载每一个已注册的 SW
-                for (let registration of registrations) {
-                    registration.unregister();
-                    console.log('App: Force Unregistered old SW');
-                }
-            });
-        }
 
         /* 
           第五部分：全局工具函数与常量定义 (Global Utilities & Constants)
@@ -297,6 +185,7 @@
         // 状态同步引擎的全局属性代理，以解决严格模式 (Module Strict Mode) 下隐式全局变量未定义的 ReferenceError 错误
         let currentModule = null;
         let currentModuleSort = 'latest';
+        let modulePosts = [];
 
         Object.defineProperty(window, 'currentModule', {
             get: () => currentModule,
@@ -404,6 +293,9 @@
             soundUrl: localStorage.getItem('soundUrl') || "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" // 提示音音源
         };
 
+        // 初始化 Firebase Messaging (使用已定义的运行时配置)
+        CoreModule.initMessaging(APP_START_TIME, SETTINGS, ALL_USERS, globalListeners);
+
         const SOUNDS = [
             { name: "Note", url: "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" },
             { name: "Pop", url: "https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" },
@@ -433,41 +325,12 @@
          * 这个函数是应用启动后的第一个“十字路口”。
          */
         console.log('App: Setting up onAuthStateChanged...');
-        onAuthStateChanged(auth, async (user) => {
-            // 实时打印当前状态，方便在调试控制台追踪鉴权流
-            console.log('App: Auth state changed. User:', user ? user.email : 'null');
-
-            try {
-                if (user) {
-                    /**
-                     * [分支 A]：用户已登录。
-                     * 立即进入 setupUser 函数：这里会初始化个人资料、同步离线数据、挂载消息监听器。
-                     */
-                    await setupUser(user);
-                } else {
-                    /**
-                     * [分支 B]：用户未登录或 Token 已过期。
-                     * 动作：
-                     * 1. 显示登录页。
-                     * 2. 隐藏主功能页（防止通过 F12 绕过登录看 UI）。
-                     * 3. 关闭启动加载动画。
-                     */
-                    console.log('App: No user found. Showing login page.');
-                    document.getElementById('loginPage')?.classList.remove('hidden');
-                    document.getElementById('mainPage')?.classList.add('hidden');
-                    hideLoading();
-                }
-            } catch (err) {
-                // 捕获启动阶段的一切崩溃：网络波动、存储权限被浏览器禁用等
-                console.error('App: Critical error during initialization:', err);
-                if (window.showError) window.showError(err);
-                hideLoading();
-            }
+        CoreModule.watchAuth(setupUser, () => {
+            console.log('App: No user found. Showing login page.');
+            document.getElementById('loginPage')?.classList.remove('hidden');
+            document.getElementById('mainPage')?.classList.add('hidden');
+            hideLoading();
         });
-
-
-
-        window.handleSignOut = () => signOut(auth).then(() => location.reload());
 
 
         /**
@@ -1252,12 +1115,20 @@
                     const fullRegistry = [
                         { id: 'grade_calc', name: 'Grade Calculator', desc: 'Calculate your HCPSS final grades', type: 'module' },
                         { id: 'cafeteria', name: 'Cafeteria Menu', desc: 'View today\'s menus', type: 'module' },
-                        { id: 'chs_info', name: 'CHS Info', desc: 'School links and resources', type: 'module' },
-                        { id: 'calc_volume_3d', name: 'BC Volume 3D Present', desc: 'Extension Tool', type: 'extension' },
-                        { id: 'independent_research', name: 'IR Navigator', desc: 'Extension Tool', type: 'extension' },
-                        { id: 'selection_logic', name: 'Selection Logic Visualizer', desc: 'Extension Tool', type: 'extension' },
-                        { id: 'honor_roll', name: 'Honor Roll', desc: 'Extension Tool', type: 'extension' }
+                        { id: 'chs_info', name: 'CHS Info', desc: 'School links and resources', type: 'module' }
                     ];
+
+                    const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
+                    Object.keys(registry).forEach(eid => {
+                        if (['calc_volume_3d', 'independent_research', 'selection_logic', 'grade_calc'].includes(eid)) return;
+                        const item = registry[eid];
+                        fullRegistry.push({
+                            id: eid,
+                            name: item.title,
+                            desc: item.category || 'Extension Tool',
+                            type: 'extension'
+                        });
+                    });
 
                     fullRegistry.forEach(t => {
                         if (t.name.toLowerCase().includes(termLower) || t.desc.toLowerCase().includes(termLower)) {
@@ -1968,38 +1839,43 @@
                 if (c.extensions) {
                     const activeExts = Object.keys(c.extensions).filter(eid => c.extensions[eid] === true);
                     if (activeExts.length > 0) {
-                        extensionHtml += `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>`;
+                        let innerHtml = '';
                         activeExts.forEach(eid => {
-                            if (eid === 'calc_volume_3d') {
-                                extensionHtml += `
-                                    <div onclick="openExtension('calc_volume_3d')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                            const regItem = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistryItem ? window.AppModules.Extension.getRegistryItem(eid) : null;
+                            if (regItem) {
+                                let iconColor = "text-[#007AFF]"; // Default blue
+                                let iconBg = "bg-blue-100 dark:bg-blue-500/20";
+                                const lowerName = regItem.eid.toLowerCase();
+                                
+                                if (lowerName.includes('logic')) {
+                                    iconColor = "text-green-500";
+                                    iconBg = "bg-green-100 dark:bg-green-500/20";
+                                } else if (lowerName.includes('ir') || lowerName.includes('navigator') || lowerName.includes('research')) {
+                                    iconColor = "text-cyan-500";
+                                    iconBg = "bg-cyan-100 dark:bg-cyan-500/20";
+                                } else if (lowerName.includes('staff')) {
+                                    iconColor = "text-purple-500";
+                                    iconBg = "bg-purple-100 dark:bg-purple-500/20";
+                                }
+
+                                innerHtml += `
+                                    <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
+                                        <div class="w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                             </svg>
                                         </div>
                                         <div>
-                                            <div class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</div>
-                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Mathematics Tool</div>
-                                        </div>
-                                    </div>
-                                `;
-                            } else if (eid === 'independent_research') {
-                                extensionHtml += `
-                                    <div onclick="openExtension('independent_research')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-sm text-black dark:text-white">IR Navigator</div>
-                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Research Management Tool</div>
+                                            <div class="font-bold text-sm text-black dark:text-white">${escapeHTML(regItem.title)}</div>
+                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">${escapeHTML(regItem.category || 'Extension Tool')}</div>
                                         </div>
                                     </div>
                                 `;
                             }
                         });
+                        if (innerHtml) {
+                            extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + innerHtml;
+                        }
                     }
                 }
 
@@ -2143,10 +2019,38 @@
                 .sort((a, b) => a.name.localeCompare(b.name));
 
             let selectedIds = new Set(Object.keys(currentStudents));
-            let extensionsState = {
-                'calc_volume_3d': !!(classData.extensions && classData.extensions['calc_volume_3d']),
-                'independent_research': !!(classData.extensions && classData.extensions['independent_research'])
+            
+            // Get registry keys to build extensionsState dynamically
+            const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
+            const registryKeys = Object.keys(registry);
+            
+            const LEGACY_ALIASES = ['calc_volume_3d', 'independent_research', 'selection_logic', 'grade_calc'];
+            const ALIAS_MAP = {
+                'calc_volume_3d': 'bc_volume_3d_present',
+                'independent_research': 'ir_navigator',
+                'selection_logic': 'selection_logic_visualizer',
+                'grade_calc': 'grade_calculator'
             };
+
+            let extensionsState = {};
+            registryKeys.forEach(eid => {
+                // Skip legacy aliases to avoid duplicates in extensionsState
+                if (LEGACY_ALIASES.includes(eid)) return;
+
+                let isSelected = false;
+                if (classData.extensions) {
+                    if (classData.extensions[eid] !== undefined) {
+                        isSelected = !!classData.extensions[eid];
+                    } else {
+                        // Check if any alias points to this eid
+                        const alias = Object.keys(ALIAS_MAP).find(k => ALIAS_MAP[k] === eid);
+                        if (alias && classData.extensions[alias] !== undefined) {
+                            isSelected = !!classData.extensions[alias];
+                        }
+                    }
+                }
+                extensionsState[eid] = isSelected;
+            });
 
             const renderSelectorList = (filter = "") => {
                 const filtered = userList.filter(u =>
@@ -2176,51 +2080,92 @@
                 extensionsState[eid] = !!isChecked;
             };
 
+            const renderExtensionsList = (filter = "") => {
+                const termLower = filter.toLowerCase().trim();
+                const filteredKeys = registryKeys.filter(eid => {
+                    if (LEGACY_ALIASES.includes(eid)) return false;
+                    const item = registry[eid];
+                    if (!item) return false;
+                    return item.title.toLowerCase().includes(termLower) || 
+                           (item.category || "").toLowerCase().includes(termLower);
+                });
+                
+                if (filteredKeys.length === 0) {
+                    return `<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>`;
+                }
+
+                return filteredKeys.map(eid => {
+                    const regItem = registry[eid];
+                    const isSelected = extensionsState[eid];
+
+                    let iconColor = "text-[#007AFF]"; // Default blue
+                    let iconBg = "bg-blue-100 dark:bg-blue-500/20";
+                    const lowerName = eid.toLowerCase();
+
+                    if (lowerName.includes('logic')) {
+                        iconColor = "text-green-500";
+                        iconBg = "bg-green-100 dark:bg-green-500/20";
+                    } else if (lowerName.includes('ir') || lowerName.includes('navigator') || lowerName.includes('research')) {
+                        iconColor = "text-cyan-500";
+                        iconBg = "bg-cyan-100 dark:bg-cyan-500/20";
+                    } else if (lowerName.includes('staff')) {
+                        iconColor = "text-purple-500";
+                        iconBg = "bg-purple-100 dark:bg-purple-500/20";
+                    }
+
+                    return `
+                        <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                </div>
+                                <div class="flex flex-col text-left">
+                                    <span class="font-bold text-sm text-black dark:text-white">${escapeHTML(regItem.title)}</span>
+                                    <span class="text-[10px] text-gray-400 uppercase tracking-tight">${escapeHTML(regItem.category || 'Extension Tool')}</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" ${isSelected ? 'checked' : ''} onchange="toggleExtensionSelection('${eid}', this.checked)">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
+                            </label>
+                        </div>
+                    `;
+                }).join('');
+            };
+
             // 使用模块化接口获取元素，确保 modal 已注入 DOM
             const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = AppModules.Modal._getEls();
 
             tEl.innerText = `Edit Class`;
             bEl.innerHTML = `
-                <div class="space-y-4">
+                <div class="space-y-4 text-left">
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Class Name</label>
                         <input type="text" id="editClassName" value="${escapeHTML(classData.name)}" placeholder="Enter class name..." class="w-full mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all">
                     </div>
+                    
                     <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Manage Extensions</label>
-                        <div class="space-y-2 mt-1">
-                            <div class="p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
-                                    </div>
-                                    <span class="font-bold text-sm text-black dark:text-white">3D Volume Visualizer</span>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" class="sr-only peer" ${extensionsState['calc_volume_3d'] ? 'checked' : ''} onchange="toggleExtensionSelection('calc_volume_3d', this.checked)">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
-                                </label>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Manage Extensions</label>
+                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col mt-1">
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-800">
+                                <input type="text" id="extensionSearch" placeholder="Search extensions..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
                             </div>
-                            <div class="p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center text-cyan-500">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                                    </div>
-                                    <span class="font-bold text-sm text-black dark:text-white">IR Navigator</span>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" class="sr-only peer" ${extensionsState['independent_research'] ? 'checked' : ''} onchange="toggleExtensionSelection('independent_research', this.checked)">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
-                                </label>
+                            <div id="extensionList" class="max-h-[25vh] overflow-y-auto custom-scrollbar">
+                                ${renderExtensionsList()}
                             </div>
                         </div>
                     </div>
+
                     <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Manage Students</label>
-                        <input type="text" id="selectorSearch" placeholder="Search by name or email..." class="w-full mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all">
-                    </div>
-                    <div id="selectorList" class="max-h-[35vh] overflow-y-auto custom-scrollbar border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-black/20">
-                        ${renderSelectorList()}
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Manage Students</label>
+                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col mt-1">
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-800">
+                                <input type="text" id="selectorSearch" placeholder="Search by name or email..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
+                            </div>
+                            <div id="selectorList" class="max-h-[25vh] overflow-y-auto custom-scrollbar">
+                                ${renderSelectorList()}
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2234,6 +2179,12 @@
             const listContainer = bEl.querySelector('#selectorList');
             searchInput.oninput = (e) => {
                 listContainer.innerHTML = renderSelectorList(e.target.value);
+            };
+
+            const extSearchInput = bEl.querySelector('#extensionSearch');
+            const extListContainer = bEl.querySelector('#extensionList');
+            extSearchInput.oninput = (e) => {
+                extListContainer.innerHTML = renderExtensionsList(e.target.value);
             };
 
             modal.classList.remove('hidden');
@@ -2475,7 +2426,9 @@
                 }
             } else {
                 msgInput.disabled = false;
-                msgInput.placeholder = "Type a message...Use Shift+Enter to change lines";
+                msgInput.placeholder = window.innerWidth < 640 
+                    ? "Type a message..." 
+                    : "Type a message...Use Shift+Enter to change lines";
                 if (sendBtn) {
                     sendBtn.style.opacity = '1';
                     sendBtn.style.pointerEvents = 'auto';
@@ -3032,8 +2985,22 @@
             let hasAlertedLimit = false;
 
             const adjustHeight = () => {
+                if (!input.value) {
+                    input.style.height = '';
+                    return;
+                }
                 input.style.height = 'auto';
-                input.style.height = input.scrollHeight + 'px';
+                const computedMaxHeight = parseInt(window.getComputedStyle(input).maxHeight);
+                const newHeight = Math.min(input.scrollHeight, computedMaxHeight || 128);
+                input.style.height = newHeight + 'px';
+            };
+
+            const updatePlaceholder = () => {
+                if (window.innerWidth < 640) {
+                    input.placeholder = "Type a message...";
+                } else {
+                    input.placeholder = "Type a message...Use Shift+Enter to change lines";
+                }
             };
 
             input.addEventListener('input', () => {
@@ -3058,8 +3025,16 @@
                 }
             });
 
-            // Reset height after window resize
-            window.addEventListener('resize', adjustHeight);
+            // Reset height & placeholder after window resize (debounced to prevent feedback loop)
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                updatePlaceholder();
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(adjustHeight, 50);
+            });
+
+            // Initial setup
+            updatePlaceholder();
             setTimeout(adjustHeight, 100);
         })();
 
@@ -3255,9 +3230,15 @@
             let url = 'about:blank';
             let title = 'Tool';
 
+            // Resolve dynamically from registry
+            const regItem = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistryItem ? window.AppModules.Extension.getRegistryItem(eid) : null;
+
             if (customUrl) {
                 url = customUrl;
                 title = customTitle || eid;
+            } else if (regItem) {
+                url = regItem.url;
+                title = regItem.title;
             } else if (eid === 'calc_volume_3d') {
                 url = 'extensions/BC volume 3D present.html';
                 title = '3D Volume Visualizer';
@@ -3367,6 +3348,26 @@
             }
         };
         // ===== End Overlay Navigation Engine =====
+
+        // ===== Module Registry =====
+        const MODULE_CONFIG = {
+            lost_and_found: { title: 'Lost and Found',  postBtn: 'Post',    anonymous: false, hasComments: true  },
+            marketplace:    { title: 'Marketplace',     postBtn: 'List',    anonymous: false, hasComments: true  },
+            peer_tutoring:  { title: 'Peer Tutoring',   postBtn: 'Post',    anonymous: false, hasComments: true  },
+            suggestions:    { title: 'Suggestions',     postBtn: 'Suggest', anonymous: true,  hasComments: false },
+            info:           { title: 'CHS Info',        postBtn: 'Post',    anonymous: false, hasComments: true  },
+            cafeteria:      { title: 'Cafeteria Menu',  postBtn: null,      anonymous: false, hasComments: false },
+        };
+
+        const MODULE_PAGE_MAP = {
+            lost_and_found: 'lostFoundPage',
+            marketplace:    'marketplacePage',
+            peer_tutoring:  'tutoringPage',
+            suggestions:    'suggestionsPage',
+            info:           'infoPage',
+            cafeteria:      'cafeteriaPage',
+        };
+        // ===== End Module Registry =====
 
         window.openModule = (moduleName) => {
             currentModule = moduleName;
@@ -4445,6 +4446,7 @@
         let selectedFoods = { today: new Set(), tomorrow: new Set() };
         let cafeteriaListener1 = null;
         let cafeteriaListener2 = null;
+        let moduleListener = null;
 
 
 
@@ -5821,7 +5823,7 @@
                     <div
                         class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-[20px] pl-[14px] pr-[4px] min-h-[38px] mb-1.5 overflow-hidden">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 overflow-y-auto"></textarea>
+                            class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
                             <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
