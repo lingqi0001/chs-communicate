@@ -89,6 +89,8 @@
         import { SyncModule } from './js/sync.js';
         import { ExtensionModule } from './js/extensions.js';
         import { AuthModule } from './js/auth.js';
+        import { SecurityModule } from './js/security.js';
+        import { SearchModule } from './js/search.js';
 
         // 打印应用版本号，方便调试时确认缓存状态
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -104,6 +106,8 @@
             UI: UIComponents,
             Sync: SyncModule,
             Extension: ExtensionModule,
+            Security: SecurityModule,
+            Search: SearchModule,
             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         });
@@ -142,7 +146,7 @@
 
         // 桥接 UserModule：逻辑已全面迁移至 AppModules.User 命名空间
         window.UserModule = UserModule;
-        window.fetchUser = (id) => AppModules.User.fetchUser(id, ALL_USERS);
+        window.fetchUser = (id) => AppModules.Security.fetchUser(id);
 
         // 应用运行时状态管理
         let ALL_USERS = { ...SYSTEM_USERS };
@@ -198,6 +202,12 @@
         Object.defineProperty(window, 'currentModuleSort', {
             get: () => currentModuleSort,
             set: (val) => { currentModuleSort = val; },
+            configurable: true
+        });
+
+        Object.defineProperty(window, 'modulePosts', {
+            get: () => modulePosts,
+            set: (val) => { modulePosts = val; },
             configurable: true
         });
 
@@ -310,16 +320,9 @@
         // 通知音效对象由 AppModules.Notify 管理
         const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
 
-        // --- 发送频率限制 (Rate Limiting) ---
-        // 核心安全策略：通过前端 CD (冷却时间) 减少服务器负担并拦截脚本灌水。
-        let lastMsgSentTime = 0;
-        let lastPostSentTime = 0;
-        let lastCommentSentTime = 0;
-        const MSG_COOLDOWN = LIMITS.MSG_COOLDOWN;
-        const POST_COOLDOWN = LIMITS.POST_COOLDOWN;
-        const COMMENT_COOLDOWN = LIMITS.COMMENT_COOLDOWN;
-
-
+        // --- 初始化 SecurityModule ---
+        console.log('App: Initializing SecurityModule...');
+        SecurityModule.init(db);
 
         // --- 初始化 AuthModule ---
         console.log('App: Initializing AuthModule...');
@@ -416,9 +419,10 @@
             }
 
             AppModules.View.showPage('mainPage');
-            initUserObserver();         // 启动侧边栏用户更新监听
+            AppModules.Security.initSecurityObserver(); // 启动用户删除安全监测
+            initChatListObserver();     // 启动侧边栏用户及聊天列表更新监听
             initSettingsUI();           // 渲染设置界面
-            updateNewsAccess();         // 计算公告发布权限
+            AppModules.Security.updateNewsAccess();     // 计算公告发布权限
             showSidebar();              // 展示左侧导航栏
             AppModules.Notify.initMonitor();       // 核心：启动全局消息监控（红点提示）
             AppModules.Notify.requestPermission(); // 尝试申请消息推送权限
@@ -461,21 +465,7 @@
         };
         // 通知方法已迁移至 AppModules.Notify
 
-        /**
-         * [UI 权限控制] 更新“发布公告”按钮的可见性
-         * 逻辑：只有老师 (Teacher) 或管理员 (Admin) 才有权发布校园新闻。
-         */
-        function updateNewsAccess() {
-            const btn = document.getElementById('addAnnouncementBtn');
-            if (btn) {
-                // 利用全局权限辅助函数判断
-                if ((AppModules.User.isTeacher() || AppModules.User.isAdmin())) {
-                    btn.classList.remove('hidden');
-                } else {
-                    btn.classList.add('hidden');
-                }
-            }
-        }
+
 
         /**
          * [监听器] 初始化新闻实时同步流
@@ -551,76 +541,10 @@
         };
 
         /**
-         * [异步函数] 获取用户信息
-         * 该函数包含“客户端重写逻辑”，优先处理系统级特殊账号。
+         * [监听器] 初始化用户私信列表的观察者
          */
-        async function fetchUser(userId) {
-            if (!userId) return null;
-            const cleanedId = userId.toLowerCase();
-
-            // --- 机器人账户拦截 (Bot Overrides) ---
-            // 逻辑：如果 ID 是预设的机器人，则直接返回本地硬编码的数据和头像，不需要请求网络。
-            if (cleanedId === window.CONSTANTS.SAFETY_BOT_ID) {
-                return { id: window.CONSTANTS.SAFETY_BOT_ID, name: 'Safety Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png' };
-            }
-            if (cleanedId === window.CONSTANTS.ADVICE_BOT_ID) {
-                return { id: window.CONSTANTS.ADVICE_BOT_ID, name: 'Advice Bot', avatar: 'https://cdn-icons-png.flaticon.com/512/3260/3260831.png' };
-            }
-
-            // --- 管理员账户拦截 (Admin Overrides) ---
-            // 逻辑：确保管理员 Moss 的头像始终是那份标志性的“寿司”。
-            if (cleanedId === 'moss104088' || cleanedId === 'admin_moss') {
-                const adminUser = { id: 'moss104088', name: 'Moss', avatar: AppModules.Config.APP_CONSTANTS.SUSHI_AVATAR, email: AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL };
-                ALL_USERS[cleanedId] = adminUser;
-                return adminUser;
-            }
-
-            // [性能优化] 优先从内存缓存 (ALL_USERS) 中读取
-            if (ALL_USERS[cleanedId]) return ALL_USERS[cleanedId];
-
-            try {
-                // 缓存未命中，则请求 Firebase 数据库
-                const snap = await get(ref(db, `users/${userId}`));
-                if (snap.exists()) {
-                    ALL_USERS[userId] = snap.val();
-                    return ALL_USERS[userId];
-                }
-            } catch (err) {
-                console.warn(`Failed to fetch user ${userId}:`, err);
-            }
-            return null;
-        }
-
-        /**
-         * [监听器] 初始化用户相关数据的观察者
-         */
-        function initUserObserver() {
-            console.log('App: initUserObserver starting...');
-
-            /**
-             * 1. 监听当前用户自己的档案变更
-             * 逻辑：如果用户在另一台手机上改了名字，本手机的 UI 要立刻同步。
-             */
-            onValue(ref(db, `users/${currentUser.id}`), (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    console.log('App: Current user profile updated.');
-                    if (data.name) currentUser.name = data.name;
-                    currentUser.hasAcceptedTerms = data.hasAcceptedTerms || false;
-                    ALL_USERS[currentUser.id] = data;
-                } else {
-                    // [极端安全情况] 如果用户账号在云端被管理员彻底删除
-                    console.warn('App: User account no longer exists in database. Forcing logout.');
-                    clearAllLocalData(); // 立即清除本地一切缓存，强制登出
-                }
-            });
-
-            /**
-             * 2. 监听用户的“私信列表” (Chat List)
-             * 逻辑：
-             * - 每当有人发新消息给你，或者你发给别人，user_chats 里的对应 ID 时间戳会更新。
-             * - 侧边栏会自动按照这个列表重新渲染。
-             */
+        function initChatListObserver() {
+            console.log('App: initChatListObserver starting...');
             console.log('App: Setting up user_chats listener...');
             onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
                 const chatMap = snapshot.val() || {};
@@ -634,9 +558,9 @@
 
                 console.log(`App: Found ${chatIds.length} valid recent chats.`);
 
-                // 异步拉取这些聊天对象的名字和头像，拉取成功后会自动刷新侧边栏
+                // 异步拉取这些聊天对象的名字 and 头像，拉取成功后会自动刷新侧边栏
                 chatIds.forEach(id => {
-                    fetchUser(id).then(() => renderSidebar()).catch(e => console.warn(e));
+                    window.fetchUser(id).then(() => renderSidebar()).catch(e => console.warn(e));
                 });
 
                 renderSidebar(); // 立即初次渲染（显示占位符或旧缓存）
@@ -684,15 +608,22 @@
             }
         };
 
-        /**
-         * [UI 主题引擎] 全局皮肤切换 (已迁移至 ViewModule)
-         */
+        window.showGlobalSearchResults = () => {
+            const results = document.getElementById('globalSearchResults');
+            if (results) {
+                results.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+                results.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+            }
+        };
 
+        window.hideGlobalSearchResults = () => {
+            const results = document.getElementById('globalSearchResults');
+            if (results) {
+                results.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+                results.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+            }
+        };
 
-        /**
-         * [搜索辅助] 清除全局搜索状态
-         * 逻辑：重置所有输入框、搜索结果列表，并隐藏结果遮罩层。
-         */
         window.clearGlobalSearch = () => {
             const input = document.getElementById('globalSearchInput');
             const results = document.getElementById('globalSearchResults');
@@ -700,10 +631,71 @@
             const clearBtn = document.getElementById('globalSearchClear');
 
             if (input) input.value = '';
-            if (results) results.classList.add('hidden'); // 隐藏浮层
-            if (resultList) resultList.innerHTML = '';    // 清空 DOM 节点，释放内存
+            hideGlobalSearchResults();
+            if (resultList) {
+                // 等待淡出动画结束后再清空内容，避免突兀闪烁
+                setTimeout(() => {
+                    if (results && results.classList.contains('opacity-0')) {
+                        resultList.innerHTML = '';
+                    }
+                }, 200);
+            }
             if (clearBtn) clearBtn.classList.add('hidden');
         };
+
+        // Click outside search container to close results
+        document.addEventListener('click', (e) => {
+            const searchContainer = document.getElementById('globalSearchInput')?.parentElement?.parentElement;
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                clearGlobalSearch();
+            }
+        });
+
+        // Search History Window UI Helpers
+        window.triggerAddHistory = (term) => {
+            if (AppModules.Search) AppModules.Search.addHistory(term);
+        };
+
+        window.fillGlobalSearch = (term) => {
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                input.value = term;
+                handleGlobalSearch({ target: input });
+            }
+        };
+
+        window.deleteSearchHistoryUI = (event, term) => {
+            event.stopPropagation();
+            if (AppModules.Search) AppModules.Search.removeHistoryItem(term);
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                handleGlobalSearch({ target: input });
+            }
+        };
+
+        window.clearSearchHistoryUI = (event) => {
+            event.stopPropagation();
+            if (AppModules.Search) AppModules.Search.clearHistory();
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                handleGlobalSearch({ target: input });
+            }
+        };
+
+        // Bind keydown event for Enter on search input to save history
+        setTimeout(() => {
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const term = input.value.trim();
+                        if (term.length >= 2) {
+                            window.triggerAddHistory(term);
+                        }
+                    }
+                });
+            }
+        }, 1000);
 
         /**
          * [搜索核心] 切换搜索分类过滤器 (Category Filter)
@@ -721,27 +713,24 @@
                 window.currentSearchCategory = cat; // 切换分类
             }
 
-            // 更新 UI 按钮高亮状态
+            // 更新分类按钮的样式高亮
             document.querySelectorAll('.search-cat-btn').forEach(btn => {
                 const btnCat = btn.id.replace('searchCat-', '');
                 if (window.currentSearchCategory === 'all') {
-                    // 全局模式下：所有分类按钮变灰，表示当前不是特定过滤模式
-                    btn.classList.remove('text-white', 'opacity-100');
-                    btn.classList.add('text-gray-400', 'opacity-50');
+                    // 全局模式下，所有按钮恢复默认胶囊态
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap";
                 } else if (btnCat === window.currentSearchCategory) {
-                    // 激活模式：文字变白且全不透明
-                    btn.classList.add('text-white', 'opacity-100');
-                    btn.classList.remove('text-gray-400', 'opacity-50');
+                    // 激活的特定分类按钮，蓝色高对比度背景胶囊态 + 白色文字
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-white bg-[#007AFF] dark:bg-[#0A84FF] shadow-sm whitespace-nowrap";
                 } else {
-                    // 非激活分类：变灰
-                    btn.classList.remove('text-white', 'opacity-100');
-                    btn.classList.add('text-gray-400', 'opacity-50');
+                    // 未激活的其他特定分类，半透明隐藏
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-white/5 opacity-40 hover:opacity-75 whitespace-nowrap";
                 }
             });
 
             // 如果搜索框里有内容，立即重新执行搜索
             const input = document.getElementById('globalSearchInput');
-            if (input && input.value.trim().length >= 2) {
+            if (input) {
                 handleGlobalSearch({ target: input });
             }
         };
@@ -752,38 +741,67 @@
          */
         let searchTimeout;
         window.handleGlobalSearch = (e) => {
-            // 1. 防抖处理 (Debounce)：
-            // 逻辑：每次按键都会清除之前的计时器并重开 300ms 计时。
-            // 这样只有当用户停止打字 300ms 后才执行复杂搜索，避免浏览器在每输入一个字符时都卡顿。
+            // 1. 防防抖处理 (Debounce)
             clearTimeout(searchTimeout);
             const term = e.target.value.trim();
             const results = document.getElementById('globalSearchResults');
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
 
+            if (!term) {
+                if (clearBtn) clearBtn.classList.add('hidden');
+                // Show search history if any
+                const history = AppModules.Search ? AppModules.Search.getHistory() : [];
+                if (history && history.length > 0) {
+                    let html = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                        <span>Recent Searches</span>
+                        <button onclick="clearSearchHistoryUI(event)" class="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
+                    </div>`;
+                    history.forEach(item => {
+                        html += `<div onclick="fillGlobalSearch('${item.replace(/'/g, "\\'")}')" class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors group">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>${escapeHTML(item)}</span>
+                            </div>
+                            <button onclick="deleteSearchHistoryUI(event, '${item.replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>`;
+                    });
+                    if (resultList) resultList.innerHTML = html;
+                    showGlobalSearchResults();
+                } else {
+                    hideGlobalSearchResults();
+                    setTimeout(() => {
+                        if (results && results.classList.contains('opacity-0')) {
+                            if (resultList) resultList.innerHTML = '';
+                        }
+                    }, 200);
+                }
+                return;
+            }
+
+            if (clearBtn) clearBtn.classList.remove('hidden');
+
             // 搜索门槛：至少输入 2 个字符才开启检索，节省性能。
             if (term.length < 2) {
-                if (clearBtn) term ? clearBtn.classList.remove('hidden') : clearBtn.classList.add('hidden');
-                if (results) { results.classList.add('hidden'); if (resultList) resultList.innerHTML = ''; }
+                hideGlobalSearchResults();
+                setTimeout(() => {
+                    if (results && results.classList.contains('opacity-0')) {
+                        if (resultList) resultList.innerHTML = '';
+                    }
+                }, 200);
                 return;
             }
 
             searchTimeout = setTimeout(async () => {
-                if (clearBtn) clearBtn.classList.remove('hidden');
-                let html = ''; // 用于拼接最终渲染的 HTML 字符串
+                let html = '';
                 const cat = window.currentSearchCategory;
-                const termLower = term.toLowerCase();
 
                 // --- 维度 1：人名与用户检索 (People Search) ---
                 if (cat === 'all' || cat === 'messages' || cat === 'people') {
                     try {
                         const now = Date.now();
-                        /**
-                         * [热索引维护]：
-                         * 由于 Firebase 无法进行高效的人名模糊检索（只能前缀匹配），
-                         * 我们的策略是每 5 分钟全量同步一次用户索引到 ALL_USERS 内存中。
-                         * 这样搜索时直接走内存过滤，响应速度能达到 1ms 级。
-                         */
                         if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(ALL_USERS).length < 10) {
                             const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
                             if (allSnap.exists()) {
@@ -792,86 +810,34 @@
                             }
                         }
 
-                        /**
-                         * [多维内存过滤]：同时匹配 ID、人名、邮箱。
-                         */
-                        const matchedIds = Object.keys(ALL_USERS).filter(id => {
-                            if (id === currentUser.id) return false; // 排除自己
-                            const u = ALL_USERS[id];
-                            const n = (u.name || '').toLowerCase();
-                            const e = (u.email || '').toLowerCase();
-                            const i = id.toLowerCase();
-                            return n.includes(termLower) || e.includes(termLower) || i.includes(termLower);
-                        });
-
-                        if (matchedIds.length > 0) {
+                        const peopleResults = AppModules.Search.searchPeople(term, currentUser, ALL_USERS);
+                        if (peopleResults.length > 0) {
                             html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
-                            /**
-                             * [智能排序权重算法]：
-                             * 逻辑：如果名字是以搜索词开头的，权重最高（放在第一位）。
-                             * 使用 startsWith 进行前缀匹配加权，确保如 "Moss" 会排在含有 "mo" 但非前缀匹配的 "Amo" 前面。
-                             */
-                            const sortedMatches = matchedIds.sort((a, b) => {
-                                const nameA = (ALL_USERS[a].name || '').toLowerCase();
-                                const nameB = (ALL_USERS[b].name || '').toLowerCase();
-                                if (nameA.startsWith(termLower) && !nameB.startsWith(termLower)) return -1;
-                                if (!nameA.startsWith(termLower) && nameB.startsWith(termLower)) return 1;
-                                return 0;
-                            }).slice(0, 10); // 只取前 10 名，防止列表太长拖慢 UI
-
-                            for (const id of sortedMatches) {
-                                const isMe = id === currentUser.id;
-                                const u = isMe ? currentUser : ALL_USERS[id];
-                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || id)}&background=random`;
+                            peopleResults.forEach(u => {
+                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
                                 if (u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
 
-                                const escapedId = id.replace(/'/g, "\\'");
-                                html += `<div onclick="switchChat('${escapedId}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                const escapedId = u.id.replace(/'/g, "\\'");
+                                html += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${term.replace(/'/g, "\\'")}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                     <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
-                                    <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name || id)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email || id)}</div></div>
+                                    <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>
                                 </div>`;
-                            }
+                            });
                         }
                     } catch (err) { console.warn('Aggressive search failed:', err); }
                 }
 
-                /**
-                 * [维度 2] 工具与内置扩展程序搜索 (Tools Search)
-                 * 逻辑：对比硬编码的模块注册表，实现对“绩点计算器”等工具的快速导航。
-                 */
+                // --- 维度 2：工具与内置扩展程序搜索 (Tools Search) ---
                 if (cat === 'all' || cat === 'tools') {
-                    const toolsResults = [];
-                    const fullRegistry = [
-                        { id: 'grade_calc', name: 'Grade Calculator', desc: 'Calculate your HCPSS final grades', type: 'module' },
-                        { id: 'cafeteria', name: 'Cafeteria Menu', desc: 'View today\'s menus', type: 'module' },
-                        { id: 'chs_info', name: 'CHS Info', desc: 'School links and resources', type: 'module' }
-                    ];
-
                     const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
-                    Object.keys(registry).forEach(eid => {
-                        if (['calc_volume_3d', 'independent_research', 'selection_logic', 'grade_calc'].includes(eid)) return;
-                        const item = registry[eid];
-                        fullRegistry.push({
-                            id: eid,
-                            name: item.title,
-                            desc: item.category || 'Extension Tool',
-                            type: 'extension'
-                        });
-                    });
-
-                    fullRegistry.forEach(t => {
-                        if (t.name.toLowerCase().includes(termLower) || t.desc.toLowerCase().includes(termLower)) {
-                            toolsResults.push(t);
-                        }
-                    });
+                    const toolsResults = AppModules.Search.searchTools(term, registry);
 
                     if (toolsResults.length > 0) {
                         html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
                         toolsResults.forEach(t => {
-                            // 根据 type 决定是调用 openModule 还是 openExtension
                             const onClick = t.type === 'module' ? `openModule('${t.id}')` : `openExtension('${t.id}')`;
                             html += `
-                                <div onclick="${onClick}; clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                <div onclick="${onClick}; triggerAddHistory('${term.replace(/'/g, "\\'")}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                     <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                                     </div>
@@ -884,114 +850,58 @@
                     }
                 }
 
-
                 // --- 维度 3：聊天消息检索 (Messages Search) ---
                 if (cat === 'all' || cat === 'messages') {
                     if (!localDB) await dbReady;
-                    try {
-                        /**
-                         * [重磅：本地全文检索逻辑]
-                         * 逻辑：
-                         * 1. 从 IndexedDB 提取出用户设备上存过的所有消息。
-                         * 2. 在前端进行字符串全量匹配。
-                         * 3. 过滤掉图片、系统通知等无文本内容。
-                         */
-                        const tx = localDB.transaction("messages", "readonly");
-                        const store = tx.objectStore("messages");
-                        const allMsgs = await new Promise(res => {
-                            const req = store.getAll();
-                            req.onsuccess = () => res(req.result || []);
-                        });
-                        const currentUserIdLower = currentUser.id.toLowerCase();
+                    const messageResults = await AppModules.Search.searchMessages(term, currentUser, localDB, sidebarClasses, cnCache);
 
-                        const filtered = allMsgs.filter(m => {
-                            if (!m.text || !m.chatId) return false;
-                            // 排除图片消息：因为图片的 URL 也是一段字符串，可能会干扰关键词匹配
-                            if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
-
-                            // 权限校验：只允许搜自己所在的群聊或私信，防止信息泄露（虽然 IDB 理论上是安全的）
-                            if (m.chatId.startsWith('group_')) {
-                                const classId = m.chatId.replace('group_', '');
-                                if (!sidebarClasses[classId]) return false;
-                            } else {
-                                const participants = m.chatId.toLowerCase().split('_');
-                                if (!participants.includes(currentUserIdLower)) return false;
+                    if (messageResults.length > 0) {
+                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
+                        messageResults.forEach(m => {
+                            let resolvedChatName = m.chatName;
+                            if (!m.chatId.startsWith('group_')) {
+                                resolvedChatName = ALL_USERS[m.chatName]?.name || m.chatName;
                             }
-                            return m.text.toLowerCase().includes(termLower);
-                        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15); // 只取最近 15 条匹配消息
+                            const escapedJumpId = m.jumpId.replace(/'/g, "\\'");
+                            const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
 
-                        if (filtered.length > 0) {
-                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
-                            filtered.forEach(m => {
-                                let chatName = "Chat";
-                                let jumpId = m.chatId;
-                                if (m.chatId.startsWith('group_')) {
-                                    const classId = m.chatId.replace('group_', '');
-                                    chatName = cnCache[classId] || "Class Chat";
-                                } else {
-                                    // 私信名解析：找到对方的名字
-                                    const parts = m.chatId.split('_');
-                                    if (parts.length >= 2) {
-                                        const otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
-                                        chatName = ALL_USERS[otherId]?.name || otherId;
-                                        jumpId = otherId;
-                                    }
-                                }
-                                const escapedJumpId = jumpId.replace(/'/g, "\\'");
-                                const escapedText = m.text.replace(/'/g, "\\'").replace(/\n/g, " ");
-
-                                /**
-                                 * [点击跳转逻辑]
-                                 * 这里的 onclick 非常精彩：
-                                 * 1. 先执行 switchChat 切换到对应的对话窗口。
-                                 * 2. 延迟 500ms（等待 DOM 渲染完成）执行 jumpToMessage，让聊天窗口自动滚动到这行消息。
-                                 */
-                                html += `<div onclick="switchChat('${escapedJumpId}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(chatName)}</div>
-                                    <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
-                                </div>`;
-                            });
-                        }
-                    } catch (e) { }
+                            html += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${term.replace(/'/g, "\\'")}'); setTimeout(() => jumpToMessage('${escapedText}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${escapeHTML(resolvedChatName)}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${escapeHTML(m.text)}</div>
+                            </div>`;
+                        });
+                    }
                 }
 
                 // --- 维度 4：新闻公告与社区动态搜索 (News & Modules Search) ---
                 if (cat === 'all' || cat === 'news' || cat === 'community') {
-                    /**
-                     * [高阶搜索函数]：复用同一段逻辑扫描不同的 IndexedDB 表
-                     */
-                    const searchLocalStore = async (storeName, label, targetCat) => {
-                        // 如果用户当前在一个特定的分类过滤器下，且不是搜索目标，则跳过
-                        if (cat !== 'all' && cat !== targetCat) return;
-                        try {
-                            const tx = localDB.transaction(storeName, "readonly");
-                            const store = tx.objectStore(storeName);
-                            const items = await new Promise(res => {
-                                const req = store.getAll();
-                                req.onsuccess = () => res(req.result || []);
-                            });
-                            let tempHtml = '';
-                            items.forEach(item => {
-                                // 同时匹配标题和描述
-                                const t = (item.title || item.name || '').toLowerCase();
-                                const d = (item.desc || item.text || '').toLowerCase();
-                                if (t.includes(termLower) || d.includes(termLower)) {
-                                    const typeOrModule = storeName === 'news' ? item.tabType : item.moduleName;
-                                    // 搜索点击后的跳转逻辑：handlePostJump 会根据 storeName 决定跳到新闻页还是模块页
-                                    tempHtml += `<div onclick="handlePostJump('${storeName}', '${item.key}', '${typeOrModule}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                        <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">${label}</div>
-                                        <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title || item.name || 'Post')}</div>
-                                        <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc || item.text || '')}</div>
-                                    </div>`;
-                                }
-                            });
-                            if (tempHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">${storeName === 'news' ? 'Announcements' : 'Community'}</div>` + tempHtml;
-                        } catch (e) { }
-                    };
-
                     if (localDB) {
-                        await searchLocalStore('news', 'Announcement', 'news');
-                        await searchLocalStore('modules', 'Community', 'community');
+                        const newsResults = await AppModules.Search.searchNewsAndModules(term, localDB, cat);
+                        
+                        let newsHtml = '';
+                        if (newsResults.news.length > 0) {
+                            newsResults.news.forEach(item => {
+                                newsHtml += `<div onclick="handlePostJump('${item.storeName}', '${item.key}', '${item.typeOrModule}'); triggerAddHistory('${term.replace(/'/g, "\\'")}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
+                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title)}</div>
+                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc)}</div>
+                                </div>`;
+                            });
+                        }
+                        
+                        let communityHtml = '';
+                        if (newsResults.community.length > 0) {
+                            newsResults.community.forEach(item => {
+                                communityHtml += `<div onclick="handlePostJump('${item.storeName}', '${item.key}', '${item.typeOrModule}'); triggerAddHistory('${term.replace(/'/g, "\\'")}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Community</div>
+                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${escapeHTML(item.title)}</div>
+                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${escapeHTML(item.desc)}</div>
+                                </div>`;
+                            });
+                        }
+
+                        if (newsHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Announcements</div>` + newsHtml;
+                        if (communityHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Community</div>` + communityHtml;
                     }
                 }
 
@@ -1001,7 +911,7 @@
                 } else {
                     if (resultList) resultList.innerHTML = html;
                 }
-                if (results) results.classList.remove('hidden');
+                showGlobalSearchResults();
             }, 300);
         };
 
@@ -1312,6 +1222,20 @@
             }
         };
 
+        // Debounce renderSidebar to run at most once per animation frame to prevent layout thrashing
+        const _rawRenderSidebar = window.renderSidebar;
+        let renderSidebarRaf = null;
+        let pendingTabSwitch = false;
+        window.renderSidebar = function (isTabSwitch = false) {
+            if (isTabSwitch) pendingTabSwitch = true;
+            if (renderSidebarRaf !== null) return;
+            renderSidebarRaf = requestAnimationFrame(() => {
+                _rawRenderSidebar(pendingTabSwitch);
+                renderSidebarRaf = null;
+                pendingTabSwitch = false;
+            });
+        };
+
         // Refresh sidebar and active chat status every minute to keep "last seen" times fresh
         setInterval(() => {
             if (window.renderSidebar && !isRenderingSidebar) window.renderSidebar();
@@ -1610,7 +1534,7 @@
 
                 let html = `
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
-                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div>
                             <div class="font-bold text-base text-black dark:text-white">${escapeHTML(teacher?.name || 'Teacher')}</div>
                             <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
@@ -1620,7 +1544,7 @@
                     ${extensionHtml}
 
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
-                    <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                         <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2 relative">
                             ${EAGLE_ICON}
                             <span id="dot-group_${window.currentClassId}" class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#007AFF] border-2 border-white dark:border-[#1C1C1E] rounded-full ${AppModules.Notify.unreadSet.has('group_' + window.currentClassId) ? '' : 'hidden'}"></span>
@@ -1652,7 +1576,7 @@
                     else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
 
                     return `
-                        <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                        <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
                             <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div class="flex flex-col overflow-hidden">
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">
@@ -2081,7 +2005,7 @@
                 const isActive = activeTargetId === id;
                 const div = document.createElement('div');
                 div.id = `item-${id}`;
-                div.className = `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'bg-blue-500/10 dark:bg-white/5' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                div.className = `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
                 div.style.paddingRight = "60px";
                 div.onclick = () => switchChat(id);
 
@@ -2252,14 +2176,14 @@
             loadChatThread(chatId);
 
             // Update sidebar active state manually to avoid flash
-            document.querySelectorAll('#sidebarSubList > div').forEach(div => {
+            document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
                 const divId = div.id.replace('item-', '');
                 if (divId === targetId) {
-                    div.classList.add('bg-blue-500/10', 'dark:bg-white/5');
-                    div.classList.remove('hover:bg-gray-50/5', 'dark:hover:bg-white/5');
+                    div.classList.add('active-chat-item');
+                    div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'dark:hover:bg-white/5');
                 } else {
-                    div.classList.remove('bg-blue-500/10', 'dark:bg-white/5');
-                    div.classList.add('hover:bg-gray-50/5', 'dark:hover:bg-white/5');
+                    div.classList.remove('active-chat-item');
+                    div.classList.add(divId.startsWith('group_') ? 'hover:bg-gray-50/50' : 'hover:bg-gray-50/5', 'dark:hover:bg-white/5');
                 }
             });
         };
@@ -2689,8 +2613,7 @@
         };
 
         window.sendMsg = async (type = 'text', customVal = null) => {
-            const now = Date.now();
-            if (now - lastMsgSentTime < MSG_COOLDOWN) return;
+            if (!AppModules.Security.checkRateLimit('msg', true)) return;
 
             // Block disbanded
             if (activeTargetId && activeTargetId.startsWith('group_')) {
@@ -2700,11 +2623,11 @@
                 }
             }
 
-            lastMsgSentTime = now;
+            AppModules.Security.recordRateLimit('msg');
             await window.MessageEngine.sendText(customVal);
         };
 
-        window.handleImg = (e) => AppModules.Utils.Image.handleUploadEvent(e, db, auth, get, ref, update, set);
+        window.handleImg = (e) => AppModules.Utils.Image.handleUploadEvent(e);
 
         // Advanced Textarea Logic: Auto-resize, Shortcuts, and Limits
         (function setupChatInput() {
@@ -3418,79 +3341,11 @@
             menu.classList.add('hidden');
             const confirmReport = await AppModules.Modal.confirm("Report Content", "Report this message for harassment or inappropriate content?", "Report");
             if (confirmReport) {
-                reportMessage(selectedMsgData);
+                AppModules.Security.reportMessage(selectedMsgData);
             }
         };
 
-        async function reportMessage(msg) {
-            try {
-                const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
 
-                // 1. Send to Admin from Safety Bot
-                const adminChatId = getChatId(SAFETY_BOT_ID, adminId);
-                const reportText = `[REPORT - MESSAGE]\nFrom: ${msg.senderName} (${msg.senderId})\nReported by: ${currentUser.name} (${currentUser.id})\nContent: ${msg.text}\nReason: User reported harassment.`;
-                await push(ref(db, `messages/${adminChatId}`), {
-                    senderId: SAFETY_BOT_ID,
-                    senderName: 'Safety Bot',
-                    text: reportText,
-                    type: 'text',
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
-
-                // 2. Send confirmation to Reporter from Safety Bot
-                const userChatId = getChatId(SAFETY_BOT_ID, currentUser.id);
-                const confirmationText = `[REPORT - MESSAGE - SUCCESSFUL]\nYour report regarding message "${msg.text}" has been received. Our administration will review it shortly. Thank you for keeping our community safe.`;
-                await push(ref(db, `messages/${userChatId}`), {
-                    senderId: SAFETY_BOT_ID,
-                    senderName: 'Safety Bot',
-                    text: confirmationText,
-                    type: 'text',
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
-
-                AppModules.Modal.alert("Reported", "Report sent successfully. You can track status in your chat with Safety Bot.");
-            } catch (e) {
-                AppModules.Modal.alert("Error", "Failed to send report: " + e.message);
-            }
-        }
-
-        window.reportPost = async (postId) => {
-            const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
-            const post = modulePosts.find(p => p.id === postId);
-            if (!post) return;
-            const author = await fetchUser(post.authorId);
-            const receiverName = author?.name || 'Unknown';
-
-            try {
-                // 1. Notify Admin
-                const adminChatId = getChatId(SAFETY_BOT_ID, adminId);
-                const reportText = `[REPORT - POST]\nModule: ${currentModule}\nSubject: ${post.title}\nContent: ${post.desc}\nAuthor: ${receiverName} (${post.authorId})\nReported by: ${currentUser.name} (${currentUser.id})`;
-                await push(ref(db, `messages/${adminChatId}`), {
-                    senderId: SAFETY_BOT_ID,
-                    senderName: 'Safety Bot',
-                    text: reportText,
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
-
-                // 2. Notify Reporter
-                const userChatId = getChatId(SAFETY_BOT_ID, currentUser.id);
-                const confirmText = `[REPORT - POST - SUCCESSFUL]\nYour report regarding the post "${post.title}" has been submitted. Thank you.`;
-                await push(ref(db, `messages/${userChatId}`), {
-                    senderId: SAFETY_BOT_ID,
-                    senderName: 'Safety Bot',
-                    text: confirmText,
-                    timestamp: serverTimestamp()
-                });
-                update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
-
-                AppModules.Modal.alert("Reported", "Post reported successfully! Administrators will review it via Safety Bot.");
-            } catch (e) {
-                AppModules.Modal.alert("Error", "Reporting failed: " + e.message);
-            }
-        };
 
         window.startModuleChat = (authorId) => {
             closeModule();
@@ -3506,41 +3361,24 @@
 
         let currentPostBase64 = null;
 
-        window.handlePostImageSelect = (e) => {
-            if (window.isPhotoDisabled) {
-                AppModules.Modal.alert("Restricted", "Photo uploads are currently disabled by the administrator.");
+        window.handlePostImageSelect = async (e) => {
+            if (!AppModules.Security.checkPhotoUploadAllowed()) {
                 e.target.value = '';
                 return;
             }
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const MAX_HEIGHT = 800;
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > height) {
-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                    } else {
-                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                    }
-                    canvas.width = width; canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    currentPostBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-                    document.getElementById('postImagePreview').src = currentPostBase64;
-                    document.getElementById('postImagePreview').classList.remove('hidden');
-                    document.getElementById('postImageClearBtn').classList.remove('hidden');
-                    document.getElementById('postImagePlaceholder').classList.add('hidden');
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
+            try {
+                currentPostBase64 = await AppModules.Utils.Image.compress(file, 800, 0.8);
+                document.getElementById('postImagePreview').src = currentPostBase64;
+                document.getElementById('postImagePreview').classList.remove('hidden');
+                document.getElementById('postImageClearBtn').classList.remove('hidden');
+                document.getElementById('postImagePlaceholder').classList.add('hidden');
+            } catch (err) {
+                console.error("Failed to compress post image:", err);
+                AppModules.Modal.alert("Error", "Failed to load or compress image.");
+            }
         };
 
         window.clearPostImage = (e) => {
@@ -3692,11 +3530,7 @@
         }
 
         window.submitPost = async () => {
-            const now = Date.now();
-            if (now - lastPostSentTime < POST_COOLDOWN) {
-                AppModules.Modal.alert("Cooldown", `Please wait ${Math.ceil((POST_COOLDOWN - (now - lastPostSentTime)) / 1000)}s before posting again.`);
-                return;
-            }
+            if (!AppModules.Security.checkRateLimit('post', false)) return;
 
             const title = document.getElementById('postInputTitle').value.trim();
             const desc = document.getElementById('postInputDesc').value.trim();
@@ -3715,7 +3549,7 @@
 
             const config = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule] : {};
             const isAnonymous = config.anonymous || false;
-            lastPostSentTime = now;
+            AppModules.Security.recordRateLimit('post');
 
             if (isRequestingExtension) {
                 const adminId = AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
@@ -3765,7 +3599,7 @@
                     closePostForm();
                     if (isPostingNews) globalDataSync();
                 }).catch(err => {
-                    lastPostSentTime = 0;
+                    AppModules.Security.recordRateLimit('post', 0);
                     AppModules.Modal.alert("Error", "Failed to post: " + err.message);
                 });
             };
@@ -3894,15 +3728,14 @@
 
 
         window.submitComment = () => {
-            const now = Date.now();
-            if (now - lastCommentSentTime < COMMENT_COOLDOWN) return;
+            if (!AppModules.Security.checkRateLimit('comment', true)) return;
             const input = document.getElementById('commentInput');
             const text = input.value.trim();
             if (!text || !currentPostId) return;
 
             const config = MODULE_CONFIG[currentModule] || {};
             const isAnonymous = config.anonymous || false;
-            lastCommentSentTime = now;
+            AppModules.Security.recordRateLimit('comment');
             set(push(ref(db, `modules/${currentModule}/${currentPostId}/comments`)), {
                 text,
                 authorId: isAnonymous ? 'anonymous' : currentUser.id,
@@ -5437,7 +5270,9 @@
                         </svg>
                         <input id="globalSearchInput" type="text" placeholder="Search people, messages, news..."
                             oninput="handleGlobalSearch(event)"
-                            class="flex-1 bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
+                            onfocus="handleGlobalSearch(event)"
+                            autocomplete="one-time-code"
+                            class="flex-1 h-full bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
                         <button id="globalSearchClear" onclick="clearGlobalSearch()"
                             class="hidden text-gray-400 hover:text-gray-600">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -5448,28 +5283,19 @@
                         </button>
                     </div>
                     <div id="globalSearchResults"
-                        class="hidden ios-glass absolute top-[calc(100%+8px)] left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col">
-                        <!-- Search Categories Bar: Centered Layout (Big Tech Style) -->
-                        <div class="flex-shrink-0 border-b border-white/10 p-5 space-y-5">
-                            <!-- Row 1: Long Labels centered -->
-                            <div class="flex justify-center items-center gap-10">
-                                <button onclick="setSearchCategory('messages')" id="searchCat-messages"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">MESSAGES</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('community')" id="searchCat-community"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">COMMUNITY</button>
-                            </div>
-                            <!-- Row 2: Short Labels centered -->
-                            <div class="flex justify-center items-center gap-8">
-                                <button onclick="setSearchCategory('news')" id="searchCat-news"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">NEWS</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('tools')" id="searchCat-tools"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">TOOLS</button>
-                                <div class="h-3 w-[1px] bg-white/10"></div>
-                                <button onclick="setSearchCategory('people')" id="searchCat-people"
-                                    class="search-cat-btn text-[10px] font-bold tracking-widest transition-all text-gray-400 opacity-50">PEOPLE</button>
-                            </div>
+                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
+                        <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
+                        <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+                            <button onclick="setSearchCategory('messages')" id="searchCat-messages"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
+                            <button onclick="setSearchCategory('community')" id="searchCat-community"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
+                            <button onclick="setSearchCategory('news')" id="searchCat-news"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
+                            <button onclick="setSearchCategory('tools')" id="searchCat-tools"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
+                            <button onclick="setSearchCategory('people')" id="searchCat-people"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
                         </div>
                         <!-- Scrollable Results Area -->
                         <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
@@ -5509,6 +5335,7 @@
                         </svg>
                         <input id="chatSearchInput" type="text" placeholder="Search"
                             oninput="handleSearch(event, 'chat')"
+                            autocomplete="one-time-code"
                             class="w-full h-full bg-[#E9E9EB] dark:bg-[#2C2C2E] border-none rounded-full pl-8 pr-8 text-sm outline-none placeholder-gray-400">
                         <button id="clearSearchBtn" onclick="clearSearch()"
                             class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">

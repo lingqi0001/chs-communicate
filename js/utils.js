@@ -154,58 +154,6 @@ export const ImageUtils = {
     },
 
     /**
-     * Storage Limit Verification & Cleanup
-     */
-    checkLimitAndCleanup: async function (files, db, auth, get, ref, update, set) {
-        if (!auth.currentUser) return false;
-
-        // Admin bypass - administrators have unlimited storage quota
-        if (window.AppModules && window.AppModules.User && window.AppModules.User.isAdmin()) {
-            return true;
-        }
-
-        const uidLower = auth.currentUser.uid.toLowerCase();
-        const snap = await get(ref(db, `user_image_index/${uidLower}`));
-        const uploads = snap.val() || {};
-        const keys = Object.keys(uploads);
-        const currentTotalImages = keys.reduce((acc, k) => acc + (uploads[k].imgCount || 1), 0);
-
-        if (currentTotalImages + files.length > 15) {
-            const step1 = await window.AppModules.Modal.confirm(
-                "Storage Limit Reached",
-                `You currently have ${currentTotalImages} images saved. Sending these ${files.length} images will exceed your 15-image limit.`
-            );
-            if (!step1) return false;
-
-            const step2 = await window.AppModules.Modal.confirm(
-                "Confirm Expiration",
-                "Are you REALLY sure? This will cause your oldest photos to be marked as expired and removed from the server history.",
-                "Yes, I'm Sure"
-            );
-            if (!step2) return false;
-
-            const sortedKeys = keys.sort((a, b) => (uploads[a].timestamp || 0) - (uploads[b].timestamp || 0));
-            let neededToDelete = (currentTotalImages + files.length) - 15;
-
-            for (const k of sortedKeys) {
-                if (neededToDelete <= 0) break;
-                const item = uploads[k];
-                if (!item || !item.chatId || !item.msgKey) continue;
-                try {
-                    await update(ref(db, `messages/${item.chatId}/${item.msgKey}`), {
-                        text: "Image Expired",
-                        type: "text",
-                        isExpired: true
-                    });
-                    neededToDelete -= (item.imgCount || 1);
-                } catch (e) { }
-                await set(ref(db, `user_image_index/${uidLower}/${k}`), null);
-            }
-        }
-        return true;
-    },
-
-    /**
      * Base64 to Firebase Cloud Storage Upload
      */
     uploadToStorage: async function (base64Data, sRefFn, uploadString, getDownloadURL, auth, folder = 'uploads') {
@@ -231,7 +179,12 @@ export const ImageUtils = {
     /**
      * Handle Image selection event, compress and send
      */
-    handleUploadEvent: async function (e, db, auth, get, ref, update, set) {
+    handleUploadEvent: async function (e) {
+        if (window.AppModules && window.AppModules.Security && !window.AppModules.Security.checkPhotoUploadAllowed()) {
+            e.target.value = '';
+            return;
+        }
+
         let files = Array.from(e.target.files);
         if (!files.length) return;
 
@@ -248,7 +201,7 @@ export const ImageUtils = {
                 input.disabled = true;
             }
 
-            const allowed = await this.checkLimitAndCleanup(files, db, auth, get, ref, update, set);
+            const allowed = await window.AppModules.Security.checkLimitAndCleanup(files);
             if (!allowed) return;
 
             const base64s = await Promise.all(files.map(f => this.compress(f)));
