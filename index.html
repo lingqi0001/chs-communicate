@@ -63,7 +63,8 @@
         "./js/utils.js": "./js/utils.js?v=20260516-2380",
         "./js/ui-components.js": "./js/ui-components.js?v=20260516-2380",
         "./js/content.js": "./js/content.js?v=20260516-2380",
-        "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380"
+        "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
+        "./js/gallery.js": "./js/gallery.js?v=20260516-2380"
       }
     }
     </script>
@@ -85,6 +86,7 @@
         import { UIComponents } from './js/ui-components.js';
         import { UIUtils, DateUtils, ImageUtils } from './js/utils.js';
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
+        import { GalleryModule } from './js/gallery.js';
 
         // 挂载到全局
         window.AppModules = {
@@ -93,6 +95,7 @@
             DB: DBModule,
             User: UserModule,
             View: ViewModule,
+            Gallery: GalleryModule,
             UI: UIComponents,
             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
@@ -110,6 +113,7 @@
 
         // 视图初始化 (VH Patch, Theme, Viewport)
         AppModules.View.init();
+        AppModules.Gallery.init();
 
         // 核心状态代理 (Core State Proxy)
         // 保证全局变量 currentUser 始终同步 AppModules.User.current
@@ -2913,12 +2917,8 @@
             }, 60);
         }
 
-        window.openGallery = (encodedImages, startIdx = 0) => {
-            window.currentGalleryImages = JSON.parse(decodeURIComponent(encodedImages));
-            window.currentImgIdx = startIdx;
-            updateGalleryUI();
-            document.getElementById('galleryModal').classList.remove('hidden');
-        };
+        // 全局画廊兼容性桥接代理 (Bridges to AppModules.Gallery)
+        window.openGallery = (encodedImages, startIdx = 0) => AppModules.Gallery.open(encodedImages, startIdx);
 
         window.toggleStack = (key, count, isMe) => {
             const container = document.getElementById(`stack-${key}`);
@@ -2955,61 +2955,7 @@
 
 
 
-        window.closeGallery = () => {
-            document.getElementById('galleryModal').classList.add('hidden');
-            document.getElementById('galleryPrevBtn')?.classList.remove('hidden');
-            document.getElementById('galleryNextBtn')?.classList.remove('hidden');
-        };
-
-        window.downloadImage = () => {
-            const imgSrc = window.currentGalleryImages[window.currentImgIdx];
-            if (!imgSrc) return;
-            const link = document.createElement('a');
-            link.href = imgSrc;
-            link.download = `CHS_Image_${Date.now()}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
-
-        window.prevGalleryImg = () => {
-            if (window.currentImgIdx > 0) {
-                window.currentImgIdx--;
-                updateGalleryUI();
-            }
-        };
-
-        window.nextGalleryImg = () => {
-            if (window.currentImgIdx < window.currentGalleryImages.length - 1) {
-                window.currentImgIdx++;
-                updateGalleryUI();
-            }
-        };
-
-        function updateGalleryUI() {
-            const img = document.getElementById('mainGalleryImg');
-            img.src = window.currentGalleryImages[window.currentImgIdx];
-
-            const prevBtn = document.getElementById('galleryPrevBtn');
-            const nextBtn = document.getElementById('galleryNextBtn');
-
-            if (window.currentGalleryImages.length <= 1) {
-                prevBtn.classList.add('hidden');
-                nextBtn.classList.add('hidden');
-            } else {
-                prevBtn.classList.toggle('hidden', window.currentImgIdx === 0);
-                nextBtn.classList.toggle('hidden', window.currentImgIdx === window.currentGalleryImages.length - 1);
-            }
-        }
-
-        window.addEventListener('keydown', (e) => {
-            const gallery = document.getElementById('galleryModal');
-            if (!gallery.classList.contains('hidden')) {
-                if (e.key === 'ArrowLeft') window.prevGalleryImg();
-                if (e.key === 'ArrowRight') window.nextGalleryImg();
-                if (e.key === 'Escape') window.closeGallery();
-            }
-        });
+        // 历史全局画廊方法已成功解耦并迁移至 AppModules.Gallery
 
         let currentQuote = null;
         let selectedMsgData = null;
@@ -5265,10 +5211,29 @@
         };
         // Global UI helpers
         window.hideLoading = function () {
-            AppModules.Utils.hideLoading(() => {
+            if (window.AppModules && window.AppModules.Utils && window.AppModules.Utils.hideLoading) {
+                AppModules.Utils.hideLoading(() => {
+                    var cp = document.getElementById('compatibilityPage');
+                    if (cp) cp.classList.remove('hidden');
+                });
+            } else {
+                // Failsafe: hide loading directly if modules are lagging or failed to load
+                console.warn('App: AppModules is not defined yet. Hiding loading page directly.');
+                const lp = document.getElementById('loadingPage');
+                if (lp) {
+                    lp.classList.add('opacity-0');
+                    setTimeout(() => {
+                        lp.classList.add('hidden');
+                    }, 500);
+                }
                 var cp = document.getElementById('compatibilityPage');
                 if (cp) cp.classList.remove('hidden');
-            });
+
+                // Notify user about network timeout with an English native alert
+                setTimeout(() => {
+                    alert("Network Timeout:\nIt is taking longer than usual to load application files due to a slow connection.\n\nIf the page remains empty or messages fail to load, please reload the page.");
+                }, 600);
+            }
         };
 
         window.dismissCompatibility = function () {
@@ -5627,19 +5592,16 @@
         </div>
     </div>
 
-    <div id="galleryModal" onclick="if(event.target === this) closeGallery()"
+    <div id="galleryModal"
         class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
         <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
-            <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity"
-                onclick="window.downloadImage(); event.stopPropagation();">Save</button>
-            <button onclick="closeGallery(); event.stopPropagation();"
-                class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
+            <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity">Save</button>
+            <button class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
         </header>
 
-        <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12"
-            onclick="if(event.target === this) closeGallery()">
+        <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12">
             <!-- Prev Button -->
-            <button id="galleryPrevBtn" onclick="window.prevGalleryImg(); event.stopPropagation();"
+            <button id="galleryPrevBtn"
                 class="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
                 <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
@@ -5650,7 +5612,7 @@
                 class="max-w-full max-h-full lg:max-w-[85vw] lg:max-h-[85vh] object-contain rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)] select-none">
 
             <!-- Next Button -->
-            <button id="galleryNextBtn" onclick="window.nextGalleryImg(); event.stopPropagation();"
+            <button id="galleryNextBtn"
                 class="absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
                 <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />

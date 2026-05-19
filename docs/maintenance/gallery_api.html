@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery API - CHS Communicate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f2f2f7;
+            color: #1c1c1e;
+        }
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #000;
+                color: #fff;
+            }
+            .glass {
+                background: rgba(28, 28, 30, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.2); border-radius: 10px; }
+    </style>
+</head>
+<body class="p-6 md:p-12 max-w-4xl mx-auto">
+    <header class="mb-12">
+        <div class="inline-block px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest mb-4">
+            Technical Documentation
+        </div>
+        <h1 class="text-4xl md:text-5xl font-black tracking-tighter mb-2">Gallery API</h1>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Summon native full-screen touch gallery for multi-image swiping and original ratio downloading.</p>
+    </header>
+
+    <!-- PART 1: EXTENSION DEVELOPERS -->
+    <div class="mb-16">
+        <div class="flex items-center gap-4 mb-8 text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">
+            <div class="h-[1px] flex-grow bg-blue-500/20"></div>
+            <span>Part 1: Extension Developers</span>
+            <div class="h-[1px] flex-grow bg-blue-500/20"></div>
+        </div>
+
+        <div class="space-y-8">
+            <section class="glass p-8 rounded-[2rem] shadow-xl">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">!</span>
+                    Step 0: Parent Bridge Connection
+                </h2>
+                <div class="space-y-3">
+                    <p class="text-sm font-bold text-red-500">Note: Extensions must include the SDK Bridge script before calling parent gallery components.</p>
+                    <code class="code-font bg-red-500/5 dark:bg-red-500/10 p-4 rounded-xl block text-red-500 font-bold text-sm overflow-x-auto border border-red-500/20">
+                        &lt;script src="../js/app-bridge.js"&gt;&lt;/script&gt;
+                    </code>
+                </div>
+            </section>
+
+            <section class="glass p-8 rounded-[2rem] shadow-xl border-2 border-blue-500/10">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">1</span>
+                    Standard Code Pattern
+                </h2>
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-500 leading-relaxed">
+                        Extensions must call <b>AppBridge.openGallery(images, index)</b> to summon native gallery overlays. Accepts single URL strings or string arrays.
+                    </p>
+                    <pre class="code-font text-[12px] bg-black dark:bg-[#1c1c1e] text-white p-6 rounded-3xl overflow-x-auto">
+&lt;script&gt;
+    // Example 1: Open single image view
+    function viewSingleImage() {
+        const imageUrl = "https://example.com/assets/poster.jpg";
+        AppBridge.openGallery(imageUrl);
+    }
+
+    // Example 2: Open multiple images (active starting at second image)
+    function viewGroupGallery() {
+        const images = [
+            "https://example.com/img1.jpg",
+            "https://example.com/img2.jpg",
+            "https://example.com/img3.jpg"
+        ];
+        AppBridge.openGallery(images, 1);
+    }
+&lt;/script&gt;</pre>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- PART 2: TECHNICAL REFERENCE -->
+    <div class="mb-12">
+        <div class="flex items-center gap-4 mb-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">
+            <div class="h-[1px] flex-grow bg-gray-500/20"></div>
+            <span>Part 2: Platform Core Reference</span>
+            <div class="h-[1px] flex-grow bg-gray-500/20"></div>
+        </div>
+
+        <div class="space-y-8">
+            <section class="glass p-8 rounded-[2rem] shadow-xl">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">1</span>
+                    AppModules.Gallery.open
+                </h2>
+                <div class="space-y-3">
+                    <p class="text-sm"><span class="font-semibold text-gray-500 uppercase text-[10px] tracking-wider">Syntax</span><br/>
+                        <code class="code-font bg-black/5 dark:bg-white/5 p-2 rounded-lg block mt-1 text-blue-500">AppModules.Gallery.open(encodedImages, startIdx*);</code>
+                    </p>
+                    <p class="text-sm"><span class="font-semibold text-gray-500 uppercase text-[10px] tracking-wider">Parameters</span><br/>
+                        <ul class="list-disc ml-5 mt-1 space-y-1 text-sm">
+                            <li><b>`encodedImages`</b>: <code class="code-font">String</code> - URL-encoded JSON string of the images array (<code class="code-font">encodeURIComponent(JSON.stringify(imagesArray))</code>).</li>
+                            <li><b>`startIdx`</b>: <code class="code-font">Number</code> (Optional) - Initial active image index upon opening, defaults to <code class="code-font">0</code>.</li>
+                        </ul>
+                    </p>
+                    <p class="text-sm"><span class="font-semibold text-gray-500 uppercase text-[10px] tracking-wider">Under The Hood</span><br/>
+                        The platform locks scrolling, ignores standard pull-to-refresh behaviors to prevent web page conflict, executes damping open-scale transition logic, and positions the modal on a high-priority viewport layer (<code class="code-font">z-[3000]</code>).
+                    </p>
+                </div>
+            </section>
+
+            <section class="glass p-8 rounded-[2rem] shadow-xl">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">2</span>
+                    Dynamic Gesture Engine
+                </h2>
+                <div class="space-y-3">
+                    <p class="text-sm">
+                        Interaction bindings inside the gallery viewport are dynamically registered during the platform initialization <code class="code-font">init()</code> phase, maintaining perfect decoupling with zero inline DOM listeners:
+                    </p>
+                    <ul class="list-decimal ml-5 mt-1 space-y-2 text-sm leading-relaxed">
+                        <li><b>Touch Swipe Gestures</b>: Supports single-finger horizontal swipe tracking. Drag distances exceeding <code class="code-font">60px</code> trigger visual flip transitions.</li>
+                        <li><b>Keyboard Navigation</b>: Physical desktop keys such as <code class="code-font">ArrowLeft</code>, <code class="code-font">ArrowRight</code>, and <code class="code-font">Escape</code> automatically map to prev/next slide movements and close events.</li>
+                        <li><b>Zero-Jitter Preloading Cache</b>: Dynamically instantiates parallel browser preloading for <code class="code-font">index - 1</code> and <code class="code-font">index + 1</code> image paths to ensure seamless visual switches.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Glossary & Best Practices -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass p-8 rounded-[2rem]">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Parameter Glossary</h3>
+                    <ul class="space-y-4 text-sm leading-relaxed">
+                        <li><b>`images`</b>: Image source. Supports external URLs, local paths, or Base64 data strings.</li>
+                        <li><b>`* (Asterisk)`</b>: Indicates an <b>Optional</b> parameter.</li>
+                        <li><b>`AppBridge.openGallery`</b>: Encapsulates URL formatting and JSON encoding. Highly recommended over direct core invocations.</li>
+                    </ul>
+                </div>
+                <div class="glass p-8 rounded-[2rem]">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Core Best Practices</h3>
+                    <ul class="space-y-4 text-sm leading-relaxed">
+                        <li><b>1. Type Consistency</b>: Although a string single URL is parsed gracefully, passing arrays is recommended for scalable image collections.</li>
+                        <li><b>2. Scroll Release</b>: Scroll lock triggers are cleaned up automatically upon gallery exit, restoring scroll overflow to parent documents.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer class="mt-12 text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+        CHS Communicate &bull; Developer Ecosystem &bull; 2026
+    </footer>
+</body>
+</html>

@@ -47,5 +47,23 @@ window.AppBridge = {
             return await window.parent.AppModules.Modal.prompt(title, body, placeholder, defaultValue);
         }
         return window.prompt(body, defaultValue);
+    },
+
+    /**
+     * --- 媒体画廊模块 (Gallery Module) ---
+     * 允许插件唤起主程序的原生全屏图片画廊，支持多图手势滑动与原图下载。
+     * @param {string[]|string} images - 图片的 URL 数组或单个 URL 字符串
+     * @param {number} [index=0] - 默认展示的图片索引
+     */
+    openGallery: function(images, index = 0) {
+        const imgArray = Array.isArray(images) ? images : [images];
+        const encoded = encodeURIComponent(JSON.stringify(imgArray));
+        if (window.parent && window.parent.postMessage) {
+            window.parent.postMessage({
+                type: 'OPEN_GALLERY',
+                images: encoded,
+                index: index
+            }, '*');
+        }
     }
 };
