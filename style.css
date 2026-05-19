@@ -27,9 +27,11 @@ body {
     body {
         background: white !important;
     }
+
     body>*:not(#extensionPage) {
         display: none !important;
     }
+
     #extensionPage {
         position: fixed !important;
         top: 0 !important;
@@ -43,9 +45,11 @@ body {
         z-index: 9999 !important;
         background: white !important;
     }
+
     #extensionPage>div:first-child {
         display: none !important;
     }
+
     #extensionPage>div:last-child {
         position: absolute !important;
         top: 0 !important;
@@ -53,15 +57,18 @@ body {
         width: 100% !important;
         height: 100% !important;
     }
+
     #extensionIframe {
         width: 100% !important;
         height: 100% !important;
         border: none !important;
     }
+
     .fixed,
     .absolute {
         visibility: hidden;
     }
+
     #extensionPage,
     #extensionPage * {
         visibility: visible;
@@ -78,13 +85,16 @@ body {
     width: 6px;
     height: 6px;
 }
+
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 10px;
 }
+
 .dark ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
 }
@@ -97,28 +107,34 @@ body {
 #searchResultList::-webkit-scrollbar {
     width: 4px;
 }
+
 #sidebarSubList::-webkit-scrollbar-track,
 .overflow-y-auto::-webkit-scrollbar-track,
 #searchResultList::-webkit-scrollbar-track {
     background: transparent;
 }
+
 #sidebarSubList::-webkit-scrollbar-thumb,
 .overflow-y-auto::-webkit-scrollbar-thumb {
     background: rgba(120, 120, 120, 0.1);
     border-radius: 10px;
 }
+
 #sidebarSubList::-webkit-scrollbar-thumb:hover,
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
     background: rgba(120, 120, 120, 0.4);
 }
+
 .dark #sidebarSubList::-webkit-scrollbar-thumb,
 .dark .overflow-y-auto::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.05);
 }
+
 .dark #sidebarSubList::-webkit-scrollbar-thumb:hover,
 .dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
 }
+
 #searchResultList::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
     border-radius: 10px;
@@ -130,9 +146,11 @@ body {
     margin-right: -4px !important;
     padding-right: 4px !important;
 }
+
 #sidebarSubList {
     overflow-x: hidden !important;
 }
+
 ::-webkit-scrollbar-corner {
     background: transparent;
 }
@@ -141,44 +159,118 @@ body {
 /* Part 2: Core Animation System                                             */
 /* -------------------------------------------------------------------------- */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
+
 @keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
 }
+
 @keyframes slideInFromBottom {
-    from { transform: translateY(8px); }
-    to { transform: translateY(0); }
+    from {
+        transform: translateY(8px);
+    }
+
+    to {
+        transform: translateY(0);
+    }
 }
+
 @keyframes applePush {
-    from { transform: translateX(15px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(15px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
+
 @keyframes applePop {
-    from { transform: translateX(-15px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(-15px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
+
 @keyframes sidebarPush {
-    from { transform: translateX(20px); opacity: 0.4; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(20px);
+        opacity: 0.4;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
+
 @keyframes sidebarPop {
-    from { transform: translateX(-15px); opacity: 0.4; }
-    to { opacity: 1; }
+    from {
+        transform: translateX(-15px);
+        opacity: 0.4;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
+
 @keyframes tabPop {
-    0% { transform: scale(0.96); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(0.96);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
+
 @keyframes popIn {
-    0% { transform: scale(0.95) translateY(10px); opacity: 0; }
-    100% { transform: scale(1) translateY(0); opacity: 1; }
+    0% {
+        transform: scale(0.95) translateY(10px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
+
 @keyframes highlightPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.02); }
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.02);
+    }
 }
 
 .animate-in {
@@ -186,19 +278,57 @@ body {
     animation-fill-mode: both;
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
-.fade-in { animation: fadeIn 0.25s ease-out forwards; }
-.fade-out { animation: fadeOut 0.25s ease-in forwards; }
-.slide-in-from-bottom-2 { animation-name: slideInFromBottom; }
-.duration-500 { animation-duration: 500ms; }
-.sidebar-push { animation: sidebarPush 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-.sidebar-pop { animation: sidebarPop 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-.tab-pop-animation { animation: tabPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-.msg-pop { animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-.highlight-pulse { animation: highlightPulse 0.4s ease-in-out 2; }
-.slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+.fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
+.fade-out {
+    animation: fadeOut 0.25s ease-in forwards;
+}
+
+.slide-in-from-bottom-2 {
+    animation-name: slideInFromBottom;
+}
+
+.duration-500 {
+    animation-duration: 500ms;
+}
+
+.sidebar-push {
+    animation: sidebarPush 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.sidebar-pop {
+    animation: sidebarPop 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.tab-pop-animation {
+    animation: tabPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.msg-pop {
+    animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.highlight-pulse {
+    animation: highlightPulse 0.4s ease-in-out 2;
+}
+
+.slide-up {
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes slideUp {
-    from { transform: translateY(20px) scale(0.95); opacity: 0; }
-    to { transform: translateY(0) scale(1); opacity: 1; }
+    from {
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -207,15 +337,21 @@ body {
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+
 .app-container {
     height: 100vh;
     height: 100dvh;
 }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
+
 .ios-glass {
     background: #ffffff !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -223,6 +359,7 @@ body {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
+
 .dark .ios-glass {
     background: #1C1C1E !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
@@ -230,10 +367,15 @@ body {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
+
 .pass-gradient {
     background: linear-gradient(135deg, #007AFF 0%, #00C6FF 100%);
 }
-.ticket-cutout { position: relative; }
+
+.ticket-cutout {
+    position: relative;
+}
+
 .ticket-cutout::before,
 .ticket-cutout::after {
     content: '';
@@ -245,10 +387,19 @@ body {
     top: 50%;
     transform: translateY(-50%);
 }
+
 .dark .ticket-cutout::before,
-.dark .ticket-cutout::after { background: #000; }
-.ticket-cutout::before { left: -10px; }
-.ticket-cutout::after { right: -10px; }
+.dark .ticket-cutout::after {
+    background: #000;
+}
+
+.ticket-cutout::before {
+    left: -10px;
+}
+
+.ticket-cutout::after {
+    right: -10px;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Part 4: Desktop Smart Sidebar                                             */
@@ -257,8 +408,12 @@ body {
 #sidebarHandle {
     display: none;
 }
+
 @media (min-width: 1024px) {
-    #sidebarTrigger { display: block; }
+    #sidebarTrigger {
+        display: block;
+    }
+
     #sidebarHandle {
         position: fixed;
         left: -45px;
@@ -277,6 +432,7 @@ body {
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         cursor: pointer;
     }
+
     #newsSection {
         transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         transform-origin: left center;
@@ -284,6 +440,7 @@ body {
         flex-shrink: 0;
         z-index: 20;
     }
+
     body.sidebar-collapsed #newsSection {
         width: 0 !important;
         min-width: 0 !important;
@@ -291,19 +448,23 @@ body {
         pointer-events: none;
         border-right-width: 0;
     }
+
     #sidePanel,
     #chatSection {
         transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.5s ease;
     }
+
     body.sidebar-collapsed #sidePanel,
     body.sidebar-collapsed #chatSection {
         transform: scale(1) translateX(0);
     }
+
     body:not(.sidebar-collapsed) #sidePanel,
     body:not(.sidebar-collapsed) #chatSection {
         transform: scale(0.995);
         transform-origin: left center;
     }
+
     #sidebarTrigger {
         position: fixed;
         left: 0;
@@ -313,15 +474,21 @@ body {
         z-index: 40;
         cursor: pointer;
     }
-    #sidebarHandle:hover { width: 38px; }
+
+    #sidebarHandle:hover {
+        width: 38px;
+    }
+
     body.sidebar-collapsed #sidebarTrigger:hover+#sidebarHandle,
     body.sidebar-collapsed #sidebarHandle:hover {
         left: 0 !important;
     }
+
     body.sidebar-collapsed #sidebarHandle {
         left: -28px;
         transform: translateY(-50%) scaleX(1);
     }
+
     body:not(.sidebar-collapsed) #sidebarHandle {
         left: 320px;
         width: 16px;
@@ -330,10 +497,12 @@ body {
         opacity: 0.4;
         transform: translateY(-50%) translateX(-100%) scaleX(-1);
     }
+
     body:not(.sidebar-collapsed) #sidebarHandle:hover {
         opacity: 1;
         width: 22px;
     }
+
     body.is-fullscreen #sidebarHandle,
     body.is-fullscreen #sidebarTrigger {
         display: none !important;

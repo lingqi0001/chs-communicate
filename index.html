@@ -88,6 +88,7 @@
         import { GalleryModule } from './js/gallery.js';
         import { SyncModule } from './js/sync.js';
         import { ExtensionModule } from './js/extensions.js';
+        import { AuthModule } from './js/auth.js';
 
         // 打印应用版本号，方便调试时确认缓存状态
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -133,7 +134,7 @@
         window.CONSTANTS = APP_CONSTANTS;
 
         // UI 增强工具箱：封装常用的 UI 处理逻辑
-        window.UIUtils = UIUtils;
+        window['UIUtils'] = UIUtils;
         window.escapeHTML = UIUtils.escape;
         window.linkify = UIUtils.linkify;
         window.formatLastSeen = UIUtils.formatLastSeen;
@@ -145,6 +146,7 @@
 
         // 应用运行时状态管理
         let ALL_USERS = { ...SYSTEM_USERS };
+        window.ALL_USERS = ALL_USERS;
         let DONATIONS = {};
         let activeTargetId = null;
         let stopCurrentChatListener = null;
@@ -292,6 +294,7 @@
             soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // 是否开启提示音
             soundUrl: localStorage.getItem('soundUrl') || "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" // 提示音音源
         };
+        window.SETTINGS = SETTINGS;
 
         // 初始化 Firebase Messaging (使用已定义的运行时配置)
         CoreModule.initMessaging(APP_START_TIME, SETTINGS, ALL_USERS, globalListeners);
@@ -318,6 +321,17 @@
 
 
 
+        // --- 初始化 AuthModule ---
+        console.log('App: Initializing AuthModule...');
+        AuthModule.init(
+            { db, auth, googleProvider, microsoftProvider, signInWithPopup, signInWithRedirect },
+            {
+                onEnterApp: () => enterApp(),
+                onShowTos: (mandatory) => showTos(mandatory),
+                onHideLoading: () => hideLoading()
+            }
+        );
+
         /**
          * [核心生命周期] Firebase 鉴权状态监听器 (Auth State Observer)
          * 逻辑：
@@ -325,149 +339,46 @@
          * 这个函数是应用启动后的第一个“十字路口”。
          */
         console.log('App: Setting up onAuthStateChanged...');
-        CoreModule.watchAuth(setupUser, () => {
-            console.log('App: No user found. Showing login page.');
-            document.getElementById('loginPage')?.classList.remove('hidden');
-            document.getElementById('mainPage')?.classList.add('hidden');
-            hideLoading();
-        });
-
+        CoreModule.watchAuth(
+            (user) => AuthModule.setupUser(user),
+            () => {
+                console.log('App: No user found. Showing login page.');
+                document.getElementById('loginPage')?.classList.remove('hidden');
+                document.getElementById('mainPage')?.classList.add('hidden');
+                hideLoading();
+            }
+        );
 
         /**
-         * [动作函数] 第三方登录逻辑：Google 登录
-         * 策略：
-         * 1. 优先尝试弹窗登录 (Popup)：用户体验最好，不丢失当前页面的 JS 状态。
-         * 2. 如果弹窗被拦截 (Blocked)：自动回退到页面重定向 (Redirect)，确保 100% 成功率。
+         * [启动序列] 进入应用主逻辑
+         * 逻辑：执行一连串的 UI 切换和数据订阅，标志着用户正式开始使用应用。
          */
-        window.loginWithGoogle = async () => {
-            // 界面反馈：禁用按钮防止用户在等待时“鬼畜点击”
-            const btns = document.querySelectorAll('#loginPage button');
-            const hint = document.getElementById('loginHint');
-            const originalHint = hint.innerText;
-            btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
-
-            hint.innerText = "Please check the Google popup window...";
-            hint.classList.replace('text-gray-400', 'text-[#007AFF]');
-
+        window.enterApp = async () => {
+            // 1. 初始化偏好设置与响应式监听
             try {
-                // 调起 Google 官方鉴权弹窗
-                await signInWithPopup(auth, googleProvider);
-            }
-            catch (error) {
-                console.error("Auth Error:", error);
+                const settingsSnap = await get(ref(db, 'settings'));
+                const settingsData = settingsSnap?.val() || {};
+                SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
+                SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl;
 
-                // 处理浏览器拦截弹窗的情况（常见于非 HTTPS 或极端安全设置）
-                if (error.code === 'auth/popup-blocked') {
-                    hint.innerText = "Popup blocked. Redirecting...";
-                    await signInWithRedirect(auth, googleProvider);
+                const soundToggle = document.getElementById('soundToggle');
+                if (soundToggle) soundToggle.checked = SETTINGS.soundEnabled;
+
+                // 提前装弹，确保第一声不响的问题消失
+                if (AppModules.Notify && SETTINGS.soundUrl) {
+                    AppModules.Notify.setSound(SETTINGS.soundUrl);
                 }
-                // 处理用户主动关掉弹窗的情况
-                else if (error.code !== 'auth/popup-closed-by-user') {
-                    AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
-                    // 恢复按钮状态
-                    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-                    hint.innerText = originalHint;
-                    hint.classList.replace('text-[#007AFF]', 'text-gray-400');
-                } else {
-                    // 用户取消，无痛回退 UI
-                    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-                    hint.innerText = originalHint;
-                    hint.classList.replace('text-[#007AFF]', 'text-gray-400');
-                }
-            }
-        };
-
-        /**
-         * [动作函数] Microsoft 登录逻辑
-         * 流程与 Google 类似，专门针对使用教育邮箱（HCPSS）的用户优化。
-         */
-        window.loginWithMicrosoft = async () => {
-            const btns = document.querySelectorAll('#loginPage button');
-            const hint = document.getElementById('loginHint');
-            const originalHint = hint.innerText;
-            btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
-            hint.innerText = "Please check the Microsoft popup window...";
-            hint.classList.replace('text-gray-400', 'text-[#007AFF]');
-
-            try {
-                await signInWithPopup(auth, microsoftProvider);
-            }
-            catch (error) {
-                if (error.code !== 'auth/popup-closed-by-user') AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
-                btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-                hint.innerText = originalHint;
-                hint.classList.replace('text-[#007AFF]', 'text-gray-400');
-            }
-        };
-
-
-        let isAppInitialized = false;
-        async function setupUser(user) {
-            if (isAppInitialized) return;
-            isAppInitialized = true;
-            console.log('App: Entering setupUser for', user.email);
-            /**
-             * [逻辑搬迁] 
-             * 现在全部身份初始化和数据库同步都由 User 模块内部处理
-             */
-            const profile = await AppModules.User.init(user);
-            ALL_USERS[profile.id] = profile;
-
-            /**
-             * [用户心跳 (Heartbeat)] 
-             * 核心逻辑：每 60 秒向服务器报一次平安。
-             * 为什么不实时报？为了省流量，也为了防止被 Firebase 当作恶意刷频封锁。
-             */
-            // [用户心跳已迁移] 心跳与在线状态检测逻辑已转移至 AppModules.Sync.initPresence 中统一接管
-
-            // --- 2. 并行获取全局关键数据 (Batch Fetching) ---
-            // 策略：使用 Promise.all 让四个请求并发，总耗时由最慢的那个决定，而不是逐一排队。
-            console.log('App: Fetching global data...');
-            let dataFetchResult;
-            try {
-                dataFetchResult = await Promise.all([
-                    get(ref(db, 'settings')),   // 应用全局开关（如是否开启图片上传）
-                    get(ref(db, 'donations')),  // 赞助者名单
-                    get(ref(db, 'tos_content')),// 服务条款正文
-                    get(ref(db, `user_private/${user.uid}`)) // 用户的私密标记（如是否为系统推荐用户）
-                ]);
             } catch (err) {
-                console.error('App: Global data fetch failed:', err);
-                // 容错处理：即使这些数据拿不到（网络瞬间波动），也不影响用户进入聊天室主界面
-                dataFetchResult = [null, null, null, null];
-            }
-            const [settingsSnap, donationsSnap, tosSnap, privateSnap] = dataFetchResult;
-
-            /**
-             * [设置填充与响应式监听] 
-             * 逻辑：不仅初始化时读一次，我们还挂一个 onValue 监听器。
-             * 这样管理员在后台关掉图片分享的一瞬间，全校用户手机上的“相机图标”都会同步消失。
-             */
-            const settingsData = settingsSnap?.val() || {};
-            SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
-            SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl;
-
-            const soundToggle = document.getElementById('soundToggle');
-            if (soundToggle) soundToggle.checked = SETTINGS.soundEnabled;
-
-            // 核心修复：提前装弹，确保第一声不响的问题消失
-            if (AppModules.Notify && SETTINGS.soundUrl) {
-                AppModules.Notify.setSound(SETTINGS.soundUrl);
+                console.error('App: Settings fetch failed:', err);
             }
 
             onValue(ref(db, 'settings'), (snap) => {
                 const s = snap.val() || {};
-                // 是否全局禁用图片？
                 window.isPhotoDisabled = s.isPhotoDisabled || false;
                 const toggle = document.getElementById('globalPhotoToggle');
                 if (toggle) toggle.checked = window.isPhotoDisabled;
 
-                /**
-                 * [管理员禁令提醒] 
-                 * 如果检测到图片被禁，且用户不是第一次进（避开干扰新用户引导），
-                 * 则弹出一个警告框告知由于流量或稳定性原因暂时禁用图片。
-                 */
-                const isNewOrTest = (user && user.email && user.email.toLowerCase().includes('moss932888')) || (currentUser && currentUser._isNewUser);
+                const isNewOrTest = (currentUser && currentUser.email && currentUser.email.toLowerCase().includes('moss932888')) || (currentUser && currentUser._isNewUser);
                 if (!window._settingsInit && !isNewOrTest) {
                     window._settingsInit = true;
                     if (window.isPhotoDisabled) {
@@ -477,26 +388,17 @@
                     }
                 }
 
-                // 界面即时更新：隐藏/显示聊天框的相机按钮
                 const cameraBtn = document.getElementById('chatCameraBtn');
                 if (cameraBtn) cameraBtn.style.display = window.isPhotoDisabled ? 'none' : 'block';
 
-                /**
-                 * [强制刷新视图]
-                 * 逻辑：只有当“图片禁用状态”真正发生变化时，才需要刷新当前聊天气泡。
-                 * 否则（如只是由于其他无关设置变动触发的 onValue），不应重载聊天，防止“刷新两次”的问题。
-                 */
                 const photoStateChanged = window._prevPhotoDisabled !== undefined && window._prevPhotoDisabled !== window.isPhotoDisabled;
                 window._prevPhotoDisabled = window.isPhotoDisabled;
 
                 if (photoStateChanged && activeTargetId) {
-                    const chatId = getChatId(currentUser.id, activeTargetId);
-                    // loadChatThread(chatId); // 注释掉：这是导致双重刷新的最大嫌疑犯
-                    console.log('App: Photo settings changed, but skipping reload to prevent double-refresh.');
+                    console.log('App: Photo settings changed, skipping reload.');
                 }
                 if (currentModule) renderModuleList();
 
-                // 刷新公告栏内容，处理公告里的图片显示状态
                 const newsTabs = ['school', 'club'];
                 newsTabs.forEach(tab => {
                     getLocalNews(tab).then(posts => {
@@ -506,124 +408,13 @@
                 });
             });
 
-
-
-
-            // --- 最后的初始化决策 ---
-            // 逻辑：管理员面板显示权限判断
+            // 2. 初始化管理员面板可见性
             if (AppModules.User.isAdmin()) {
                 document.getElementById('adminPanel')?.classList.remove('hidden');
             } else {
                 document.getElementById('adminPanel')?.classList.add('hidden');
             }
 
-            const tosContent = tosSnap?.val() || "";
-            const userData = privateSnap?.val() || {};
-            // 测试账号免除一切等待逻辑，直接进入最快渲染模式
-            const isAlwaysNewUser = user && user.email && user.email.toLowerCase().includes('moss932888');
-            window._isNewUserFlag = userData.isNew || isAlwaysNewUser;
-
-            /**
-             * [账户纠偏]
-             * 如果是测试账号，强制标记为未同意条款，以便反复测试 ToS 页面效果。
-             */
-            if (isAlwaysNewUser) {
-                currentUser.hasAcceptedTerms = false;
-            }
-
-            // 在后台静默清除“新用户”标记。这样下一次登录时，后台就知道你已经是老用户了。
-            if (userData.isNew && !isAlwaysNewUser) {
-                update(ref(db, `user_private/${user.uid}`), { isNew: null }).catch(e => console.warn('Flag clear fail:', e));
-            }
-
-            console.log('App: setupUser finalizing. hasAcceptedTerms:', currentUser.hasAcceptedTerms);
-
-            /**
-             * [核心分支]：判断是否允许进入主界面
-             * 流程：
-             * A. 如果同意了条款：直接启动所有观察者 (Observer) 和 同步 (Sync) 逻辑，隐藏登录，开启侧边栏。
-             * B. 如果没同意：强制留在服务条款 (ToS) 页面，直到用户点击“我同意”。
-             */
-            if (currentUser.hasAcceptedTerms) {
-                console.log('App: User accepted ToS. Entering App...');
-                enterApp();
-            } else {
-                console.log('App: User must accept ToS.');
-                showTos(true); // 弹出强制性条款页面
-                hideLoading();
-            }
-        }
-
-        /**
-         * [UI 展现] 显示服务条款 (Terms of Service)
-         * @param {boolean} mandatory - 是否强制接受。如果是 true，则隐藏关闭按钮，用户必须点击“同意”才能进应用。
-         */
-        window.showTos = (mandatory = false) => {
-            const tosPage = document.getElementById('tosPage');
-            const tosCloseBtn = document.getElementById('tosCloseBtn');
-            const tosAcceptSection = document.getElementById('tosAcceptSection');
-
-            tosPage.classList.remove('hidden');
-            if (mandatory) {
-                // 强制模式：隐藏右上角的 X，显示底部的“同意”按钮区域
-                tosCloseBtn.classList.add('hidden');
-                tosAcceptSection.classList.remove('hidden');
-            } else {
-                // 普通查看模式：允许直接关闭
-                tosCloseBtn.classList.remove('hidden');
-                tosAcceptSection.classList.add('hidden');
-            }
-        };
-
-        // 关闭 ToS 弹窗（仅用于非强制模式）
-        window.closeTos = () => {
-            document.getElementById('tosPage').classList.add('hidden');
-        };
-
-        /**
-         * [动作函数] 用户点击“我同意条款”
-         * 逻辑：
-         * 1. 更新数据库中的 hasAcceptedTerms 标志位。
-         * 2. 如果是新用户（第一次进应用），则跳转到“设置姓名”页面。
-         * 3. 如果是老用户，则直接进入主界面。
-         */
-        window.acceptTerms = async () => {
-            if (!currentUser) return;
-            const userRef = ref(db, `users/${currentUser.id}`);
-
-            // 写入数据库：标记该用户已合规
-            await update(userRef, { hasAcceptedTerms: true });
-            currentUser.hasAcceptedTerms = true;
-
-            // 特殊逻辑：针对测试账号 moss932888，始终将其视为新用户，以便测试流程
-            const isAlwaysNewUser = currentUser.email && currentUser.email.toLowerCase().includes('moss932888');
-
-            if (currentUser._isNewUser || isAlwaysNewUser) {
-                // 进入“姓名设置”环节
-                document.getElementById('tosPage').classList.add('hidden');
-                document.getElementById('nameSetupPage').classList.remove('hidden');
-
-                // 预填充逻辑：尝试从 Google 账户自带的原始名字中提取并格式化
-                if (currentUser.name) {
-                    const parts = currentUser.name.split(' ');
-                    const first = parts[0] || '';
-                    const last = parts.slice(1).join(' ') || '';
-                    // 强制首字母大写美化
-                    document.getElementById('setupFirstName').value = first.charAt(0).toUpperCase() + first.slice(1);
-                    document.getElementById('setupLastName').value = last.charAt(0).toUpperCase() + last.slice(1);
-                }
-                return;
-            }
-
-            // 已经是老用户，跳过姓名设置，直接开机
-            enterApp();
-        };
-
-        /**
-         * [启动序列] 进入应用主逻辑
-         * 逻辑：执行一连串的 UI 切换和数据订阅，标志着用户正式开始使用应用。
-         */
-        window.enterApp = async () => {
             AppModules.View.showPage('mainPage');
             initUserObserver();         // 启动侧边栏用户更新监听
             initSettingsUI();           // 渲染设置界面
@@ -661,75 +452,13 @@
             // 启动群聊同步与轮询
             AppModules.Sync.startGroupSync(db, currentUser);
 
-            closeTos();                 // 确保关闭条款页
+            if (window.AppModules.Auth) {
+                window.AppModules.Auth.closeTos();
+            } else {
+                closeTos();
+            }
             hideLoading();              // 彻底移除加载遮罩
         };
-
-        /**
-         * [核心逻辑] 保存新用户的初始档案
-         * 逻辑：
-         * 1. 验证输入：必须包含姓和名。
-         * 2. 更新数据库。
-         * 3. 自动向管理员发送一条招呼信息（极其重要的功能：让管理员知道有新人加入，且方便新人直接找到客服）。
-         */
-        window.saveInitialProfile = async () => {
-            const rawFirst = document.getElementById('setupFirstName').value.trim();
-            const rawLast = document.getElementById('setupLastName').value.trim();
-            // 姓名清洗：首字母大写
-            const first = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1);
-            const last = rawLast.charAt(0).toUpperCase() + rawLast.slice(1);
-            const newName = [first, last].filter(Boolean).join(' ');
-
-            if (!newName || !first || !last) {
-                return AppModules.Modal.alert("Name Required", "Please enter both your first and last name to continue.");
-            }
-
-            const btn = document.getElementById('setupSubmitBtn');
-            btn.disabled = true; // 防止二次点击
-            btn.innerText = "Setting up...";
-
-            try {
-                // 更新正式名字到数据库
-                await update(ref(db, `users/${currentUser.id}`), { name: newName });
-                currentUser.name = newName;
-
-                /**
-                 * [自动招呼逻辑] 
-                 * 为什么要在这里发消息？
-                 * 因为这时候用户刚刚设置好真实姓名，管理员收到的私信里能看到正确的名字，
-                 * 同时也让用户知道“私信”功能在哪。
-                 */
-                try {
-                    const adminId = 'moss104088'; // 管理员 ID
-                    const chatId = getChatId(currentUser.id, adminId);
-                    // 构造系统自动私信正文
-                    const msg = {
-                        senderId: currentUser.id,
-                        senderName: currentUser.name,
-                        text: "[Auto Sent By System] I'm a new user",
-                        type: 'text',
-                        timestamp: serverTimestamp()
-                    };
-                    // 1. 写入消息列表
-                    await push(ref(db, `messages/${chatId}`), msg);
-                    // 2. 双向更新最近聊天记录列表，确保双方侧边栏都能看到对方
-                    await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [adminId]: serverTimestamp() });
-                    await update(ref(db, `user_chats/${adminId}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
-                } catch (e) {
-                    console.warn('New user notification failed:', e);
-                }
-
-                // 清理临时标志，正式入场
-                delete currentUser._isNewUser;
-                document.getElementById('nameSetupPage').classList.add('hidden');
-                enterApp();
-            } catch (err) {
-                btn.disabled = false;
-                btn.innerText = "Start Chatting";
-                AppModules.Modal.alert("Error", "Failed to save profile: " + err.message);
-            }
-        };
-
         // 通知方法已迁移至 AppModules.Notify
 
         /**
@@ -3775,6 +3504,8 @@
             }, 350);
         };
 
+        let currentPostBase64 = null;
+
         window.handlePostImageSelect = (e) => {
             if (window.isPhotoDisabled) {
                 AppModules.Modal.alert("Restricted", "Photo uploads are currently disabled by the administrator.");
@@ -4055,6 +3786,9 @@
                 }
             } catch (err) { console.error(err); }
         };
+
+        let currentPostId = null;
+        let postDetailListener = null;
 
         window.openPostDetail = (postId) => {
             currentPostId = postId;
@@ -5812,8 +5546,7 @@
             <div
                 class="px-3 pt-2 pb-safe bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t dark:border-gray-800 z-10 w-full">
                 <div class="flex gap-2 items-end max-w-4xl mx-auto">
-                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer transition-all duration-200"
-                        style="${window.isPhotoDisabled ? 'display:none' : 'display:block'}">
+                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer transition-all duration-200">
                         <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
                             <path
                                 d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
