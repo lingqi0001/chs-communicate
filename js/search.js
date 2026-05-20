@@ -6,8 +6,48 @@
  * ==================================================================================
  */
 
+import { get, query, ref, orderByKey, limitToFirst } from './core.js';
+import { localDB, dbReady } from './db.js';
+
 const HISTORY_KEY = 'chs_search_history';
 const MAX_HISTORY_LEN = 8;
+
+function escapeForSingleQuotedJs(value) {
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+}
+
+function escapeForInlineHandler(value) {
+    return escapeForSingleQuotedJs(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function getOtherParticipantId(chatId, currentUserId) {
+    const normalizedChatId = String(chatId || '').toLowerCase();
+    const normalizedCurrentUserId = String(currentUserId || '').toLowerCase();
+    if (!normalizedChatId || !normalizedCurrentUserId) return null;
+
+    const currentUserPrefix = `${normalizedCurrentUserId}_`;
+    const currentUserSuffix = `_${normalizedCurrentUserId}`;
+
+    if (normalizedChatId.startsWith(currentUserPrefix)) {
+        return normalizedChatId.slice(currentUserPrefix.length) || null;
+    }
+
+    if (normalizedChatId.endsWith(currentUserSuffix)) {
+        return normalizedChatId.slice(0, -currentUserSuffix.length) || null;
+    }
+
+    return null;
+}
 
 export const SearchModule = {
     /**
@@ -170,8 +210,8 @@ export const SearchModule = {
                     const classId = m.chatId.replace('group_', '');
                     if (!sidebarClasses || !sidebarClasses[classId]) return false;
                 } else {
-                    const participants = m.chatId.toLowerCase().split('_');
-                    if (!participants.includes(currentUserIdLower)) return false;
+                    const otherParticipantId = getOtherParticipantId(m.chatId, currentUserIdLower);
+                    if (!otherParticipantId) return false;
                 }
                 return m.text.toLowerCase().includes(termLower);
             }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15).map(m => {
@@ -181,9 +221,8 @@ export const SearchModule = {
                     const classId = m.chatId.replace('group_', '');
                     chatName = (cnCache && cnCache[classId]) ? cnCache[classId] : "Class Chat";
                 } else {
-                    const parts = m.chatId.split('_');
-                    if (parts.length >= 2) {
-                        const otherId = parts[0] === currentUser.id ? parts[1] : parts[0];
+                    const otherId = getOtherParticipantId(m.chatId, currentUser.id);
+                    if (otherId) {
                         chatName = otherId; // Resolved in UI using ALL_USERS mapping
                         jumpId = otherId;
                     }
@@ -193,6 +232,7 @@ export const SearchModule = {
                     chatName,
                     text: m.text,
                     timestamp: m.timestamp,
+                    key: m.key || (m.compositeId ? m.compositeId.substring(m.chatId.length + 1) : ''),
                     jumpId
                 };
             });
@@ -247,6 +287,342 @@ export const SearchModule = {
         ]);
 
         return results;
+    },
+
+    /**
+     * Initializes the Search UI handlers and registers global bindings
+     */
+    initSearchUI(options) {
+        const { db, getCurrentUser, getSidebarClasses, getCnCache } = options;
+
+        window.showGlobalSearchResults = () => {
+            const results = document.getElementById('globalSearchResults');
+            if (results) {
+                results.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+                results.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+            }
+        };
+
+        window.hideGlobalSearchResults = () => {
+            const results = document.getElementById('globalSearchResults');
+            if (results) {
+                results.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+                results.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+            }
+        };
+
+        window.clearGlobalSearch = () => {
+            const input = document.getElementById('globalSearchInput');
+            const results = document.getElementById('globalSearchResults');
+            const resultList = document.getElementById('searchResultList');
+            const clearBtn = document.getElementById('globalSearchClear');
+
+            if (input) input.value = '';
+            window.hideGlobalSearchResults();
+            if (resultList) {
+                setTimeout(() => {
+                    if (results && results.classList.contains('opacity-0')) {
+                        resultList.innerHTML = '';
+                    }
+                }, 200);
+            }
+            if (clearBtn) clearBtn.classList.add('hidden');
+        };
+
+        // Click outside search container to close results
+        document.addEventListener('click', (e) => {
+            const searchContainer = document.getElementById('globalSearchInput')?.parentElement?.parentElement;
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                window.clearGlobalSearch();
+            }
+        });
+
+        window.triggerAddHistory = (term) => {
+            this.addHistory(term);
+        };
+
+        window.fillGlobalSearch = (term) => {
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                input.value = term;
+                window.handleGlobalSearch({ target: input });
+            }
+        };
+
+        window.deleteSearchHistoryUI = (event, term) => {
+            event.stopPropagation();
+            this.removeHistoryItem(term);
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                window.handleGlobalSearch({ target: input });
+            }
+        };
+
+        window.clearSearchHistoryUI = (event) => {
+            event.stopPropagation();
+            this.clearHistory();
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                window.handleGlobalSearch({ target: input });
+            }
+        };
+
+        // Bind keydown event for Enter on search input to save history
+        setTimeout(() => {
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const term = input.value.trim();
+                        if (term.length >= 2) {
+                            window.triggerAddHistory(term);
+                        }
+                    }
+                });
+            }
+        }, 1000);
+
+        window.currentSearchCategory = 'all';
+        window.setSearchCategory = (cat) => {
+            if (window.currentSearchCategory === cat) {
+                window.currentSearchCategory = 'all';
+            } else {
+                window.currentSearchCategory = cat;
+            }
+
+            document.querySelectorAll('.search-cat-btn').forEach(btn => {
+                const btnCat = btn.id.replace('searchCat-', '');
+                if (window.currentSearchCategory === 'all') {
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap";
+                } else if (btnCat === window.currentSearchCategory) {
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-white bg-[#007AFF] dark:bg-[#0A84FF] shadow-sm whitespace-nowrap";
+                } else {
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-white/5 opacity-40 hover:opacity-75 whitespace-nowrap";
+                }
+            });
+
+            const input = document.getElementById('globalSearchInput');
+            if (input) {
+                window.handleGlobalSearch({ target: input });
+            }
+        };
+
+        let searchTimeout;
+        window.handleGlobalSearch = (e) => {
+            clearTimeout(searchTimeout);
+            const term = e.target.value.trim();
+            const results = document.getElementById('globalSearchResults');
+            const resultList = document.getElementById('searchResultList');
+            const clearBtn = document.getElementById('globalSearchClear');
+
+            if (!term) {
+                if (clearBtn) clearBtn.classList.add('hidden');
+                const history = this.getHistory();
+                if (history && history.length > 0) {
+                    let html = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                        <span>Recent Searches</span>
+                        <button onclick="clearSearchHistoryUI(event)" class="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
+                    </div>`;
+                    history.forEach(item => {
+                        const escapedHistoryItem = escapeForInlineHandler(item);
+                        html += `<div onclick="event.stopPropagation(); fillGlobalSearch('${escapedHistoryItem}')" class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors group">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>${window.escapeHTML(item)}</span>
+                            </div>
+                            <button onclick="deleteSearchHistoryUI(event, '${escapedHistoryItem}')" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>`;
+                    });
+                    if (resultList) resultList.innerHTML = html;
+                    window.showGlobalSearchResults();
+                } else {
+                    window.hideGlobalSearchResults();
+                    setTimeout(() => {
+                        if (results && results.classList.contains('opacity-0')) {
+                            if (resultList) resultList.innerHTML = '';
+                        }
+                    }, 200);
+                }
+                return;
+            }
+
+            if (clearBtn) clearBtn.classList.remove('hidden');
+
+            if (term.length < 2) {
+                window.hideGlobalSearchResults();
+                setTimeout(() => {
+                    if (results && results.classList.contains('opacity-0')) {
+                        if (resultList) resultList.innerHTML = '';
+                    }
+                }, 200);
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                let html = '';
+                const cat = window.currentSearchCategory;
+                const currentUser = getCurrentUser();
+                const escapedTerm = escapeForInlineHandler(term);
+ 
+                // --- 维度 1：人名与用户检索 (People Search) ---
+                if (cat === 'all' || cat === 'messages' || cat === 'people') {
+                    try {
+                        const now = Date.now();
+                        if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(window.ALL_USERS).length < 10) {
+                            const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
+                            if (allSnap.exists()) {
+                                Object.assign(window.ALL_USERS, allSnap.val());
+                                window._lastUserFetch = now;
+                            }
+                        }
+
+                        const peopleResults = this.searchPeople(term, currentUser, window.ALL_USERS);
+                        if (peopleResults.length > 0) {
+                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
+                            peopleResults.forEach(u => {
+                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
+                                if (u.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
+
+                                const escapedId = escapeForInlineHandler(u.id);
+                                html += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
+                                    <div><div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${window.escapeHTML(u.email)}</div></div>
+                                </div>`;
+                            });
+                        }
+                    } catch (err) { console.warn('Aggressive search failed:', err); }
+                }
+
+                // --- 维度 2：工具与内置扩展程序搜索 (Tools Search) ---
+                if (cat === 'all' || cat === 'tools') {
+                    const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
+                    const toolsResults = this.searchTools(term, registry);
+
+                    if (toolsResults.length > 0) {
+                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
+                        toolsResults.forEach(t => {
+                            const escapedToolId = escapeForInlineHandler(t.id);
+                            const onClick = t.type === 'module' ? `openModule('${escapedToolId}')` : `openExtension('${escapedToolId}')`;
+                            html += `
+                                <div onclick="${onClick}; triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(t.name)}</div>
+                                        <div class="text-xs text-gray-400">${window.escapeHTML(t.desc)}</div>
+                                    </div>
+                                </div>`;
+                        });
+                    }
+                }
+
+                // --- 维度 3：聊天消息检索 (Messages Search) ---
+                if (cat === 'all' || cat === 'messages') {
+                    if (!localDB) {
+                        await dbReady;
+                    }
+                    const sidebarClasses = getSidebarClasses();
+                    const cnCache = getCnCache();
+                    const messageResults = await this.searchMessages(term, currentUser, localDB, sidebarClasses, cnCache);
+ 
+                    if (messageResults.length > 0) {
+                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
+                        messageResults.forEach(m => {
+                            let resolvedChatName = m.chatName;
+                            if (!m.chatId.startsWith('group_')) {
+                                resolvedChatName = window.ALL_USERS[m.chatName]?.name || m.chatName;
+                            }
+                            const escapedJumpId = escapeForInlineHandler(m.jumpId);
+                            const escapedText = escapeForInlineHandler(m.text);
+                            const escapedKey = escapeForInlineHandler(m.key || '');
+ 
+                            html += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${escapedTerm}'); setTimeout(() => jumpToMessage('${escapedText}', '${escapedTerm}', '${escapedKey}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${window.escapeHTML(resolvedChatName)}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${window.escapeHTML(m.text)}</div>
+                            </div>`;
+                        });
+                    }
+                }
+ 
+                // --- 维度 4：新闻公告与社区动态搜索 (News & Modules Search) ---
+                if (cat === 'all' || cat === 'news' || cat === 'community') {
+                    if (!localDB) {
+                        await dbReady;
+                    }
+                    if (localDB) {
+                        const newsResults = await this.searchNewsAndModules(term, localDB, cat);
+ 
+                        let newsHtml = '';
+                        if (newsResults.news.length > 0) {
+                            newsResults.news.forEach(item => {
+                                const escapedStoreName = escapeForInlineHandler(item.storeName);
+                                const escapedItemKey = escapeForInlineHandler(item.key);
+                                const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
+                                newsHtml += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
+                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
+                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
+                                </div>`;
+                            });
+                        }
+ 
+                        let communityHtml = '';
+                        if (newsResults.community.length > 0) {
+                            newsResults.community.forEach(item => {
+                                const escapedStoreName = escapeForInlineHandler(item.storeName);
+                                const escapedItemKey = escapeForInlineHandler(item.key);
+                                const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
+                                communityHtml += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Community</div>
+                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
+                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
+                                </div>`;
+                            });
+                        }
+ 
+                        if (newsHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Announcements</div>` + newsHtml;
+                        if (communityHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Community</div>` + communityHtml;
+                    }
+                }
+
+                // Final render
+                if (html === '') {
+                    if (resultList) resultList.innerHTML = '<div class="px-4 py-10 text-center text-gray-400 text-xs">No results found.</div>';
+                } else {
+                    if (resultList) resultList.innerHTML = html;
+                }
+                window.showGlobalSearchResults();
+            }, 300);
+        };
+
+        window.handlePostJump = (storeName, itemId, typeOrModule) => {
+            if (storeName === 'news') {
+                if (window.innerWidth < 1024) window.switchTab('news');
+                window.switchLeftTab('news');
+                window.toggleNewsTab(typeOrModule);
+                setTimeout(() => {
+                    const containerId = typeOrModule === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        const items = Array.from(container.children);
+                        const target = items.find(el => el.dataset.newsKey === itemId);
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            target.classList.add('ring-2', 'ring-[#007AFF]', 'animate-pulse');
+                            setTimeout(() => target.classList.remove('ring-2', 'ring-[#007AFF]', 'animate-pulse'), 3000);
+                        }
+                    }
+                }, 500);
+            } else if (storeName === 'modules') {
+                window.switchLeftTab('more');
+                window.openModule(typeOrModule);
+                setTimeout(() => window.openPostDetail(itemId), 400);
+            }
+            window.clearGlobalSearch();
+        };
     }
 };
 

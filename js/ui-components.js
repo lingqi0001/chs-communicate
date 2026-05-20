@@ -36,6 +36,9 @@ export const UIComponents = {
         const isMe = msg.senderId === currentUser.id;
         const div = document.createElement('div');
         div.dataset.key = key;
+        if (msg.text) {
+            div.setAttribute('data-raw-text', msg.text);
+        }
         div.className = `msg-pop flex flex-col mb-1.5 w-full ${isMe ? 'items-end' : 'items-start'}`;
 
         // 螟�炊蠑慕畑豸域�

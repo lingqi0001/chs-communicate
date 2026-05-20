@@ -39,8 +39,10 @@
         
         h1 { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.06em; margin-bottom: 4px; }
         .btn-mini { background: transparent; border: 1px solid var(--border); padding: 8px 16px; border-radius: 10px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .btn-mini * { pointer-events: none; }
         .btn-mini:hover { border-color: var(--accent); color: var(--accent); background: var(--hover-bg); }
-        .btn-accent { background: var(--accent); color: #000; border: none; font-weight: 900; }
+        .btn-accent { background: var(--accent) !important; color: #000 !important; border: none !important; font-weight: 900 !important; transition: none !important; }
+        .btn-accent:hover { background: var(--accent) !important; color: #000 !important; border: none !important; opacity: 1 !important; transition: none !important; }
 
         .item-row { display: flex; align-items: center; gap: 16px; padding: 20px; background: rgba(255,255,255,0.015); border-radius: 20px; border: 1px solid var(--border); margin-bottom: 12px; transition: 0.2s; }
         .item-row.done { border-color: var(--success); background: rgba(16, 185, 129, 0.04); }
@@ -53,8 +55,57 @@
         .toggle-btn { padding: 6px 14px; border-radius: 8px; border: none; font-size: 10px; font-weight: 800; cursor: pointer; background: transparent; color: var(--muted); }
         .toggle-btn.active { background: var(--accent); color: #000; }
 
-        /* BY DEFAULT VISIBLE FOR MASTER - HIDDEN ONLY FOR VERIFIED STUDENTS */
-        .teacher-only { display: block; }
+        /* SPLIT BUTTON GROUP FOR VIEWING SOURCES */
+        .split-btn-group {
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent);
+            border-radius: 10px;
+            overflow: hidden;
+            border: none;
+            height: 32px;
+        }
+        .split-btn-left {
+            color: #000 !important;
+            font-size: 10px;
+            font-weight: 900;
+            text-decoration: none !important;
+            padding: 0 12px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .split-btn-left:hover {
+            opacity: 0.8;
+            text-decoration: none !important;
+        }
+        .split-btn-divider {
+            width: 1px;
+            height: 16px;
+            background: rgba(0, 0, 0, 0.25);
+        }
+        .split-btn-right {
+            background: transparent;
+            border: none;
+            color: #000 !important;
+            padding: 0 10px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .split-btn-right:hover {
+            opacity: 0.8;
+        }
+
+        /* BY DEFAULT HIDDEN - SHOWN ONLY FOR TEACHER/ADMIN VIEW */
+        .teacher-only { display: none; }
         .banner { padding: 16px 24px; background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--accent); border-radius: 10px; margin-bottom: 32px; display: none; align-items: center; gap: 12px; }
 
         .modal-wrap { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(16px); z-index: 2000; display: none; align-items: center; justify-content: center; }
@@ -62,13 +113,314 @@
         .field { margin-bottom: 24px; }
         .field label { display: block; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
         .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 14px; color: var(--text); font-size: 14px; outline: none; }
+
+        /* LITERATURE CARDS */
+        .lit-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(59,130,246,0.06);
+            border: 1px solid rgba(59,130,246,0.2);
+            padding: 10px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            max-width: 320px;
+            margin-top: 6px;
+        }
+        .lit-card:hover { border-color: #3B82F6; background: rgba(59,130,246,0.12); }
+        .lit-card-icon {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: var(--card); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; overflow: hidden;
+        }
+        .lit-card-icon img { width: 18px; height: 18px; }
+        .lit-card-info { min-width: 0; flex: 1; }
+        .lit-card-domain { font-size: 10px; color: #3B82F6; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lit-card-url { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .feedback-badge {
+            font-size: 9px; font-weight: 900; color: var(--accent);
+            background: rgba(245,158,11,0.15); padding: 2px 6px;
+            border-radius: 6px; margin-left: 6px;
+        }
+
+        /* NOTIFICATIONS BADGE & TIMELINE */
+        .nav-badge {
+            background: var(--danger);
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            padding: 2px 6px;
+            border-radius: 20px;
+            margin-left: auto;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+            animation: badge-pulse 2s infinite;
+        }
+        @keyframes badge-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+            100% { transform: scale(1); }
+        }
+        .notif-card {
+            background: rgba(255,255,255,0.015);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .notif-card:hover {
+            border-color: var(--accent);
+            background: var(--hover-bg);
+        }
+        .notif-unread {
+            border-left: 3px solid var(--accent);
+            background: rgba(245, 158, 11, 0.03);
+        }
+
+        /* CONCEPT MINDMAP CANVAS */
+        .canvas-container {
+            width: 100%;
+            height: 580px;
+            background-color: var(--sidebar);
+            background-image: 
+                radial-gradient(var(--border) 1px, transparent 0),
+                radial-gradient(var(--border) 1px, transparent 0);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            position: relative;
+            overflow: auto;
+            user-select: none;
+            box-shadow: inset 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 24px;
+        }
+        .canvas-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+        .canvas-node {
+            position: absolute;
+            padding: 16px 20px;
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
+            min-width: 180px;
+            max-width: 260px;
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            z-index: 10;
+        }
+        .canvas-node:active {
+            cursor: grabbing;
+        }
+        .canvas-node.theme-node {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+        }
+        .canvas-node.source-node {
+            border-color: #3B82F6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+        }
+        .canvas-node.note-node {
+            border-color: var(--muted);
+        }
+        .canvas-node-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .canvas-node-desc {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+        .node-socket {
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: crosshair;
+            border: 2px solid var(--card);
+            z-index: 20;
+            transition: transform 0.2s;
+        }
+        .node-socket:hover {
+            transform: translateY(-50%) scale(1.3);
+        }
+        .node-socket.left-socket {
+            left: -6px;
+            right: auto;
+            background: #3B82F6;
+        }
+        .node-del-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .canvas-node:hover .node-del-btn {
+            opacity: 0.6;
+        }
+        .canvas-node:hover .node-del-btn:hover {
+            opacity: 1;
+            color: var(--danger);
+        }
+        .canvas-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .canvas-line {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 2.5px;
+            stroke-linecap: round;
+            stroke-dasharray: 4 4;
+            animation: connection-flow 20s linear infinite;
+        }
+        @keyframes connection-flow {
+            to { stroke-dashoffset: -20; }
+        }
+
+        /* RATING & STICKY FEEDBACK COMMENTS */
+        .rating-stars {
+            display: flex;
+            gap: 6px;
+            margin: 10px 0;
+        }
+        .star-icon {
+            cursor: pointer;
+            color: var(--border);
+            transition: color 0.15s, transform 0.15s;
+        }
+        .star-icon.active {
+            color: var(--accent);
+            filter: drop-shadow(0 0 4px var(--accent));
+        }
+        .star-icon:hover {
+            transform: scale(1.25);
+        }
+        .sticky-notes-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .sticky-note {
+            padding: 18px;
+            border-radius: 14px;
+            color: #1c1917;
+            position: relative;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            transform: rotate(-0.5deg);
+            transition: transform 0.2s;
+        }
+        .sticky-note:nth-child(even) {
+            transform: rotate(0.5deg);
+        }
+        .sticky-note:hover {
+            transform: scale(1.01) rotate(0deg);
+        }
+        .sticky-note.yellow { background: #FEF08A; }
+        .sticky-note.pink { background: #FBCFE8; }
+        .sticky-note.green { background: #BBF7D0; }
+        .sticky-note.blue { background: #BFDBFE; }
+        .sticky-note-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            opacity: 0.6;
+            margin-bottom: 6px;
+        }
+        .sticky-note-text {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.45;
+        }
+        .sticky-note-replies {
+            margin-top: 14px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sticky-reply {
+            font-size: 11px;
+            background: rgba(255,255,255,0.45);
+            padding: 8px 12px;
+            border-radius: 8px;
+            line-height: 1.35;
+        }
+
+        /* PRINT MEDIA STYLING */
+        @media print {
+            body { background: #ffffff !important; color: #000000 !important; }
+            aside, header, .btn-mini, .modal-wrap, #broadcast-banner, .canvas-controls, .node-del-btn, .node-socket { display: none !important; }
+            main { padding: 0 !important; width: 100% !important; overflow: visible !important; }
+            .card { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 0 30px 0 !important; }
+            .print-only { display: block !important; }
+            .canvas-container { border: 2px solid #ccc !important; background: #fafafa !important; height: auto !important; min-height: 400px !important; overflow: visible !important; }
+            .canvas-node { border: 1.5px solid #666 !important; background: #fff !important; color: #000 !important; box-shadow: none !important; position: absolute !important; }
+            .canvas-node-title { color: #000 !important; }
+            .canvas-node-desc { color: #555 !important; }
+            .canvas-line { stroke: #333 !important; animation: none !important; }
+        }
     </style>
 </head>
 <body>
 
     <aside>
-        <div style="font-weight:900; font-size:1.6rem; color:var(--accent); margin-bottom:40px; letter-spacing:-2px;">IR STUDIO</div>
-        <nav id="path-nav"></nav>
+        <div style="font-weight:900; font-size:1.6rem; color:var(--accent); margin-bottom:30px; letter-spacing:-2px;">IR STUDIO</div>
+        
+        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Research Stages</div>
+        <nav id="path-nav" style="margin-bottom:24px;"></nav>
+        
+        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Studio Tools</div>
+        <nav id="tools-nav">
+            <div id="nav-canvas" class="nav-item" onclick="switchToTool('canvas')">
+                <i data-lucide="git-branch" size="14" style="margin-right:8px; pointer-events: none;"></i>
+                Research Canvas
+            </div>
+            <div id="nav-notifs" class="nav-item" onclick="switchToTool('notifs')">
+                <i data-lucide="bell" size="14" style="margin-right:8px; pointer-events: none;"></i>
+                Notifications
+                <span id="notif-count" class="nav-badge" style="display:none;">0</span>
+            </div>
+        </nav>
+
         <div style="margin-top:auto; display:flex; align-items:center; padding:10px;">
             <div id="sync-dot" class="status-dot"></div>
             <div id="user-status" style="font-size:10px; color:var(--muted); font-weight:900; text-transform:uppercase;">Searching...</div>
@@ -76,17 +428,23 @@
     </aside>
 
     <main>
-        <div id="broadcast-banner" class="banner">
-            <i data-lucide="megaphone" size="20" style="color:var(--accent);"></i>
-            <div id="broadcast-text" style="font-weight:700; font-size:14px;"></div>
+        <div id="broadcast-banner" class="banner" style="justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-grow: 1;">
+                <i data-lucide="megaphone" size="20" style="color:var(--accent); flex-shrink: 0;"></i>
+                <div id="broadcast-text" style="font-weight:700; font-size:14px;"></div>
+            </div>
+            <button id="broadcast-delete" class="del-btn teacher-only" onclick="deleteBroadcast()" style="background: transparent; border: none; padding: 4px; display: none; align-items: center; justify-content: center; cursor: pointer; opacity: 0.6; transition: 0.2s;">
+                <i data-lucide="trash-2" size="16" style="color: var(--danger);"></i>
+            </button>
         </div>
 
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:40px;">
             <div><h1 id="h-title">IR Navigator</h1><p id="h-subtitle" style="color:var(--muted); font-size:14px; font-weight:600;">System Bridge Standby</p></div>
             <div style="display:flex; gap:12px; align-items:center;">
                 <!-- ALWAYS VISIBLE BY DEFAULT -->
-                <div id="admin-controls" style="display:flex; gap:12px; align-items:center;">
-                    <button class="btn-mini" onclick="toggleTheme()"><i id="theme-icon" data-lucide="sun" size="14"></i></button>
+                <button class="btn-mini" onclick="toggleTheme()"><i id="theme-icon" data-lucide="sun" size="14"></i></button>
+                <!-- ADMIN CONTROLS: HIDDEN BY DEFAULT, SHOWN ONLY FOR MASTER -->
+                <div id="admin-controls" style="display:none; gap:12px; align-items:center;">
                     <button class="btn-mini" onclick="openModal('broadcast')"><i data-lucide="megaphone" size="14"></i> BROADCAST</button>
                     <div class="view-toggle">
                         <button id="btn-t" class="toggle-btn active" onclick="setView('teacher')">TEACHER</button>
@@ -96,12 +454,12 @@
             </div>
         </header>
 
-        <div class="card">
+        <div class="card" id="milestones-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
                 <h3 style="font-size:0.75rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.18em;">Milestones & Project Management</h3>
                 <div style="display:flex; gap:12px; align-items:center;">
                     <b id="percent-text" style="color:var(--accent); font-size:1.8rem; margin-right:10px;">0%</b>
-                    <button class="teacher-only btn-mini btn-accent" onclick="openModal('addTask')">+ ADD TASK</button>
+                    <button class="teacher-only btn-mini btn-accent" id="add-task-btn" onclick="openModal('addTask')">+ ADD TASK</button>
                 </div>
             </div>
             <div id="m-list"></div>
@@ -121,12 +479,39 @@
             <div id="matrix-content"></div>
         </div>
 
+        <div class="card" id="canvas-card" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <div>
+                    <h3 style="font-size:1.1rem; font-weight:800;">Visual Research Board</h3>
+                    <p style="color:var(--muted); font-size:12px;">Double click on background to add a node, or drag connector to link Sources to Themes</p>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-mini btn-accent" id="canvas-add-theme" onclick="addCanvasNodePrompt('theme')">+ THEME</button>
+                    <button class="btn-mini btn-accent" id="canvas-add-source" onclick="addCanvasNodePrompt('source')">+ SOURCE</button>
+                    <button class="btn-mini btn-accent" id="canvas-add-note" onclick="addCanvasNodePrompt('note')">+ NOTE</button>
+                    <button class="btn-mini" onclick="exportPDFReport()" style="border-color:var(--success); color:var(--success);"><i data-lucide="download" size="12"></i> EXPORT REPORT</button>
+                </div>
+            </div>
+            
+            <div class="canvas-container" id="canvas-container" ondragover="event.preventDefault()">
+                <svg class="canvas-svg" id="canvas-svg"></svg>
+            </div>
+        </div>
+
+        <div class="card" id="notifs-card" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <h3>Notifications & Feedback</h3>
+                <button class="btn-mini" onclick="markAllNotificationsAsRead()">MARK ALL AS READ</button>
+            </div>
+            <div id="notifs-list"></div>
+        </div>
+
         <div class="card teacher-only" id="heatmap-card">
             <h3>Classroom Heatmap</h3>
             <div id="heatmap" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:20px; margin-bottom:32px;"></div>
             <div style="border-top:1px solid var(--border); padding-top:24px; display:flex; justify-content:space-between; align-items:center;">
                 <div style="font-size:11px; color:var(--muted); font-weight:800;">ADMIN CONSOLE</div>
-                <button class="btn-mini" style="border-color:var(--danger); color:var(--danger);" onclick="seedTestData()">RESET ALL DATA</button>
+                <button class="btn-mini" style="border-color:var(--danger); color:var(--danger);" onclick="resetAllData()">RESET ALL DATA</button>
             </div>
         </div>
     </main>
@@ -151,8 +536,9 @@
             { name: "The Grand Finale", defaultTasks: ["Data Analysis Info", "Essay Draft", "Self-Review", "Printed Copy (PD2)", "Final Paper (150pt)", "Presentation/Exam", "Reflective Port", "Course Eval", "Learning Conf", "The Grand Finale"] }
         ];
 
-        let currentUser = { id: 'anon' }, currentIdx = 0, viewMode = 'teacher', matrixView = 'table', isAdmin = true;
+        let currentUser = { id: 'anon' }, currentIdx = 0, viewMode = 'student', matrixView = 'table', isAdmin = false;
         let myProgress = {}, myLinks = {}, myMatrix = {}, currentTasks = [];
+        let taskFeedback = {}; // { stageIdx_taskIdx_uid: { rating, notes: [{color,text,author,time,replies}] } }
 
         function getBridge() {
             const b = window.parent || window.top || window.opener;
@@ -167,27 +553,6 @@
         // SDK 已处理初始化，此处不再需要 syncTheme 函数
         
 
-        const bridgeInterval = setInterval(() => {
-            const b = getBridge();
-            if (b && b.firebaseOnAuth) {
-                b.firebaseOnAuth(b.firebaseAuth, user => {
-                    if (user) {
-                        currentUser = { id: user.uid, email: user.email, name: user.displayName || user.email.split('@')[0] };
-                        document.getElementById('user-status').innerText = currentUser.name.toUpperCase();
-                        const isMaster = (currentUser.email || "").toLowerCase() === 'moss104088@gmail.com';
-                        if (!isMaster) {
-                            // IF VERIFIED NOT MASTER, HIDE CONTROLS
-                            isAdmin = false; setView('student');
-                            document.getElementById('admin-controls').style.display = 'none';
-                        } else {
-                            isAdmin = true; setView('teacher');
-                            document.getElementById('admin-controls').style.display = 'flex';
-                        }
-                        syncData();
-                    }
-                });
-            }
-        }, 500);
 
         window.setMatrixView = (m) => { matrixView = m; renderMatrix(); };
         window.renderMatrix = () => {
@@ -235,6 +600,31 @@
             });
         };
 
+        const formatUrl = (url) => {
+            if (!url) return '';
+            const trimmed = url.trim();
+            if (/^(https?:\/\/|\/\/)/i.test(trimmed)) return trimmed;
+            return 'https://' + trimmed;
+        };
+
+        function getDomain(url) {
+            try { return new URL(url.startsWith('http') ? url : 'https://' + url).hostname; } catch(e) { return url; }
+        }
+        function getFavicon(url) {
+            const d = getDomain(url);
+            return `https://www.google.com/s2/favicons?domain=${d}&sz=32`;
+        }
+        function buildLitCard(link, onclick) {
+            const d = getDomain(link);
+            return `<div class="lit-card" onclick="${onclick}">
+                <div class="lit-card-icon"><img src="${getFavicon(link)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%233B82F6%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2212%22>🔗</text></svg>'"></div>
+                <div class="lit-card-info">
+                    <div class="lit-card-domain">${d}</div>
+                    <div class="lit-card-url">${link}</div>
+                </div>
+            </div>`;
+        }
+
         window.openSubs = (idx, taskName) => {
             const b = getBridge(); if (!b) return;
             const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
@@ -242,22 +632,49 @@
             sub.style.display = 'none';
             body.innerHTML = '<div style="color:var(--muted);">Loading student artifacts...</div>';
             
-            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links`), snap => {
-                const allLinks = snap.val() || {};
-                let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
-                let count = 0;
-                Object.entries(allLinks).forEach(([uid, stages]) => {
-                    const link = stages[currentIdx]?.[idx];
-                    if (link) {
-                        count++;
-                        html += `<div class="item-row" style="padding:12px 16px;"><div style="flex-grow:1; font-weight:600; font-size:13px;">Student: ${uid.substring(0,8)}...</div><a href="${link}" target="_blank" class="btn-mini btn-accent">VIEW SOURCE</a></div>`;
-                    }
-                });
-                body.innerHTML = count > 0 ? html + '</div>' : '<div style="padding:20px; text-align:center; color:var(--muted);">No submissions yet.</div>';
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta`), metaSnap => {
+                const usersMeta = metaSnap.val() || {};
+                b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links`), snap => {
+                    const allLinks = snap.val() || {};
+                    let html = '<div style="display:flex; flex-direction:column; gap:14px;">';
+                    let count = 0;
+                    Object.entries(allLinks).forEach(([uid, stages]) => {
+                        const link = stages[currentIdx]?.[idx];
+                        if (link) {
+                            count++;
+                            const uMeta = usersMeta[uid] || {};
+                            const displayName = uMeta.name || (uid.startsWith('test_') ? uid : uid.substring(0, 8) + '...');
+                            const email = uMeta.email || 'Unregistered or legacy student';
+                            const fbKey = `${currentIdx}_${idx}_${uid}`;
+                            const fb = taskFeedback[fbKey] || {};
+                            const stars = fb.rating ? '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating) : '';
+                            const noteCount = (fb.notes || []).length;
+                            html += `
+                                <div class="item-row" style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+                                    <div style="display:flex; align-items:center; width:100%;">
+                                        <div style="flex-grow:1; display:flex; flex-direction:column; gap:2px;">
+                                            <b style="font-size:14px; color:var(--text);">${displayName}</b>
+                                            <span style="font-size:11px; color:var(--muted); font-weight:normal;">${email}</span>
+                                        </div>
+                                        <div class="split-btn-group">
+                                            <a href="${formatUrl(link)}" target="_blank" class="split-btn-left">VIEW SOURCE</a>
+                                            <div class="split-btn-divider"></div>
+                                            <button data-raw-link="${encodeURIComponent(link)}" onclick="event.stopPropagation(); window.prompt('Raw Student URL:', decodeURIComponent(this.getAttribute('data-raw-link')))" class="split-btn-right" title="View raw URL text">
+                                                <span style="font-family: Georgia, serif; font-style: italic; font-weight: 900; font-size: 14px; line-height: 1;">T</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    ${buildLitCard(link, `event.stopPropagation(); openTaskFeedback('${fbKey}', '${uid}', '${displayName}', '${encodeURIComponent(link)}')`)}
+                                    ${stars ? `<div style="font-size:14px; color:var(--accent); letter-spacing:2px;">${stars} ${noteCount ? '<span class="feedback-badge">' + noteCount + ' note' + (noteCount>1?'s':'') + '</span>' : ''}</div>` : ''}
+                                </div>`;
+                        }
+                    });
+                    body.innerHTML = count > 0 ? html + '</div>' : '<div style="padding:20px; text-align:center; color:var(--muted);">No submissions yet.</div>';
+                }, { onlyOnce: true });
             }, { onlyOnce: true });
         };
 
-        function syncData() {
+        var syncData = function() {
             const b = getBridge();
             if (!currentTasks.length) {
                 currentTasks = STAGES[currentIdx].defaultTasks.map(t => ({ text: t, date: '' }));
@@ -281,6 +698,10 @@
             b.fOnValue(b.fRef(b.firebaseDb, `${path}/links/${currentUser.id}`), snap => { myLinks = snap.val() || {}; renderTasks(); });
             b.fOnValue(b.fRef(b.firebaseDb, `${path}/matrix/${currentUser.id}`), snap => { myMatrix = snap.val() || {}; renderMatrix(); });
             if (isAdmin) initHeatmap();
+            loadCanvasState();
+            loadComments();
+            loadNotifications();
+            loadTaskFeedback();
         }
 
         function renderTasks() {
@@ -290,16 +711,24 @@
                 const isDone = myProgress[currentIdx]?.[i]; if (isDone) done++;
                 const link = myLinks[currentIdx]?.[i];
                 const isT = viewMode === 'teacher';
+                const fbKey = `${currentIdx}_${i}_${currentUser.id}`;
+                const fb = taskFeedback[fbKey] || {};
+                const hasTeacherFeedback = fb.rating || (fb.notes && fb.notes.length > 0);
                 list.innerHTML += `
-                    <div class="item-row ${isDone?'done':''}" onclick="if(!event.target.closest('button') && !event.target.closest('.del-btn')) toggleCheck(${i})">
+                    <div class="item-row ${isDone?'done':''}" onclick="if(!event.target.closest('button') && !event.target.closest('.del-btn') && !event.target.closest('.lit-card') && !event.target.closest('.split-btn-group')) toggleCheck(${i})">
                         <i data-lucide="${isDone?'check-circle':'circle'}" size="22" style="color:${isDone?'var(--success)':'var(--muted)'}"></i>
                         <div style="flex-grow:1;">
-                            <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${t.text}</div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${t.text}</div>
+                                ${hasTeacherFeedback ? '<span class="feedback-badge">📝 FEEDBACK</span>' : ''}
+                            </div>
                             ${t.date ? `<span class="task-date">${t.date}</span>` : ''}
+                            ${link ? buildLitCard(link, `event.stopPropagation(); openTaskFeedback('${fbKey}', '${currentUser.id}', '${currentUser.name}', '${encodeURIComponent(link)}')`) : ''}
                         </div>
                         <div style="display:flex; gap:12px; align-items:center;">
                             ${isT ? `<i data-lucide="trash-2" class="del-btn" style="opacity:0.6" size="18" onclick="deleteTask(${i})"></i>` : ''}
-                            <button class="btn-mini ${link?'btn-accent':''}" onclick="event.stopPropagation(); ${isT ? 'openSubs('+i+',\''+t.text+'\')':'openModal(\'link\',{idx:'+i+'})'}">
+                            <button class="btn-mini ${link?'btn-accent':''}" onclick="event.stopPropagation(); ${isT ? 'openSubs('+i+',\''+t.text+'\')':'openModal(\'link\',{idx:'+i+'})'}"
+                                >
                                 <i data-lucide="${isT ? 'users' : (link?'paperclip':'plus')}" size="16"></i>
                             </button>
                         </div>
@@ -336,11 +765,11 @@
             applyTheme(cur === 'dark' ? 'light' : 'dark', true);
         }
 
-        function jump(idx) { currentIdx = idx; document.getElementById('h-title').innerText = STAGES[idx].name; document.getElementById('matrix-card').style.display = idx === 2 ? 'block' : 'none'; renderNav(); syncData(); }
+        var jump = function(idx) { currentIdx = idx; document.getElementById('h-title').innerText = STAGES[idx].name; document.getElementById('matrix-card').style.display = idx === 2 ? 'block' : 'none'; document.getElementById('milestones-card').style.display = 'block'; renderNav(); syncData(); }
         function renderNav() { const nav = document.getElementById('path-nav'); nav.innerHTML = ''; STAGES.forEach((s, i) => { nav.innerHTML += `<div class="nav-item ${i===currentIdx?'active':''}" onclick="jump(${i})">${s.name}</div>`; }); }
 
-        window.openModal = (type, data) => {
-            const b = getBridge(); if (!b) { alert("Syncing Bridge... One moment."); return; }
+        window.openModal = async (type, data) => {
+            const b = getBridge(); if (!b) { await AppBridge.alert("Standby", "Syncing Bridge... One moment."); return; }
             const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
             wrap.style.display = 'flex'; document.getElementById('modal-title').innerText = type.toUpperCase();
             if (type === 'addTask') {
@@ -353,7 +782,16 @@
             }
             if (type === 'link') {
                 body.innerHTML = `<div class="field"><label>Artifact URL</label><input id="m-url" value="${myLinks[currentIdx]?.[data.idx]||''}"></div>`;
-                sub.onclick = () => { const v = document.getElementById('m-url').value; b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links/${currentUser.id}/${currentIdx}`), { [data.idx]: v }).then(closeModal); };
+                sub.onclick = () => {
+                    const v = document.getElementById('m-url').value;
+                    b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links/${currentUser.id}/${currentIdx}`), { [data.idx]: v }).then(() => {
+                        b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), {
+                            name: currentUser.name,
+                            email: currentUser.email || ''
+                        });
+                        closeModal();
+                    });
+                };
             }
         };
 
@@ -362,17 +800,774 @@
             const cur = myProgress[currentIdx]?.[idx] || false;
             b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${currentUser.id}/${currentIdx}`), { [idx]: !cur });
             const total = Object.values(myProgress).reduce((a,v) => a + Object.values(v).filter(x=>x).length, 0);
-            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, percent: Math.round((total/50)*100), stage: currentIdx });
+            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, email: currentUser.email || '', percent: Math.round((total/50)*100), stage: currentIdx });
         };
 
-        function deleteTask(idx) { const b = getBridge(); if(!b || !confirm("Remove?")) return; const updated = [...currentTasks]; updated.splice(idx, 1); b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), updated); }
+        async function deleteTask(idx) {
+            const b = getBridge(); if(!b) return;
+            const ok = await AppBridge.confirm("Remove Task", "Are you sure you want to remove this task?");
+            if (!ok) return;
+            const updated = [...currentTasks];
+            updated.splice(idx, 1);
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), updated);
+        }
+        window.deleteBroadcast = async () => {
+            const b = getBridge(); if (!b) return;
+            const ok = await AppBridge.confirm("Clear Broadcast", "Clear this broadcast for all students?");
+            if (ok) {
+                b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/broadcast`), { text: '' });
+            }
+        };
         window.closeModal = () => { 
             document.getElementById('modal-wrap').style.display = 'none'; 
             document.getElementById('modal-submit').innerText = "EXECUTE";
             document.getElementById('modal-submit').style.display = 'flex';
         };
-        function seedTestData() { const b = getBridge(); alert("Seeding..."); const ns = ["Alice R.", "Bob S.", "Charlie L.", "Diana I.", "Ethan S."]; ns.forEach(async (n, i) => { await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/test_${i}`), { name: n, percent: 45, stage: 0 }); }); alert("Done."); }
-        
+
+        // =====================================================================
+        //  STUDIO TOOLS NAVIGATION
+        // =====================================================================
+        let currentTool = null; // null = stages view, 'canvas', 'notifs'
+
+        function switchToTool(tool) {
+            // Deselect stage nav
+            document.querySelectorAll('#path-nav .nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('nav-canvas').classList.remove('active');
+            document.getElementById('nav-notifs').classList.remove('active');
+
+            // Hide stage cards
+            document.getElementById('milestones-card').style.display = 'none';
+            document.getElementById('matrix-card').style.display = 'none';
+            document.getElementById('canvas-card').style.display = 'none';
+            document.getElementById('notifs-card').style.display = 'none';
+
+            if (tool === currentTool) {
+                // Toggle off — go back to stage view
+                currentTool = null;
+                jump(currentIdx);
+                return;
+            }
+
+            currentTool = tool;
+            if (tool === 'canvas') {
+                document.getElementById('nav-canvas').classList.add('active');
+                document.getElementById('canvas-card').style.display = 'block';
+                document.getElementById('h-title').innerText = 'Research Canvas';
+                renderCanvasFromState();
+            } else if (tool === 'notifs') {
+                document.getElementById('nav-notifs').classList.add('active');
+                document.getElementById('notifs-card').style.display = 'block';
+                document.getElementById('h-title').innerText = 'Notifications';
+                renderNotifications();
+            }
+            lucide.createIcons();
+        }
+
+        // Override jump to clear tool selection
+        const _origJump = jump;
+        jump = function(idx) {
+            currentTool = null;
+            document.getElementById('nav-canvas').classList.remove('active');
+            document.getElementById('nav-notifs').classList.remove('active');
+            document.getElementById('canvas-card').style.display = 'none';
+            document.getElementById('notifs-card').style.display = 'none';
+            document.getElementById('milestones-card').style.display = 'block';
+            currentIdx = idx;
+            document.getElementById('h-title').innerText = STAGES[idx].name;
+            document.getElementById('matrix-card').style.display = idx === 2 ? 'block' : 'none';
+            renderNav();
+            syncData();
+        };
+
+        // =====================================================================
+        //  VISUAL RESEARCH CANVAS ENGINE
+        // =====================================================================
+        let canvasNodes = {};  // { nodeId: { type, title, desc, url, x, y } }
+        let canvasEdges = [];  // [ { from, to } ]
+        let dragState = null;
+        let connectState = null;
+
+        function genId() { return 'n' + Date.now() + Math.random().toString(36).substr(2, 5); }
+
+        function addCanvasNodePrompt(type) {
+            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
+            wrap.style.display = 'flex';
+            const labels = { theme: 'Theme / Topic', source: 'Source / Literature', note: 'Note / Memo' };
+            document.getElementById('modal-title').innerText = 'ADD ' + labels[type].toUpperCase();
+
+            let fields = `<div class="field"><label>Title</label><input id="cn-title" autocomplete="off" placeholder="e.g. Climate Change"></div>`;
+            if (type === 'source') {
+                fields += `<div class="field"><label>URL</label><input id="cn-url" autocomplete="off" placeholder="https://..."></div>`;
+            }
+            fields += `<div class="field"><label>Description (optional)</label><textarea id="cn-desc" rows="3"></textarea></div>`;
+            body.innerHTML = fields;
+
+            sub.onclick = () => {
+                const title = document.getElementById('cn-title').value.trim();
+                if (!title) return;
+                const desc = document.getElementById('cn-desc')?.value || '';
+                const url = document.getElementById('cn-url')?.value || '';
+                const id = genId();
+                const container = document.getElementById('canvas-container');
+                const cx = Math.max(60, Math.random() * (container.offsetWidth - 220));
+                const cy = Math.max(80, Math.random() * (container.offsetHeight - 120));
+                canvasNodes[id] = { type, title, desc, url, x: cx, y: cy };
+                saveCanvasState();
+                closeModal();
+                renderCanvasFromState();
+            };
+        }
+
+        function renderCanvasFromState() {
+            const container = document.getElementById('canvas-container');
+            const svg = document.getElementById('canvas-svg');
+            // Remove old nodes
+            container.querySelectorAll('.canvas-node').forEach(n => n.remove());
+            svg.innerHTML = '';
+
+            Object.entries(canvasNodes).forEach(([id, node]) => {
+                const el = document.createElement('div');
+                el.className = `canvas-node ${node.type}-node`;
+                el.id = 'cnode-' + id;
+                el.style.left = node.x + 'px';
+                el.style.top = node.y + 'px';
+
+                const typeLabel = node.type === 'theme' ? '🎯 THEME' : node.type === 'source' ? '📄 SOURCE' : '📝 NOTE';
+                let domain = '';
+                if (node.url) {
+                    try { domain = new URL(node.url.startsWith('http') ? node.url : 'https://' + node.url).hostname; } catch(e) { domain = node.url; }
+                }
+
+                el.innerHTML = `
+                    <button class="node-del-btn" style="right:24px" onclick="editCanvasNode('${id}')"><i data-lucide="pencil" size="14"></i></button>
+                    <button class="node-del-btn" onclick="deleteCanvasNode('${id}')"><i data-lucide="x" size="14"></i></button>
+                    <div style="font-size:9px; font-weight:900; color:var(--muted); text-transform:uppercase;">${typeLabel}</div>
+                    <div class="canvas-node-title">${node.title}</div>
+                    ${node.desc ? `<div class="canvas-node-desc">${node.desc}</div>` : ''}
+                    ${domain ? `<div style="font-size:10px; color:#3B82F6; cursor:pointer;" onclick="window.open('${formatUrl(node.url)}','_blank')">🔗 ${domain}</div>` : ''}
+                    ${node.type === 'source' ? `<div class="node-socket" data-id="${id}" title="Drag to connect to a Theme"></div>` : ''}
+                    ${node.type === 'theme' ? `<div class="node-socket left-socket" data-id="${id}" title="Drop source connection here"></div>` : ''}
+                `;
+
+                // Click to open detail/feedback panel
+                el.addEventListener('dblclick', (e) => {
+                    if (e.target.closest('.node-del-btn') || e.target.closest('.node-socket')) return;
+                    openNodeDetail(id);
+                });
+
+                // Drag logic
+                el.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.node-socket') || e.target.closest('.node-del-btn')) return;
+                    dragState = { id, startX: e.clientX, startY: e.clientY, origX: node.x, origY: node.y };
+                    e.preventDefault();
+                });
+
+                container.appendChild(el);
+            });
+
+            // Draw edges
+            canvasEdges.forEach(edge => {
+                drawEdge(svg, edge.from, edge.to);
+            });
+
+            // Socket connection logic
+            container.querySelectorAll('.node-socket:not(.left-socket)').forEach(socket => {
+                socket.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    connectState = { fromId: socket.dataset.id };
+                });
+            });
+
+            lucide.createIcons();
+        }
+
+        function drawEdge(svg, fromId, toId) {
+            const fromEl = document.getElementById('cnode-' + fromId);
+            const toEl = document.getElementById('cnode-' + toId);
+            if (!fromEl || !toEl) return;
+
+            const container = document.getElementById('canvas-container');
+            const cRect = container.getBoundingClientRect();
+            const fRect = fromEl.getBoundingClientRect();
+            const tRect = toEl.getBoundingClientRect();
+
+            const x1 = fRect.right - cRect.left + container.scrollLeft;
+            const y1 = fRect.top + fRect.height / 2 - cRect.top + container.scrollTop;
+            const x2 = tRect.left - cRect.left + container.scrollLeft;
+            const y2 = tRect.top + tRect.height / 2 - cRect.top + container.scrollTop;
+
+            const mx = (x1 + x2) / 2;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+            path.setAttribute('class', 'canvas-line');
+            svg.appendChild(path);
+        }
+
+        // Global mouse events for drag & connect
+        document.addEventListener('mousemove', (e) => {
+            if (dragState) {
+                const dx = e.clientX - dragState.startX;
+                const dy = e.clientY - dragState.startY;
+                canvasNodes[dragState.id].x = Math.max(0, dragState.origX + dx);
+                canvasNodes[dragState.id].y = Math.max(0, dragState.origY + dy);
+                const el = document.getElementById('cnode-' + dragState.id);
+                if (el) { el.style.left = canvasNodes[dragState.id].x + 'px'; el.style.top = canvasNodes[dragState.id].y + 'px'; }
+                // Redraw SVG
+                const svg = document.getElementById('canvas-svg');
+                svg.innerHTML = '';
+                canvasEdges.forEach(edge => drawEdge(svg, edge.from, edge.to));
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (dragState) {
+                saveCanvasState();
+                dragState = null;
+            }
+            if (connectState) {
+                // Find target theme node
+                const target = e.target.closest('.left-socket');
+                if (target) {
+                    const toId = target.dataset.id;
+                    const fromId = connectState.fromId;
+                    if (fromId !== toId && !canvasEdges.find(ed => ed.from === fromId && ed.to === toId)) {
+                        canvasEdges.push({ from: fromId, to: toId });
+                        saveCanvasState();
+                        renderCanvasFromState();
+                        // Auto-check milestone logic
+                        autoCheckMilestoneFromConnection(fromId, toId);
+                    }
+                }
+                connectState = null;
+            }
+        });
+
+        async function deleteCanvasNode(id) {
+            const ok = await AppBridge.confirm('Delete Node', 'Are you sure you want to delete this node and all its connections?');
+            if (!ok) return;
+            delete canvasNodes[id];
+            canvasEdges = canvasEdges.filter(e => e.from !== id && e.to !== id);
+            saveCanvasState();
+            renderCanvasFromState();
+        }
+
+        function editCanvasNode(id) {
+            const node = canvasNodes[id]; if (!node) return;
+            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
+            wrap.style.display = 'flex';
+            document.getElementById('modal-title').innerText = 'EDIT NODE';
+            sub.style.display = 'flex';
+            let fields = `<div class="field"><label>Title</label><input id="cn-title" value="${node.title}" autocomplete="off"></div>`;
+            if (node.type === 'source') {
+                fields += `<div class="field"><label>URL</label><input id="cn-url" value="${node.url || ''}" autocomplete="off"></div>`;
+            }
+            fields += `<div class="field"><label>Description</label><textarea id="cn-desc" rows="3">${node.desc || ''}</textarea></div>`;
+            body.innerHTML = fields;
+            sub.onclick = () => {
+                const title = document.getElementById('cn-title').value.trim();
+                if (!title) return;
+                canvasNodes[id].title = title;
+                canvasNodes[id].desc = document.getElementById('cn-desc')?.value || '';
+                if (node.type === 'source') canvasNodes[id].url = document.getElementById('cn-url')?.value || '';
+                saveCanvasState();
+                closeModal();
+                renderCanvasFromState();
+            };
+        }
+
+        function autoCheckMilestoneFromConnection(sourceId, themeId) {
+            // When a Source is connected to a Theme, auto-check the first unchecked task in the current stage
+            const b = getBridge(); if (!b) return;
+            const uncheckedIdx = currentTasks.findIndex((t, i) => !myProgress[currentIdx]?.[i]);
+            if (uncheckedIdx >= 0) {
+                b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${currentUser.id}/${currentIdx}`), { [uncheckedIdx]: true });
+                const total = Object.values(myProgress).reduce((a,v) => a + Object.values(v).filter(x=>x).length, 0) + 1;
+                b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, email: currentUser.email || '', percent: Math.round((total/50)*100), stage: currentIdx });
+            }
+        }
+
+        function saveCanvasState() {
+            const b = getBridge(); if (!b) return;
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), { nodes: canvasNodes, edges: canvasEdges });
+        }
+
+        function loadCanvasState() {
+            const b = getBridge(); if (!b) return;
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), snap => {
+                const data = snap.val();
+                if (data) {
+                    canvasNodes = data.nodes || {};
+                    canvasEdges = data.edges || [];
+                } else {
+                    canvasNodes = {};
+                    canvasEdges = [];
+                }
+                if (currentTool === 'canvas') renderCanvasFromState();
+            });
+        }
+
+        // =====================================================================
+        //  NODE DETAIL PANEL — STAR RATINGS & STICKY FEEDBACK
+        // =====================================================================
+        let nodeComments = {}; // { nodeId: { rating, notes: [{color, text, author, replies:[{text,author}]}] } }
+
+        function openNodeDetail(nodeId) {
+            const node = canvasNodes[nodeId]; if (!node) return;
+            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
+            wrap.style.display = 'flex';
+            document.getElementById('modal-title').innerText = node.title;
+            sub.style.display = 'none'; // No submit button for detail view
+
+            const feedback = nodeComments[nodeId] || { rating: 0, notes: [] };
+            const starHtml = [1,2,3,4,5].map(s =>
+                `<span class="star-icon ${s <= (feedback.rating||0) ? 'active' : ''}" onclick="setNodeRating('${nodeId}', ${s})" style="font-size:22px; cursor:pointer;">★</span>`
+            ).join('');
+
+            let notesHtml = '';
+            (feedback.notes || []).forEach((note, ni) => {
+                let repliesHtml = '';
+                (note.replies || []).forEach(r => {
+                    repliesHtml += `<div class="sticky-reply"><b>${r.author}:</b> ${r.text}</div>`;
+                });
+                notesHtml += `
+                    <div class="sticky-note ${note.color || 'yellow'}">
+                        <div class="sticky-note-header"><span>${note.author || 'Teacher'}</span><span>${note.time || ''}</span></div>
+                        <div class="sticky-note-text">${note.text}</div>
+                        <div class="sticky-note-replies">
+                            ${repliesHtml}
+                            <div style="display:flex; gap:6px; margin-top:6px;">
+                                <input id="reply-${ni}" style="flex:1; background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.15); padding:6px 10px; border-radius:8px; font-size:11px; color:#000;" placeholder="Reply...">
+                                <button onclick="addReply('${nodeId}', ${ni})" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            body.innerHTML = `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:6px;">${node.type} Node</div>
+                    ${node.desc ? `<p style="color:var(--muted); font-size:13px;">${node.desc}</p>` : ''}
+                    ${node.url ? `<a href="${formatUrl(node.url)}" target="_blank" style="color:#3B82F6; font-size:12px;">🔗 ${node.url}</a>` : ''}
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:16px;">
+                    <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Quality Rating</div>
+                    <div class="rating-stars">${starHtml}</div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase;">Feedback Notes</div>
+                        ${isAdmin ? `
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="addStickyNote('${nodeId}','yellow')" style="width:18px;height:18px;border-radius:50%;background:#FEF08A;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Yellow"></button>
+                            <button onclick="addStickyNote('${nodeId}','pink')" style="width:18px;height:18px;border-radius:50%;background:#FBCFE8;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Pink"></button>
+                            <button onclick="addStickyNote('${nodeId}','green')" style="width:18px;height:18px;border-radius:50%;background:#BBF7D0;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Green"></button>
+                            <button onclick="addStickyNote('${nodeId}','blue')" style="width:18px;height:18px;border-radius:50%;background:#BFDBFE;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Blue"></button>
+                        </div>` : ''}
+                    </div>
+                    <div class="sticky-notes-container">${notesHtml || '<div style="color:var(--muted); font-size:12px;">No feedback yet.</div>'}</div>
+                </div>
+            `;
+        }
+
+        window.setNodeRating = (nodeId, rating) => {
+            if (!nodeComments[nodeId]) nodeComments[nodeId] = { rating: 0, notes: [] };
+            nodeComments[nodeId].rating = rating;
+            saveComments(nodeId);
+            openNodeDetail(nodeId); // Re-render
+            pushNotification(nodeId, `Your source "${canvasNodes[nodeId]?.title}" was rated ${rating}★`);
+        };
+
+        window.addStickyNote = async (nodeId, color) => {
+            const text = prompt('Enter your feedback note:');
+            if (!text) return;
+            if (!nodeComments[nodeId]) nodeComments[nodeId] = { rating: 0, notes: [] };
+            nodeComments[nodeId].notes.push({
+                color, text,
+                author: currentUser.name || 'Teacher',
+                time: new Date().toLocaleString(),
+                replies: []
+            });
+            saveComments(nodeId);
+            openNodeDetail(nodeId);
+            pushNotification(nodeId, `New feedback on "${canvasNodes[nodeId]?.title}": "${text.substring(0, 40)}..."`);
+        };
+
+        window.addReply = (nodeId, noteIdx) => {
+            const input = document.getElementById('reply-' + noteIdx);
+            if (!input || !input.value.trim()) return;
+            nodeComments[nodeId].notes[noteIdx].replies.push({
+                text: input.value.trim(),
+                author: currentUser.name || 'Student'
+            });
+            saveComments(nodeId);
+            openNodeDetail(nodeId);
+        };
+
+        function saveComments(nodeId) {
+            const b = getBridge(); if (!b) return;
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/comments/${currentUser.id}/${nodeId}`), nodeComments[nodeId]);
+        }
+
+        function loadComments() {
+            const b = getBridge(); if (!b) return;
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/comments/${currentUser.id}`), snap => {
+                nodeComments = snap.val() || {};
+            });
+        }
+
+        // =====================================================================
+        //  TASK-LEVEL FEEDBACK: Literature Cards + Ratings + Sticky Notes
+        // =====================================================================
+        function loadTaskFeedback() {
+            const b = getBridge(); if (!b) return;
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback`), snap => {
+                taskFeedback = snap.val() || {};
+                renderTasks(); // refresh badges
+            });
+        }
+
+        function saveTaskFeedback(fbKey) {
+            const b = getBridge(); if (!b) return;
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback/${fbKey}`), taskFeedback[fbKey]);
+        }
+
+        window.openTaskFeedback = (fbKey, uid, displayName, encodedLink) => {
+            const link = decodeURIComponent(encodedLink);
+            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
+            wrap.style.display = 'flex';
+            document.getElementById('modal-title').innerText = displayName + ' — Feedback';
+            sub.style.display = 'none';
+
+            const fb = taskFeedback[fbKey] || { rating: 0, notes: [] };
+            const starHtml = [1,2,3,4,5].map(s =>
+                `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" onclick="setTaskRating('${fbKey}', ${s}, '${uid}', '${encodedLink}')" style="font-size:24px; cursor:pointer;">★</span>`
+            ).join('');
+
+            let notesHtml = '';
+            (fb.notes || []).forEach((note, ni) => {
+                let repliesHtml = '';
+                (note.replies || []).forEach(r => {
+                    repliesHtml += `<div class="sticky-reply"><b>${r.author}:</b> ${r.text}</div>`;
+                });
+                notesHtml += `
+                    <div class="sticky-note ${note.color || 'yellow'}">
+                        <div class="sticky-note-header"><span>${note.author || 'Teacher'}</span><span>${note.time || ''}</span></div>
+                        <div class="sticky-note-text">${note.text}</div>
+                        <div class="sticky-note-replies">
+                            ${repliesHtml}
+                            <div style="display:flex; gap:6px; margin-top:6px;">
+                                <input id="task-reply-${ni}" style="flex:1; background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.15); padding:6px 10px; border-radius:8px; font-size:11px; color:#000;" placeholder="Reply...">
+                                <button onclick="addTaskReply('${fbKey}', ${ni}, '${uid}')" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            body.innerHTML = `
+                <div style="margin-bottom:16px;">
+                    ${buildLitCard(link, "window.open('" + formatUrl(link) + "','_blank')")}
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:16px;">
+                    <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Quality Rating</div>
+                    <div class="rating-stars">${starHtml}</div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase;">Feedback Notes</div>
+                        ${isAdmin ? `
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="addTaskStickyNote('${fbKey}','yellow','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#FEF08A;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Yellow"></button>
+                            <button onclick="addTaskStickyNote('${fbKey}','pink','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#FBCFE8;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Pink"></button>
+                            <button onclick="addTaskStickyNote('${fbKey}','green','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#BBF7D0;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Green"></button>
+                            <button onclick="addTaskStickyNote('${fbKey}','blue','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#BFDBFE;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Blue"></button>
+                        </div>` : ''}
+                    </div>
+                    <div class="sticky-notes-container">${notesHtml || '<div style="color:var(--muted); font-size:12px;">No feedback yet. ' + (isAdmin ? 'Click a color circle above to add a note.' : 'Your teacher has not left feedback on this submission yet.') + '</div>'}</div>
+                </div>
+            `;
+        };
+
+        window.setTaskRating = (fbKey, rating, uid, encodedLink) => {
+            if (!taskFeedback[fbKey]) taskFeedback[fbKey] = { rating: 0, notes: [] };
+            taskFeedback[fbKey].rating = rating;
+            saveTaskFeedback(fbKey);
+            openTaskFeedback(fbKey, uid, '', encodedLink);
+            // Push notification to student
+            pushNotification(null, `Your submission was rated ${rating}★ by the teacher.`);
+        };
+
+        window.addTaskStickyNote = (fbKey, color, uid, encodedLink) => {
+            const text = prompt('Enter your feedback note:');
+            if (!text) return;
+            if (!taskFeedback[fbKey]) taskFeedback[fbKey] = { rating: 0, notes: [] };
+            taskFeedback[fbKey].notes.push({
+                color, text,
+                author: currentUser.name || 'Teacher',
+                time: new Date().toLocaleString(),
+                replies: []
+            });
+            saveTaskFeedback(fbKey);
+            openTaskFeedback(fbKey, uid, '', encodedLink);
+            pushNotification(null, `New teacher feedback: "${text.substring(0, 50)}..."`);
+        };
+
+        window.addTaskReply = (fbKey, noteIdx, uid) => {
+            const input = document.getElementById('task-reply-' + noteIdx);
+            if (!input || !input.value.trim()) return;
+            if (!taskFeedback[fbKey]) return;
+            taskFeedback[fbKey].notes[noteIdx].replies.push({
+                text: input.value.trim(),
+                author: currentUser.name || 'Student'
+            });
+            saveTaskFeedback(fbKey);
+            // Re-render
+            const link = ''; // Will be reconstructed from fb
+            openTaskFeedback(fbKey, uid, '', '');
+        };
+
+
+        // =====================================================================
+        //  NOTIFICATIONS SYSTEM
+        // =====================================================================
+        let notifications = []; // [{id, text, time, read}]
+
+        function pushNotification(nodeId, text) {
+            const b = getBridge(); if (!b) return;
+            const notif = { id: genId(), nodeId, text, time: Date.now(), read: false };
+            notifications.push(notif);
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
+            updateNotifBadge();
+        }
+
+        function loadNotifications() {
+            const b = getBridge(); if (!b) return;
+            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), snap => {
+                notifications = snap.val() || [];
+                updateNotifBadge();
+                if (currentTool === 'notifs') renderNotifications();
+            });
+        }
+
+        function updateNotifBadge() {
+            const unread = notifications.filter(n => !n.read).length;
+            const badge = document.getElementById('notif-count');
+            if (unread > 0) {
+                badge.style.display = 'inline-block';
+                badge.innerText = unread;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notifs-list');
+            if (!list) return;
+            if (notifications.length === 0) {
+                list.innerHTML = '<div style="padding:40px; text-align:center; color:var(--muted);">No notifications yet. Feedback from your teacher will appear here.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            [...notifications].reverse().forEach(n => {
+                list.innerHTML += `
+                    <div class="notif-card ${n.read ? '' : 'notif-unread'}" onclick="openNotifNode('${n.nodeId}', '${n.id}')">
+                        <div style="font-size:12px; font-weight:700;">${n.text}</div>
+                        <div style="font-size:10px; color:var(--muted);">${new Date(n.time).toLocaleString()}</div>
+                    </div>`;
+            });
+        }
+
+        window.openNotifNode = (nodeId, notifId) => {
+            // Mark as read
+            const idx = notifications.findIndex(n => n.id === notifId);
+            if (idx >= 0) { notifications[idx].read = true; }
+            const b = getBridge();
+            if (b) b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
+            updateNotifBadge();
+            renderNotifications();
+            // Open canvas detail
+            if (canvasNodes[nodeId]) {
+                switchToTool('canvas');
+                setTimeout(() => openNodeDetail(nodeId), 200);
+            }
+        };
+
+        window.markAllNotificationsAsRead = () => {
+            notifications.forEach(n => n.read = true);
+            const b = getBridge();
+            if (b) b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
+            updateNotifBadge();
+            renderNotifications();
+        };
+
+        // =====================================================================
+        //  PDF REPORT EXPORTER
+        // =====================================================================
+        function exportPDFReport() {
+            // Build a print-friendly overlay
+            const sources = Object.values(canvasNodes).filter(n => n.type === 'source');
+            const themes = Object.values(canvasNodes).filter(n => n.type === 'theme');
+            const notes = Object.values(canvasNodes).filter(n => n.type === 'note');
+
+            let reportHtml = `
+                <div id="print-report" style="padding:40px; font-family:Georgia,serif; color:#000; background:#fff; position:fixed; inset:0; z-index:9999; overflow:auto;">
+                    <h1 style="font-size:28px; margin-bottom:4px; font-family:'Inter',sans-serif;">Independent Research Report</h1>
+                    <p style="color:#666; font-size:14px; margin-bottom:30px;">${currentUser.name} — ${currentUser.email} — ${new Date().toLocaleDateString()}</p>
+                    <hr style="border:none; border-top:2px solid #000; margin-bottom:30px;">
+
+                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin-bottom:16px;">Research Themes (${themes.length})</h2>
+                    ${themes.length ? themes.map(t => `<div style="margin-bottom:10px; padding:10px 16px; background:#f9f9f9; border-left:4px solid #F59E0B; border-radius:6px;"><b>${t.title}</b>${t.desc ? '<br><span style="color:#666; font-size:13px;">' + t.desc + '</span>' : ''}</div>`).join('') : '<p style="color:#999;">No themes added.</p>'}
+
+                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Bibliography / Sources (${sources.length})</h2>
+                    <ol style="padding-left:20px;">
+                    ${sources.map(s => `<li style="margin-bottom:8px;"><b>${s.title}</b>${s.url ? ' — <a href="' + formatUrl(s.url) + '">' + s.url + '</a>' : ''}${s.desc ? '<br><i style="color:#666;">' + s.desc + '</i>' : ''}</li>`).join('')}
+                    </ol>
+                    ${sources.length === 0 ? '<p style="color:#999;">No sources added.</p>' : ''}
+
+                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Research Notes (${notes.length})</h2>
+                    ${notes.map(n => `<div style="margin-bottom:10px; padding:10px 16px; background:#f0f0f0; border-radius:6px;"><b>${n.title}</b>${n.desc ? '<br><span style="color:#555;">' + n.desc + '</span>' : ''}</div>`).join('')}
+                    ${notes.length === 0 ? '<p style="color:#999;">No notes added.</p>' : ''}
+
+                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Milestones Progress</h2>
+                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    ${STAGES.map((s, si) => {
+                        const tasks = currentTasks;
+                        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:10px; font-weight:700; color:#B45309;">${s.name}</td><td style="padding:10px;">Stage ${si}</td></tr>`;
+                    }).join('')}
+                    </table>
+
+                    <div style="margin-top:40px; text-align:center;">
+                        <button onclick="document.getElementById('print-report').remove()" style="padding:12px 28px; background:#000; color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer; margin-right:12px;">CLOSE</button>
+                        <button onclick="window.print()" style="padding:12px 28px; background:#F59E0B; color:#000; border:none; border-radius:10px; font-weight:800; cursor:pointer;">PRINT / SAVE PDF</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', reportHtml);
+        }
+
+        async function resetAllData() {
+            const b = getBridge(); if (!b) return;
+            const ok = await AppBridge.confirm("Reset All Data", "Are you sure you want to clear all student progress, links, matrices, and metadata? This action is permanent.");
+            if (!ok) return;
+            
+            try {
+                // Try parent-level deletion first
+                await b.fSet(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/meta'), null);
+                await b.fSet(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/progress'), null);
+                await b.fSet(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/links'), null);
+                await b.fSet(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/matrix'), null);
+            } catch (err) {
+                console.warn("Parent-level deletion restricted, trying individual key deletion:", err);
+                try {
+                    await new Promise((resolve, reject) => {
+                        b.fOnValue(b.fRef(b.firebaseDb, 'user_image_index/ir_v7/meta'), async snap => {
+                            const users = snap.val();
+                            if (!users) {
+                                resolve();
+                                return;
+                            }
+                            const keys = Object.keys(users);
+                            try {
+                                for (const key of keys) {
+                                    await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${key}`), null);
+                                    await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${key}`), null);
+                                    await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links/${key}`), null);
+                                    await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/matrix/${key}`), null);
+                                }
+                                resolve();
+                            } catch (e) {
+                                reject(e);
+                            }
+                        }, { onlyOnce: true });
+                    });
+                } catch (fallbackErr) {
+                    console.error("Individual key deletion failed:", fallbackErr);
+                    await AppBridge.alert("Reset Error", "Could not clear data: " + fallbackErr.message);
+                    return;
+                }
+            }
+            
+            const seed = await AppBridge.confirm("Seed Test Data", "Would you like to seed 5 mock students for testing/demonstration?");
+            if (seed) {
+                const ns = ["Alice R.", "Bob S.", "Charlie L.", "Diana I.", "Ethan S."];
+                for (let i = 0; i < ns.length; i++) {
+                    await b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/test_${i}`), { name: ns[i], percent: 45, stage: 0 });
+                }
+                await AppBridge.alert("Success", "Reset complete and mock data seeded.");
+            } else {
+                await AppBridge.alert("Success", "All classroom data has been cleared.");
+            }
+        }
+
+        function initUserFromBridge() {
+            const b = getBridge();
+            if (b && b.currentUser) {
+                currentUser = { 
+                    id: b.currentUser.id, 
+                    email: b.currentUser.email, 
+                    name: b.currentUser.name || b.currentUser.email.split('@')[0] 
+                };
+                document.getElementById('user-status').innerText = currentUser.name.toUpperCase();
+                if (b.fUpdate && b.fRef) {
+                    b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), {
+                        name: currentUser.name,
+                        email: currentUser.email || ''
+                    });
+                }
+                const isMaster = (currentUser.email || "").toLowerCase() === 'moss104088@gmail.com';
+                isAdmin = isMaster;
+                viewMode = isMaster ? 'teacher' : 'student';
+                
+                // Show/hide admin controls synchronously
+                document.getElementById('admin-controls').style.display = isMaster ? 'flex' : 'none';
+                
+                // Toggle active state of header buttons
+                document.getElementById('btn-t').classList.toggle('active', isMaster);
+                document.getElementById('btn-s').classList.toggle('active', !isMaster);
+                
+                // Apply teacher-only visibility
+                document.querySelectorAll('.teacher-only').forEach(el => el.style.display = isMaster ? 'block' : 'none');
+                
+                syncData();
+                return true;
+            }
+            return false;
+        }
+
+        let isSyncInit = false;
+        try {
+            isSyncInit = initUserFromBridge();
+        } catch (e) {
+            console.error("Sync bridge init failed:", e);
+        }
+
+        if (!isSyncInit) {
+            const bridgeInterval = setInterval(() => {
+                const b = getBridge();
+                if (b && b.firebaseOnAuth) {
+                    clearInterval(bridgeInterval);
+                    b.firebaseOnAuth(b.firebaseAuth, user => {
+                        if (user) {
+                            const idPrefix = user.email.toLowerCase().split('@')[0].replace(/\./g, '_');
+                            currentUser = { id: idPrefix, email: user.email, name: user.displayName || user.email.split('@')[0] };
+                            document.getElementById('user-status').innerText = currentUser.name.toUpperCase();
+                            if (b.fUpdate && b.fRef) {
+                                b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), {
+                                    name: currentUser.name,
+                                    email: currentUser.email || ''
+                                });
+                            }
+                            const isMaster = (currentUser.email || "").toLowerCase() === 'moss104088@gmail.com';
+                            isAdmin = isMaster;
+                            viewMode = isMaster ? 'teacher' : 'student';
+                            document.getElementById('admin-controls').style.display = isMaster ? 'flex' : 'none';
+                            document.querySelectorAll('.teacher-only').forEach(el => el.style.display = isMaster ? 'block' : 'none');
+                            syncData();
+                        }
+                    });
+                }
+            }, 500);
+        }
+
         window.onload = () => {
             // 核心：使用 SDK 进行初始化同步
             const initTheme = () => {
