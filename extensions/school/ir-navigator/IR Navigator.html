@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IR Studio | Advanced Research Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- 1. 引入 App Bridge SDK -->
-    <script src="../../js/app-bridge.js"></script>
+    <script src="../../../js/lucide.min.js"></script>
+    <!-- 1. 寮曞叆 App Bridge SDK -->
+    <script src="../../../js/app-bridge.js?v=20260520-2205"></script>
+    <!-- 2. 引入 Extracted Research Canvas Engine -->
+    <script src="canvas.js?v=20260521"></script>
     
     <style>
         :root {
@@ -27,6 +29,13 @@
 
         body { background: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden; }
         aside { width: 260px; min-width: 260px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 32px 20px; z-index: 50; }
+        .aside-brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
         .nav-item { padding: 12px 16px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; margin-bottom: 4px; color: var(--muted); font-size: 13px; font-weight: 600; }
         .nav-item:hover { background: var(--hover-bg); color: var(--text); }
         .nav-item.active { background: var(--hover-bg); color: var(--accent); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; }
@@ -38,7 +47,7 @@
         .card { background: var(--card); border: 1px solid var(--border); border-radius: 28px; padding: 36px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
         
         h1 { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.06em; margin-bottom: 4px; }
-        .btn-mini { background: transparent; border: 1px solid var(--border); padding: 8px 16px; border-radius: 10px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .btn-mini { background: transparent; border: 1px solid var(--border); padding: 8px 16px; border-radius: 10px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; text-transform: uppercase; display: flex; align-items: center; gap: 8px; height: 40px; box-sizing: border-box; }
         .btn-mini * { pointer-events: none; }
         .btn-mini:hover { border-color: var(--accent); color: var(--accent); background: var(--hover-bg); }
         .btn-accent { background: var(--accent) !important; color: #000 !important; border: none !important; font-weight: 900 !important; transition: none !important; }
@@ -66,6 +75,9 @@
             height: 32px;
         }
         .split-btn-left {
+            background: transparent;
+            border: none;
+            appearance: none;
             color: #000 !important;
             font-size: 10px;
             font-weight: 900;
@@ -78,6 +90,7 @@
             text-transform: uppercase;
             transition: opacity 0.2s;
             cursor: pointer;
+            white-space: nowrap;
         }
         .split-btn-left:hover {
             opacity: 0.8;
@@ -109,7 +122,18 @@
         .banner { padding: 16px 24px; background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--accent); border-radius: 10px; margin-bottom: 32px; display: none; align-items: center; gap: 12px; }
 
         .modal-wrap { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(16px); z-index: 2000; display: none; align-items: center; justify-content: center; }
-        .modal { background: var(--sidebar); border: 1px solid var(--border); padding: 40px; border-radius: 32px; width: 480px; }
+        .modal {
+            background: var(--sidebar);
+            border: 1px solid var(--border);
+            padding: 32px;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
+        }
         .field { margin-bottom: 24px; }
         .field label { display: block; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
         .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 14px; color: var(--text); font-size: 14px; outline: none; }
@@ -196,10 +220,18 @@
             border: 1px solid var(--border);
             border-radius: 24px;
             position: relative;
-            overflow: auto;
+            overflow: hidden;
             user-select: none;
             box-shadow: inset 0 10px 30px rgba(0,0,0,0.5);
             margin-bottom: 24px;
+        }
+        #canvas-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
         }
         .canvas-controls {
             position: absolute;
@@ -274,30 +306,59 @@
             right: auto;
             background: #3B82F6;
         }
+        .node-socket.top-socket {
+            left: 50%;
+            top: -6px;
+            right: auto;
+            transform: translateX(-50%);
+            background: #3B82F6;
+        }
+        .node-socket.bottom-socket {
+            left: 50%;
+            top: auto;
+            bottom: -6px;
+            right: auto;
+            transform: translateX(-50%);
+            background: #3B82F6;
+        }
+        .node-socket.top-socket:hover,
+        .node-socket.bottom-socket:hover {
+            transform: translateX(-50%) scale(1.3);
+        }
         .node-del-btn {
             position: absolute;
-            top: 4px;
-            right: 4px;
-            background: transparent;
+            top: 6px;
+            right: 6px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
             border: none;
             color: var(--muted);
             cursor: pointer;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: opacity 0.2s, background 0.2s, color 0.2s;
         }
         .canvas-node:hover .node-del-btn {
             opacity: 0.6;
         }
         .canvas-node:hover .node-del-btn:hover {
             opacity: 1;
+            background: rgba(0, 0, 0, 0.7);
+        }
+        .canvas-node:hover .node-del-btn.danger-btn:hover {
             color: var(--danger);
         }
         .canvas-svg {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
+            top: 0;
+            left: 0;
+            width: 10000px;
+            height: 10000px;
+            pointer-events: auto;
             z-index: 5;
         }
         .canvas-line {
@@ -307,6 +368,228 @@
             stroke-linecap: round;
             stroke-dasharray: 4 4;
             animation: connection-flow 20s linear infinite;
+            pointer-events: stroke;
+            cursor: pointer;
+        }
+        .canvas-line-hit {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 10px;
+            pointer-events: stroke;
+            cursor: pointer;
+        }
+        .canvas-line.bidirectional {
+            stroke: #22D3EE;
+        }
+        .canvas-line.dimmed {
+            opacity: 0.15;
+        }
+        .canvas-edge-label {
+            font-size: 10px;
+            fill: var(--text);
+            paint-order: stroke;
+            stroke: var(--sidebar);
+            stroke-width: 3px;
+            stroke-linejoin: round;
+            font-weight: 700;
+        }
+        .canvas-node.selected {
+            outline: 2px solid #22D3EE;
+            outline-offset: 2px;
+        }
+        .canvas-node.dimmed {
+            opacity: 0.25;
+        }
+        .canvas-node .tag-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 6px;
+            border: 1px solid rgba(255,255,255,0.35);
+        }
+        .canvas-frame {
+            position: absolute;
+            border: 2px dashed rgba(34, 211, 238, 0.55);
+            background: rgba(34, 211, 238, 0.08);
+            border-radius: 12px;
+            z-index: 8;
+            cursor: move;
+        }
+        .canvas-frame-title {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            font-size: 10px;
+            font-weight: 800;
+            color: #22D3EE;
+            background: rgba(0,0,0,0.6);
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .frame-resize-handle {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 16px;
+            height: 16px;
+            cursor: se-resize;
+            background: linear-gradient(135deg, transparent 50%, rgba(34, 211, 238, 0.7) 50%);
+            border-bottom-right-radius: 10px;
+        }
+        .frame-del-btn {
+            position: absolute;
+            top: -20px;
+            right: 0;
+            background: rgba(239, 68, 68, 0.8);
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            z-index: 10;
+        }
+        .frame-del-btn:hover {
+            background: rgb(239, 68, 68);
+        }
+        .selection-box {
+            position: absolute;
+            border: 1px dashed #22D3EE;
+            background: rgba(34,211,238,0.16);
+            z-index: 30;
+            pointer-events: none;
+            display: none;
+        }
+        .canvas-toolbar-input {
+            background: var(--sidebar);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 8px 12px;
+            min-width: 190px;
+            flex: 1 1 240px;
+            font-size: 12px;
+            outline: none;
+        }
+        .canvas-tool-icon {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            flex: 0 0 40px;
+            padding: 0;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            line-height: 0;
+        }
+        .canvas-toolbar-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 10px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 2px;
+        }
+        .canvas-float-controls {
+            position: absolute;
+            right: 16px;
+            bottom: 146px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 36;
+            background: rgba(12, 12, 14, 0.75);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px;
+        }
+        .canvas-mini-map {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            width: 170px;
+            height: 120px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(12, 12, 14, 0.75);
+            z-index: 35;
+            overflow: hidden;
+        }
+        .canvas-mini-node {
+            position: absolute;
+            border-radius: 2px;
+            background: rgba(245, 158, 11, 0.85);
+        }
+        .canvas-mini-view {
+            position: absolute;
+            border: 1px solid #22D3EE;
+            background: rgba(34, 211, 238, 0.12);
+        }
+        /* RESEARCH CANVAS FULLSCREEN MODE (ONLY FOR CANVAS TOOL) */
+        body.canvas-fullscreen main {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            padding: 0;
+        }
+        body.canvas-fullscreen header {
+            display: none !important;
+        }
+        body.canvas-fullscreen #canvas-card {
+            display: flex !important;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 12px 12px 0;
+            margin-bottom: 0;
+        }
+        body.canvas-fullscreen .canvas-container {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+            margin-bottom: 0;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        body.canvas-fullscreen #heatmap-card {
+            display: none !important;
+        }
+        body.notifs-mode #heatmap-card {
+            display: none !important;
+        }
+        .details-drawer {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 420px;
+            height: 100vh;
+            background: var(--sidebar);
+            border-left: 1px solid var(--border);
+            z-index: 2200;
+            transition: right 0.25s ease;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .details-drawer.open {
+            right: 0;
+        }
+        .details-drawer h3 {
+            font-size: 16px;
+            margin-bottom: 14px;
         }
         @keyframes connection-flow {
             to { stroke-dashoffset: -20; }
@@ -342,14 +625,10 @@
             color: #1c1917;
             position: relative;
             box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            transform: rotate(-0.5deg);
             transition: transform 0.2s;
         }
-        .sticky-note:nth-child(even) {
-            transform: rotate(0.5deg);
-        }
         .sticky-note:hover {
-            transform: scale(1.01) rotate(0deg);
+            transform: scale(1.01);
         }
         .sticky-note.yellow { background: #FEF08A; }
         .sticky-note.pink { background: #FBCFE8; }
@@ -403,7 +682,10 @@
 <body>
 
     <aside>
-        <div style="font-weight:900; font-size:1.6rem; color:var(--accent); margin-bottom:30px; letter-spacing:-2px;">IR STUDIO</div>
+        <div class="aside-brand">
+            <div style="font-weight:900; font-size:1.6rem; color:var(--accent); letter-spacing:-2px;">IR STUDIO</div>
+            <button class="btn-mini" onclick="toggleTheme()" title="Toggle theme"><i id="theme-icon" data-lucide="sun" size="14"></i></button>
+        </div>
         
         <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Research Stages</div>
         <nav id="path-nav" style="margin-bottom:24px;"></nav>
@@ -441,8 +723,6 @@
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:40px;">
             <div><h1 id="h-title">IR Navigator</h1><p id="h-subtitle" style="color:var(--muted); font-size:14px; font-weight:600;">System Bridge Standby</p></div>
             <div style="display:flex; gap:12px; align-items:center;">
-                <!-- ALWAYS VISIBLE BY DEFAULT -->
-                <button class="btn-mini" onclick="toggleTheme()"><i id="theme-icon" data-lucide="sun" size="14"></i></button>
                 <!-- ADMIN CONTROLS: HIDDEN BY DEFAULT, SHOWN ONLY FOR MASTER -->
                 <div id="admin-controls" style="display:none; gap:12px; align-items:center;">
                     <button class="btn-mini" onclick="openModal('broadcast')"><i data-lucide="megaphone" size="14"></i> BROADCAST</button>
@@ -480,21 +760,28 @@
         </div>
 
         <div class="card" id="canvas-card" style="display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-                <div>
-                    <h3 style="font-size:1.1rem; font-weight:800;">Visual Research Board</h3>
-                    <p style="color:var(--muted); font-size:12px;">Double click on background to add a node, or drag connector to link Sources to Themes</p>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-mini btn-accent" id="canvas-add-theme" onclick="addCanvasNodePrompt('theme')">+ THEME</button>
-                    <button class="btn-mini btn-accent" id="canvas-add-source" onclick="addCanvasNodePrompt('source')">+ SOURCE</button>
-                    <button class="btn-mini btn-accent" id="canvas-add-note" onclick="addCanvasNodePrompt('note')">+ NOTE</button>
-                    <button class="btn-mini" onclick="exportPDFReport()" style="border-color:var(--success); color:var(--success);"><i data-lucide="download" size="12"></i> EXPORT REPORT</button>
-                </div>
+            <div class="canvas-toolbar-row">
+                <input id="canvas-search" class="canvas-toolbar-input" placeholder="Search / Filter cards..." oninput="applyCanvasSearch()">
+                <button class="btn-mini" id="canvas-help" onclick="openModal('help')" title="Help">HELP</button>
+                <button class="btn-mini canvas-tool-icon" id="canvas-tool-select" onclick="setCanvasToolMode('select')" title="Select"><i data-lucide="mouse-pointer-2" size="18"></i></button>
+                <button class="btn-mini canvas-tool-icon" id="canvas-tool-hand" onclick="setCanvasToolMode('hand')" title="Hand"><i data-lucide="hand" size="18"></i></button>
+                <button class="btn-mini btn-accent" id="canvas-add-theme" onclick="addCanvasNodePrompt('theme')">+ THEME</button>
+                <button class="btn-mini btn-accent" id="canvas-add-source" onclick="addCanvasNodePrompt('source')">+ SOURCE</button>
+                <button class="btn-mini btn-accent" id="canvas-add-note" onclick="addCanvasNodePrompt('note')">+ NOTE</button>
+                <button class="btn-mini btn-accent" onclick="createFrameFromSelection()">+ FRAME</button>
+                <button class="btn-mini" onclick="exportPDFReport()" style="border-color:var(--success); color:var(--success);"><i data-lucide="download" size="12"></i> EXPORT REPORT</button>
             </div>
             
             <div class="canvas-container" id="canvas-container" ondragover="event.preventDefault()">
-                <svg class="canvas-svg" id="canvas-svg"></svg>
+                <div id="canvas-content">
+                    <svg class="canvas-svg" id="canvas-svg"></svg>
+                </div>
+                <div class="canvas-float-controls">
+                    <button class="btn-mini" onclick="adjustCanvasZoom(-10)">-</button>
+                    <button class="btn-mini" id="canvas-zoom-label" onclick="resetCanvasZoom()">100%</button>
+                    <button class="btn-mini" onclick="adjustCanvasZoom(10)">+</button>
+                </div>
+                <div id="canvas-mini-map" class="canvas-mini-map"></div>
             </div>
         </div>
 
@@ -526,9 +813,16 @@
             </div>
         </div>
     </div>
+    <div id="details-drawer" class="details-drawer">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="details-drawer-title">Node Details</h3>
+            <button class="btn-mini" onclick="closeDetailsDrawer()">Close</button>
+        </div>
+        <div id="details-drawer-body"></div>
+    </div>
 
     <script>
-        const STAGES = [
+        var STAGES = [
             { name: "Building Community", defaultTasks: ["What do you Meme?", "Canvas Scavenger Hunt", "Intro. Survey", "Me in a minute!", "Intro Research Task", "Internet Searches Activity", "Researcher Reflection", "Reading Report #1", "Reading Report #2", "What's Your IQ?"] },
             { name: "Inquiry & Hypothesis", defaultTasks: ["Hypothesis Practice", "Research Q Chart", "Hypothesis (Part 1)", "Peer Edit: Q & H", "Hypothesis (Part 2)", "Finding HR", "Business Email (Draft)", "Email Netiquette", "Presentation Review", "Reflection Quiz"] },
             { name: "Literature Review", defaultTasks: ["Synthesis Table", "Organization Activity", "Intro Planning", "Rough Draft #1", "Peer Review #1", "Rough Draft #2", "Peer Review #2", "Rough Draft #3", "Peer Review #3", "Final Lit Review"] },
@@ -536,9 +830,10 @@
             { name: "The Grand Finale", defaultTasks: ["Data Analysis Info", "Essay Draft", "Self-Review", "Printed Copy (PD2)", "Final Paper (150pt)", "Presentation/Exam", "Reflective Port", "Course Eval", "Learning Conf", "The Grand Finale"] }
         ];
 
-        let currentUser = { id: 'anon' }, currentIdx = 0, viewMode = 'student', matrixView = 'table', isAdmin = false;
-        let myProgress = {}, myLinks = {}, myMatrix = {}, currentTasks = [];
-        let taskFeedback = {}; // { stageIdx_taskIdx_uid: { rating, notes: [{color,text,author,time,replies}] } }
+        var currentUser = { id: 'anon' }, currentIdx = 0, viewMode = 'student', matrixView = 'table', isAdmin = false;
+        var myProgress = {}, myLinks = {}, myMatrix = {}, currentTasks = [];
+        var taskFeedback = {}; // { stageIdx_taskIdx_uid: { rating, notes: [{color,text,author,time,replies}] } }
+        var currentFbKey = null, currentFeedbackUid = null, currentFeedbackDisplayName = null, currentFeedbackLink = null;
 
         function getBridge() {
             const b = window.parent || window.top || window.opener;
@@ -550,7 +845,7 @@
             return null;
         }
 
-        // SDK 已处理初始化，此处不再需要 syncTheme 函数
+        // SDK 宸插鐞嗗垵濮嬪寲锛屾澶勪笉鍐嶉渶瑕?syncTheme 鍑芥暟
         
 
 
@@ -606,6 +901,7 @@
             if (/^(https?:\/\/|\/\/)/i.test(trimmed)) return trimmed;
             return 'https://' + trimmed;
         };
+        window.formatUrl = formatUrl;
 
         function getDomain(url) {
             try { return new URL(url.startsWith('http') ? url : 'https://' + url).hostname; } catch(e) { return url; }
@@ -617,7 +913,7 @@
         function buildLitCard(link, onclick) {
             const d = getDomain(link);
             return `<div class="lit-card" onclick="${onclick}">
-                <div class="lit-card-icon"><img src="${getFavicon(link)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%233B82F6%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2212%22>🔗</text></svg>'"></div>
+                <div class="lit-card-icon"><img src="${getFavicon(link)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%233B82F6%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2212%22>馃敆</text></svg>'"></div>
                 <div class="lit-card-info">
                     <div class="lit-card-domain">${d}</div>
                     <div class="lit-card-url">${link}</div>
@@ -647,7 +943,6 @@
                             const email = uMeta.email || 'Unregistered or legacy student';
                             const fbKey = `${currentIdx}_${idx}_${uid}`;
                             const fb = taskFeedback[fbKey] || {};
-                            const stars = fb.rating ? '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating) : '';
                             const noteCount = (fb.notes || []).length;
                             html += `
                                 <div class="item-row" style="padding:16px; display:flex; flex-direction:column; gap:10px;">
@@ -657,21 +952,32 @@
                                             <span style="font-size:11px; color:var(--muted); font-weight:normal;">${email}</span>
                                         </div>
                                         <div class="split-btn-group">
+                                            <button onclick="event.stopPropagation(); openTaskFeedback('${fbKey}', '${uid}', '${displayName}', '${encodeURIComponent(link)}')" class="split-btn-left">REVIEW</button>
+                                            <div class="split-btn-divider"></div>
                                             <a href="${formatUrl(link)}" target="_blank" class="split-btn-left">VIEW SOURCE</a>
                                             <div class="split-btn-divider"></div>
-                                            <button data-raw-link="${encodeURIComponent(link)}" onclick="event.stopPropagation(); window.prompt('Raw Student URL:', decodeURIComponent(this.getAttribute('data-raw-link')))" class="split-btn-right" title="View raw URL text">
+                                            <button data-raw-link="${encodeURIComponent(link)}" onclick="event.stopPropagation(); showRawUrlPrompt(this)" class="split-btn-right" title="View raw URL text">
                                                 <span style="font-family: Georgia, serif; font-style: italic; font-weight: 900; font-size: 14px; line-height: 1;">T</span>
                                             </button>
                                         </div>
                                     </div>
-                                    ${buildLitCard(link, `event.stopPropagation(); openTaskFeedback('${fbKey}', '${uid}', '${displayName}', '${encodeURIComponent(link)}')`)}
-                                    ${stars ? `<div style="font-size:14px; color:var(--accent); letter-spacing:2px;">${stars} ${noteCount ? '<span class="feedback-badge">' + noteCount + ' note' + (noteCount>1?'s':'') + '</span>' : ''}</div>` : ''}
+                                    ${(fb.rating || noteCount) ? `
+                                    <div style="font-size:14px; color:var(--accent); letter-spacing:2px; display:flex; align-items:center; gap:8px; margin-top:4px;">
+                                        ${fb.rating ? '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating) : ''}
+                                        ${noteCount ? `<span class="feedback-badge">${noteCount} comment${noteCount > 1 ? 's' : ''}</span>` : ''}
+                                    </div>
+                                    ` : ''}
                                 </div>`;
                         }
                     });
                     body.innerHTML = count > 0 ? html + '</div>' : '<div style="padding:20px; text-align:center; color:var(--muted);">No submissions yet.</div>';
                 }, { onlyOnce: true });
             }, { onlyOnce: true });
+        };
+
+        window.showRawUrlPrompt = async (btn) => {
+            const raw = decodeURIComponent(btn.getAttribute('data-raw-link'));
+            await AppBridge.prompt('Raw Student URL', 'Student submitted URL:', raw, raw);
         };
 
         var syncData = function() {
@@ -691,7 +997,7 @@
             });
             b.fOnValue(b.fRef(b.firebaseDb, `${path}/broadcast`), snap => {
                 const br = snap.val();
-                document.getElementById('broadcast-banner').style.display = br?.text ? 'flex' : 'none';
+                document.getElementById('broadcast-banner').style.display = (currentTool === 'canvas') ? 'none' : (br?.text ? 'flex' : 'none');
                 document.getElementById('broadcast-text').innerText = br?.text || '';
             });
             b.fOnValue(b.fRef(b.firebaseDb, `${path}/progress/${currentUser.id}`), snap => { myProgress = snap.val() || {}; renderTasks(); });
@@ -720,7 +1026,7 @@
                         <div style="flex-grow:1;">
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${t.text}</div>
-                                ${hasTeacherFeedback ? '<span class="feedback-badge">📝 FEEDBACK</span>' : ''}
+                                ${hasTeacherFeedback ? '<span class="feedback-badge">馃摑 FEEDBACK</span>' : ''}
                             </div>
                             ${t.date ? `<span class="task-date">${t.date}</span>` : ''}
                             ${link ? buildLitCard(link, `event.stopPropagation(); openTaskFeedback('${fbKey}', '${currentUser.id}', '${currentUser.name}', '${encodeURIComponent(link)}')`) : ''}
@@ -736,7 +1042,9 @@
                 `;
             });
             document.getElementById('percent-text').innerText = `${Math.round((done / (currentTasks.length || 1)) * 100)}%`;
-            lucide.createIcons();
+            renderMiniMap();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            applyCanvasSearch();
         }
 
         function setView(m) {
@@ -756,11 +1064,10 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // 已迁移至 SDK，移除本地冗余监听
-        
+        // 宸茶縼绉昏嚦 SDK锛岀Щ闄ゆ湰鍦板啑浣欑洃鍚?        
 
         function toggleTheme() {
-            // 核心修复：去 html 标签（documentElement）上获取属性，而不是 body
+            // 鏍稿績淇锛氬幓 html 鏍囩锛坉ocumentElement锛変笂鑾峰彇灞炴€э紝鑰屼笉鏄?body
             const cur = document.documentElement.getAttribute('data-theme') || 'dark';
             applyTheme(cur === 'dark' ? 'light' : 'dark', true);
         }
@@ -772,6 +1079,7 @@
             const b = getBridge(); if (!b) { await AppBridge.alert("Standby", "Syncing Bridge... One moment."); return; }
             const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
             wrap.style.display = 'flex'; document.getElementById('modal-title').innerText = type.toUpperCase();
+            sub.style.display = 'flex';
             if (type === 'addTask') {
                 body.innerHTML = `<div class="field"><label>Task Name</label><input id="m-in" autocomplete="off"></div><div class="field"><label>Due Date</label><input type="date" id="m-date"></div>`;
                 sub.onclick = () => { const v = document.getElementById('m-in').value, d = document.getElementById('m-date').value; if(v) { sub.innerText = "SAVING..."; b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), [...currentTasks, { text: v, date: d }]).then(closeModal); } };
@@ -793,6 +1101,28 @@
                     });
                 };
             }
+            if (type === 'help') {
+                document.getElementById('modal-title').innerText = 'HELP';
+                sub.style.display = 'none';
+                body.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:14px; color:var(--text);">
+                        <div style="display:flex; flex-direction:column; gap:10px; font-size:13px; line-height:1.5;">
+                            <div><b>Pan:</b> Choose <span style="font-family:JetBrains Mono, monospace;">Hand</span>, then drag on empty canvas.</div>
+                            <div><b>Box select:</b> Choose <span style="font-family:JetBrains Mono, monospace;">Select</span>, then drag on empty canvas.</div>
+                            <div><b>Temporary right-click mode:</b> Right-drag on empty canvas:
+                                <span style="color:var(--muted);">Hand mode = box select, Select mode = pan</span>.</div>
+                            <div><b>Zoom:</b> Two-finger scroll (trackpad) zooms in/out.</div>
+                            <div><b>Quick add:</b> Double-click empty canvas to choose <span style="font-family:JetBrains Mono, monospace;">Theme / Source / Note</span>.</div>
+                            <div><b>Add via toolbar:</b> Use <span style="font-family:JetBrains Mono, monospace;">+ THEME / + SOURCE / + NOTE</span>.</div>
+                            <div><b>Edit a card:</b> Double-click the card, or click the pencil icon.</div>
+                            <div><b>Delete a card:</b> Hover the card, then click <span style="font-family:JetBrains Mono, monospace;">X</span>.</div>
+                            <div><b>Create a connection:</b> Drag from the <span style="color:#F59E0B; font-weight:900;">orange</span> socket to the <span style="color:#3B82F6; font-weight:900;">blue</span> socket.</div>
+                            <div><b>Delete a connection:</b> Click the arrow line to remove it.</div>
+                        </div>
+                    </div>
+                `;
+            }
+
         };
 
         window.toggleCheck = (idx) => {
@@ -824,10 +1154,41 @@
             document.getElementById('modal-submit').style.display = 'flex';
         };
 
-        // =====================================================================
-        //  STUDIO TOOLS NAVIGATION
-        // =====================================================================
-        let currentTool = null; // null = stages view, 'canvas', 'notifs'
+        var currentTool = null; // null = stages view, 'canvas', 'notifs'
+
+        function setCanvasPresentationMode(isCanvasMode) {
+            const body = document.body;
+            const broadcast = document.getElementById('broadcast-banner');
+            const adminControls = document.getElementById('admin-controls');
+            if (isCanvasMode) {
+                body.classList.add('canvas-fullscreen');
+                if (broadcast) broadcast.style.display = 'none';
+                if (adminControls) adminControls.style.display = 'none';
+                return;
+            }
+
+            body.classList.remove('canvas-fullscreen');
+            if (adminControls) {
+                const shouldShowAdminControls = !!isAdmin || viewMode === 'teacher';
+                adminControls.style.display = shouldShowAdminControls ? 'flex' : 'none';
+            }
+            if (broadcast) {
+                const hasBroadcast = !!(document.getElementById('broadcast-text')?.innerText || '').trim();
+                broadcast.style.display = hasBroadcast ? 'flex' : 'none';
+            }
+        }
+
+        function switchToMilestones(stageIdx) {
+            currentTool = null;
+            setCanvasPresentationMode(false);
+            document.body.classList.remove('notifs-mode');
+            document.querySelectorAll('#path-nav .nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('nav-canvas').classList.remove('active');
+            document.getElementById('nav-notifs').classList.remove('active');
+            document.getElementById('canvas-card').style.display = 'none';
+            document.getElementById('notifs-card').style.display = 'none';
+            jump(stageIdx);
+        }
 
         function switchToTool(tool) {
             // Deselect stage nav
@@ -840,9 +1201,10 @@
             document.getElementById('matrix-card').style.display = 'none';
             document.getElementById('canvas-card').style.display = 'none';
             document.getElementById('notifs-card').style.display = 'none';
+            setCanvasPresentationMode(false);
 
             if (tool === currentTool) {
-                // Toggle off — go back to stage view
+                // Toggle off go back to stage view
                 currentTool = null;
                 jump(currentIdx);
                 return;
@@ -850,23 +1212,31 @@
 
             currentTool = tool;
             if (tool === 'canvas') {
+                document.body.classList.remove('notifs-mode');
+                setCanvasPresentationMode(true);
                 document.getElementById('nav-canvas').classList.add('active');
                 document.getElementById('canvas-card').style.display = 'block';
                 document.getElementById('h-title').innerText = 'Research Canvas';
+                setCanvasToolMode(canvasToolMode);
                 renderCanvasFromState();
             } else if (tool === 'notifs') {
+                document.body.classList.add('notifs-mode');
                 document.getElementById('nav-notifs').classList.add('active');
                 document.getElementById('notifs-card').style.display = 'block';
                 document.getElementById('h-title').innerText = 'Notifications';
                 renderNotifications();
             }
-            lucide.createIcons();
+            renderMiniMap();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            applyCanvasSearch();
         }
 
         // Override jump to clear tool selection
         const _origJump = jump;
         jump = function(idx) {
             currentTool = null;
+            setCanvasPresentationMode(false);
+            document.body.classList.remove('notifs-mode');
             document.getElementById('nav-canvas').classList.remove('active');
             document.getElementById('nav-notifs').classList.remove('active');
             document.getElementById('canvas-card').style.display = 'none';
@@ -879,341 +1249,6 @@
             syncData();
         };
 
-        // =====================================================================
-        //  VISUAL RESEARCH CANVAS ENGINE
-        // =====================================================================
-        let canvasNodes = {};  // { nodeId: { type, title, desc, url, x, y } }
-        let canvasEdges = [];  // [ { from, to } ]
-        let dragState = null;
-        let connectState = null;
-
-        function genId() { return 'n' + Date.now() + Math.random().toString(36).substr(2, 5); }
-
-        function addCanvasNodePrompt(type) {
-            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
-            wrap.style.display = 'flex';
-            const labels = { theme: 'Theme / Topic', source: 'Source / Literature', note: 'Note / Memo' };
-            document.getElementById('modal-title').innerText = 'ADD ' + labels[type].toUpperCase();
-
-            let fields = `<div class="field"><label>Title</label><input id="cn-title" autocomplete="off" placeholder="e.g. Climate Change"></div>`;
-            if (type === 'source') {
-                fields += `<div class="field"><label>URL</label><input id="cn-url" autocomplete="off" placeholder="https://..."></div>`;
-            }
-            fields += `<div class="field"><label>Description (optional)</label><textarea id="cn-desc" rows="3"></textarea></div>`;
-            body.innerHTML = fields;
-
-            sub.onclick = () => {
-                const title = document.getElementById('cn-title').value.trim();
-                if (!title) return;
-                const desc = document.getElementById('cn-desc')?.value || '';
-                const url = document.getElementById('cn-url')?.value || '';
-                const id = genId();
-                const container = document.getElementById('canvas-container');
-                const cx = Math.max(60, Math.random() * (container.offsetWidth - 220));
-                const cy = Math.max(80, Math.random() * (container.offsetHeight - 120));
-                canvasNodes[id] = { type, title, desc, url, x: cx, y: cy };
-                saveCanvasState();
-                closeModal();
-                renderCanvasFromState();
-            };
-        }
-
-        function renderCanvasFromState() {
-            const container = document.getElementById('canvas-container');
-            const svg = document.getElementById('canvas-svg');
-            // Remove old nodes
-            container.querySelectorAll('.canvas-node').forEach(n => n.remove());
-            svg.innerHTML = '';
-
-            Object.entries(canvasNodes).forEach(([id, node]) => {
-                const el = document.createElement('div');
-                el.className = `canvas-node ${node.type}-node`;
-                el.id = 'cnode-' + id;
-                el.style.left = node.x + 'px';
-                el.style.top = node.y + 'px';
-
-                const typeLabel = node.type === 'theme' ? '🎯 THEME' : node.type === 'source' ? '📄 SOURCE' : '📝 NOTE';
-                let domain = '';
-                if (node.url) {
-                    try { domain = new URL(node.url.startsWith('http') ? node.url : 'https://' + node.url).hostname; } catch(e) { domain = node.url; }
-                }
-
-                el.innerHTML = `
-                    <button class="node-del-btn" style="right:24px" onclick="editCanvasNode('${id}')"><i data-lucide="pencil" size="14"></i></button>
-                    <button class="node-del-btn" onclick="deleteCanvasNode('${id}')"><i data-lucide="x" size="14"></i></button>
-                    <div style="font-size:9px; font-weight:900; color:var(--muted); text-transform:uppercase;">${typeLabel}</div>
-                    <div class="canvas-node-title">${node.title}</div>
-                    ${node.desc ? `<div class="canvas-node-desc">${node.desc}</div>` : ''}
-                    ${domain ? `<div style="font-size:10px; color:#3B82F6; cursor:pointer;" onclick="window.open('${formatUrl(node.url)}','_blank')">🔗 ${domain}</div>` : ''}
-                    ${node.type === 'source' ? `<div class="node-socket" data-id="${id}" title="Drag to connect to a Theme"></div>` : ''}
-                    ${node.type === 'theme' ? `<div class="node-socket left-socket" data-id="${id}" title="Drop source connection here"></div>` : ''}
-                `;
-
-                // Click to open detail/feedback panel
-                el.addEventListener('dblclick', (e) => {
-                    if (e.target.closest('.node-del-btn') || e.target.closest('.node-socket')) return;
-                    openNodeDetail(id);
-                });
-
-                // Drag logic
-                el.addEventListener('mousedown', (e) => {
-                    if (e.target.closest('.node-socket') || e.target.closest('.node-del-btn')) return;
-                    dragState = { id, startX: e.clientX, startY: e.clientY, origX: node.x, origY: node.y };
-                    e.preventDefault();
-                });
-
-                container.appendChild(el);
-            });
-
-            // Draw edges
-            canvasEdges.forEach(edge => {
-                drawEdge(svg, edge.from, edge.to);
-            });
-
-            // Socket connection logic
-            container.querySelectorAll('.node-socket:not(.left-socket)').forEach(socket => {
-                socket.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    connectState = { fromId: socket.dataset.id };
-                });
-            });
-
-            lucide.createIcons();
-        }
-
-        function drawEdge(svg, fromId, toId) {
-            const fromEl = document.getElementById('cnode-' + fromId);
-            const toEl = document.getElementById('cnode-' + toId);
-            if (!fromEl || !toEl) return;
-
-            const container = document.getElementById('canvas-container');
-            const cRect = container.getBoundingClientRect();
-            const fRect = fromEl.getBoundingClientRect();
-            const tRect = toEl.getBoundingClientRect();
-
-            const x1 = fRect.right - cRect.left + container.scrollLeft;
-            const y1 = fRect.top + fRect.height / 2 - cRect.top + container.scrollTop;
-            const x2 = tRect.left - cRect.left + container.scrollLeft;
-            const y2 = tRect.top + tRect.height / 2 - cRect.top + container.scrollTop;
-
-            const mx = (x1 + x2) / 2;
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
-            path.setAttribute('class', 'canvas-line');
-            svg.appendChild(path);
-        }
-
-        // Global mouse events for drag & connect
-        document.addEventListener('mousemove', (e) => {
-            if (dragState) {
-                const dx = e.clientX - dragState.startX;
-                const dy = e.clientY - dragState.startY;
-                canvasNodes[dragState.id].x = Math.max(0, dragState.origX + dx);
-                canvasNodes[dragState.id].y = Math.max(0, dragState.origY + dy);
-                const el = document.getElementById('cnode-' + dragState.id);
-                if (el) { el.style.left = canvasNodes[dragState.id].x + 'px'; el.style.top = canvasNodes[dragState.id].y + 'px'; }
-                // Redraw SVG
-                const svg = document.getElementById('canvas-svg');
-                svg.innerHTML = '';
-                canvasEdges.forEach(edge => drawEdge(svg, edge.from, edge.to));
-            }
-        });
-
-        document.addEventListener('mouseup', (e) => {
-            if (dragState) {
-                saveCanvasState();
-                dragState = null;
-            }
-            if (connectState) {
-                // Find target theme node
-                const target = e.target.closest('.left-socket');
-                if (target) {
-                    const toId = target.dataset.id;
-                    const fromId = connectState.fromId;
-                    if (fromId !== toId && !canvasEdges.find(ed => ed.from === fromId && ed.to === toId)) {
-                        canvasEdges.push({ from: fromId, to: toId });
-                        saveCanvasState();
-                        renderCanvasFromState();
-                        // Auto-check milestone logic
-                        autoCheckMilestoneFromConnection(fromId, toId);
-                    }
-                }
-                connectState = null;
-            }
-        });
-
-        async function deleteCanvasNode(id) {
-            const ok = await AppBridge.confirm('Delete Node', 'Are you sure you want to delete this node and all its connections?');
-            if (!ok) return;
-            delete canvasNodes[id];
-            canvasEdges = canvasEdges.filter(e => e.from !== id && e.to !== id);
-            saveCanvasState();
-            renderCanvasFromState();
-        }
-
-        function editCanvasNode(id) {
-            const node = canvasNodes[id]; if (!node) return;
-            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
-            wrap.style.display = 'flex';
-            document.getElementById('modal-title').innerText = 'EDIT NODE';
-            sub.style.display = 'flex';
-            let fields = `<div class="field"><label>Title</label><input id="cn-title" value="${node.title}" autocomplete="off"></div>`;
-            if (node.type === 'source') {
-                fields += `<div class="field"><label>URL</label><input id="cn-url" value="${node.url || ''}" autocomplete="off"></div>`;
-            }
-            fields += `<div class="field"><label>Description</label><textarea id="cn-desc" rows="3">${node.desc || ''}</textarea></div>`;
-            body.innerHTML = fields;
-            sub.onclick = () => {
-                const title = document.getElementById('cn-title').value.trim();
-                if (!title) return;
-                canvasNodes[id].title = title;
-                canvasNodes[id].desc = document.getElementById('cn-desc')?.value || '';
-                if (node.type === 'source') canvasNodes[id].url = document.getElementById('cn-url')?.value || '';
-                saveCanvasState();
-                closeModal();
-                renderCanvasFromState();
-            };
-        }
-
-        function autoCheckMilestoneFromConnection(sourceId, themeId) {
-            // When a Source is connected to a Theme, auto-check the first unchecked task in the current stage
-            const b = getBridge(); if (!b) return;
-            const uncheckedIdx = currentTasks.findIndex((t, i) => !myProgress[currentIdx]?.[i]);
-            if (uncheckedIdx >= 0) {
-                b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${currentUser.id}/${currentIdx}`), { [uncheckedIdx]: true });
-                const total = Object.values(myProgress).reduce((a,v) => a + Object.values(v).filter(x=>x).length, 0) + 1;
-                b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, email: currentUser.email || '', percent: Math.round((total/50)*100), stage: currentIdx });
-            }
-        }
-
-        function saveCanvasState() {
-            const b = getBridge(); if (!b) return;
-            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), { nodes: canvasNodes, edges: canvasEdges });
-        }
-
-        function loadCanvasState() {
-            const b = getBridge(); if (!b) return;
-            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), snap => {
-                const data = snap.val();
-                if (data) {
-                    canvasNodes = data.nodes || {};
-                    canvasEdges = data.edges || [];
-                } else {
-                    canvasNodes = {};
-                    canvasEdges = [];
-                }
-                if (currentTool === 'canvas') renderCanvasFromState();
-            });
-        }
-
-        // =====================================================================
-        //  NODE DETAIL PANEL — STAR RATINGS & STICKY FEEDBACK
-        // =====================================================================
-        let nodeComments = {}; // { nodeId: { rating, notes: [{color, text, author, replies:[{text,author}]}] } }
-
-        function openNodeDetail(nodeId) {
-            const node = canvasNodes[nodeId]; if (!node) return;
-            const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
-            wrap.style.display = 'flex';
-            document.getElementById('modal-title').innerText = node.title;
-            sub.style.display = 'none'; // No submit button for detail view
-
-            const feedback = nodeComments[nodeId] || { rating: 0, notes: [] };
-            const starHtml = [1,2,3,4,5].map(s =>
-                `<span class="star-icon ${s <= (feedback.rating||0) ? 'active' : ''}" onclick="setNodeRating('${nodeId}', ${s})" style="font-size:22px; cursor:pointer;">★</span>`
-            ).join('');
-
-            let notesHtml = '';
-            (feedback.notes || []).forEach((note, ni) => {
-                let repliesHtml = '';
-                (note.replies || []).forEach(r => {
-                    repliesHtml += `<div class="sticky-reply"><b>${r.author}:</b> ${r.text}</div>`;
-                });
-                notesHtml += `
-                    <div class="sticky-note ${note.color || 'yellow'}">
-                        <div class="sticky-note-header"><span>${note.author || 'Teacher'}</span><span>${note.time || ''}</span></div>
-                        <div class="sticky-note-text">${note.text}</div>
-                        <div class="sticky-note-replies">
-                            ${repliesHtml}
-                            <div style="display:flex; gap:6px; margin-top:6px;">
-                                <input id="reply-${ni}" style="flex:1; background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.15); padding:6px 10px; border-radius:8px; font-size:11px; color:#000;" placeholder="Reply...">
-                                <button onclick="addReply('${nodeId}', ${ni})" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
-                            </div>
-                        </div>
-                    </div>`;
-            });
-
-            body.innerHTML = `
-                <div style="margin-bottom:16px;">
-                    <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:6px;">${node.type} Node</div>
-                    ${node.desc ? `<p style="color:var(--muted); font-size:13px;">${node.desc}</p>` : ''}
-                    ${node.url ? `<a href="${formatUrl(node.url)}" target="_blank" style="color:#3B82F6; font-size:12px;">🔗 ${node.url}</a>` : ''}
-                </div>
-                <div style="border-top:1px solid var(--border); padding-top:16px;">
-                    <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Quality Rating</div>
-                    <div class="rating-stars">${starHtml}</div>
-                </div>
-                <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase;">Feedback Notes</div>
-                        ${isAdmin ? `
-                        <div style="display:flex; gap:6px;">
-                            <button onclick="addStickyNote('${nodeId}','yellow')" style="width:18px;height:18px;border-radius:50%;background:#FEF08A;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Yellow"></button>
-                            <button onclick="addStickyNote('${nodeId}','pink')" style="width:18px;height:18px;border-radius:50%;background:#FBCFE8;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Pink"></button>
-                            <button onclick="addStickyNote('${nodeId}','green')" style="width:18px;height:18px;border-radius:50%;background:#BBF7D0;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Green"></button>
-                            <button onclick="addStickyNote('${nodeId}','blue')" style="width:18px;height:18px;border-radius:50%;background:#BFDBFE;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Blue"></button>
-                        </div>` : ''}
-                    </div>
-                    <div class="sticky-notes-container">${notesHtml || '<div style="color:var(--muted); font-size:12px;">No feedback yet.</div>'}</div>
-                </div>
-            `;
-        }
-
-        window.setNodeRating = (nodeId, rating) => {
-            if (!nodeComments[nodeId]) nodeComments[nodeId] = { rating: 0, notes: [] };
-            nodeComments[nodeId].rating = rating;
-            saveComments(nodeId);
-            openNodeDetail(nodeId); // Re-render
-            pushNotification(nodeId, `Your source "${canvasNodes[nodeId]?.title}" was rated ${rating}★`);
-        };
-
-        window.addStickyNote = async (nodeId, color) => {
-            const text = prompt('Enter your feedback note:');
-            if (!text) return;
-            if (!nodeComments[nodeId]) nodeComments[nodeId] = { rating: 0, notes: [] };
-            nodeComments[nodeId].notes.push({
-                color, text,
-                author: currentUser.name || 'Teacher',
-                time: new Date().toLocaleString(),
-                replies: []
-            });
-            saveComments(nodeId);
-            openNodeDetail(nodeId);
-            pushNotification(nodeId, `New feedback on "${canvasNodes[nodeId]?.title}": "${text.substring(0, 40)}..."`);
-        };
-
-        window.addReply = (nodeId, noteIdx) => {
-            const input = document.getElementById('reply-' + noteIdx);
-            if (!input || !input.value.trim()) return;
-            nodeComments[nodeId].notes[noteIdx].replies.push({
-                text: input.value.trim(),
-                author: currentUser.name || 'Student'
-            });
-            saveComments(nodeId);
-            openNodeDetail(nodeId);
-        };
-
-        function saveComments(nodeId) {
-            const b = getBridge(); if (!b) return;
-            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/comments/${currentUser.id}/${nodeId}`), nodeComments[nodeId]);
-        }
-
-        function loadComments() {
-            const b = getBridge(); if (!b) return;
-            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/comments/${currentUser.id}`), snap => {
-                nodeComments = snap.val() || {};
-            });
-        }
 
         // =====================================================================
         //  TASK-LEVEL FEEDBACK: Literature Cards + Ratings + Sticky Notes
@@ -1232,16 +1267,24 @@
         }
 
         window.openTaskFeedback = (fbKey, uid, displayName, encodedLink) => {
+            currentFbKey = fbKey;
+            currentFeedbackUid = uid;
+            currentFeedbackDisplayName = displayName;
+            currentFeedbackLink = decodeURIComponent(encodedLink);
             const link = decodeURIComponent(encodedLink);
             const wrap = document.getElementById('modal-wrap'), body = document.getElementById('modal-body'), sub = document.getElementById('modal-submit');
             wrap.style.display = 'flex';
-            document.getElementById('modal-title').innerText = displayName + ' — Feedback';
+            document.getElementById('modal-title').innerText = displayName + ' - Feedback';
             sub.style.display = 'none';
 
             const fb = taskFeedback[fbKey] || { rating: 0, notes: [] };
-            const starHtml = [1,2,3,4,5].map(s =>
-                `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" onclick="setTaskRating('${fbKey}', ${s}, '${uid}', '${encodedLink}')" style="font-size:24px; cursor:pointer;">★</span>`
-            ).join('');
+            const starHtml = [1,2,3,4,5].map(s => {
+                if (isAdmin) {
+                    return `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" onclick="setTaskRating('${fbKey}', ${s}, '${uid}', '${encodedLink}', '${encodeURIComponent(displayName)}')" style="font-size:24px; cursor:pointer;">★</span>`;
+                } else {
+                    return `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" style="font-size:24px; cursor:default; pointer-events:none;">★</span>`;
+                }
+            }).join('');
 
             let notesHtml = '';
             (fb.notes || []).forEach((note, ni) => {
@@ -1257,7 +1300,7 @@
                             ${repliesHtml}
                             <div style="display:flex; gap:6px; margin-top:6px;">
                                 <input id="task-reply-${ni}" style="flex:1; background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.15); padding:6px 10px; border-radius:8px; font-size:11px; color:#000;" placeholder="Reply...">
-                                <button onclick="addTaskReply('${fbKey}', ${ni}, '${uid}')" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
+                                <button onclick="addTaskReply('${fbKey}', ${ni}, '${uid}', '${encodeURIComponent(displayName)}', '${encodedLink}')" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
                             </div>
                         </div>
                     </div>`;
@@ -1276,53 +1319,105 @@
                         <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase;">Feedback Notes</div>
                         ${isAdmin ? `
                         <div style="display:flex; gap:6px;">
-                            <button onclick="addTaskStickyNote('${fbKey}','yellow','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#FEF08A;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Yellow"></button>
-                            <button onclick="addTaskStickyNote('${fbKey}','pink','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#FBCFE8;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Pink"></button>
-                            <button onclick="addTaskStickyNote('${fbKey}','green','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#BBF7D0;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Green"></button>
-                            <button onclick="addTaskStickyNote('${fbKey}','blue','${uid}','${encodedLink}')" style="width:18px;height:18px;border-radius:50%;background:#BFDBFE;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Blue"></button>
+                            <button onclick="showInlineNoteCreator('yellow')" style="width:18px;height:18px;border-radius:50%;background:#FEF08A;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Yellow"></button>
+                            <button onclick="showInlineNoteCreator('pink')" style="width:18px;height:18px;border-radius:50%;background:#FBCFE8;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Pink"></button>
+                            <button onclick="showInlineNoteCreator('green')" style="width:18px;height:18px;border-radius:50%;background:#BBF7D0;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Green"></button>
+                            <button onclick="showInlineNoteCreator('blue')" style="width:18px;height:18px;border-radius:50%;background:#BFDBFE;border:2px solid rgba(0,0,0,0.1);cursor:pointer;" title="Blue"></button>
                         </div>` : ''}
                     </div>
+                    
+                    <div id="inline-note-creator" style="display:none; flex-direction:column; gap:10px; padding:16px; border-radius:12px; margin-bottom:16px; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: background 0.3s;">
+                        <textarea id="inline-note-text" style="width:100%; min-height:80px; background:transparent; border:none; resize:vertical; font-size:13px; color:#1c1917; font-family:inherit; outline:none;" placeholder="Enter feedback note here..."></textarea>
+                        <div style="display:flex; justify-content:flex-end; gap:8px;">
+                            <button onclick="hideInlineNoteCreator()" style="background:transparent; border:none; color:var(--muted); font-size:12px; font-weight:800; cursor:pointer; padding:6px 12px;">Cancel</button>
+                            <button id="inline-note-save-btn" style="background:#1c1917; color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; padding:6px 16px;">Save Note</button>
+                        </div>
+                    </div>
+
                     <div class="sticky-notes-container">${notesHtml || '<div style="color:var(--muted); font-size:12px;">No feedback yet. ' + (isAdmin ? 'Click a color circle above to add a note.' : 'Your teacher has not left feedback on this submission yet.') + '</div>'}</div>
                 </div>
             `;
         };
 
-        window.setTaskRating = (fbKey, rating, uid, encodedLink) => {
+        window.setTaskRating = (fbKey, rating, uid, encodedLink, encodedDisplayName) => {
             if (!taskFeedback[fbKey]) taskFeedback[fbKey] = { rating: 0, notes: [] };
             taskFeedback[fbKey].rating = rating;
             saveTaskFeedback(fbKey);
-            openTaskFeedback(fbKey, uid, '', encodedLink);
-            // Push notification to student
-            pushNotification(null, `Your submission was rated ${rating}★ by the teacher.`);
+            const displayName = encodedDisplayName ? decodeURIComponent(encodedDisplayName) : '';
+            openTaskFeedback(fbKey, uid, displayName, encodedLink);
         };
 
-        window.addTaskStickyNote = (fbKey, color, uid, encodedLink) => {
-            const text = prompt('Enter your feedback note:');
-            if (!text) return;
-            if (!taskFeedback[fbKey]) taskFeedback[fbKey] = { rating: 0, notes: [] };
-            taskFeedback[fbKey].notes.push({
-                color, text,
-                author: currentUser.name || 'Teacher',
-                time: new Date().toLocaleString(),
-                replies: []
-            });
-            saveTaskFeedback(fbKey);
-            openTaskFeedback(fbKey, uid, '', encodedLink);
-            pushNotification(null, `New teacher feedback: "${text.substring(0, 50)}..."`);
+        window.showInlineNoteCreator = (color) => {
+            const creator = document.getElementById('inline-note-creator');
+            const txt = document.getElementById('inline-note-text');
+            const saveBtn = document.getElementById('inline-note-save-btn');
+            if (!creator || !txt || !saveBtn) return;
+            
+            const colorMap = {
+                yellow: '#FEF08A',
+                pink: '#FBCFE8',
+                green: '#BBF7D0',
+                blue: '#BFDBFE'
+            };
+            creator.style.background = colorMap[color] || '#FEF08A';
+            creator.style.display = 'flex';
+            txt.value = '';
+            txt.focus();
+            
+            saveBtn.onclick = async () => {
+                const text = txt.value.trim();
+                if (!text) return;
+                
+                if (!taskFeedback[currentFbKey]) taskFeedback[currentFbKey] = { rating: 0, notes: [] };
+                taskFeedback[currentFbKey].notes.push({
+                    color, text,
+                    author: currentUser.name || 'Teacher',
+                    time: new Date().toLocaleString(),
+                    replies: []
+                });
+                saveTaskFeedback(currentFbKey);
+                
+                // Push notification to student
+                pushNotification(null, `New teacher feedback: "${text.substring(0, 50)}..."`, currentFbKey, currentFeedbackUid);
+                
+                creator.style.display = 'none';
+                openTaskFeedback(currentFbKey, currentFeedbackUid, currentFeedbackDisplayName, encodeURIComponent(currentFeedbackLink));
+            };
+        };
+        
+        window.hideInlineNoteCreator = () => {
+            const creator = document.getElementById('inline-note-creator');
+            if (creator) creator.style.display = 'none';
         };
 
-        window.addTaskReply = (fbKey, noteIdx, uid) => {
+
+        window.addTaskReply = (fbKey, noteIdx, uid, encodedDisplayName, encodedLink) => {
             const input = document.getElementById('task-reply-' + noteIdx);
             if (!input || !input.value.trim()) return;
-            if (!taskFeedback[fbKey]) return;
+            const replyText = input.value.trim();
+            if (!taskFeedback[fbKey] || !taskFeedback[fbKey].notes || !taskFeedback[fbKey].notes[noteIdx]) return;
+            
+            if (!taskFeedback[fbKey].notes[noteIdx].replies) {
+                taskFeedback[fbKey].notes[noteIdx].replies = [];
+            }
+            
             taskFeedback[fbKey].notes[noteIdx].replies.push({
-                text: input.value.trim(),
+                text: replyText,
                 author: currentUser.name || 'Student'
             });
+            input.value = '';
             saveTaskFeedback(fbKey);
+            
             // Re-render
-            const link = ''; // Will be reconstructed from fb
-            openTaskFeedback(fbKey, uid, '', '');
+            const displayName = encodedDisplayName ? decodeURIComponent(encodedDisplayName) : '';
+            openTaskFeedback(fbKey, uid, displayName, encodedLink);
+
+            // Push notification
+            if (isAdmin) {
+                pushNotification(null, `Teacher replied to feedback: "${replyText.substring(0, 50)}..."`, fbKey, uid);
+            } else {
+                findTeacherUidAndNotify(null, `Student ${currentUser.name || 'Student'} replied: "${replyText.substring(0, 50)}..."`, fbKey);
+            }
         };
 
 
@@ -1331,12 +1426,23 @@
         // =====================================================================
         let notifications = []; // [{id, text, time, read}]
 
-        function pushNotification(nodeId, text) {
+        function pushNotification(nodeId, text, stageFbKey, targetUid) {
             const b = getBridge(); if (!b) return;
-            const notif = { id: genId(), nodeId, text, time: Date.now(), read: false };
-            notifications.push(notif);
-            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
-            updateNotifBadge();
+            const recipientId = targetUid || currentUser.id;
+            const notif = { id: genId(), nodeId, text, time: Date.now(), read: false, stageFbKey };
+            
+            if (recipientId === currentUser.id) {
+                notifications.push(notif);
+                b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
+                updateNotifBadge();
+                if (currentTool === 'notifs') renderNotifications();
+            } else {
+                b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${recipientId}`), snap => {
+                    const recipientNotifs = snap.val() || [];
+                    recipientNotifs.push(notif);
+                    b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${recipientId}`), recipientNotifs);
+                }, { onlyOnce: true });
+            }
         }
 
         function loadNotifications() {
@@ -1357,6 +1463,16 @@
             } else {
                 badge.style.display = 'none';
             }
+            try {
+                const latest = notifications.length > 0 ? [...notifications].sort((a, b) => (b.time || 0) - (a.time || 0))[0] : null;
+                AppBridge.sendNotification({
+                    extensionId: 'ir_navigator',
+                    title: 'IR Navigator',
+                    body: latest && latest.text ? latest.text : 'No unread notifications',
+                    route: 'notification',
+                    unreadCount: unread
+                });
+            } catch (e) { }
         }
 
         function renderNotifications() {
@@ -1369,14 +1485,14 @@
             list.innerHTML = '';
             [...notifications].reverse().forEach(n => {
                 list.innerHTML += `
-                    <div class="notif-card ${n.read ? '' : 'notif-unread'}" onclick="openNotifNode('${n.nodeId}', '${n.id}')">
+                    <div class="notif-card ${n.read ? '' : 'notif-unread'}" onclick="openNotifNode('${n.nodeId || ''}', '${n.id}', '${n.stageFbKey || ''}')">
                         <div style="font-size:12px; font-weight:700;">${n.text}</div>
                         <div style="font-size:10px; color:var(--muted);">${new Date(n.time).toLocaleString()}</div>
                     </div>`;
             });
         }
 
-        window.openNotifNode = (nodeId, notifId) => {
+        window.openNotifNode = (nodeId, notifId, stageFbKey) => {
             // Mark as read
             const idx = notifications.findIndex(n => n.id === notifId);
             if (idx >= 0) { notifications[idx].read = true; }
@@ -1384,10 +1500,32 @@
             if (b) b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/notifications/${currentUser.id}`), notifications);
             updateNotifBadge();
             renderNotifications();
-            // Open canvas detail
-            if (canvasNodes[nodeId]) {
+            // Open canvas detail or stage feedback
+            if (nodeId && canvasNodes[nodeId]) {
                 switchToTool('canvas');
                 setTimeout(() => openNodeDetail(nodeId), 200);
+            } else if (stageFbKey) {
+                const parts = stageFbKey.split('_');
+                const stageIdx = parseInt(parts[0]);
+                const taskIdx = parseInt(parts[1]);
+                const studentUid = parts[2];
+                if (isAdmin) {
+                    switchToMilestones(stageIdx);
+                    b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${studentUid}`), metaSnap => {
+                        const meta = metaSnap.val() || {};
+                        const displayName = meta.name || studentUid;
+                        b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/links/${studentUid}/${stageIdx}/${taskIdx}`), linkSnap => {
+                            const link = linkSnap.val() || '';
+                            openTaskFeedback(stageFbKey, studentUid, displayName, encodeURIComponent(link));
+                        }, { onlyOnce: true });
+                    }, { onlyOnce: true });
+                } else {
+                    switchToMilestones(stageIdx);
+                    const link = myLinks[stageIdx]?.[taskIdx] || '';
+                    setTimeout(() => {
+                        openTaskFeedback(stageFbKey, currentUser.id, currentUser.name, encodeURIComponent(link));
+                    }, 300);
+                }
             }
         };
 
@@ -1399,50 +1537,6 @@
             renderNotifications();
         };
 
-        // =====================================================================
-        //  PDF REPORT EXPORTER
-        // =====================================================================
-        function exportPDFReport() {
-            // Build a print-friendly overlay
-            const sources = Object.values(canvasNodes).filter(n => n.type === 'source');
-            const themes = Object.values(canvasNodes).filter(n => n.type === 'theme');
-            const notes = Object.values(canvasNodes).filter(n => n.type === 'note');
-
-            let reportHtml = `
-                <div id="print-report" style="padding:40px; font-family:Georgia,serif; color:#000; background:#fff; position:fixed; inset:0; z-index:9999; overflow:auto;">
-                    <h1 style="font-size:28px; margin-bottom:4px; font-family:'Inter',sans-serif;">Independent Research Report</h1>
-                    <p style="color:#666; font-size:14px; margin-bottom:30px;">${currentUser.name} — ${currentUser.email} — ${new Date().toLocaleDateString()}</p>
-                    <hr style="border:none; border-top:2px solid #000; margin-bottom:30px;">
-
-                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin-bottom:16px;">Research Themes (${themes.length})</h2>
-                    ${themes.length ? themes.map(t => `<div style="margin-bottom:10px; padding:10px 16px; background:#f9f9f9; border-left:4px solid #F59E0B; border-radius:6px;"><b>${t.title}</b>${t.desc ? '<br><span style="color:#666; font-size:13px;">' + t.desc + '</span>' : ''}</div>`).join('') : '<p style="color:#999;">No themes added.</p>'}
-
-                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Bibliography / Sources (${sources.length})</h2>
-                    <ol style="padding-left:20px;">
-                    ${sources.map(s => `<li style="margin-bottom:8px;"><b>${s.title}</b>${s.url ? ' — <a href="' + formatUrl(s.url) + '">' + s.url + '</a>' : ''}${s.desc ? '<br><i style="color:#666;">' + s.desc + '</i>' : ''}</li>`).join('')}
-                    </ol>
-                    ${sources.length === 0 ? '<p style="color:#999;">No sources added.</p>' : ''}
-
-                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Research Notes (${notes.length})</h2>
-                    ${notes.map(n => `<div style="margin-bottom:10px; padding:10px 16px; background:#f0f0f0; border-radius:6px;"><b>${n.title}</b>${n.desc ? '<br><span style="color:#555;">' + n.desc + '</span>' : ''}</div>`).join('')}
-                    ${notes.length === 0 ? '<p style="color:#999;">No notes added.</p>' : ''}
-
-                    <h2 style="font-size:18px; font-family:'Inter',sans-serif; margin:30px 0 16px;">Milestones Progress</h2>
-                    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    ${STAGES.map((s, si) => {
-                        const tasks = currentTasks;
-                        return `<tr style="border-bottom:1px solid #ddd;"><td style="padding:10px; font-weight:700; color:#B45309;">${s.name}</td><td style="padding:10px;">Stage ${si}</td></tr>`;
-                    }).join('')}
-                    </table>
-
-                    <div style="margin-top:40px; text-align:center;">
-                        <button onclick="document.getElementById('print-report').remove()" style="padding:12px 28px; background:#000; color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer; margin-right:12px;">CLOSE</button>
-                        <button onclick="window.print()" style="padding:12px 28px; background:#F59E0B; color:#000; border:none; border-radius:10px; font-weight:800; cursor:pointer;">PRINT / SAVE PDF</button>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', reportHtml);
-        }
 
         async function resetAllData() {
             const b = getBridge(); if (!b) return;
@@ -1568,10 +1662,14 @@
             }, 500);
         }
 
+        window.addEventListener('message', (event) => {
+            const data = event && event.data ? event.data : null;
+            if (!data || data.type !== 'OPEN_NOTIFICATION_VIEW') return;
+            switchToTool('notifs');
+        });
+
         window.onload = () => {
-            // 核心：使用 SDK 进行初始化同步
             const initTheme = () => {
-                // 核心修复：进入时优先对齐主程序，实现“自动识别”
                 if (AppBridge.isDark()) {
                     applyTheme('dark');
                 } else {
@@ -1580,9 +1678,7 @@
             };
 
             initTheme();
-            // 延迟 150ms 再校准一次，防止主程序加载过慢
             setTimeout(initTheme, 150);
-            
             jump(0);
         };
     </script>

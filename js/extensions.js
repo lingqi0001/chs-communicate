@@ -25,6 +25,12 @@ export const ExtensionModule = {
             url: 'extensions/grade_calculator.html',
             title: 'Grade Calculator',
             category: 'Learning Tools'
+        },
+        'ir_navigator': {
+            eid: 'ir_navigator',
+            url: 'extensions/school/ir-navigator/IR Navigator.html',
+            title: 'IR Navigator',
+            category: 'Learning Tools'
         }
     },
 
@@ -53,38 +59,99 @@ export const ExtensionModule = {
 
         // Helper to scan local relative paths (development)
         const syncFolderLocal = async (folder) => {
-            try {
-                const resp = await fetch(`/extensions/${folder}/`);
-                if (resp.ok) {
-                    const text = await resp.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(text, 'text/html');
-                    const links = Array.from(doc.querySelectorAll('a'))
-                        .map(a => a.getAttribute('href'))
-                        .filter(href => href && href.endsWith('.html') && !href.startsWith('/'));
-                    if (links.length > 0) {
-                        const filesList = links.map(l => {
-                            const rawName = decodeURIComponent(l).replace('.html', '');
-                            const eid = rawName.toLowerCase().replace(/\s+/g, '_');
-                            const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                            const url = `extensions/${folder}/${l}`;
-                            
-                            this.registry[eid] = {
-                                eid,
-                                url,
-                                title: displayName,
-                                category: categoryMap[folder] || folder
-                            };
-                            return { name: decodeURIComponent(l), url };
-                        });
+            const filesList = [];
+            const scannedPaths = new Set();
+            const categoryName = categoryMap[folder] || folder;
+            
+            const scan = async (relativeDir) => {
+                if (scannedPaths.has(relativeDir)) return;
+                scannedPaths.add(relativeDir);
+                
+                try {
+                    const resp = await fetch(`extensions/${relativeDir}/`);
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(text, 'text/html');
+                        const links = Array.from(doc.querySelectorAll('a'))
+                            .map(a => a.getAttribute('href'))
+                            .filter(href => href);
                         
-                        if (this.callbacks.renderCategory) {
-                            this.callbacks.renderCategory(categoryMap[folder] || folder, filesList);
+                        for (const l of links) {
+                            let absolutePath;
+                            try {
+                                const base = new URL(`extensions/${relativeDir}/`, window.location.href);
+                                absolutePath = new URL(l, base).pathname;
+                            } catch (e) {
+                                continue;
+                            }
+                            
+                            const prefix = new URL(`extensions/${relativeDir}/`, window.location.href).pathname;
+                            if (!absolutePath.startsWith(prefix) || absolutePath === prefix) {
+                                continue;
+                            }
+                            
+                            const rest = absolutePath.slice(prefix.length);
+                            const decodedRest = decodeURIComponent(rest);
+                            const isDir = l.endsWith('/') || decodedRest.endsWith('/') || !decodedRest.includes('.');
+                            
+                            if (isDir) {
+                                const subName = decodedRest.endsWith('/') ? decodedRest.slice(0, -1) : decodedRest;
+                                if (subName && subName !== '.' && subName !== '..') {
+                                    await scan(`${relativeDir}/${subName}`);
+                                }
+                            } else if (decodedRest.endsWith('.html')) {
+                                const rawName = decodedRest.replace('.html', '');
+                                const eid = rawName.toLowerCase().replace(/\s+/g, '_');
+                                const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                const url = `extensions/${relativeDir}/${decodedRest}`;
+                                
+                                this.registry[eid] = {
+                                    eid,
+                                    url,
+                                    title: displayName,
+                                    category: categoryName
+                                };
+                                filesList.push({ name: decodedRest, url });
+                            }
                         }
-                        return true;
                     }
+                } catch (e) {
+                    console.warn(`Failed to local scan subfolder ${relativeDir}:`, e);
                 }
-            } catch (e) { }
+            };
+
+            await scan(folder);
+            
+            // Merge registry-backed fallback entries for this folder/category.
+            // This keeps nested tools visible even when directory-index recursion is blocked.
+            const fallbackFiles = Object.values(this.registry)
+                .filter(item =>
+                    item &&
+                    item.category === categoryName &&
+                    typeof item.url === 'string' &&
+                    item.url.startsWith(`extensions/${folder}/`) &&
+                    item.url.endsWith('.html')
+                )
+                .map(item => {
+                    const fileName = decodeURIComponent(item.url.split('/').pop() || '');
+                    return { name: fileName, url: item.url };
+                });
+
+            const dedup = new Map();
+            [...filesList, ...fallbackFiles].forEach(file => {
+                if (!file || !file.url) return;
+                const key = decodeURIComponent(file.url).toLowerCase();
+                if (!dedup.has(key)) dedup.set(key, file);
+            });
+            const mergedFiles = Array.from(dedup.values());
+
+            if (mergedFiles.length > 0) {
+                if (this.callbacks.renderCategory) {
+                    this.callbacks.renderCategory(categoryName, mergedFiles);
+                }
+                return true;
+            }
             return false;
         };
 
@@ -96,30 +163,38 @@ export const ExtensionModule = {
                     const items = await ghResp.json();
                     for (const item of items) {
                         if (item.type === 'dir') {
-                            const subResp = await fetch(item.url);
-                            if (subResp.ok) {
-                                const files = await subResp.json();
-                                const htmlFiles = files.filter(f => f.name.endsWith('.html'));
+                            const filesList = [];
+                            
+                            const scanGitHubDir = async (dirUrl) => {
+                                const subResp = await fetch(dirUrl);
+                                if (subResp.ok) {
+                                    const files = await subResp.json();
+                                    for (const f of files) {
+                                        if (f.type === 'dir') {
+                                            await scanGitHubDir(f.url);
+                                        } else if (f.type === 'file' && f.name.endsWith('.html')) {
+                                            const rawName = f.name.replace('.html', '');
+                                            const eid = rawName.toLowerCase().replace(/\s+/g, '_');
+                                            const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                            const url = f.path;
 
-                                if (htmlFiles.length > 0) {
-                                    const filesList = htmlFiles.map(f => {
-                                        const rawName = f.name.replace('.html', '');
-                                        const eid = rawName.toLowerCase().replace(/\s+/g, '_');
-                                        const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                        const url = f.path;
-
-                                        this.registry[eid] = {
-                                            eid,
-                                            url,
-                                            title: displayName,
-                                            category: categoryMap[item.name] || item.name
-                                        };
-                                        return { name: f.name, url: f.path };
-                                    });
-
-                                    if (this.callbacks.renderCategory) {
-                                        this.callbacks.renderCategory(categoryMap[item.name] || item.name, filesList);
+                                            this.registry[eid] = {
+                                                eid,
+                                                url,
+                                                title: displayName,
+                                                category: categoryMap[item.name] || item.name
+                                            };
+                                            filesList.push({ name: f.name, url: f.path });
+                                        }
                                     }
+                                }
+                            };
+
+                            await scanGitHubDir(item.url);
+
+                            if (filesList.length > 0) {
+                                if (this.callbacks.renderCategory) {
+                                    this.callbacks.renderCategory(categoryMap[item.name] || item.name, filesList);
                                 }
                             }
                         }

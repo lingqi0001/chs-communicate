@@ -6,7 +6,7 @@
     <title>Developer Portal - CHS Communicate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="../../js/lucide.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -160,7 +160,7 @@
 
     <script>
         // Initialize Icons
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Doc Search Logic
         const searchInput = document.getElementById('doc-search');

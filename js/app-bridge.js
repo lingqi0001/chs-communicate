@@ -65,5 +65,23 @@ window.AppBridge = {
                 index: index
             }, '*');
         }
+    },
+
+    /**
+     * Push an extension notification into main app recent list/unread system.
+     * payload: { extensionId, title, body, route, unreadCount }
+     */
+    sendNotification: function(payload = {}) {
+        if (!window.parent || !window.parent.postMessage) return;
+        window.parent.postMessage({
+            type: 'EXTENSION_NOTIFY',
+            payload: {
+                extensionId: payload.extensionId || '',
+                title: payload.title || 'Extension Notification',
+                body: payload.body || '',
+                route: payload.route || 'notification',
+                unreadCount: Number(payload.unreadCount || 0)
+            }
+        }, '*');
     }
 };

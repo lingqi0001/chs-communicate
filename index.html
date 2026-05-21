@@ -67,7 +67,7 @@
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/extensions.js": "./js/extensions.js?v=20260519-0925",
+        "./js/extensions.js": "./js/extensions.js?v=20260521-1015",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
         "./js/search.js": "./js/search.js?v=20260519-0935"
@@ -157,6 +157,21 @@
         let DONATIONS = {};
         let activeTargetId = null;
         let stopCurrentChatListener = null;
+        let _pendingExtensionBridgeMessage = null;
+        const _extensionNotifyState = {};
+        const _extensionNotifyRouteMap = {};
+        const _extensionUnreadCount = {};
+        let _irNotificationBridgeUnsub = null;
+        const isExtensionTargetId = (id) => {
+            const s = String(id || '').toLowerCase();
+            return s.startsWith('extension_') || s.startsWith('ext_');
+        };
+        const extensionIdFromTarget = (id) => {
+            const s = String(id || '').toLowerCase();
+            if (s.startsWith('extension_')) return s.slice('extension_'.length);
+            if (s.startsWith('ext_')) return s.slice('ext_'.length);
+            return s;
+        };
         const globalListeners = new Set();
         const SAFETY_BOT_ID = APP_CONSTANTS.SAFETY_BOT_ID;
         const ADVICE_BOT_ID = APP_CONSTANTS.ADVICE_BOT_ID;
@@ -574,6 +589,7 @@
 
                 renderSidebar(); // 立即初次渲染（显示占位符或旧缓存）
                 initGlobalNotificationMonitor(); // 同时启动未读消息数红点检测
+                initIRNavigatorNotificationBridge();
 
                 /**
                  * [桌面端优化] 
@@ -582,7 +598,8 @@
                  */
                 if (window.innerWidth >= 1024 && !activeTargetId) {
                     const sorted = chatIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0));
-                    const firstUserId = sorted[0];
+                    // Do not auto-open extension notification entries on reload.
+                    const firstUserId = sorted.find(id => !isExtensionTargetId(id));
                     if (firstUserId) {
                         console.log('App: Desktop mode, switching to first valid chat:', firstUserId);
                         switchChat(firstUserId);
@@ -1625,6 +1642,10 @@
                     validIds.push(id);
                     return;
                 }
+                if (isExtensionTargetId(id)) {
+                    validIds.push(id);
+                    return;
+                }
                 let u = ALL_USERS[id];
                 if (!u) u = await fetchUser(id); // Final cloud check
                 if (u && u.name) validIds.push(id);
@@ -1694,9 +1715,22 @@
                     avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-full flex items-center justify-center p-2">${iconToUse}</div>`;
                 } else {
                     const user = ALL_USERS[id];
-                    displayName = user?.name || id;
-                    displayEmail = user?.email || id;
-                    avatarHtml = ''; // Individual users have no avatar as per request
+                    if (isExtensionTargetId(id)) {
+                        const extName = extensionIdFromTarget(id).replace(/_/g, ' ');
+                        displayName = user?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
+                        displayEmail = "Notification from Extension Tool";
+                        avatarHtml = `
+                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                                </svg>
+                            </div>
+                        `;
+                    } else {
+                        displayName = user?.name || id;
+                        displayEmail = user?.email || id;
+                        avatarHtml = ''; // Individual users have no avatar as per request
+                    }
 
                     const isAdminUser = user ? (user.role === 'admin' || user.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) : false;
                     const isTeacherUser = user ? (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'))) : false;
@@ -1711,7 +1745,7 @@
                 div.id = `item-${id}`;
                 div.className = `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
                 div.style.paddingRight = "60px";
-                div.onclick = () => switchChat(id);
+                div.onclick = () => isExtensionTargetId(id) ? openExtensionNotificationTarget(id) : switchChat(id);
 
                 div.innerHTML = `
                         <div class="flex items-center gap-3 flex-1 overflow-hidden">
@@ -1743,6 +1777,10 @@
 
         window.switchChat = async (targetId) => {
             if (!targetId || targetId === currentUser.id || targetId === activeTargetId) return;
+            if (isExtensionTargetId(targetId)) {
+                await openExtensionNotificationTarget(targetId);
+                return;
+            }
 
             activeTargetId = targetId;
 
@@ -1830,9 +1868,16 @@
                 chatId = getChatId(currentUser.id, targetId);
                 // Set initial title (fallback to ID)
                 const u = ALL_USERS[targetId];
-                titleEl.innerText = u?.name || targetId;
+                if (isExtensionTargetId(targetId)) {
+                    const extName = extensionIdFromTarget(targetId).replace(/_/g, ' ');
+                    titleEl.innerText = u?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
+                } else {
+                    titleEl.innerText = u?.name || targetId;
+                }
 
-                const statusText = u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || "");
+                const statusText = isExtensionTargetId(targetId)
+                    ? "Extension Tool"
+                    : (u?.lastSeen ? formatLastSeen(u.lastSeen) : (u?.email || ""));
                 statusEl.innerText = statusText;
                 if (statusText === "online") {
                     statusEl.classList.add('text-[#007AFF]');
@@ -2612,7 +2657,7 @@
                 url = 'extensions/BC volume 3D present.html';
                 title = '3D Volume Visualizer';
             } else if (eid === 'independent_research') {
-                url = 'extensions/IR Navigator.html';
+                url = 'extensions/school/ir-navigator/IR Navigator.html';
                 title = 'Independent Research Hub';
             } else if (eid === 'grade_calculator') {
                 url = 'extensions/grade_calculator.html';
@@ -2632,6 +2677,10 @@
                         type: 'THEME_UPDATE',
                         isDarkMode: ViewModule.state.isDarkMode
                     }, '*');
+                    if (_pendingExtensionBridgeMessage) {
+                        iframe.contentWindow.postMessage(_pendingExtensionBridgeMessage, '*');
+                        _pendingExtensionBridgeMessage = null;
+                    }
                 }
             };
 
@@ -2654,10 +2703,119 @@
             AppModules.View.openOverlay('extensionPage', { zIndex: AppModules.View.CONSTANTS.Z_INDEX.ADMIN, isExclusive: true });
         };
 
+        window.openExtensionNotificationTarget = async (targetId) => {
+            const normalized = String(targetId || '').toLowerCase();
+            if (!isExtensionTargetId(normalized)) return;
+
+            const extensionId = extensionIdFromTarget(normalized);
+            const canonicalTarget = `ext_${extensionId}`;
+            const regItem = window.AppModules?.Extension?.getRegistryItem?.(extensionId);
+            const readableName = extensionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const displayTitle = regItem?.title || readableName;
+
+            const ok = await AppModules.Modal.confirm(
+                "Open Extension",
+                `You have a new message in an extension, do you want to open <b>${escapeHTML(displayTitle)}</b> notifications now?`,
+                "Open",
+                "Cancel"
+            );
+            if (!ok) return;
+
+            const route = _extensionNotifyRouteMap[canonicalTarget] || _extensionNotifyRouteMap[normalized] || 'notification';
+            _pendingExtensionBridgeMessage = route === 'notification'
+                ? { type: 'OPEN_NOTIFICATION_VIEW' }
+                : { type: 'OPEN_NOTIFICATION_VIEW' };
+            openExtension(extensionId, regItem?.url || null, displayTitle);
+        };
+
+        function initIRNavigatorNotificationBridge() {
+            try {
+                if (!currentUser || !currentUser.id) return;
+                if (_irNotificationBridgeUnsub) {
+                    _irNotificationBridgeUnsub();
+                    _irNotificationBridgeUnsub = null;
+                }
+                const uid = currentUser.id.toLowerCase();
+                const notifRef = ref(db, `user_image_index/ir_v7/notifications/${uid}`);
+                _irNotificationBridgeUnsub = onValue(notifRef, (snap) => {
+                    const list = Array.isArray(snap.val()) ? snap.val() : [];
+                    const unread = list.filter(n => !n.read).length;
+                    const latest = list.length > 0
+                        ? [...list].sort((a, b) => (b.time || 0) - (a.time || 0))[0]
+                        : null;
+
+                    handleExtensionNotify({
+                        extensionId: 'ir_navigator',
+                        title: 'IR Navigator',
+                        body: latest && latest.text ? latest.text : 'No unread notifications',
+                        route: 'notification',
+                        unreadCount: unread
+                    });
+                });
+            } catch (e) {
+                console.warn('IR notification bridge init failed:', e);
+            }
+        }
+
         // ==========================================
         // APP BRIDGE PROTOCOL
         // Provides safe access to main app functions for extensions
         // ==========================================
+        async function handleExtensionNotify(payload) {
+            try {
+                const extensionId = String(payload?.extensionId || '').trim();
+                if (!extensionId) return;
+
+                const targetId = `ext_${extensionId.toLowerCase()}`;
+                const text = String(payload?.body || payload?.title || 'Extension notification');
+                const unreadCount = Number(payload?.unreadCount || 0);
+                const route = String(payload?.route || 'notification');
+                const uid = currentUser.id.toLowerCase();
+                const prevUnread = Number(_extensionUnreadCount[targetId] || 0);
+                _extensionUnreadCount[targetId] = unreadCount;
+
+                _extensionNotifyRouteMap[targetId] = route;
+
+                // Ensure we can display a friendly name immediately
+                if (!ALL_USERS[targetId]) {
+                    ALL_USERS[targetId] = {
+                        name: String(payload?.title || 'Extension'),
+                        email: String(payload?.extensionId || 'extension'),
+                        role: 'system_extension',
+                        lastSeen: Date.now()
+                    };
+                }
+
+                // If unread is cleared, only clear dot; do not bump recency/order.
+                if (unreadCount <= 0) {
+                    await update(ref(db, `user_notifications/${uid}`), { [targetId]: false, [`extension_${extensionId.toLowerCase()}`]: false });
+                    AppModules.Notify.markAsRead(targetId);
+                    if (window.renderSidebar) window.renderSidebar();
+                    return;
+                }
+
+                // De-dup repeated bridge updates caused by opening extension / mark-read cycles.
+                const sig = `${unreadCount}|${text}`;
+                if (_extensionNotifyState[targetId] === sig) {
+                    return;
+                }
+                _extensionNotifyState[targetId] = sig;
+
+                // Keep this entry discoverable in sidebar and mark unread.
+                await update(ref(db, `user_chats/${uid}`), { [targetId]: Date.now(), [`extension_${extensionId.toLowerCase()}`]: null });
+                await update(ref(db, `user_notifications/${uid}`), { [targetId]: true });
+
+                // Play sound / visual alert when unread first appears or increases.
+                if (unreadCount > prevUnread && window.AppModules && window.AppModules.Notify && window.AppModules.Notify.triggerAlert) {
+                    window.AppModules.Notify.triggerAlert(targetId, { text, senderId: targetId });
+                }
+
+                if (window.renderSidebar) window.renderSidebar();
+            } catch (err) {
+                console.error('Extension notify handling failed:', err);
+            }
+        }
+
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type) {
                 switch (event.data.type) {
@@ -2672,6 +2830,9 @@
                         break;
                     case 'OPEN_GALLERY':
                         openGallery(event.data.images, event.data.index || 0);
+                        break;
+                    case 'EXTENSION_NOTIFY':
+                        handleExtensionNotify(event.data.payload || {});
                         break;
                     case 'CLOSE_EXTENSION':
                         closeExtension();
