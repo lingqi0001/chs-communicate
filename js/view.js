@@ -774,16 +774,16 @@ export const ViewModule = {
     goBackToClassList: function () {
         window.currentClassId = null;
         window._isPopNav = true;
-        if (typeof window.renderSidebar === 'function') {
-            window.renderSidebar(true);
+        if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
+            AppModules.Sidebar.renderSidebar(true);
         }
     },
 
     goBackToRecent: function () {
         window.sidebarMode = 'recent';
         window._isPopNav = true;
-        if (typeof window.renderSidebar === 'function') {
-            window.renderSidebar(true);
+        if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
+            AppModules.Sidebar.renderSidebar(true);
         }
     }
 };

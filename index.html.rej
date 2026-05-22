@@ -1,7 +1,4 @@
-﻿diff --git a/index.html b/index.html
-index 26130b9..3f6c2a1 100644
---- a/index.html
-+++ b/index.html
+diff a/index.html b/index.html	(rejected hunks)
 @@ -89,6 +89,8 @@
          import { SyncModule } from './js/sync.js';
          import { ExtensionModule } from './js/extensions.js';
@@ -27,19 +24,6 @@ index 26130b9..3f6c2a1 100644
 +        window.fetchUser = (id) => AppModules.Security.fetchUser(id);
  
          // 搴旂敤杩愯鏃剁姸鎬佺鐞?         let ALL_USERS = { ...SYSTEM_USERS };
-@@ -201,6 +205,12 @@
-             configurable: true
-         });
- 
-+        Object.defineProperty(window, 'modulePosts', {
-+            get: () => modulePosts,
-+            set: (val) => { modulePosts = val; },
-+            configurable: true
-+        });
-+
-         const EAGLE_ICON = APP_CONSTANTS.EAGLE_ICON;
-         const EAGLE_ICON_BW = APP_CONSTANTS.EAGLE_ICON_BW;
- 
 @@ -310,16 +320,9 @@
          // 閫氱煡闊虫晥瀵硅薄鐢?AppModules.Notify 绠＄悊
          const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
