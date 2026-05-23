@@ -17,6 +17,7 @@ export const SidebarModule = {
     _isRenderingGetter: null,
     _isRenderingFlag: false,
     _refreshTimer: null,
+    _subListLoadingTimer: null,
     _runtime: {},
 
     state: {
@@ -565,14 +566,26 @@ export const SidebarModule = {
         if (!subList || !rt.db || !currentUser) return undefined;
 
         return (async () => {
-            subList.innerHTML = `
-                <div class="h-full flex items-center justify-center">
-                    <div class="flex flex-col items-center gap-2 text-gray-400">
-                        <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                        <span class="text-xs font-medium">Loading chats...</span>
-                    </div>
-                </div>
-            `;
+            const hadListItems = !!subList.querySelector('div[id^="item-"]');
+            const canShowDelayedLoading = !hadListItems;
+            let loadingShown = false;
+            if (this._subListLoadingTimer) {
+                clearTimeout(this._subListLoadingTimer);
+                this._subListLoadingTimer = null;
+            }
+            if (canShowDelayedLoading) {
+                this._subListLoadingTimer = setTimeout(() => {
+                    loadingShown = true;
+                    subList.innerHTML = `
+                        <div class="h-full flex items-center justify-center">
+                            <div class="flex flex-col items-center gap-2 text-gray-400">
+                                <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                                <span class="text-xs font-medium">Loading chats...</span>
+                            </div>
+                        </div>
+                    `;
+                }, 100);
+            }
             try {
                 const chatSnap = await rt.get(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
                 const chatMap = chatSnap.val() || {};
@@ -714,11 +727,21 @@ export const SidebarModule = {
                 `;
                     fragment.appendChild(div);
                 }
+                if (this._subListLoadingTimer) {
+                    clearTimeout(this._subListLoadingTimer);
+                    this._subListLoadingTimer = null;
+                }
                 subList.innerHTML = '';
                 subList.appendChild(fragment);
             } catch (err) {
+                if (this._subListLoadingTimer) {
+                    clearTimeout(this._subListLoadingTimer);
+                    this._subListLoadingTimer = null;
+                }
                 console.error('renderUserSidebarItems error:', err);
-                subList.innerHTML = '<div class="h-full min-h-[120px] flex items-center justify-center text-gray-400 text-sm">Unable to load chats</div>';
+                if (!hadListItems || loadingShown) {
+                    subList.innerHTML = '<div class="h-full min-h-[120px] flex items-center justify-center text-gray-400 text-sm">Unable to load chats</div>';
+                }
             }
         })();
     },

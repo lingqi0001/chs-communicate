@@ -1,47 +1,101 @@
 {
   "rules": {
-    ".read": "auth != null",
+    ".read": false,
 
     "user_image_index": {
       "ir_v7": {
-        ".read": "auth != null",
+        ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
         ".write": "auth.token.email == 'moss104088@gmail.com'",
-        "progress": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "links": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "matrix": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "meta": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "canvas": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "comments": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
-        "notifications": { "$uid": { ".write": "auth != null" } },
-        "taskfeedback": { ".write": "auth != null" },
-        "duties": { ".write": "auth.token.email == 'moss104088@gmail.com'" },
-        "deadlines": { ".write": "auth.token.email == 'moss104088@gmail.com'" },
-        "broadcast": { ".write": "auth.token.email == 'moss104088@gmail.com'" }
+
+        "progress": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "links": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "matrix": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "meta": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "canvas": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "comments": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "notifications": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        },
+        "taskfeedback": { ".read": "auth != null", ".write": "auth != null" },
+        "duties": { ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))", ".write": "auth.token.email == 'moss104088@gmail.com'" },
+        "deadlines": { ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))", ".write": "auth.token.email == 'moss104088@gmail.com'" },
+        "broadcast": { ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))", ".write": "auth.token.email == 'moss104088@gmail.com'" }
       },
-      ".read": "auth != null",
+
       "$uid": {
-         ".write": "auth != null && auth.uid === $uid"
+        ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+        ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
       }
     },
 
     "users": {
       ".read": "auth != null",
-      "$userId": { ".write": "auth != null" }
-    },
-    "messages": {
-      "$chatId": {
-        ".read": "auth != null && ($chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || $chatId.contains('group_'))", 
-        ".write": "auth != null",
-        "$msgId": { ".write": "auth.token.email == 'moss104088@gmail.com' || !data.exists()" }
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
       }
     },
-    "user_chats": { 
-      "$uid": { 
-        ".read": "auth != null && (auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com')", 
-        ".write": "auth != null" 
-      } 
+
+    "messages": {
+      "$chatId": {
+        ".read": "auth != null && ((($chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists() || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.uid || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))) || ((!$chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && ($chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))))",
+        ".write": "auth != null && ((($chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists() || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.uid || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))) || ((!$chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && ($chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))))",
+        "$msgId": {
+          ".write": "(auth.token.email == 'moss104088@gmail.com') || (!data.exists() && auth != null)",
+          ".validate": "newData.hasChildren(['senderId','senderName','type','timestamp']) && newData.child('senderId').isString() && newData.child('senderName').isString() && newData.child('type').isString() && newData.child('timestamp').exists() && (newData.child('senderId').val() === auth.uid || newData.child('senderId').val() === auth.uid.toLowerCase() || newData.child('senderId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) && ((newData.child('type').val() === 'text' && newData.child('text').isString()) || (newData.child('type').val() === 'image_group' && newData.child('text').isString()))"
+        }
+      }
     },
-    "user_private": { "$uid": { ".read": "auth != null", ".write": "auth != null" } },
+
+    "user_chats": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+        ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+        "$chatTarget": {
+          ".validate": "newData.isNumber() || newData.val() == now || newData.val() == null"
+        }
+      }
+    },
+
+    "user_private": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+        ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+      }
+    },
 
     "classes": {
       ".read": "auth != null",
@@ -55,6 +109,7 @@
 
     "modules": {
       "$module": {
+        ".read": "auth != null",
         "$postId": {
           ".write": "auth != null",
           "likes": { "$uid": { ".write": "auth.uid === $uid" } },
@@ -62,26 +117,37 @@
         }
       }
     },
+
     "user_notifications": {
       "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)"
+        ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+        ".write": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
       }
     },
 
-    "settings": { 
-      ".read": "auth != null", 
-      ".write": "auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org')" 
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org')"
     },
+
     "config": {
       ".read": "auth != null",
       ".write": "auth.token.email == 'moss104088@gmail.com'"
     },
+
     "extension_requests": {
-      ".read": "auth.token.email == 'moss104088@gmail.com'",
+      ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
       ".write": "auth != null"
     },
-    "cafeteria": { ".read": "auth != null", ".write": "auth.token.email == 'moss104088@gmail.com'" },
-    "eagle_time": { ".read": "auth != null", ".write": "auth != null" }
+
+    "cafeteria": {
+      ".read": "auth != null",
+      ".write": "auth.token.email == 'moss104088@gmail.com'"
+    },
+
+    "eagle_time": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
   }
 }
