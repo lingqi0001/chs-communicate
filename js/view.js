@@ -677,7 +677,7 @@ export const ViewModule = {
     /**
      * Toggle settings modal visibility
      */
-    toggleSettings: function (view = 'settings', currentUser = None) {
+    toggleSettings: function (view = 'settings', currentUser = null) {
         const modal = document.getElementById('settingsModal');
         const sv = document.getElementById('settingsView');
         const dv = document.getElementById('donationView');

@@ -1,96 +1,87 @@
 {
   "rules": {
-    // 允许所有人读取数据，确保基础访问正常
-    ".read": true,
+    ".read": "auth != null",
 
-    // 全局设置：仅限管理员账号修改
-    "settings": {
-      ".write": "auth.token.email == 'moss104088@gmail.com'"
-    },
-
-    "news": {
-      // 允许所有人写入 news (你可以根据需要收紧为 auth != null)
-      ".write": true
-    },
-
-    "messages": {
-      "$chatId": {
-        // 只有登录用户可以写入消息
-        ".write": "auth != null"
+    "user_image_index": {
+      "ir_v7": {
+        ".read": "auth != null",
+        ".write": "auth.token.email == 'moss104088@gmail.com'",
+        "progress": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "links": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "matrix": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "meta": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "canvas": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "comments": { "$uid": { ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)" } },
+        "notifications": { "$uid": { ".write": "auth != null" } },
+        "taskfeedback": { ".write": "auth != null" },
+        "duties": { ".write": "auth.token.email == 'moss104088@gmail.com'" },
+        "deadlines": { ".write": "auth.token.email == 'moss104088@gmail.com'" },
+        "broadcast": { ".write": "auth.token.email == 'moss104088@gmail.com'" }
+      },
+      ".read": "auth != null",
+      "$uid": {
+         ".write": "auth != null && auth.uid === $uid"
       }
     },
 
     "users": {
-      "$uid": {
-        // 只有登录用户可以操作自己的用户节点
-        ".write": "auth != null"
+      ".read": "auth != null",
+      "$userId": { ".write": "auth != null" }
+    },
+    "messages": {
+      "$chatId": {
+        ".read": "auth != null && ($chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || $chatId.contains('group_'))", 
+        ".write": "auth != null",
+        "$msgId": { ".write": "auth.token.email == 'moss104088@gmail.com' || !data.exists()" }
       }
     },
-
-    "user_private": {
-      "$uid": {
-        // 私有数据保护
-        ".write": "auth != null"
-      }
+    "user_chats": { 
+      "$uid": { 
+        ".read": "auth != null && (auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com')", 
+        ".write": "auth != null" 
+      } 
     },
-
-    "user_chats": {
-      "$uid": {
-        // 聊天列表同步
-        ".write": "auth != null"
-      }
-    },
+    "user_private": { "$uid": { ".read": "auth != null", ".write": "auth != null" } },
 
     "classes": {
-      // 允许所有登录用户读取班级信息
       ".read": "auth != null",
-      // 仅限管理员和教职员工创建或修改班级
       ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
     },
 
-    "cafeteria": {
-      // 允许所有登录用户读取菜单，但仅限管理员和教职员工修改
+    "news": {
       ".read": "auth != null",
-      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+      ".write": "auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org')"
     },
 
     "modules": {
       "$module": {
         "$postId": {
           ".write": "auth != null",
-          "likes": {
-            "$uid": {
-              ".write": "auth.uid === $uid"
-            }
-          },
-          "comments": {
-            "$commentId": {
-              ".write": "auth != null"
-            }
-          },
-          "supportVotes": {
-            "$uid": {
-              ".write": "auth.uid === $uid"
-            }
-          },
-          "notSupportVotes": {
-            "$uid": {
-              ".write": "auth.uid === $uid"
-            }
-          }
+          "likes": { "$uid": { ".write": "auth.uid === $uid" } },
+          "comments": { "$commentId": { ".write": "auth != null" } }
         }
       }
     },
-
-    "eagle_time": {
-      ".write": "auth != null"
+    "user_notifications": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid)"
+      }
     },
 
+    "settings": { 
+      ".read": "auth != null", 
+      ".write": "auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org')" 
+    },
     "config": {
-      "openai_key": {
-        ".read": "auth != null",
-        ".write": "auth.token.email == 'moss104088@gmail.com'"
-      }
-    }
+      ".read": "auth != null",
+      ".write": "auth.token.email == 'moss104088@gmail.com'"
+    },
+    "extension_requests": {
+      ".read": "auth.token.email == 'moss104088@gmail.com'",
+      ".write": "auth != null"
+    },
+    "cafeteria": { ".read": "auth != null", ".write": "auth.token.email == 'moss104088@gmail.com'" },
+    "eagle_time": { ".read": "auth != null", ".write": "auth != null" }
   }
 }

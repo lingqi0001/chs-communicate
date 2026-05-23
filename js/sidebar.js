@@ -565,54 +565,63 @@ export const SidebarModule = {
         if (!subList || !rt.db || !currentUser) return undefined;
 
         return (async () => {
-            const chatSnap = await rt.get(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
-            const chatMap = chatSnap.val() || {};
-            let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
+            subList.innerHTML = `
+                <div class="h-full flex items-center justify-center">
+                    <div class="flex flex-col items-center gap-2 text-gray-400">
+                        <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                        <span class="text-xs font-medium">Loading chats...</span>
+                    </div>
+                </div>
+            `;
+            try {
+                const chatSnap = await rt.get(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
+                const chatMap = chatSnap.val() || {};
+                let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-            if (Object.keys(chatMap).length === 0) {
-                try {
-                    const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
-                    if (recentSnap.exists()) {
-                        const recents = recentSnap.val();
-                        Object.keys(recents).forEach(rid => {
-                            if (rid !== currentUser.id && !chatIds.includes(rid)) {
-                                chatIds.push(rid);
-                                if (!window.ALL_USERS[rid]) window.ALL_USERS[rid] = recents[rid];
-                            }
-                        });
+                if (Object.keys(chatMap).length === 0) {
+                    try {
+                        const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                        if (recentSnap.exists()) {
+                            const recents = recentSnap.val();
+                            Object.keys(recents).forEach(rid => {
+                                if (rid !== currentUser.id && !chatIds.includes(rid)) {
+                                    chatIds.push(rid);
+                                    if (!window.ALL_USERS[rid]) window.ALL_USERS[rid] = recents[rid];
+                                }
+                            });
+                        }
+                    } catch (e) { }
+                }
+
+                const validIds = [];
+                await Promise.all(chatIds.map(async id => {
+                    if (id.startsWith('group_')) {
+                        validIds.push(id);
+                        return;
                     }
-                } catch (e) { }
-            }
+                    if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
+                        validIds.push(id);
+                        return;
+                    }
+                    let u = window.ALL_USERS[id];
+                    if (!u) u = await window.fetchUser(id);
+                    if (u && u.name) validIds.push(id);
+                }));
 
-            const validIds = [];
-            await Promise.all(chatIds.map(async id => {
-                if (id.startsWith('group_')) {
-                    validIds.push(id);
-                    return;
+                let sortedIds = [];
+                if (window.sidebarMode === 'recent') {
+                    sortedIds = validIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0)).slice(0, 50);
+                } else {
+                    sortedIds = validIds.sort((a, b) => {
+                        if (a.startsWith('group_') && !b.startsWith('group_')) return -1;
+                        if (!a.startsWith('group_') && b.startsWith('group_')) return 1;
+                        const nameA = (a.startsWith('group_') ? 'Group' : (window.ALL_USERS[a]?.name || a)).toLowerCase();
+                        const nameB = (b.startsWith('group_') ? 'Group' : (window.ALL_USERS[b]?.name || b)).toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    }).slice(0, 50);
                 }
-                if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
-                    validIds.push(id);
-                    return;
-                }
-                let u = window.ALL_USERS[id];
-                if (!u) u = await window.fetchUser(id);
-                if (u && u.name) validIds.push(id);
-            }));
 
-            let sortedIds = [];
-            if (window.sidebarMode === 'recent') {
-                sortedIds = validIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0)).slice(0, 50);
-            } else {
-                sortedIds = validIds.sort((a, b) => {
-                    if (a.startsWith('group_') && !b.startsWith('group_')) return -1;
-                    if (!a.startsWith('group_') && b.startsWith('group_')) return 1;
-                    const nameA = (a.startsWith('group_') ? 'Group' : (window.ALL_USERS[a]?.name || a)).toLowerCase();
-                    const nameB = (b.startsWith('group_') ? 'Group' : (window.ALL_USERS[b]?.name || b)).toLowerCase();
-                    return nameA.localeCompare(nameB);
-                }).slice(0, 50);
-            }
-
-            const fragment = document.createDocumentFragment();
+                const fragment = document.createDocumentFragment();
 
             if (window.sidebarMode === 'recent') {
                 const entry = document.createElement('div');
@@ -632,8 +641,8 @@ export const SidebarModule = {
                 fragment.appendChild(entry);
             }
 
-            const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
-            for (const id of sortedIds) {
+                const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
+                for (const id of sortedIds) {
                 if (id.toLowerCase() === currentUser.id.toLowerCase()) continue;
                 if (!id.startsWith('group_') && (id.includes('_gmail_') || id.includes('_inst_'))) continue;
 
@@ -703,10 +712,14 @@ export const SidebarModule = {
                         </button>
                     </div>
                 `;
-                fragment.appendChild(div);
+                    fragment.appendChild(div);
+                }
+                subList.innerHTML = '';
+                subList.appendChild(fragment);
+            } catch (err) {
+                console.error('renderUserSidebarItems error:', err);
+                subList.innerHTML = '<div class="h-full min-h-[120px] flex items-center justify-center text-gray-400 text-sm">Unable to load chats</div>';
             }
-            subList.innerHTML = '';
-            subList.appendChild(fragment);
         })();
     },
 

@@ -157,6 +157,18 @@ export function createNewsModule(deps) {
 
     async function renderLocalNews(getLocalNews) {
         const newsTabs = ['school', 'club'];
+        newsTabs.forEach((tab) => {
+            const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="py-10 flex flex-col items-center gap-2 text-gray-400">
+                        <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                        <span class="text-xs font-medium">Loading announcements...</span>
+                    </div>
+                `;
+            }
+        });
         await Promise.all(newsTabs.map(async (tab) => {
             const posts = await getLocalNews(tab);
             const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';

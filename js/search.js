@@ -602,7 +602,17 @@ export const SearchModule = {
             if (storeName === 'news') {
                 if (window.innerWidth < 1024) window.switchTab('news');
                 window.switchLeftTab('news');
-                window.toggleNewsTab(typeOrModule);
+                const schoolContent = document.getElementById('schoolNewsContent');
+                const clubContent = document.getElementById('clubNewsContent');
+                const targetIsSchool = typeOrModule === 'school';
+                const isAlreadyOnTargetTab = targetIsSchool
+                    ? (schoolContent && !schoolContent.classList.contains('hidden'))
+                    : (clubContent && !clubContent.classList.contains('hidden'));
+
+                if (!isAlreadyOnTargetTab) {
+                    window.toggleNewsTab(typeOrModule);
+                }
+
                 setTimeout(() => {
                     const containerId = typeOrModule === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                     const container = document.getElementById(containerId);
@@ -611,11 +621,12 @@ export const SearchModule = {
                         const target = items.find(el => el.dataset.newsKey === itemId);
                         if (target) {
                             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            target.classList.add('ring-2', 'ring-[#007AFF]', 'animate-pulse');
-                            setTimeout(() => target.classList.remove('ring-2', 'ring-[#007AFF]', 'animate-pulse'), 3000);
+                            target.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
+                            target.classList.add('news-jump-highlight');
+                            setTimeout(() => target.classList.remove('news-jump-highlight'), 1800);
                         }
                     }
-                }, 500);
+                }, isAlreadyOnTargetTab ? 120 : 500);
             } else if (storeName === 'modules') {
                 window.switchLeftTab('more');
                 window.openModule(typeOrModule);

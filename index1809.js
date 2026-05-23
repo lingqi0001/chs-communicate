@@ -1,64 +1,4 @@
-<!DOCTYPE html>
 
-<html lang="en" class="">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CHS Communicate</title>
-    <script>
-        // Fast Theme Initializer - Prevents flash and ensures persistence on reload
-        (function () {
-            const savedTheme = localStorage.getItem('theme');
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        })();
-    </script>
-    <link rel="icon" type="image/svg+xml" href="resources/favicon.svg">
-    <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#007AFF">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-    <link rel="stylesheet" href="style.css?v=4">
-
-    <script type="importmap">
-    {
-      "imports": {
-        "./js/core.js": "./js/core.js?v=20260519-0935",
-        "./js/config.js": "./js/config.js?v=20260516-2380",
-        "./js/db.js": "./js/db.js?v=20260519-0925",
-        "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260516-2380",
-        "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
-        "./js/modal.js": "./js/modal.js?v=20260516-2380",
-        "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260519-0220",
-        "./js/content.js": "./js/content.js?v=20260516-2380",
-        "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
-        "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
-        "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260521-1905",
-        "./js/extensions.js": "./js/extensions.js?v=20260522",
-        "./js/bridge.js": "./js/bridge.js?v=20260522",
-        "./js/auth.js": "./js/auth.js?v=20260519-0935",
-        "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260519-0935",
-        "./js/settings.js": "./js/settings.js?v=20260522",
-        "./js/admin.js": "./js/admin.js?v=20260522"
-      }
-    }
-    </script>
-
-    <script type="module">
         import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, sRef, uploadString, getDownloadURL, deleteObject } from './js/core.js';
 
         
@@ -75,13 +15,10 @@
         import { SyncModule } from './js/sync.js';
         import { SidebarModule } from './js/sidebar.js';
         import { ExtensionModule } from './js/extensions.js';
-        import { BridgeModule } from './js/bridge.js';
         import { AuthModule } from './js/auth.js';
         import { SecurityModule } from './js/security.js';
         import { SearchModule } from './js/search.js';
         import { createNewsModule } from './js/news.js?v=20260522-1';
-        import { SettingsModule } from './js/settings.js';
-        import { AdminModule } from './js/admin.js';
 
         
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -98,11 +35,8 @@
             Sync: SyncModule,
             Sidebar: SidebarModule,
             Extension: ExtensionModule,
-            Bridge: BridgeModule,
             Security: SecurityModule,
             Search: SearchModule,
-            Settings: SettingsModule,
-            Admin: AdminModule,
             Utils: { ...UIUtils, ...DateUtils, Image: ImageUtils },
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         });
@@ -181,9 +115,23 @@
         let ALL_USERS = { ...SYSTEM_USERS };
         window.ALL_USERS = ALL_USERS;
         let DONATIONS = {};
-        window.DONATIONS = DONATIONS;
         let activeTargetId = null;
         let stopCurrentChatListener = null;
+        let _pendingExtensionBridgeMessage = null;
+        const _extensionNotifyState = {};
+        const _extensionNotifyRouteMap = {};
+        const _extensionUnreadCount = {};
+        let _irNotificationBridgeUnsub = null;
+        const isExtensionTargetId = (id) => {
+            const s = String(id || '').toLowerCase();
+            return s.startsWith('extension_') || s.startsWith('ext_');
+        };
+        const extensionIdFromTarget = (id) => {
+            const s = String(id || '').toLowerCase();
+            if (s.startsWith('extension_')) return s.slice('extension_'.length);
+            if (s.startsWith('ext_')) return s.slice('ext_'.length);
+            return s;
+        };
         const globalListeners = new Set();
         const SAFETY_BOT_ID = APP_CONSTANTS.SAFETY_BOT_ID;
         const ADVICE_BOT_ID = APP_CONSTANTS.ADVICE_BOT_ID;
@@ -285,7 +233,7 @@
                 
                 const card = document.createElement('div');
                 
-                card.onclick = () => window.openExtension(rawName, file.url, displayName);
+                card.onclick = () => openExtension(rawName, file.url, displayName);
                 
                 card.className = "p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group";
 
@@ -346,7 +294,6 @@
             { name: "Chime", url: "https://assets.mixkit.co/active_storage/sfx/2347/2347-preview.mp3" },
             { name: "Bell", url: "https://assets.mixkit.co/active_storage/sfx/2341/2341-preview.mp3" }
         ];
-        window.SOUNDS = SOUNDS;
 
         
         const getChatId = (id1, id2) => [id1.toLowerCase(), id2.toLowerCase()].sort().join('_');
@@ -467,13 +414,13 @@
                     formatLastSeen,
                     eagleIcon: EAGLE_ICON,
                     eagleIconBw: EAGLE_ICON_BW,
-                    isExtensionTargetId: AppModules.Bridge.isExtensionTargetId,
-                    extensionIdFromTarget: AppModules.Bridge.extensionIdFromTarget
+                    isExtensionTargetId,
+                    extensionIdFromTarget
                 });
             }
             AppModules.Security.initSecurityObserver(); 
             initChatListObserver();     
-            SettingsModule.initSettingsUI();           
+            initSettingsUI();           
             AppModules.Security.updateNewsAccess();     
             AppModules.View.showSidebar(); 
             AppModules.Notify.initMonitor();       
@@ -558,7 +505,7 @@
 
                 AppModules.Sidebar.renderSidebar(); 
                 initGlobalNotificationMonitor(); 
-                AppModules.Bridge.initIRNavigatorNotificationBridge();
+                initIRNavigatorNotificationBridge();
 
                 
 
@@ -696,8 +643,83 @@
             }
         };
 
+        function initSettingsUI() {
+            document.getElementById('soundToggle').checked = SETTINGS.soundEnabled;
+            updateSettingsLabels();
+            const soundDropdown = document.getElementById('soundDropdown');
+            if (soundDropdown) {
+                soundDropdown.innerHTML = '';
+                SOUNDS.forEach((s, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `w-full text-left px-4 py-3 text-[15px] hover:bg-gray-100 dark:hover:bg-white/10 transition-colors ${index !== SOUNDS.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`;
+                    btn.innerText = s.name;
+                    btn.onclick = (e) => selectSound(s.url, e);
+                    soundDropdown.appendChild(btn);
+                });
+            }
+
+            if (AppModules.User.isAdmin()) {
+                document.getElementById('adminPanel')?.classList.remove('hidden');
+            }
+        }
+
+        function updateSettingsLabels() {
+            if (document.getElementById('currentSoundLabel')) {
+                document.getElementById('currentSoundLabel').innerText = SOUNDS.find(s => s.url === SETTINGS.soundUrl)?.name || 'Note';
+            }
+            const theme = localStorage.getItem('theme') || 'system';
+            if (document.getElementById('currentThemeLabel')) {
+                document.getElementById('currentThemeLabel').innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
+            }
+        }
+
+        window.updateSound = (url) => {
+            SETTINGS.soundUrl = url;
+            localStorage.setItem('soundUrl', url);
+            
+            if (AppModules.Notify) {
+                AppModules.Notify.setSound(url);
+                
+                if (AppModules.Notify.audio) AppModules.Notify.audio.play();
+            }
+        };
+        window.toggleSound = (enabled) => { SETTINGS.soundEnabled = enabled; localStorage.setItem('soundEnabled', enabled); };
+        window.showChangelog = () => {
+            document.getElementById('settingsView').classList.add('hidden');
+            document.getElementById('changelogView').classList.remove('hidden');
+            document.getElementById('settingsModalTitle').innerText = "Engineering Log";
+            const backBtn = document.createElement('button');
+            backBtn.id = 'changelogBackBtn';
+            backBtn.innerText = "Back";
+            backBtn.className = "text-[#007AFF] font-medium text-[17px]";
+            backBtn.onclick = () => {
+                document.getElementById('changelogView').classList.add('hidden');
+                document.getElementById('settingsView').classList.remove('hidden');
+                document.getElementById('settingsModalTitle').innerText = "Settings";
+                backBtn.remove();
+            };
+            const header = document.querySelector('#settingsModal .rounded-t-2xl');
+            const doneBtn = header.querySelector('button');
+            doneBtn.classList.add('hidden');
+            header.insertBefore(backBtn, doneBtn);
+            window._restoreSettingsHeader = () => {
+                backBtn.remove();
+                doneBtn.classList.remove('hidden');
+                document.getElementById('settingsModalTitle').innerText = "Settings";
+            };
+        };
+
+
+
+        
         window.AppView = AppModules.View;
-        window.switchLeftTab = (tab) => AppModules.View.switchLeftTab(tab);
+                window.switchLeftTab = (tab) => AppModules.View.switchLeftTab(tab);
+        window.applyTheme = (mode) => AppModules.View.applyTheme(mode);
+        window.toggleSettings = (view = 'settings') => AppModules.View.toggleSettings(view, currentUser);
+        window.toggleDonation = () => AppModules.View.toggleSettings('donation', currentUser);
+        window.openDonationQR = (method, fallbackUrl) => AppModules.View.openDonationQR(method, fallbackUrl, DONATIONS);
+        window.closeDonationQR = () => AppModules.View.closeDonationQR();
+        window.toggleDropdown = (id, e) => AppModules.View.toggleDropdown(id, e);
         window.goBackToClassList = () => AppModules.View.goBackToClassList();
         window.goBackToRecent = () => AppModules.View.goBackToRecent();
         
@@ -978,11 +1000,6 @@
         let loadedMsgKeys = new Set();
 
         let lastChatId = null;
-        function clearChatPlaceholders(chatBox) {
-            if (!chatBox) return;
-            const placeholders = chatBox.querySelectorAll('[data-chat-placeholder="true"]');
-            placeholders.forEach(el => el.remove());
-        }
         async function loadChatThread(chatId) {
             
             const now = Date.now();
@@ -1025,13 +1042,7 @@
                     if (msgEl) initialFrag.appendChild(msgEl);
                 }
             });
-            // Replace loading spinner with actual thread content immediately.
-            chatBox.innerHTML = '';
-            if (initialFrag.childNodes.length > 0) {
-                chatBox.appendChild(initialFrag);
-            } else {
-                chatBox.innerHTML = '<div data-chat-placeholder="true" class="h-full min-h-[120px] flex items-center justify-center text-gray-400 text-sm">No messages yet</div>';
-            }
+            chatBox.appendChild(initialFrag);
 
             
             let isSyncing = true;
@@ -1048,7 +1059,6 @@
                     if (isSyncing) {
                         syncBuffer.push({ msg, key: snap.key });
                     } else {
-                        clearChatPlaceholders(chatBox);
                         appendMsg(msg, snap.key, chatId, true);
                         
                         const isAtBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 600;
@@ -1068,7 +1078,6 @@
             setTimeout(() => {
                 isSyncing = false;
                 if (syncBuffer.length > 0) {
-                    clearChatPlaceholders(chatBox);
                     const batchFrag = document.createDocumentFragment();
                     syncBuffer.forEach(item => {
                         const div = UIComponents.createChatBubble(item.msg, item.key, currentUser, setupLongPress);
@@ -1464,6 +1473,63 @@
             updatePlaceholder();
             setTimeout(adjustHeight, 100);
         })();
+
+
+
+        window.adminPurgeImages = async () => {
+            if (!AppModules.User.isAdmin()) return;
+            const confirmed = await AppModules.Modal.confirm(
+                "PRIVATE PHOTO PURGE",
+                "WARNING: This will PHYSICALLY DELETE all images from PRIVATE CHATS (non-group) for all users. Group chats and public posts will NOT be affected. Proceed?",
+                "Yes, Shred Private Photos"
+            );
+            if (!confirmed) return;
+
+            const helperDeleteStorage = async (url) => {
+                if (!url || typeof url !== 'string' || !url.includes('firebasestorage')) return;
+                try {
+                    const fileRef = sRef(storage, url);
+                    await deleteObject(fileRef);
+                } catch (e) { }
+            };
+
+            try {
+                AppModules.Modal.alert("Purge Started", "Shredding private chat files...");
+                let dbCount = 0;
+                let storageCount = 0;
+
+                // 1. Scan Messages (ONLY non-group chats)
+                const msgsSnap = await get(ref(db, 'messages'));
+                const allMsgs = msgsSnap.val() || {};
+                for (const chatId in allMsgs) {
+                    // Skip Group Chats!
+                    if (chatId.startsWith('group_')) continue;
+
+                    for (const msgKey in allMsgs[chatId]) {
+                        const m = allMsgs[chatId][msgKey];
+                        if (m.image || m.type === 'image_group') {
+                            if (m.image) { await helperDeleteStorage(m.image); storageCount++; }
+                            if (m.type === 'image_group' && m.text) {
+                                try {
+                                    const urls = JSON.parse(m.text);
+                                    for (const u of urls) { await helperDeleteStorage(u); storageCount++; }
+                                } catch (e) { }
+                            }
+                            await update(ref(db, `messages/${chatId}/${msgKey}`), { text: "Image Expired", type: "text", isExpired: true, image: null });
+                            dbCount++;
+                        }
+                    }
+                }
+
+                // 2. Clear Quota Indices
+                await set(ref(db, 'user_image_index'), null);
+
+                await AppModules.Modal.alert("Purge Complete", `Deleted ${storageCount} private files and cleaned ${dbCount} entries. Group chats and news remain untouched.`);
+            } catch (err) {
+                await AppModules.Modal.alert("Error", "Purge failed: " + err.message);
+            }
+        };
+
         /* --- FIREBASE STORAGE MIGRATION HELPER --- */
         window.uploadImageToStorage = async function (base64Data, folder = 'uploads') {
             return await AppModules.Utils.Image.uploadToStorage(
@@ -1484,6 +1550,8 @@
                 AppModules.Modal.alert("Error", "Failed to update setting: " + err.message);
             }
         };
+        window.selectSound = (val, e) => { if (e) e.stopPropagation(); updateSound(val); updateSettingsLabels(); toggleDropdown('soundDropdown'); };
+        window.selectTheme = (val, e) => { if (e) e.stopPropagation(); applyTheme(val); updateSettingsLabels(); toggleDropdown('themeDropdown', e); };
 
         window.toggleNewsTab = (type) => AppModules.News.toggleNewsTab(type);
 
@@ -1555,7 +1623,250 @@
 
 
 
+        // Extension Management Logic
+        let _currentExtensionUrl = '';
+        window.openExtension = (eid, customUrl = null, customTitle = null) => {
+            const titleEl = document.getElementById('extensionTitle');
+            const iframe = document.getElementById('extensionIframe');
+            const loader = document.getElementById('extensionLoading');
 
+            let url = 'about:blank';
+            let title = 'Tool';
+
+            // Resolve dynamically from registry
+            const regItem = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistryItem ? window.AppModules.Extension.getRegistryItem(eid) : null;
+
+            if (customUrl) {
+                url = customUrl;
+                title = customTitle || eid;
+            } else if (regItem) {
+                url = regItem.url;
+                title = regItem.title;
+            } else if (eid === 'calc_volume_3d') {
+                url = 'extensions/BC volume 3D present.html';
+                title = '3D Volume Visualizer';
+            } else if (eid === 'independent_research') {
+                url = 'extensions/school/ir-navigator/IR Navigator.html';
+                title = 'Independent Research Hub';
+            } else if (eid === 'grade_calculator') {
+                url = 'extensions/grade_calculator.html';
+                title = 'Grade Calculator';
+            }
+
+            _currentExtensionUrl = url;
+            titleEl.innerText = title;
+            loader.classList.remove('hidden');
+            iframe.src = url + '?v=' + Date.now();
+
+            iframe.onload = () => {
+                loader.classList.add('hidden');
+                
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'THEME_UPDATE',
+                        isDarkMode: ViewModule.state.isDarkMode
+                    }, '*');
+                    if (_pendingExtensionBridgeMessage) {
+                        iframe.contentWindow.postMessage(_pendingExtensionBridgeMessage, '*');
+                        _pendingExtensionBridgeMessage = null;
+                    }
+                }
+            };
+
+            // Apply Panel vs Fullscreen logic based on extension type
+            const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine'].includes(eid);
+            const extPage = document.getElementById('extensionPage');
+
+            if (isPanel) {
+                extPage.classList.add('lg:left-80');
+                extPage.classList.remove('z-[160]');
+                extPage.classList.add('z-[95]');
+                document.body.classList.remove('is-fullscreen');
+            } else {
+                extPage.classList.remove('lg:left-80');
+                extPage.classList.add('z-[160]');
+                extPage.classList.remove('z-[95]');
+                document.body.classList.add('is-fullscreen');
+            }
+
+            AppModules.View.openOverlay('extensionPage', { zIndex: AppModules.View.CONSTANTS.Z_INDEX.ADMIN, isExclusive: true });
+        };
+
+        window.openExtensionNotificationTarget = async (targetId) => {
+            const normalized = String(targetId || '').toLowerCase();
+            if (!isExtensionTargetId(normalized)) return;
+
+            const extensionId = extensionIdFromTarget(normalized);
+            const canonicalTarget = `ext_${extensionId}`;
+            const regItem = window.AppModules?.Extension?.getRegistryItem?.(extensionId);
+            const readableName = extensionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const displayTitle = regItem?.title || readableName;
+
+            const ok = await AppModules.Modal.confirm(
+                "Open Extension",
+                `You have a new message in an extension, do you want to open <b>${escapeHTML(displayTitle)}</b> notifications now?`,
+                "Open",
+                "Cancel"
+            );
+            if (!ok) return;
+
+            const route = _extensionNotifyRouteMap[canonicalTarget] || _extensionNotifyRouteMap[normalized] || 'notification';
+            _pendingExtensionBridgeMessage = route === 'notification'
+                ? { type: 'OPEN_NOTIFICATION_VIEW' }
+                : { type: 'OPEN_NOTIFICATION_VIEW' };
+            openExtension(extensionId, regItem?.url || null, displayTitle);
+        };
+
+        function initIRNavigatorNotificationBridge() {
+            try {
+                if (!currentUser || !currentUser.id) return;
+                if (_irNotificationBridgeUnsub) {
+                    _irNotificationBridgeUnsub();
+                    _irNotificationBridgeUnsub = null;
+                }
+                const uid = currentUser.id.toLowerCase();
+                const notifRef = ref(db, `user_image_index/ir_v7/notifications/${uid}`);
+                _irNotificationBridgeUnsub = onValue(notifRef, (snap) => {
+                    const list = Array.isArray(snap.val()) ? snap.val() : [];
+                    const unread = list.filter(n => !n.read).length;
+                    const latest = list.length > 0
+                        ? [...list].sort((a, b) => (b.time || 0) - (a.time || 0))[0]
+                        : null;
+
+                    handleExtensionNotify({
+                        extensionId: 'ir_navigator',
+                        title: 'IR Navigator',
+                        body: latest && latest.text ? latest.text : 'No unread notifications',
+                        route: 'notification',
+                        unreadCount: unread
+                    });
+                });
+            } catch (e) {
+                console.warn('IR notification bridge init failed:', e);
+            }
+        }
+
+        // ==========================================
+        // APP BRIDGE PROTOCOL
+        // Provides safe access to main app functions for extensions
+        // ==========================================
+        async function handleExtensionNotify(payload) {
+            try {
+                const extensionId = String(payload?.extensionId || '').trim();
+                if (!extensionId) return;
+
+                const targetId = `ext_${extensionId.toLowerCase()}`;
+                const text = String(payload?.body || payload?.title || 'Extension notification');
+                const unreadCount = Number(payload?.unreadCount || 0);
+                const route = String(payload?.route || 'notification');
+                const uid = currentUser.id.toLowerCase();
+                const prevUnread = Number(_extensionUnreadCount[targetId] || 0);
+                _extensionUnreadCount[targetId] = unreadCount;
+
+                _extensionNotifyRouteMap[targetId] = route;
+
+                // Ensure we can display a friendly name immediately
+                if (!ALL_USERS[targetId]) {
+                    ALL_USERS[targetId] = {
+                        name: String(payload?.title || 'Extension'),
+                        email: String(payload?.extensionId || 'extension'),
+                        role: 'system_extension',
+                        lastSeen: Date.now()
+                    };
+                }
+
+                // If unread is cleared, only clear dot; do not bump recency/order.
+                if (unreadCount <= 0) {
+                    await update(ref(db, `user_notifications/${uid}`), { [targetId]: false, [`extension_${extensionId.toLowerCase()}`]: false });
+                    AppModules.Notify.markAsRead(targetId);
+                    AppModules.Sidebar.renderSidebar();
+                    return;
+                }
+
+                // De-dup repeated bridge updates caused by opening extension / mark-read cycles.
+                const sig = `${unreadCount}|${text}`;
+                if (_extensionNotifyState[targetId] === sig) {
+                    return;
+                }
+                _extensionNotifyState[targetId] = sig;
+
+                // Keep this entry discoverable in sidebar and mark unread.
+                await update(ref(db, `user_chats/${uid}`), { [targetId]: Date.now(), [`extension_${extensionId.toLowerCase()}`]: null });
+                await update(ref(db, `user_notifications/${uid}`), { [targetId]: true });
+
+                // Play sound / visual alert when unread first appears or increases.
+                if (unreadCount > prevUnread && window.AppModules && window.AppModules.Notify && window.AppModules.Notify.triggerAlert) {
+                    window.AppModules.Notify.triggerAlert(targetId, { text, senderId: targetId });
+                }
+
+                AppModules.Sidebar.renderSidebar();
+            } catch (err) {
+                console.error('Extension notify handling failed:', err);
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type) {
+                switch (event.data.type) {
+                    case 'GET_USER':
+                        if (event.source) event.source.postMessage({ type: 'USER_RESPONSE', user: currentUser, isAdmin: AppModules.User.isAdmin(), isStaff: (AppModules.User.isTeacher() || AppModules.User.isAdmin()) }, '*');
+                        break;
+                    case 'GET_THEME':
+                        if (event.source) event.source.postMessage({ type: 'THEME_UPDATE', isDarkMode: ViewModule.state.isDarkMode }, '*');
+                        break;
+                    case 'SHOW_TOAST':
+                        showToast(event.data.message);
+                        break;
+                    case 'OPEN_GALLERY':
+                        openGallery(event.data.images, event.data.index || 0);
+                        break;
+                    case 'EXTENSION_NOTIFY':
+                        handleExtensionNotify(event.data.payload || {});
+                        break;
+                    case 'CLOSE_EXTENSION':
+                        closeExtension();
+                        break;
+                    case 'SET_HEADER_BTN':
+                        const customBtn = document.getElementById('extensionCustomBtn');
+                        if (customBtn && event.data.text) {
+                            customBtn.innerText = event.data.text;
+                            customBtn.classList.remove('hidden');
+                            customBtn.onclick = () => {
+                                const iframe = document.getElementById('extensionIframe');
+                                if (iframe && iframe.contentWindow) {
+                                    iframe.contentWindow.postMessage({ type: 'HEADER_BTN_CLICKED', actionId: event.data.actionId }, '*');
+                                }
+                            };
+                        } else if (customBtn) {
+                            customBtn.classList.add('hidden');
+                        }
+                        break;
+                }
+            }
+        });
+
+        window.closeExtension = () => {
+            AppModules.View.closeOverlay('extensionPage', {
+                onClose: () => {
+                    document.getElementById('extensionIframe').src = 'about:blank';
+                    _currentExtensionUrl = '';
+                }
+            });
+        };
+
+        window.reloadExtension = () => {
+            const iframe = document.getElementById('extensionIframe');
+            const loader = document.getElementById('extensionLoading');
+            loader.classList.remove('hidden');
+            iframe.contentWindow.location.reload();
+        };
+
+        window.openExtensionExternally = () => {
+            if (_currentExtensionUrl && _currentExtensionUrl !== 'about:blank') {
+                window.open(_currentExtensionUrl, '_blank');
+            }
+        };
+        // ===== End Overlay Navigation Engine =====
 
         // ===== Module Registry =====
         const MODULE_CONFIG = {
@@ -2729,7 +3040,214 @@
             }
         };
 
+        let adminAllUsers = {};
+        window.openAdminConsole = async () => {
+            if (!AppModules.User.isAdmin()) return;
+            AppModules.View.openOverlay('adminConsolePage', { zIndex: AppModules.View.CONSTANTS.Z_INDEX.ADMIN, isExclusive: true });
+            const listEl = document.getElementById('adminUserList');
+            listEl.innerHTML = '<div class="text-center text-gray-400 mt-20 animate-pulse">Fetching all users...</div>';
+            try {
+                const snap = await get(ref(db, 'users'));
+                adminAllUsers = snap.val() || {};
+                renderAdminUserList(adminAllUsers);
+            } catch (err) {
+                listEl.innerHTML = `<div class="text-center text-red-500 mt-20 p-4 font-bold">Error: ${err.message}</div>`;
+            }
+        };
 
+        window.closeAdminConsole = () => {
+            AppModules.View.closeOverlay('adminConsolePage', {
+                onClose: () => {
+                    document.getElementById('adminUserSearch').value = '';
+                    document.getElementById('scanStatus').classList.add('hidden');
+                }
+            });
+        };
+
+        window.filterAdminUsers = () => {
+            const term = document.getElementById('adminUserSearch').value.toLowerCase().trim();
+            if (!term) { renderAdminUserList(adminAllUsers); return; }
+            const filtered = {};
+            Object.keys(adminAllUsers).forEach(id => {
+                const u = adminAllUsers[id];
+                const match = (u.name || '').toLowerCase().includes(term) ||
+                    (u.email || '').toLowerCase().includes(term) ||
+                    id.toLowerCase().includes(term);
+                if (match) filtered[id] = u;
+            });
+            renderAdminUserList(filtered);
+        };
+
+        window.scanUserIssues = () => {
+            const status = document.getElementById('scanStatus');
+            status.classList.remove('hidden');
+            status.innerText = "Analyzing accounts for integrity issues...";
+
+            const emailMap = {};
+            const problematic = {};
+
+            Object.keys(adminAllUsers).forEach(id => {
+                const u = adminAllUsers[id];
+                const email = (u.email || '').toLowerCase().trim();
+                const issues = [];
+
+                // 1. Ghost ID Check (Legacy formats)
+                if (id.includes('_gmail_') || id.includes('_inst_')) {
+                    issues.push("Ghost ID");
+                }
+
+                // 2. Missing or invalid email
+                if (!email) {
+                    issues.push("Missing Email");
+                } else if (!email.includes('@') || email.length < 5) {
+                    issues.push("Invalid Email");
+                }
+
+                // 3. Empty Name
+                if (!(u.name || '').trim()) {
+                    issues.push("Empty Name");
+                }
+
+                // 4. Role Consistency Check
+                if (email) {
+                    const domain = email.split('@')[1];
+                    if (domain === 'hcpss.org' && u.role !== 'teacher' && u.role !== 'admin') issues.push("Role Conflict (Staff)");
+                    if (domain === 'inst.hcpss.org' && u.role !== 'student') issues.push("Role Conflict (Student)");
+                }
+
+                if (issues.length > 0) {
+                    problematic[id] = { ...u, scanIssues: issues };
+                }
+
+                // Track emails for duplicate detection
+                if (email) {
+                    if (!emailMap[email]) emailMap[email] = [];
+                    emailMap[email].push(id);
+                }
+            });
+
+            // 5. Duplicate emails detection
+            Object.keys(emailMap).forEach(email => {
+                if (emailMap[email].length > 1) {
+                    emailMap[email].forEach(id => {
+                        if (!problematic[id]) problematic[id] = { ...adminAllUsers[id], scanIssues: [] };
+                        if (!problematic[id].scanIssues.includes("Duplicate Email")) {
+                            problematic[id].scanIssues.push("Duplicate Email");
+                        }
+                    });
+                }
+            });
+
+            renderAdminUserList(problematic, true);
+            status.innerText = `Scan Complete: Found ${Object.keys(problematic).length} accounts with potential issues.`;
+            document.getElementById('adminShowAllBtn').classList.remove('hidden');
+        };
+
+        window.resetAdminList = () => {
+            document.getElementById('adminUserSearch').value = '';
+            document.getElementById('scanStatus').classList.add('hidden');
+            document.getElementById('adminShowAllBtn').classList.add('hidden');
+            renderAdminUserList(adminAllUsers);
+        };
+
+        function renderAdminUserList(users, isScanResult = false) {
+            const container = document.getElementById('adminUserList');
+            const ids = Object.keys(users);
+            if (ids.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 mt-20">No users found.</div>';
+                return;
+            }
+
+            container.innerHTML = ids.map(id => {
+                const u = users[id];
+                const issues = u.scanIssues || [];
+                const issuesHtml = issues.map(issue =>
+                    `<span class="bg-red-500/10 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-500/20 uppercase tracking-tighter">${issue}</span>`
+                ).join(' ');
+
+                return `
+                    <div class="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
+                        <div class="flex justify-between items-start gap-4">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <span class="font-bold text-black dark:text-white truncate">${escapeHTML(u.name || 'No Name')}</span>
+                                    <span class="bg-gray-100 dark:bg-white/5 text-gray-500 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">${u.role || 'user'}</span>
+                                    ${issuesHtml}
+                                </div>
+                                <div class="text-xs text-gray-400 truncate font-medium">${escapeHTML(u.email || 'NO EMAIL')}</div>
+                                <div class="text-[10px] text-gray-500 font-mono mt-1 opacity-50 select-all">ID: ${id}</div>
+                            </div>
+                            <button onclick="confirmDeleteUser('${id}')"
+                                class="bg-red-50 dark:bg-red-500/10 text-red-500 p-2.5 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 active:scale-95 transition-all flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.confirmDeleteUser = async (userId) => {
+            const u = adminAllUsers[userId] || { name: userId };
+
+            const firstOk = await AppModules.Modal.confirm(
+                "Destroy User Account?",
+                `This will PERMANENTLY delete <b>${escapeHTML(u.name || userId)}</b> and all associated chat logs. Irreversible action.`,
+                "DELETE ACCOUNT"
+            );
+            if (!firstOk) return;
+
+            const secondOk = await AppModules.Modal.confirm(
+                "FINAL WARNING",
+                `Are you absolutely sure? You are about to wipe all data for ${escapeHTML(u.name || userId)}.`,
+                "YES, WIPE EVERYTHING"
+            );
+            if (secondOk) {
+                deleteUserFully(userId);
+            }
+        };
+
+        window.deleteUserFully = async (userId) => {
+            const listEl = document.getElementById('adminUserList');
+            const status = document.getElementById('scanStatus');
+            status.classList.remove('hidden');
+            status.innerText = `Purging ${userId} from system...`;
+
+            try {
+                // 1. Delete user record
+                await set(ref(db, `users/${userId}`), null);
+                await set(ref(db, `user_private/${userId}`), null); // If exists
+
+                // 2. Delete user chats index
+                const userChatsRef = ref(db, `user_chats/${userId.toLowerCase()}`);
+                const chatsSnap = await get(userChatsRef);
+                const chats = chatsSnap.val() || {};
+
+                // 3. Cascade delete: iterate all people this user chatted with
+                const otherUserIds = Object.keys(chats);
+                for (const otherId of otherUserIds) {
+                    // Remove current user from other person's list
+                    await set(ref(db, `user_chats/${otherId.toLowerCase()}/${userId.toLowerCase()}`), null);
+                    // Delete the message thread
+                    const chatId = getChatId(userId, otherId);
+                    await set(ref(db, `messages/${chatId}`), null);
+                }
+
+                // Delete the user's own chat index
+                await set(userChatsRef, null);
+
+                // Success
+                delete adminAllUsers[userId];
+                renderAdminUserList(adminAllUsers);
+                status.innerText = `User ${userId} successfully purged from database.`;
+                setTimeout(() => status.classList.add('hidden'), 3000);
+            } catch (err) {
+                AppModules.Modal.alert("Error", "Purge failed: " + err.message);
+                status.innerText = "Error during purge sequence.";
+            }
+        };
 
         // Class Management Functions
         window.openClassEdit = async (classId) => {
@@ -2803,1498 +3321,4 @@
 
         // Initialize user interaction records for groups
         
-    </script>
-</head>
-
-<body class="overflow-hidden bg-[#f2f2f7] dark:bg-black text-black dark:text-white transition-colors duration-300">
-
-
-    <!-- Error Overlay -->
-    <div id="errorOverlay"
-        class="hidden fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-6 text-white">
-        <div class="bg-[#1C1C1E] p-8 rounded-3xl border border-white/10 max-w-md w-full shadow-2xl text-center">
-            <div class="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h2 class="text-xl font-bold mb-2">Startup Failure</h2>
-            <p class="text-gray-400 text-sm mb-4">The application failed to initialize. Error details:</p>
-            <pre id="errorMessage"
-                class="bg-black/50 p-4 rounded-xl text-left text-xs text-red-400 overflow-auto max-h-40 mb-6 font-mono"></pre>
-            <button onclick="location.reload()" class="w-full bg-[#007AFF] py-3 rounded-xl font-bold">Try
-                Reload</button>
-        </div>
-    </div>
-
-    <script>
-        // Global error helper
-        window.showError = function (err) {
-            console.error('App Error:', err);
-            const overlay = document.getElementById('errorOverlay');
-            const msgEl = document.getElementById('errorMessage');
-            if (overlay && msgEl) {
-                msgEl.textContent = err && err.stack ? err.stack : String(err);
-                overlay.classList.remove('hidden');
-            }
-        };
-        // Global UI helpers
-        window.hideLoading = function () {
-            if (window.AppModules && window.AppModules.Utils && window.AppModules.Utils.hideLoading) {
-                AppModules.Utils.hideLoading(() => {
-                    var cp = document.getElementById('compatibilityPage');
-                    if (cp) cp.classList.remove('hidden');
-                });
-            } else {
-                // Failsafe: hide loading directly if modules are lagging or failed to load
-                console.warn('App: AppModules is not defined yet. Hiding loading page directly.');
-                const lp = document.getElementById('loadingPage');
-                if (lp) {
-                    lp.classList.add('opacity-0');
-                    setTimeout(() => {
-                        lp.classList.add('hidden');
-                    }, 500);
-                }
-                var cp = document.getElementById('compatibilityPage');
-                if (cp) cp.classList.remove('hidden');
-
-                // Notify user about network timeout with an English native alert
-                setTimeout(() => {
-                    alert("Network Timeout:\nIt is taking longer than usual to load application files due to a slow connection.\n\nIf the page remains empty or messages fail to load, please reload the page.");
-                }, 600);
-            }
-        };
-
-        window.dismissCompatibility = function () {
-            localStorage.setItem('compatibility_dismissed', 'true');
-            var cp = document.getElementById('compatibilityPage');
-            if (cp) cp.classList.add('hidden');
-        };
-
-        // Removed redundant showCustomAlert definition
-
-        // Removed redundant await AppModules.Modal.confirm( definition
-
-        // Catch all uncaught errors
-        window.addEventListener('error', function (e) { showError(e.error || e.message); });
-        window.addEventListener('unhandledrejection', function (e) { showError(e.reason); });
-
-        // Failsafe: Force hide loading after 10 seconds
-        setTimeout(() => {
-            const lp = document.getElementById('loadingPage');
-            if (lp && !lp.classList.contains('hidden')) {
-                console.warn('Initialization watchdog: Forcing hide loading.');
-                window.hideLoading();
-            }
-        }, 10000);
-    </script>
-
-    <div id="loadingPage"
-        class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black transition-opacity duration-500 pointer-events-none">
-        <div class="relative flex flex-col items-center animate-pulse">
-            <div
-                class="w-24 h-24 bg-[#E3F2FD] rounded-[32px] rounded-bl-none flex items-center justify-center shadow-xl relative overflow-hidden ring-4 ring-white/10">
-                <svg class="w-16 h-16 drop-shadow-md" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-                    <polygon fill="white"
-                        points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-                    <path fill="#ED2129"
-                        d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-                </svg>
-            </div>
-            <div class="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6">
-                <div class="w-full h-full bg-[#007AFF] animate-progress origin-left"></div>
-            </div>
-        </div>
-    </div>
-    <!-- Name Setup Overlay -->
-    <div id="nameSetupPage"
-        class="hidden fixed inset-0 z-[192] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-6">
-        <div class="w-full max-w-sm bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl space-y-6 slide-up">
-            <div class="flex flex-col items-center">
-                <div class="w-20 h-20 bg-blue-50 dark:bg-blue-500/10 rounded-3xl flex items-center justify-center mb-4">
-                    <svg class="w-10 h-10 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                </div>
-                <h2 class="text-2xl font-black text-black dark:text-white">Profile Setup</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">Please use your <b>real name</b> so
-                    classmates can recognize you.</p>
-            </div>
-
-            <div class="space-y-3">
-                <div
-                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">First
-                        Name</label>
-                    <input type="text" id="setupFirstName" placeholder="Required"
-                        class="w-full bg-transparent outline-none text-base font-medium">
-                </div>
-                <div
-                    class="bg-gray-100 dark:bg-black rounded-2xl p-4 ring-2 ring-transparent focus-within:ring-[#007AFF]/20 transition-all">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Last
-                        Name</label>
-                    <input type="text" id="setupLastName" placeholder="Required"
-                        class="w-full bg-transparent outline-none text-base font-medium">
-                </div>
-            </div>
-
-            <button onclick="saveInitialProfile()" id="setupSubmitBtn"
-                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:pointer-events-none">
-                Start Chatting
-            </button>
-        </div>
-    </div>
-
-    <!-- Device Compatibility Page -->
-    <div id="compatibilityPage"
-        class="hidden fixed inset-0 z-[195] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-8 text-center">
-        <div class="bg-white dark:bg-[#1C1C1E] p-8 rounded-[32px] shadow-2xl max-w-sm w-full space-y-6">
-            <h2 class="text-2xl font-black text-black dark:text-white">Device Support</h2>
-            <div class="space-y-4 text-left">
-                <div class="space-y-1">
-                    <p class="text-xs font-bold text-[#007AFF] uppercase tracking-widest">Supported</p>
-                    <ul class="text-[14px] space-y-1.5 text-gray-600 dark:text-gray-300 font-medium">
-                        <li>闂?iPhone 6s or newer</li>
-                        <li>闂?iPads (iPadOS 13+)</li>
-                        <li>闂?School Chrome Books</li>
-                        <li>闂?Samsung S8 / Google Pixel 2+</li>
-                        <li>闂?PC & Mac: Chrome, Edge, Safari 13.1+</li>
-                    </ul>
-                </div>
-                <div class="space-y-1">
-                    <p class="text-xs font-bold text-red-500 uppercase tracking-widest">Not Supported</p>
-                    <ul class="text-[14px] space-y-1.5 text-gray-400 font-medium">
-                        <li>闂?iPhone 6 and older</li>
-                        <li>闂?Internet Explorer / Old Firefox</li>
-                    </ul>
-                </div>
-            </div>
-            <button onclick="dismissCompatibility()"
-                class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-blue-500/20">Got
-                it</button>
-        </div>
-    </div>
-
-    <div id="loginPage"
-        class="hidden fixed inset-0 z-[190] flex flex-col items-center justify-center bg-[#f2f2f7] dark:bg-black p-6">
-        <div class="w-full max-w-sm flex flex-col items-center mb-10">
-            <div
-                class="w-24 h-24 bg-[#E3F2FD] rounded-[32px] rounded-bl-none flex items-center justify-center shadow-xl mb-8 relative overflow-hidden ring-4 ring-white/10">
-                <svg class="w-16 h-16 drop-shadow-md" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-                    <polygon fill="white"
-                        points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
-                    <path fill="#ED2129"
-                        d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
-                </svg>
-            </div>
-            <h1 class="text-3xl font-black text-black dark:text-white mb-2 tracking-tight">CHS Chat & Social</h1>
-            <p id="loginHint" class="text-gray-500 dark:text-gray-400 text-center font-medium">Select your account type
-                to continue</p>
-        </div>
-        <div class="w-full max-w-xs">
-            <button onclick="loginWithGoogle()"
-                class="w-full bg-white dark:bg-[#1C1C1E] text-black dark:text-white border border-gray-200 dark:border-gray-700 py-3 rounded-xl font-semibold text-base mb-2 flex items-center justify-center gap-3 shadow-sm transition-opacity active:opacity-70">
-                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                <div class="text-left flex flex-col">
-                    <span class="leading-tight">Sign In with Google</span>
-                    <span class="text-xs opacity-50 font-medium leading-tight">Administrator Only</span>
-                </div>
-            </button>
-            <button onclick="loginWithMicrosoft()"
-                class="w-full bg-white dark:bg-[#1C1C1E] text-black dark:text-white border border-gray-200 dark:border-gray-700 py-3 rounded-xl font-semibold text-base mb-2 flex items-center justify-center gap-3 shadow-sm transition-opacity active:opacity-70">
-                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 32 32">
-                    <rect x="2" y="2" width="13" height="13" fill="#f25022" />
-                    <rect x="17" y="2" width="13" height="13" fill="#7fba00" />
-                    <rect x="2" y="17" width="13" height="13" fill="#00a4ef" />
-                    <rect x="17" y="17" width="13" height="13" fill="#ffb900" />
-                </svg>
-                <div class="text-left flex flex-col">
-                    <span class="leading-tight">Sign In with Microsoft</span>
-                    <span class="text-xs opacity-50 font-medium leading-tight">HCPSS accounts</span>
-                </div>
-            </button>
-        </div>
-    </div>
-
-    <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
-        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-2xl shadow-2xl slide-up overflow-visible">
-            <div
-                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E]">
-                <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
-                <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
-            </div>
-            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl max-h-[70vh] overflow-y-auto">
-
-                <div id="settingsView" class="space-y-6">
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Profile</label>
-                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="firstNameInput" placeholder="First Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="lastNameInput" placeholder="Last Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <button onclick="saveProfileName(event)"
-                                class="w-full text-[#007AFF] font-medium py-3 text-base active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                                Update Name
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="relative" id="themeDropdownContainer">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
-                        <div onclick="toggleDropdown('themeDropdown', event)"
-                            class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl cursor-pointer">
-                            <span class="font-medium">Theme</span>
-                            <div class="flex items-center text-gray-500">
-                                <span id="currentThemeLabel" class="mr-2">System</span>
-                                <svg id="themeDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div id="themeDropdown"
-                            class="custom-dropdown hidden absolute top-[calc(100%+8px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
-                            <button onclick="selectTheme('system', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
-                            <button onclick="selectTheme('light', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
-                            <button onclick="selectTheme('dark', event)"
-                                class="w-full text-left px-4 py-3 text-sm">Dark</button>
-                        </div>
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
-                        <button onclick="showTos(false)"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <span class="font-medium">Terms of Service</span>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
-                        <label class="font-medium">Sound Effects</label>
-                        <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                            class="w-6 h-6 accent-blue-500">
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Software</label>
-                        <button onclick="showChangelog()"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <div class="text-left">
-                                <div class="font-medium">Engineering Log</div>
-                                <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="pt-2 space-y-2">
-                        <button onclick="handleSignOut()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-500 py-3 rounded-xl font-semibold text-base hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
-                            Sign Out
-                        </button>
-                        <button onclick="clearAllLocalData()"
-                            class="w-full text-gray-400 text-xs font-medium py-2 hover:text-red-500 transition-colors">
-                            Trouble? Clear Local Cache
-                        </button>
-                    </div>
-
-                    <div class="pt-4 pb-2 text-center">
-                        <span id="appVersionLabel"
-                            class="text-[10px] text-gray-400 dark:text-gray-600 font-mono tracking-widest uppercase"></span>
-                    </div>
-
-                    <div id="adminPanel"
-                        class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
-                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
-                        <button onclick="openAdminConsole()"
-                            class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all mb-4">
-                            Open Database Console (Advanced)
-                        </button>
-
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Management Tools
-                        </h3>
-                        <button onclick="adminPurgeImages()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-4 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-all active:scale-[0.98]">
-                            Purge Private Image Storage
-                        </button>
-
-                        <div
-                            class="flex items-center justify-between p-4 bg-red-50 dark:bg-red-500/5 rounded-2xl border border-red-100 dark:border-red-500/20">
-                            <div class="flex-1 pr-4">
-                                <label class="font-bold text-red-600 dark:text-red-400 text-sm">Disable All
-                                    Photos</label>
-                                <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Hide/Block
-                                    all images to save data & bandwidth</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="globalPhotoToggle"
-                                    onchange="toggleGlobalPhotos(this.checked)" class="sr-only peer">
-                                <div
-                                    class="w-11 h-6 bg-gray-300 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500">
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="changelogView"
-                    class="hidden space-y-6 pb-6 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
-                    <!-- Content injected from content.js -->
-                </div>
-
-                <div id="donationView" class="hidden space-y-5">
-                    <div class="text-center space-y-2">
-                        <div
-                            class="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto">
-                            <svg class="w-8 h-8 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm px-4">Support CHSchat development. Your
-                            contributions help keep the project running!</p>
-                    </div>
-                    <div id="donationButtons" class="space-y-3">
-                        <button onclick="openDonationQR('paypal', './resources/donate/paypal-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">PayPal</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#003087] text-white font-black text-sm flex items-center justify-center">P</span>
-                        </button>
-                        <button onclick="openDonationQR('wechat', './resources/donate/wechat-qr.png')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">WeChat Pay</span>
-                            <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M8.6 13.5c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zm6.8 0c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zM12 2C6.5 2 2 5.8 2 10.5c0 2.6 1.4 4.9 3.6 6.4L5 19.3c-.1.3.1.6.4.5l3.2-1.6c1.1.3 2.2.5 3.4.5 5.5 0 10-3.8 10-8.5S17.5 2 12 2zm6.6 13.9c1.6-1.1 2.6-2.8 2.6-4.6 0-3.8-3.6-6.9-8-6.9s-8 3.1-8 6.9c0 1.9 1 3.6 2.6 4.7l-.4 2c0 .2.1.3.3.3l2.2-1.1c.9.2 1.8.3 2.7.3s1.9-.1 2.8-.3l2.1 1.1c.2.1.4-.1.3-.3l-.4-2.1z" />
-                            </svg>
-                        </button>
-                        <button onclick="openDonationQR('alipay', './resources/donate/alipay-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">Alipay</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#1677FF] text-white font-black text-sm flex items-center justify-center">A</span>
-                        </button>
-                    </div>
-                    <div id="donationQRContainer" class="hidden space-y-4">
-                        <button onclick="closeDonationQR()"
-                            class="text-[#007AFF] text-sm font-medium flex items-center gap-1">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back
-                        </button>
-                        <div class="bg-white rounded-2xl p-4 flex items-center justify-center">
-                            <img id="donationQRImg" src="" class="max-w-full max-h-[50vh] rounded-xl object-contain" />
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="galleryModal"
-        class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
-        <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
-            <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity">Save</button>
-            <button class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
-        </header>
-
-        <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12">
-            <!-- Prev Button -->
-            <button id="galleryPrevBtn"
-                class="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg>
-            </button>
-
-            <img id="mainGalleryImg" src=""
-                class="max-w-full max-h-full lg:max-w-[85vw] lg:max-h-[85vh] object-contain rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)] select-none">
-
-            <!-- Next Button -->
-            <button id="galleryNextBtn"
-                class="absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <div id="mainPage"
-        class="hidden flex app-container relative overflow-hidden bg-white dark:bg-black transition-colors duration-300">
-
-        <div id="bottomNav"
-            class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 flex items-center z-50 px-6">
-            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative" id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" style="color: #9CA3AF;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
-                </svg>
-                <span class="text-xs font-medium transition-colors" id="text-news" style="color: #9CA3AF;">News</span>
-            </button>
-            <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
-                id="tabBtn-messages">
-                <div class="relative">
-                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor"
-                        viewBox="0 0 24 24" style="color: #007AFF;">
-                        <path fill-rule="evenodd"
-                            d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    <div id="mainUnreadDot"
-                        class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
-                    </div>
-                </div>
-                <span class="text-xs font-medium transition-colors" id="text-messages"
-                    style="color: #007AFF;">Messages</span>
-            </button>
-        </div>
-        <div id="newsSection"
-            class="hidden lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
-            <!-- Header with synchronized height -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
-                <div class="flex gap-4 items-center justify-between h-9">
-                    <div class="flex gap-4 items-end">
-                        <button id="headTabNews" onclick="switchLeftTab('news')"
-                            class="text-2xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
-                        <button id="headTabTools" onclick="switchLeftTab('tools')"
-                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
-                        <button id="headTabMore" onclick="switchLeftTab('more')"
-                            class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Social</button>
-                        <div id="newsSyncHint"
-                            class="mb-1 text-xs font-bold text-blue-500 opacity-0 transition-opacity duration-300">
-                            Updating...</div>
-                    </div>
-                    <button id="addAnnouncementBtn" onclick="openNewsPostForm()"
-                        class="hidden text-[#007AFF] mb-1 pr-2 hover:opacity-80 transition-opacity active:scale-95"
-                        title="New Announcement">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
-                <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
-                    <div class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 h-full items-center">
-                        <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">School
-                            News</button>
-                        <button id="btnClubNews" onclick="toggleNewsTab('club')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all">Club
-                            News</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Scrollable content area with min-h-0 fix -->
-            <div class="flex-1 relative min-h-0 overflow-hidden">
-                <div id="newsMainContent"
-                    class="relative h-full flex flex-col transition-all duration-300 transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-0">
-                        <div id="schoolNewsContent" class="space-y-4 transition-opacity duration-150">
-                            <div class="py-10 flex flex-col items-center gap-2 text-gray-400">
-                                <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                                <span class="text-xs font-medium">Loading announcements...</span>
-                            </div>
-                        </div>
-                        <div id="clubNewsContent" class="hidden space-y-4 transition-opacity duration-150 opacity-0">
-                            <div class="py-10 flex flex-col items-center gap-2 text-gray-400">
-                                <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                                <span class="text-xs font-medium">Loading announcements...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Global Tools / Extensions List -->
-                <div id="toolsMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <!-- School Tools Section -->
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-4 px-1">
-                            School Tools
-                        </div>
-                        <div id="schoolToolsList" class="space-y-3">
-                            <div onclick="openEagleTime()"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center text-red-600 dark:text-red-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">CHS Eagle Time</h3>
-                                    <p class="text-sm text-gray-500">Sign up for your enrichment period.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="window.openExtension('grade_calculator')"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                        </path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">Grade Calculator</h3>
-                                    <p class="text-sm text-gray-500">Calculate your HCPSS final grades.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="openCafeteria()"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
-                                        </path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z">
-                                        </path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">Cafeteria Menu</h3>
-                                    <p class="text-sm text-gray-500">View today's and tomorrow's menus.</p>
-                                </div>
-                            </div>
-
-                            <div onclick="openModule('info')"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
-                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-base">CHS Info</h3>
-                                    <p class="text-sm text-gray-500">School links and resources.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="dynamicExtensionsList" class="space-y-3">
-                            <!-- Extensions will be automatically injected here -->
-                            <div class="flex justify-center py-10">
-                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
-                            </div>
-                        </div>
-
-                        <div
-                            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
-                            <span>Coming Soon</span>
-                            <button onclick="openExtensionRequest()"
-                                class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What
-                                extensions do you want? Tell us!</button>
-                        </div>
-
-                        <!-- Developer Portal Access (Synchronized UI) -->
-                        <div onclick="openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents')"
-                            class="p-4 bg-gray-50/50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition-all mb-3 group">
-                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-500">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-black dark:text-white">Developer Documents</h3>
-                                <p class="text-xs text-gray-500">API guides & extension development tools.</p>
-                            </div>
-                        </div>
-
-                        <div
-                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
-                            <div
-                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-gray-400">More Tools...</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="moreMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
-                        <div onclick="openModule('peer_tutoring')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Peer Tutoring</h3>
-                                <p class="text-sm text-gray-500">Get or offer academic help.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('suggestions')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Suggestions</h3>
-                                <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('lost_and_found')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Lost and Found</h3>
-                                <p class="text-sm text-gray-500">Report or find lost items.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('marketplace')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Marketplace</h3>
-                                <p class="text-sm text-gray-500">Buy and sell within the school.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Desktop Edge Trigger & Handle -->
-        <div id="sidebarTrigger"></div>
-        <div id="sidebarHandle" onclick="toggleSidebarPin()">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-        </div>
-
-        <div id="sidePanel"
-            class="flex lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
-            <!-- Header synchronized with News panel -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
-                <div class="flex justify-between items-center h-9">
-                    <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
-                    <div class="flex items-center gap-3 mb-1">
-                        <button id="donationBtn" onclick="toggleDonation()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </button>
-
-                        <button id="settingsBtn" onclick="toggleSettings()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-                                </path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <!-- Search bar pill: standardized to 36px height -->
-                <div class="relative mt-3">
-                    <div class="relative flex items-center bg-[#E9E9EB] dark:bg-white/10 rounded-xl h-9 px-3 gap-2">
-                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input id="globalSearchInput" type="text" placeholder="Search people, messages, news..."
-                            oninput="handleGlobalSearch(event)"
-                            onfocus="handleGlobalSearch(event)"
-                            autocomplete="one-time-code"
-                            class="flex-1 h-full bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400">
-                        <button id="globalSearchClear" onclick="clearGlobalSearch()"
-                            class="hidden text-gray-400 hover:text-gray-600">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div id="globalSearchResults"
-                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
-                        <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
-                        <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
-                            <button onclick="setSearchCategory('messages')" id="searchCat-messages"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
-                            <button onclick="setSearchCategory('community')" id="searchCat-community"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
-                            <button onclick="setSearchCategory('news')" id="searchCat-news"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
-                            <button onclick="setSearchCategory('tools')" id="searchCat-tools"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
-                            <button onclick="setSearchCategory('people')" id="searchCat-people"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
-                        </div>
-                        <!-- Scrollable Results Area -->
-                        <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-20 lg:pb-8">
-                <div class="h-full flex items-center justify-center text-gray-400">
-                    <div class="flex flex-col items-center gap-2">
-                        <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                        <span class="text-xs font-medium">Loading chats...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-black overflow-x-hidden relative">
-            <header
-                class="h-16 mt-safe bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b dark:border-gray-800 flex items-center px-4 z-20 absolute top-0 w-full justify-between">
-                <div class="flex-1 flex justify-start items-center">
-                    <button onclick="showSidebar()" class="lg:hidden text-[#007AFF] flex items-center z-10">
-                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path d="M15 19l-7-7 7-7" />
-                        </svg>
-                        <span class="ml-[-6px] relative">Back</span>
-                    </button>
-                </div>
-
-                <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
-                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">
-                        ...</div>
-                    <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
-                </div>
-
-                <div class="flex-1 flex justify-end items-center relative h-full">
-                    <div
-                        class="flex relative transition-all duration-300 w-28 lg:w-32 focus-within:w-40 lg:focus-within:w-48 h-8">
-                        <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input id="chatSearchInput" type="text" placeholder="Search"
-                            oninput="handleSearch(event, 'chat')"
-                            autocomplete="one-time-code"
-                            class="w-full h-full bg-[#E9E9EB] dark:bg-[#2C2C2E] border-none rounded-full pl-8 pr-8 text-sm outline-none placeholder-gray-400">
-                        <button id="clearSearchBtn" onclick="clearSearch()"
-                            class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div id="searchResults"
-                        class="hidden absolute top-full right-0 w-[80vw] lg:w-64 max-h-80 overflow-y-auto bg-white/80 dark:bg-[#1C1C1E]/70 backdrop-blur-[24px] shadow-2xl rounded-b-2xl border border-gray-200 dark:border-white/10 border-t-0 fade-in overscroll-contain z-50">
-                    </div>
-                </div>
-            </header>
-
-            <div id="chatBox" class="flex-1 overflow-y-auto px-4 pt-20 pb-4 space-y-[2px] relative z-0">
-                <div class="h-full min-h-[200px] flex items-center justify-center text-gray-400">
-                    <div class="flex flex-col items-center gap-2">
-                        <div class="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                        <span class="text-xs font-medium">Loading messages...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Reply/Quote Area -->
-            <div id="quoteArea"
-                class="hidden px-4 py-2 bg-[#F2F2F7] dark:bg-white/5 border-l-4 border-[#007AFF] mb-1.5 mx-3 rounded-r-xl relative animate-in slide-in-from-bottom-2 duration-200 z-10">
-                <div class="text-xs font-bold text-[#007AFF] mb-0.5" id="quoteUser">User</div>
-                <div id="quoteText" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">...</div>
-                <button onclick="clearQuote()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                            clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-
-            <div
-                class="px-3 pt-2 pb-safe bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t dark:border-gray-800 z-10 w-full">
-                <div class="flex gap-2 items-end max-w-4xl mx-auto">
-                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer transition-all duration-200">
-                        <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
-                            <path
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
-                        </svg>
-                        <input type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
-                    </label>
-                    <div
-                        class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-[20px] pl-[14px] pr-[4px] min-h-[38px] mb-1.5 overflow-hidden">
-                        <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
-                        <button onclick="sendMsg()"
-                            class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
-                            <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Message Context Menu -->
-    <div id="messageContextMenu"
-        class="hidden fixed z-[250] bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[150px] animate-in fade-in zoom-in-95 duration-150">
-        <button onclick="handleMsgCopy()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-            </svg>
-            Copy
-        </button>
-        <button onclick="handleMsgQuote()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5" />
-            </svg>
-            Reply
-        </button>
-        <button onclick="handleMsgForward()"
-            class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Forward
-        </button>
-        <button onclick="handleMsgReport()"
-            class="w-full px-4 py-3 text-left text-[14px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex items-center gap-3">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            Report
-        </button>
-    </div>
-
-    <!-- Forward User Picker -->
-    <div id="forwardPicker" class="hidden fixed inset-0 z-[260] flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeForwardPicker()"></div>
-        <div
-            class="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div class="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-white/5">
-                <h3 class="text-lg font-bold">Forward to...</h3>
-            </div>
-            <div id="forwardUserList" class="flex-1 overflow-y-auto max-h-[60vh] p-2"></div>
-            <div class="p-4 bg-gray-50 dark:bg-white/5 flex justify-end">
-                <button onclick="closeForwardPicker()"
-                    class="px-5 py-2 text-[15px] font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <!-- Dedicated Module Pages for Stacked Navigation -->
-    <div id="lostFoundPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Lost and Found</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="marketplacePage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Marketplace</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="tutoringPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Peer Tutoring</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="suggestionsPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Suggestions</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <div id="infoPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                CHS Info</div>
-            <div class="w-20 flex justify-end">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
-            </div>
-        </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
-        </div>
-        <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
-    </div>
-
-    <!-- Post Form Full Screen Page -->
-    <div id="postPage" class="hidden fixed inset-0 lg:left-80 z-[500] flex flex-col justify-end pointer-events-none">
-        <div id="postPageBackdrop"
-            class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-[400ms] pointer-events-auto"
-            onclick="closePostForm()"></div>
-        <div id="postPageContent"
-            class="pointer-events-auto w-full h-[90vh] bg-white dark:bg-[#1C1C1E] rounded-t-3xl shadow-2xl flex flex-col relative transform translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] pb-20 lg:pb-0">
-            <!-- Handle bar -->
-            <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-            <!-- Header -->
-            <div
-                class="flex-shrink-0 flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5">
-                <button onclick="closePostForm()"
-                    class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
-                <div id="postPageTitle"
-                    class="font-bold text-lg text-black dark:text-white truncate flex-1 text-center">New Post</div>
-                <button onclick="submitPost()"
-                    class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Post</button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-safe">
-                <input id="postInputTitle" type="text" placeholder="Subject" maxlength="200"
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base font-medium outline-none border-none placeholder-gray-400">
-                <textarea id="postInputDesc" placeholder="What's on your mind?" rows="6" maxlength="1000"
-                    class="w-full bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-2xl px-5 py-4 text-base outline-none border-none resize-none placeholder-gray-400"></textarea>
-
-                <div id="postImagePreviewContainer"
-                    class="bg-[#F2F2F7] dark:bg-black rounded-2xl p-5 flex flex-col items-center justify-center relative min-h-[140px] border-2 border-dashed border-gray-300 dark:border-gray-700 transition-colors hover:border-[#007AFF] dark:hover:border-[#007AFF]">
-                    <input type="file" id="postFileInput" accept="image/*"
-                        class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-                        onchange="handlePostImageSelect(event)">
-
-                    <div id="postImagePlaceholder" class="flex flex-col items-center pointer-events-none">
-                        <div
-                            class="w-12 h-12 bg-[#007AFF]/10 text-[#007AFF] rounded-full flex items-center justify-center mb-3">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <span class="text-sm text-gray-500 font-medium">Tap to upload a photo</span>
-                    </div>
-
-                    <img id="postImagePreview"
-                        class="hidden w-full h-auto max-h-[300px] object-cover rounded-xl z-20 shadow-sm">
-
-
-                    <button id="postImageClearBtn" onclick="clearPostImage(event)"
-                        class="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hidden hover:bg-black/80 transition-colors z-30">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <button id="batchImportBtn" onclick="openBatchImport()"
-                    class="w-full py-3 mt-1 text-[#007AFF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Batch Import Announcements (JSON)
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Post Detail & Comments Page -->
-    <div id="detailPage"
-        class="hidden fixed inset-0 lg:left-80 z-[510] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <button onclick="closeDetail()"
-                class="text-[#007AFF] text-base flex items-center w-20 active:opacity-50 transition-opacity">
-                <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg> Back
-            </button>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Details</div>
-            <div class="w-20"></div>
-        </div>
-        <div id="detailContent" class="flex-1 overflow-y-auto p-4 space-y-6 pb-[90px] lg:pb-safe">
-            <!-- Details and comments injected here -->
-        </div>
-        <!-- Comment Input Area -->
-        <div id="commentInputArea"
-            class="hidden flex-shrink-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-gray-200/80 dark:border-white/10 p-3 pb-[90px] lg:pb-safe px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-            <div class="flex items-center gap-3">
-                <div
-                    class="flex-1 bg-[#F2F2F7] dark:bg-black border border-gray-200 dark:border-gray-800 rounded-full px-5 py-2.5 flex items-center">
-                    <input id="commentInput" type="text" placeholder="Add a comment..."
-                        onkeydown="if(event.key==='Enter') submitComment()"
-                        class="flex-1 bg-transparent text-base outline-none text-black dark:text-white placeholder-gray-400">
-                </div>
-                <button onclick="submitComment()"
-                    class="w-10 h-10 bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30 active:scale-95 transition-transform">
-                    <svg class="w-5 h-5 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cafeteria Menu Page -->
-    <div id="cafeteriaPage"
-        class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Cafeteria Menu
-            </div>
-            <div class="w-20 flex justify-end">
-                <button id="cafeteriaEditBtn" onclick="openCafeteriaEdit()"
-                    class="hidden text-[#007AFF] text-base font-medium active:opacity-50 transition-opacity">Edit</button>
-            </div>
-        </div>
-
-        <div id="cafeteriaContent" class="flex-1 overflow-y-auto p-5 space-y-6 pb-[90px] lg:pb-safe">
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Today <span class="text-sm font-bold text-gray-400" id="cafeteriaTodayDate"></span>
-                </h2>
-                <div id="cafeteriaTodayList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
-            </div>
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Tomorrow <span class="text-sm font-bold text-gray-400" id="cafeteriaTomorrowDate"></span>
-                </h2>
-                <div id="cafeteriaTomorrowList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cafeteria Edit Sheet (bottom sheet modal, same pattern as postPage) -->
-    <div id="cafeteriaEditSheet"
-        class="hidden fixed inset-0 lg:left-80 z-[200] flex flex-col justify-end pointer-events-none">
-        <div id="cafeteriaEditBackdrop"
-            class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-[400ms] pointer-events-auto"
-            onclick="closeCafeteriaEdit()"></div>
-        <div id="cafeteriaEditContent"
-            class="relative pointer-events-auto bg-white dark:bg-[#1C1C1E] rounded-t-3xl shadow-2xl transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] translate-y-full flex flex-col w-full h-[90vh]">
-            <!-- Handle bar -->
-            <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-            <!-- Header -->
-            <div
-                class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
-                <button onclick="closeCafeteriaEdit()"
-                    class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
-                <div class="font-bold text-base text-black dark:text-white flex-1 text-center">Edit Menu</div>
-                <button onclick="saveCafeteriaMenu()"
-                    class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Save</button>
-            </div>
-            <!-- Day tabs -->
-            <div class="px-5 pb-3 flex-shrink-0">
-                <div class="flex bg-[#E9E9EB] dark:bg-gray-800 rounded-xl p-0.5 h-8">
-                    <button id="cafeteriaTabToday" onclick="switchCafeteriaTab('today')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">Today</button>
-                    <button id="cafeteriaTabTomorrow" onclick="switchCafeteriaTab('tomorrow')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center text-gray-500 rounded-lg transition-all">Tomorrow</button>
-                </div>
-            </div>
-            <!-- Add food input -->
-            <div class="flex gap-2 px-5 pb-3 flex-shrink-0">
-                <input type="text" id="newFoodInput" placeholder="Add new food to pool..."
-                    class="flex-1 bg-[#F2F2F7] dark:bg-black px-4 py-3 rounded-2xl outline-none text-black dark:text-white font-medium placeholder-gray-400">
-                <button onclick="addFoodToPool()"
-                    class="bg-[#007AFF] text-white px-5 rounded-2xl font-bold active:scale-95 transition-transform">Add</button>
-            </div>
-            <!-- Food pool list -->
-            <div class="flex-1 overflow-y-auto px-5 pb-safe">
-                <div class="bg-[#F2F2F7] dark:bg-black rounded-3xl overflow-hidden">
-                    <div id="cafeteriaPoolList" class="divide-y divide-gray-200 dark:divide-white/5">
-                    </div>
-                </div>
-                <div class="h-6"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CHS Eagle Time Full Screen Page -->
-    <div id="eagleTimePage"
-        class="hidden fixed inset-0 lg:left-80 z-[150] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeEagleTime()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Eagle Time
-            </div>
-            <div class="w-20 flex justify-end">
-                <button id="eagleAddBtn" onclick="openCreateEagleForm()"
-                    class="hidden text-[#007AFF] text-2xl font-bold active:opacity-50 transition-opacity">+</button>
-            </div>
-        </div>
-
-        <div id="eagleTimeContent" class="flex-1 overflow-y-auto p-4 space-y-4 pb-[90px] lg:pb-safe">
-            <div id="eagleCreateForm"
-                class="hidden bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 space-y-4 mb-6">
-                <h3 class="font-bold text-lg">Create Session</h3>
-                <input id="eagleTitleInput" type="text" placeholder="Session Title (e.g. Math Help)"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none">
-                <input id="eagleRoomInput" type="text" placeholder="Room Number"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none">
-                <select id="eagleTeacherSelect"
-                    class="w-full bg-[#F2F2F7] dark:bg-black p-3 rounded-xl outline-none"></select>
-                <button onclick="submitEagleSession()"
-                    class="w-full bg-[#007AFF] text-white py-3 rounded-xl font-bold shadow-md shadow-blue-500/20">Create</button>
-            </div>
-
-            <div id="sessionListContainer" class="space-y-4">
-                <!-- Session items -->
-            </div>
-        </div>
-
-        <div id="studentPassContainer"
-            class="hidden flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center pb-[90px] lg:pb-safe">
-            <!-- Digital Pass Card -->
-        </div>
-    </div>
-    <!-- Grade Calculator Page -->
-    <!-- Database Admin Console -->
-    <div id="adminConsolePage"
-        class="hidden fixed inset-0 lg:left-80 z-[160] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeAdminConsole()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Database Console
-            </div>
-            <div class="w-20 flex justify-end gap-2">
-                <button id="adminShowAllBtn" onclick="resetAdminList()"
-                    class="hidden text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Show
-                    All</button>
-                <button onclick="scanUserIssues()"
-                    class="text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Scan Issues</button>
-            </div>
-        </div>
-
-        <div
-            class="flex-shrink-0 px-5 py-3 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5 space-y-3">
-            <div class="relative">
-                <input type="text" id="adminUserSearch" placeholder="Search by name, email or ID..."
-                    oninput="filterAdminUsers()"
-                    class="w-full bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-800 rounded-xl px-10 py-2.5 text-[15px] outline-none">
-                <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </div>
-            <div id="scanStatus" class="hidden text-xs text-red-500 font-bold px-2 animate-pulse">Scanning database for
-                corrupted accounts...</div>
-        </div>
-
-        <div id="adminUserList" class="flex-1 overflow-y-auto p-4 space-y-3 pb-[90px] lg:pb-safe">
-            <div class="text-center text-gray-400 mt-20">Enter search or scan to list users</div>
-        </div>
-    </div>
-
-    <!-- Extension View Page -->
-    <div id="extensionPage"
-        class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
-            <div class="w-auto z-10">
-                <button onclick="closeExtension()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-
-            <div id="extensionTitle"
-                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-base text-black dark:text-white truncate max-w-[50%] text-center pointer-events-none">
-                Tool
-            </div>
-
-            <div class="w-auto flex justify-end items-center gap-1 z-10">
-                <button id="extensionCustomBtn"
-                    class="hidden font-bold text-[#007AFF] px-2 py-1 text-base active:opacity-50 transition-opacity whitespace-nowrap">Post</button>
-                <button onclick="openExtensionExternally()" title="Open in New Window"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                        <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-                <button onclick="reloadExtension()" title="Refresh"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                        <path
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="flex-1 relative bg-white dark:bg-black">
-            <iframe id="extensionIframe" class="w-full h-full border-none" src="about:blank"></iframe>
-            <div id="extensionLoading"
-                class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10">
-                <div class="flex flex-col items-center gap-3">
-                    <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                    <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Launching Tool...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Terms of Service Page -->
-    <div id="tosPage" class="hidden fixed inset-0 z-[200] bg-[#F2F2F7] dark:bg-black flex flex-col">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button id="tosCloseBtn" onclick="closeTos()"
-                    class="hidden text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    Done
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Terms of
-                Service
-            </div>
-            <div class="w-20"></div>
-        </div>
-        <div class="flex-1 overflow-y-auto p-6 text-[15px] leading-relaxed text-gray-800 dark:text-gray-300">
-            <div class="max-w-2xl mx-auto space-y-6 pb-24">
-                <div id="tosContentArea" class="max-w-2xl mx-auto space-y-6 pb-24">
-                    <!-- Content injected from content.js -->
-                </div>
-
-                <div id="tosAcceptSection" class="pt-8 text-center space-y-4">
-                    <p class="text-sm text-gray-500">By clicking "Agree", you acknowledge that you have read and
-                        understood these terms.</p>
-                    <button onclick="acceptTerms()"
-                        class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">Agree
-                        and Continue</button>
-                </div>
-            </div>
-        </div>
-        <script>
-            // Initial bottom nav sync
-            if (window.innerWidth < 1024 && window.refreshBottomNav) {
-                window.refreshBottomNav('messages');
-            }
-        </script>
-    </div>
-</body>
-
-</html>
-
-
-
-
-
+    

@@ -38,6 +38,7 @@ export const NotifyModule = {
         if (!url) return;
         try {
             this.audio = new Audio(url);
+            this.audio.preload = 'auto';
             this.audio.volume = 0.5;
             this.audio.load(); 
         } catch (e) {
@@ -77,7 +78,7 @@ export const NotifyModule = {
         const user = this.context.currentUser;
         if (!user) return;
 
-        const uid = user.id || user.email.split('@')[0].replace(/\./g, '_');
+        const uid = (user.id || user.email.split('@')[0].replace(/\./g, '_')).toLowerCase();
 
         onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
@@ -155,7 +156,7 @@ export const NotifyModule = {
             if (!isUserFocusedOnThisChat) {
                 this.triggerAlert(targetId, msg);
                 if (this.context.currentUser) {
-                    const uid = this.context.currentUser.id;
+                    const uid = String(this.context.currentUser.id || '').toLowerCase();
                     update(ref(db, `user_notifications/${uid}`), { [targetId]: true });
                 }
             }
@@ -163,6 +164,12 @@ export const NotifyModule = {
     },
 
     triggerAlert(targetId, msg) {
+        const SETTINGS = window.SETTINGS || {};
+        // Lazy init to avoid "first extension alert has no sound" during startup race.
+        if (!this.audio && SETTINGS.soundEnabled !== false && SETTINGS.soundUrl) {
+            this.setSound(SETTINGS.soundUrl);
+        }
+
         if (this.audio) {
             this.audio.play().catch(e => console.warn('[Notify] Audio play failed:', e));
         }
@@ -184,7 +191,7 @@ export const NotifyModule = {
         if (dot) dot.classList.add('hidden');
 
         if (this.context.currentUser) {
-            const uid = this.context.currentUser.id;
+            const uid = String(this.context.currentUser.id || '').toLowerCase();
             update(ref(db, `user_notifications/${uid}`), { [targetId]: false });
         }
         

@@ -12,6 +12,118 @@ const ALIAS_MAP = {
     'grade_calc': 'grade_calculator'
 };
 
+let _currentExtensionUrl = '';
+
+export const openExtension = (eid, customUrl = null, customTitle = null) => {
+    const titleEl = document.getElementById('extensionTitle');
+    const iframe = document.getElementById('extensionIframe');
+    const loader = document.getElementById('extensionLoading');
+
+    let url = 'about:blank';
+    let title = 'Tool';
+
+    // Resolve dynamically from registry
+    const regItem = ExtensionModule.getRegistryItem(eid);
+
+    if (customUrl) {
+        url = customUrl;
+        title = customTitle || eid;
+    } else if (regItem) {
+        url = regItem.url;
+        title = regItem.title;
+    } else if (eid === 'calc_volume_3d') {
+        url = 'extensions/BC volume 3D present.html';
+        title = '3D Volume Visualizer';
+    } else if (eid === 'independent_research') {
+        url = 'extensions/school/ir-navigator/IR Navigator.html';
+        title = 'Independent Research Hub';
+    } else if (eid === 'grade_calculator') {
+        url = 'extensions/grade_calculator.html';
+        title = 'Grade Calculator';
+    }
+
+    _currentExtensionUrl = url;
+    if (titleEl) titleEl.innerText = title;
+    if (loader) loader.classList.remove('hidden');
+    if (iframe) iframe.src = url + '?v=' + Date.now();
+
+    if (iframe) {
+        iframe.onload = () => {
+            if (loader) loader.classList.add('hidden');
+            
+            if (iframe.contentWindow) {
+                const ViewModule = window.ViewModule || window.AppModules?.View;
+                const isDarkMode = ViewModule?.state?.isDarkMode || false;
+                iframe.contentWindow.postMessage({
+                    type: 'THEME_UPDATE',
+                    isDarkMode: isDarkMode
+                }, '*');
+
+                // Read pending message from bridge if available
+                const Bridge = window.AppModules?.Bridge;
+                if (Bridge && Bridge.getPendingMessage) {
+                    const pendingMsg = Bridge.getPendingMessage();
+                    if (pendingMsg) {
+                        iframe.contentWindow.postMessage(pendingMsg, '*');
+                        Bridge.clearPendingMessage();
+                    }
+                }
+            }
+        };
+    }
+
+    // Apply Panel vs Fullscreen logic based on extension type
+    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine'].includes(eid);
+    const extPage = document.getElementById('extensionPage');
+
+    if (extPage) {
+        if (isPanel) {
+            extPage.classList.add('lg:left-80');
+            extPage.classList.remove('z-[160]');
+            extPage.classList.add('z-[95]');
+            document.body.classList.remove('is-fullscreen');
+        } else {
+            extPage.classList.remove('lg:left-80');
+            extPage.classList.add('z-[160]');
+            extPage.classList.remove('z-[95]');
+            document.body.classList.add('is-fullscreen');
+        }
+    }
+
+    const ViewModule = window.ViewModule || window.AppModules?.View;
+    if (ViewModule && ViewModule.openOverlay) {
+        ViewModule.openOverlay('extensionPage', { zIndex: ViewModule.CONSTANTS?.Z_INDEX?.ADMIN || 160, isExclusive: true });
+    }
+};
+
+export const closeExtension = () => {
+    const ViewModule = window.ViewModule || window.AppModules?.View;
+    if (ViewModule && ViewModule.closeOverlay) {
+        ViewModule.closeOverlay('extensionPage', {
+            onClose: () => {
+                const iframe = document.getElementById('extensionIframe');
+                if (iframe) iframe.src = 'about:blank';
+                _currentExtensionUrl = '';
+            }
+        });
+    }
+};
+
+export const reloadExtension = () => {
+    const iframe = document.getElementById('extensionIframe');
+    const loader = document.getElementById('extensionLoading');
+    if (loader) loader.classList.remove('hidden');
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.location.reload();
+    }
+};
+
+export const openExtensionExternally = () => {
+    if (_currentExtensionUrl && _currentExtensionUrl !== 'about:blank') {
+        window.open(_currentExtensionUrl, '_blank');
+    }
+};
+
 export const ExtensionModule = {
     callbacks: {
         renderCategory: null,
@@ -45,6 +157,22 @@ export const ExtensionModule = {
     getRegistryItem(eid) {
         const targetEid = ALIAS_MAP[eid] || eid;
         return this.registry[targetEid] || null;
+    },
+
+    openExtension(eid, customUrl = null, customTitle = null) {
+        return openExtension(eid, customUrl, customTitle);
+    },
+
+    closeExtension() {
+        return closeExtension();
+    },
+
+    reloadExtension() {
+        return reloadExtension();
+    },
+
+    openExtensionExternally() {
+        return openExtensionExternally();
     },
 
     /**
@@ -235,4 +363,8 @@ if (window) {
     if (!window.AppModules) window.AppModules = {};
     window.AppModules.Extension = ExtensionModule;
     window.ExtensionRegistry = ExtensionModule.registry;
+    window.openExtension = openExtension;
+    window.closeExtension = closeExtension;
+    window.reloadExtension = reloadExtension;
+    window.openExtensionExternally = openExtensionExternally;
 }

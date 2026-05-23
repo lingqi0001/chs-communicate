@@ -315,6 +315,24 @@ body {
     animation: highlightPulse 0.4s ease-in-out 2;
 }
 
+/* Search jump highlight for announcement cards: no opacity dimming. */
+.news-jump-highlight {
+    outline: 2px solid #007AFF;
+    outline-offset: 0;
+    animation: newsJumpOutline 0.6s ease-in-out 2;
+}
+
+@keyframes newsJumpOutline {
+    0%, 100% {
+        outline-color: #007AFF;
+        outline-offset: 0;
+    }
+    50% {
+        outline-color: #0A84FF;
+        outline-offset: 3px;
+    }
+}
+
 .slide-up {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
