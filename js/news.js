@@ -115,21 +115,33 @@ export function createNewsModule(deps) {
         const clubBtn = document.getElementById('btnClubNews');
         const schoolText = document.getElementById('textSchoolFull');
         const clubText = document.getElementById('textClubFull');
+        const schoolIcon = document.getElementById('iconSchoolNews');
+        const clubIcon = document.getElementById('iconClubNews');
         const discoverBlock = document.getElementById('discoverPillBlock');
         const iconWrapper = document.getElementById('discoverIconWrapper');
         const subTabs = document.getElementById('subClubTabs');
 
         if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
 
-        schoolBtn.classList.remove('text-black', 'dark:text-white', 'bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm');
-        schoolBtn.classList.add('text-gray-500');
-        clubBtn.classList.remove('text-black', 'dark:text-white', 'bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm');
-        clubBtn.classList.add('text-gray-500');
+        const inactiveClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300";
+        schoolBtn.className = inactiveClass;
+        clubBtn.className = inactiveClass;
 
         schoolText.style.maxWidth = '0px';
         schoolText.style.opacity = '0';
+        schoolText.style.marginLeft = '0px';
         clubText.style.maxWidth = '0px';
         clubText.style.opacity = '0';
+        clubText.style.marginLeft = '0px';
+
+        if (schoolIcon) {
+            schoolIcon.style.maxWidth = '16px';
+            schoolIcon.style.opacity = '1';
+        }
+        if (clubIcon) {
+            clubIcon.style.maxWidth = '16px';
+            clubIcon.style.opacity = '1';
+        }
 
         schoolBtn.style.maxWidth = '28px';
         clubBtn.style.maxWidth = '28px';
@@ -147,6 +159,8 @@ export function createNewsModule(deps) {
         const clubBtn = document.getElementById('btnClubNews');
         const schoolText = document.getElementById('textSchoolFull');
         const clubText = document.getElementById('textClubFull');
+        const schoolIcon = document.getElementById('iconSchoolNews');
+        const clubIcon = document.getElementById('iconClubNews');
         const discoverBlock = document.getElementById('discoverPillBlock');
         const iconWrapper = document.getElementById('discoverIconWrapper');
         const subTabs = document.getElementById('subClubTabs');
@@ -155,11 +169,22 @@ export function createNewsModule(deps) {
 
         schoolText.style.maxWidth = '80px';
         schoolText.style.opacity = '1';
+        schoolText.style.marginLeft = '0px';
         clubText.style.maxWidth = '80px';
         clubText.style.opacity = '1';
+        clubText.style.marginLeft = '0px';
 
-        schoolBtn.style.maxWidth = '120px';
-        clubBtn.style.maxWidth = '120px';
+        if (schoolIcon) {
+            schoolIcon.style.maxWidth = '0px';
+            schoolIcon.style.opacity = '0';
+        }
+        if (clubIcon) {
+            clubIcon.style.maxWidth = '0px';
+            clubIcon.style.opacity = '0';
+        }
+
+        schoolBtn.style.maxWidth = '50%';
+        clubBtn.style.maxWidth = '50%';
 
         discoverBlock.style.width = '32px';
         iconWrapper.style.opacity = '1';

@@ -596,9 +596,9 @@ export const ViewModule = {
             const el = document.getElementById(labels[t]);
             if (!el) return;
             if (t === tab) {
-                el.className = "text-3xl font-bold tracking-tight text-black dark:text-white transition-all leading-none head-tab-active";
+                el.className = "text-2xl font-bold tracking-tight text-black dark:text-white tab-transition leading-none head-tab-active scale-110 origin-bottom";
             } else {
-                el.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none mb-0.5";
+                el.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 tab-transition leading-none scale-100 origin-bottom mb-0.5";
             }
         });
 
