@@ -17,8 +17,9 @@ export function createNewsModule(deps) {
         globalDataSync
     } = deps;
 
-    const activeClass = "flex-1 text-center text-xs font-bold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all";
-    const inactiveClass = "flex-1 text-center text-xs font-bold h-full flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all";
+    let isNavExpanded = false;
+    let currentPrimaryTab = 'school';
+    let currentSubTab = 'joint';
 
     function renderCard(post, tabType) {
         if (!post) return '';
@@ -63,35 +64,191 @@ export function createNewsModule(deps) {
         }
     }
 
-    function toggleNewsTab(type) {
-        setCurrentNewsTab(type);
+    function setAddAnnouncementVisibility(type) {
+        const addBtn = document.getElementById('addAnnouncementBtn');
+        if (!addBtn) return;
+
+        if (type !== 'school' && type !== 'club') {
+            addBtn.classList.add('hidden');
+            return;
+        }
+
+        if (window.AppModules && window.AppModules.User && (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
+            addBtn.classList.remove('hidden');
+        } else {
+            addBtn.classList.add('hidden');
+        }
+    }
+
+    function updatePrimaryTabUI() {
         const btnSchool = document.getElementById('btnSchoolNews');
         const btnClub = document.getElementById('btnClubNews');
+        if (!btnSchool || !btnClub) return;
+
+        const activePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm";
+        const inactivePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300";
+
+        if (currentPrimaryTab === 'school') {
+            btnSchool.className = activePrimaryClass;
+            btnClub.className = inactivePrimaryClass;
+        } else {
+            btnSchool.className = inactivePrimaryClass;
+            btnClub.className = activePrimaryClass;
+        }
+    }
+
+    function updateSubTabUI(selectedSubTab) {
+        const tabs = ['joint', 'discover', 'events'];
+        tabs.forEach((id) => {
+            const btn = document.getElementById(`subTab_${id}`);
+            if (!btn) return;
+            if (id === selectedSubTab) {
+                btn.className = "flex-1 h-full bg-white text-black dark:bg-[#2C2C2E] dark:text-white rounded-lg text-center transition-colors whitespace-nowrap shadow-sm";
+            } else {
+                btn.className = "flex-1 h-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap";
+            }
+        });
+    }
+
+    function expandDiscoverNav() {
+        const schoolBtn = document.getElementById('btnSchoolNews');
+        const clubBtn = document.getElementById('btnClubNews');
+        const schoolText = document.getElementById('textSchoolFull');
+        const clubText = document.getElementById('textClubFull');
+        const discoverBlock = document.getElementById('discoverPillBlock');
+        const iconWrapper = document.getElementById('discoverIconWrapper');
+        const subTabs = document.getElementById('subClubTabs');
+
+        if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
+
+        schoolBtn.classList.remove('text-black', 'dark:text-white', 'bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm');
+        schoolBtn.classList.add('text-gray-500');
+        clubBtn.classList.remove('text-black', 'dark:text-white', 'bg-white', 'dark:bg-[#2C2C2E]', 'shadow-sm');
+        clubBtn.classList.add('text-gray-500');
+
+        schoolText.style.maxWidth = '0px';
+        schoolText.style.opacity = '0';
+        clubText.style.maxWidth = '0px';
+        clubText.style.opacity = '0';
+
+        schoolBtn.style.maxWidth = '28px';
+        clubBtn.style.maxWidth = '28px';
+
+        discoverBlock.style.width = 'calc(100% - 72px)';
+        iconWrapper.style.opacity = '0';
+        iconWrapper.style.transform = 'scale(0.5)';
+        subTabs.classList.remove('opacity-0', 'pointer-events-none');
+        subTabs.classList.add('opacity-100');
+        isNavExpanded = true;
+    }
+
+    function collapseDiscoverNav() {
+        const schoolBtn = document.getElementById('btnSchoolNews');
+        const clubBtn = document.getElementById('btnClubNews');
+        const schoolText = document.getElementById('textSchoolFull');
+        const clubText = document.getElementById('textClubFull');
+        const discoverBlock = document.getElementById('discoverPillBlock');
+        const iconWrapper = document.getElementById('discoverIconWrapper');
+        const subTabs = document.getElementById('subClubTabs');
+
+        if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
+
+        schoolText.style.maxWidth = '80px';
+        schoolText.style.opacity = '1';
+        clubText.style.maxWidth = '80px';
+        clubText.style.opacity = '1';
+
+        schoolBtn.style.maxWidth = '120px';
+        clubBtn.style.maxWidth = '120px';
+
+        discoverBlock.style.width = '32px';
+        iconWrapper.style.opacity = '1';
+        iconWrapper.style.transform = 'scale(1)';
+        subTabs.classList.add('opacity-0', 'pointer-events-none');
+        subTabs.classList.remove('opacity-100');
+        isNavExpanded = false;
+    }
+
+    function showNewsContent(type) {
         const contentSchool = document.getElementById('schoolNewsContent');
         const contentClub = document.getElementById('clubNewsContent');
-        if (!btnSchool || !btnClub || !contentSchool || !contentClub) return;
+        const contentClubsList = document.getElementById('clubsListContent');
+        if (!contentSchool || !contentClub || !contentClubsList) return;
 
-        if (type === 'school') {
-            btnSchool.className = activeClass;
-            btnClub.className = inactiveClass;
-            contentClub.classList.add('opacity-0');
-            setTimeout(() => {
-                contentClub.classList.add('hidden');
-                contentSchool.classList.remove('hidden');
-                void contentSchool.offsetWidth;
-                contentSchool.classList.remove('opacity-0');
-            }, 150);
-        } else {
-            btnClub.className = activeClass;
-            btnSchool.className = inactiveClass;
-            contentSchool.classList.add('opacity-0');
-            setTimeout(() => {
-                contentSchool.classList.add('hidden');
-                contentClub.classList.remove('hidden');
-                void contentClub.offsetWidth;
-                contentClub.classList.remove('opacity-0');
-            }, 150);
+        const all = [contentSchool, contentClub, contentClubsList];
+        all.forEach((el) => {
+            if (!el.classList.contains('hidden')) {
+                el.classList.add('opacity-0');
+            }
+        });
+
+        setTimeout(() => {
+            all.forEach((el) => el.classList.add('hidden'));
+            let target = contentSchool;
+            if (type === 'club') target = contentClub;
+            if (type === 'clubs' || type === 'joint' || type === 'discover' || type === 'events') target = contentClubsList;
+            target.classList.remove('hidden');
+            void target.offsetWidth;
+            target.classList.remove('opacity-0');
+        }, 150);
+    }
+
+    function selectPrimaryTab(tabType, e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        currentPrimaryTab = tabType;
+        setCurrentNewsTab(tabType);
+
+        if (isNavExpanded) {
+            collapseDiscoverNav();
         }
+        updatePrimaryTabUI();
+        setAddAnnouncementVisibility(tabType);
+        showNewsContent(tabType);
+    }
+
+    function selectSubTab(tabId, e) {
+        if (e && typeof e.stopPropagation === 'function') {
+            e.stopPropagation();
+        }
+        currentSubTab = tabId;
+        setCurrentNewsTab('clubs');
+        updateSubTabUI(tabId);
+        setAddAnnouncementVisibility('clubs');
+        showNewsContent(tabId);
+    }
+
+    function toggleNewsTab(type, e) {
+        if (type === 'school' || type === 'club') {
+            selectPrimaryTab(type, e);
+            return;
+        }
+
+        if (type === 'clubs') {
+            setCurrentNewsTab('clubs');
+            if (!isNavExpanded) {
+                expandDiscoverNav();
+            }
+            selectSubTab('joint', null);
+            return;
+        }
+
+        if (type === 'joint' || type === 'discover' || type === 'events') {
+            if (!isNavExpanded) {
+                expandDiscoverNav();
+            }
+            selectSubTab(type, e);
+        }
+    }
+
+    // Ensure first paint is collapsed and primary state is school.
+    if (typeof window !== 'undefined') {
+        setTimeout(() => {
+            currentPrimaryTab = getCurrentNewsTab() === 'club' ? 'club' : 'school';
+            updatePrimaryTabUI();
+            collapseDiscoverNav();
+            updateSubTabUI(currentSubTab);
+            setAddAnnouncementVisibility(currentPrimaryTab);
+        }, 0);
     }
 
     async function processBatchData(raw) {

@@ -50,6 +50,33 @@ function getOtherParticipantId(chatId, currentUserId) {
 }
 
 export const SearchModule = {
+    ensureGlobalSearchResults() {
+        if (document.getElementById('globalSearchResults')) return;
+        const input = document.getElementById('globalSearchInput');
+        const host = input ? input.closest('.relative') : null;
+        if (!host) return;
+        host.insertAdjacentHTML('beforeend', `
+                    <div id="globalSearchResults"
+                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
+                        <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
+                        <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+                            <button onclick="setSearchCategory('messages')" id="searchCat-messages"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
+                            <button onclick="setSearchCategory('community')" id="searchCat-community"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
+                            <button onclick="setSearchCategory('news')" id="searchCat-news"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
+                            <button onclick="setSearchCategory('tools')" id="searchCat-tools"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
+                            <button onclick="setSearchCategory('people')" id="searchCat-people"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
+                        </div>
+                        <!-- Scrollable Results Area -->
+                        <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
+                    </div>
+        `);
+    },
+
     /**
      * Retrieves search history from localStorage
      * @returns {string[]} history terms
@@ -293,6 +320,7 @@ export const SearchModule = {
      * Initializes the Search UI handlers and registers global bindings
      */
     initSearchUI(options) {
+        this.ensureGlobalSearchResults();
         const { db, getCurrentUser, getSidebarClasses, getCnCache } = options;
 
         window.showGlobalSearchResults = () => {

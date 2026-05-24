@@ -93,25 +93,25 @@ export const ViewModule = {
         layerStack: [] // { id, closeFn }
     },
 
-    // 兼容性属性桥�?(Legacy Property Bridges)
+    // 兼容性属性桥?(Legacy Property Bridges)
     get currentPanel() { return this.state.currentPanel; },
     set currentPanel(v) { this.state.currentPanel = v; },
 
     /**
      * [层级管理] registerLayer / unregisterLayer / popLayer
-     * 管理所有弹窗、详情页的生命周期，支持物理返回键关�?     */
+     * 管理所有弹窗、详情页的生命周期，支持物理返回键关?     */
     registerLayer: function (id, closeFn, options = {}) {
-        // 1. 检查是否重复注册，如果是，则先移除旧的（以便将其移到最顶层�?        
+        // 1. 检查是否重复注册，如果是，则先移除旧的（以便将其移到最顶层?        
         const index = this.state.layerStack.findIndex(l => l.id === id);
         if (index > -1) {
             this.state.layerStack.splice(index, 1);
         }
 
-        // 2. 压入堆栈（确保当前层级在最顶层�?        
+        // 2. 压入堆栈（确保当前层级在最顶层?        
         this.state.layerStack.push({ id, closeFn });
         this.lockScroll(true);
 
-        // 核心修复：压入一个历史记录状态，拦截物理返回�?        
+        // 核心修复：压入一个历史记录状态，拦截物理返回?        
         if (!options.isBackAction) {
             history.pushState({ layerId: id }, "");
         }
@@ -125,9 +125,10 @@ export const ViewModule = {
             this.state.layerStack.splice(index, 1);
             this.lockScroll(false);
 
-            // 如果不是因为按下返回键导致的注销，则需要手动清理掉刚才压入的历史记�?            
+            // 如果不是因为按下返回键导致的注销，则需要手动清理掉刚才压入的历史记录
             if (!options.isBackAction) {
                 if (history.state && history.state.layerId === id) {
+                    window._isProgrammaticBack = true;
                     history.back();
                 }
             }
@@ -138,7 +139,7 @@ export const ViewModule = {
     popLayer: function () {
         if (this.state.layerStack.length > 0) {
             const top = this.state.layerStack[this.state.layerStack.length - 1];
-            // 执行该层的关闭逻辑，并告知它是来自“返回动作�?            
+            // 执行该层的关闭逻辑，并告知它是来自“返回动作?            
             top.closeFn({ isBackAction: true });
             return true;
         }
@@ -170,7 +171,7 @@ export const ViewModule = {
             pendingCleanup = [...this.state.layerStack].filter(l => l.id !== id);
         }
 
-        // 2. 更新内容与层�?(动态提�?z-index 确保滑入时在最顶层)
+        // 2. 更新内容与层?(动态提?z-index 确保滑入时在最顶层)
         if (onOpen) onOpen();
 
         const topZ = this.state.layerStack.reduce((max, l) => {
@@ -179,7 +180,7 @@ export const ViewModule = {
             return Math.max(max, val);
         }, 0);
 
-        // 确保新层级比背景任何层都高，但至少满足预�?zIndex
+        // 确保新层级比背景任何层都高，但至少满足预?zIndex
         el.style.zIndex = String(Math.max(zIndex, topZ + 1));
 
         // 3. 执行滑入动画
@@ -189,14 +190,14 @@ export const ViewModule = {
             if (animation === 'slide-up') el.classList.add('translate-y-full');
 
             el.classList.remove('hidden');
-            // 触发回流并开始平滑过�?            
+            // 触发回流并开始平滑过?            
             void el.offsetWidth;
 
             setTimeout(() => {
                 el.classList.remove('translate-x-full', 'translate-y-full', 'opacity-0');
             }, 50);
         } else {
-            // 如果已经在显示了（比如同一�?container 切换工具），就不走滑入，直接确保显示
+            // 如果已经在显示了（比如同一?container 切换工具），就不走滑入，直接确保显示
             el.classList.remove('hidden', 'translate-x-full', 'translate-y-full', 'opacity-0');
         }
 
@@ -207,7 +208,7 @@ export const ViewModule = {
             this.closeOverlay(id, { ...options, ...navOpts });
         }, options);
 
-        // 核心优化：针�?Extension Iframe 的“首次握手”同�?        
+        // 核心优化：针?Extension Iframe 的“首次握手”同?        
         const iframe = el.querySelector('iframe') || (id === 'extensionOverlay' ? document.getElementById('extensionIframe') : null);
         if (iframe) {
             const syncTheme = () => {
@@ -220,7 +221,7 @@ export const ViewModule = {
             }
         }
 
-        // 5. 核心：动画完成后，再真正关闭之前的层级并杀掉进�?        
+        // 5. 核心：动画完成后，再真正关闭之前的层级并杀掉进?        
         if (pendingCleanup.length > 0) {
             setTimeout(() => {
                 pendingCleanup.forEach(layer => {
@@ -257,7 +258,7 @@ export const ViewModule = {
             return;
         }
 
-        // 触发退出动�?        
+        // 触发退出动?        
         if (animation === 'slide-in') el.classList.add('translate-x-full');
         if (animation === 'slide-up') el.classList.add('translate-y-full');
 
@@ -274,7 +275,7 @@ export const ViewModule = {
 
     /**
      * [滚动管理] lockScroll
-     * 锁定/解锁背景滚动，防止移动端滚动穿�?     */
+     * 锁定/解锁背景滚动，防止移动端滚动穿?     */
     lockScroll: function (locked) {
         if (locked) {
             this.state.scrollLockCount++;
@@ -297,17 +298,17 @@ export const ViewModule = {
 
     /**
      * [初始化] init
-     * 启动视口补丁、主题和侧边栏状�?     */
+     * 启动视口补丁、主题和侧边栏状?     */
     init: function () {
         this.initViewport();
         this.initTheme();
         this.initSidebar();
-        this.initNavigation(); // 启动返回键拦�?        
+        this.initNavigation(); // 启动返回键拦?        
         console.log('ViewModule: Initialized.');
     },
 
     initNavigation: function () {
-        // 兼容性桥�?        window.AppView = this;
+        // 兼容性桥?        window.AppView = this;
         window.popLayer = () => this.popLayer();
 
         if (this._navInitialized) return;
@@ -315,6 +316,10 @@ export const ViewModule = {
 
         // 核心监听：拦截浏览器的前进后退信号
         window.addEventListener('popstate', (event) => {
+            if (window._isProgrammaticBack) {
+                window._isProgrammaticBack = false;
+                return;
+            }
             // 如果堆栈里有东西，说明用户按返回键是想关闭详情页
             if (this.state.layerStack.length > 0) {
                 // 我们手动执行退栈逻辑
@@ -621,7 +626,17 @@ export const ViewModule = {
         if (subTabs) {
             if (tab === 'news') {
                 subTabs.style.height = '32px'; subTabs.style.opacity = '1'; subTabs.style.marginTop = '0.75rem';
-                if (addBtn && window.isAppStaff && window.isAppStaff()) addBtn.classList.remove('hidden');
+                if (typeof window.toggleNewsTab === 'function') {
+                    const rawNewsTab = (window.AppModules && window.AppModules.News && typeof window.AppModules.News.getCurrentNewsTab === 'function')
+                        ? (window.AppModules.News.getCurrentNewsTab() || 'school')
+                        : 'school';
+                    const validTabs = new Set(['school', 'club', 'clubs', 'joint', 'discover', 'events']);
+                    const currentNewsTab = validTabs.has(rawNewsTab) ? rawNewsTab : 'school';
+                    // Wait one frame so the Hub panel is visible before restoring sub-tab/content state.
+                    requestAnimationFrame(() => window.toggleNewsTab(currentNewsTab));
+                } else if (addBtn && window.isAppStaff && window.isAppStaff()) {
+                    addBtn.classList.remove('hidden');
+                }
             } else {
                 subTabs.style.height = '0'; subTabs.style.opacity = '0'; subTabs.style.marginTop = '0';
                 if (addBtn) addBtn.classList.add('hidden');

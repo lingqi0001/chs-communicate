@@ -60,6 +60,8 @@ const MODAL_HTML = `
 
 export const ModalModule = {
     _timer: null,
+    _failsafeTimer: null,
+    _currentLayerId: null,
 
     // Ensure the modal exists in DOM before accessing it
     _inject() {
@@ -96,6 +98,10 @@ export const ModalModule = {
         // 强制解锁滚动 (Failsafe)
         if (window.AppModules && window.AppModules.View) {
             window.AppModules.View.lockScroll(false);
+            if (window.AppModules.View.unregisterLayer && this._currentLayerId) {
+                window.AppModules.View.unregisterLayer(this._currentLayerId);
+                this._currentLayerId = null;
+            }
         }
 
         modal.classList.remove('opacity-100');
@@ -105,6 +111,7 @@ export const ModalModule = {
 
         // 清除旧定时器
         if (this._timer) clearTimeout(this._timer);
+        if (this._failsafeTimer) clearTimeout(this._failsafeTimer);
 
         this._timer = setTimeout(() => {
             modal.classList.add('hidden');
@@ -117,10 +124,11 @@ export const ModalModule = {
             if (resolve) resolve(val);
         }, 300);
 
-        // 终极保底：如�?500ms 后还�?resolve (可能由于 Tab 切换导致动画回调丢失)，强制执�?        
-        setTimeout(() => {
+        // 终极保底：如果 500ms 后还未 resolve (可能由于 Tab 切换导致动画回调丢失)，强制执行
+        this._failsafeTimer = setTimeout(() => {
             if (modal && !modal.classList.contains('hidden')) {
                 modal.classList.add('hidden');
+                this._failsafeTimer = null;
                 if (resolve) resolve(val);
             }
         }, 500);
@@ -132,12 +140,20 @@ export const ModalModule = {
         if (!els) return;
 
         const { modal, inner } = els;
+        
+        // 清除旧定时器
         if (this._timer) {
             clearTimeout(this._timer);
             this._timer = null;
         }
+        if (this._failsafeTimer) {
+            clearTimeout(this._failsafeTimer);
+            this._failsafeTimer = null;
+        }
 
-        // 注册到视图管理栈 (用于物理返回键监�?
+        this._currentLayerId = layerId;
+
+        // 注册到视图管理栈 (用于物理返回键监听)
         if (window.AppModules && window.AppModules.View) {
             window.AppModules.View.lockScroll(true);
             if (window.AppModules.View.registerLayer) {

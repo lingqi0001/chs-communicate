@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="en" class="">
 
@@ -51,10 +51,10 @@
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260519-0935",
-        "./js/settings.js": "./js/settings.js?v=20260522",
+        "./js/search.js": "./js/search.js?v=20260522-structsplit-1",
+        "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522"
-        ,"./js/chat.js": "./js/chat.js?v=20260522-1"
+        ,"./js/chat.js": "./js/chat.js?v=20260522-structsplit-1"
       }
     }
     </script>
@@ -84,6 +84,8 @@
         import { createNewsModule } from './js/news.js?v=20260522-1';
         import { SettingsModule } from './js/settings.js';
         import { AdminModule } from './js/admin.js';
+        import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
+        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260522-1';
 
 
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -143,6 +145,9 @@
         window.deleteNews = (id, tabType) => AppModules.News.deleteNews(id, tabType);
 
 
+        if (SettingsModule && typeof SettingsModule.ensureSettingsModal === 'function') {
+            SettingsModule.ensureSettingsModal();
+        }
         const cv = document.getElementById('changelogView');
         if (cv) cv.innerHTML = CHANGELOG_CONTENT;
         const tv = document.getElementById('tosContentArea');
@@ -728,7 +733,10 @@
             }
         };
 
-        window.toggleNewsTab = (type) => AppModules.News.toggleNewsTab(type);
+        window.toggleNewsTab = (type, event) => AppModules.News.toggleNewsTab(type, event);
+        window.openClubSelector = () => {
+            if (window.toggleNewsTab) window.toggleNewsTab('clubs');
+        };
 
 
 
@@ -1388,10 +1396,10 @@
             const page = document.getElementById('detailPage');
             page.classList.add('translate-x-full');
 
-
             if (window.AppModules && window.AppModules.View) {
                 window.AppModules.View.unregisterLayer('detailPage');
                 if (!window._isPopStateClosing) {
+                    window._isProgrammaticBack = true;
                     history.back();
                 }
             }
@@ -1478,237 +1486,23 @@
                 timestamp: Date.now()
             }).then(() => { input.value = ''; }).catch(e => AppModules.Modal.alert("Error", e.message));
         };
-
-        window.openEagleTime = () => {
-            currentModule = 'eagle_time';
-            const btn = document.getElementById('eagleAddBtn');
-            if (btn) btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
-            AppModules.View.openOverlay('eagleTimePage', { onOpen: renderEagleTime, zIndex: AppModules.View.CONSTANTS.Z_INDEX.EAGLE_TIME, isExclusive: true });
-        };
-
-        window.closeEagleTime = () => {
-            AppModules.View.closeOverlay('eagleTimePage', {
-                onClose: () => {
-                    currentModule = null;
-                }
-            });
-        };
-
-        function renderEagleTime() {
-            const container = document.getElementById('eagleTimeContent');
-            const studentPassContainer = document.getElementById('studentPassContainer');
-
-            onValue(ref(db, 'eagle_time/sessions'), (snapshot) => {
-                const sessions = snapshot.val() || {};
-                const sessionList = Object.keys(sessions).map(id => ({ id, ...sessions[id] }));
-
-                // Check if user is already in a session
-                let joinedSession = null;
-                sessionList.forEach(s => {
-                    if (s.students && s.students[currentUser.id]) joinedSession = s;
-                });
-
-                if (joinedSession) {
-                    container.classList.add('hidden');
-                    studentPassContainer.classList.remove('hidden');
-                    renderStudentPass(joinedSession);
-                } else {
-                    container.classList.remove('hidden');
-                    studentPassContainer.classList.add('hidden');
-                    renderSessionList(sessionList);
-                }
-            });
-        }
-
-        async function renderSessionList(sessions) {
-            const container = document.getElementById('sessionListContainer');
-            if (sessions.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-400 mt-20">No Eagle Time sessions available.</div>';
-                return;
-            }
-
-            let cols = 1;
-            const w = window.innerWidth;
-            if (w >= 1536) cols = 4;
-            else if (w >= 1280) cols = 3;
-            else if (w >= 768) cols = 2;
-
-            const columns = Array.from({ length: cols }, () => []);
-            sessions.forEach((s, i) => columns[i % cols].push(s));
-
-            const html = await Promise.all(columns.map(async colSessions => {
-                if (colSessions.length === 0) return '';
-                const cards = await Promise.all(colSessions.map(async s => {
-                    const studentCount = Object.keys(s.students || {}).length;
-                    const teacher = await fetchUser(s.teacherId);
-                    const teacherName = teacher?.name || 'Unknown Teacher';
-
-                    const studentsHtml = await Promise.all(Object.keys(s.students || {}).map(async uid => {
-                        const u = await fetchUser(uid);
-                        return `<div class="text-[13px] text-gray-600 dark:text-gray-400 flex justify-between gap-2"><span>${escapeHTML(u?.name || uid)}</span></div>`;
-                    }));
-
-                    return `
-                        <div class="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm space-y-3">
-                            <div class="flex justify-between items-start">
-                                <div class="min-w-0">
-                                    <h4 class="font-bold text-base text-black dark:text-white truncate">${escapeHTML(s.title)}</h4>
-                                    <p class="text-sm text-gray-500 truncate">${escapeHTML(teacherName)} �?Room ${escapeHTML(s.room)}</p>
-                                </div>
-                                <span class="bg-blue-100 dark:bg-blue-500/20 text-[#007AFF] text-xs font-bold px-2.5 py-1 rounded-full uppercase flex-shrink-0">
-                                    ${studentCount} Joined
-                                </span>
-                            </div>
-                            <button onclick="joinEagleSession('${s.id}')"
-                                class="w-full bg-[#007AFF] text-white py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-transform">
-                                Join Session
-                            </button>
-                            ${(AppModules.User.isAdmin() || currentUser.id === s.teacherId) ? `
-                                <div class="pt-2 border-t border-gray-100 dark:border-white/5">
-                                    <p class="text-xs font-bold text-gray-400 uppercase mb-2">Roster</p>
-                                    <div class="space-y-1 max-h-32 overflow-y-auto">
-                                        ${studentsHtml.join('') || '<p class="text-xs text-gray-400 italic">No students.</p>'}
-                                    </div>
-                                    <button onclick="deleteEagleSession('${s.id}')" class="mt-3 text-red-500 text-sm font-bold">Delete Session</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }));
-                return `<div class="flex-1 flex flex-col gap-4 min-w-0">${cards.join('')}</div>`;
-            }));
-
-            const finalHtml = `<div class="flex flex-wrap md:flex-nowrap gap-4 items-start w-full mx-auto max-w-[1200px]">${html.join('')}</div>`;
-            container.innerHTML = finalHtml;
-        }
-
-        // Add resize listener for Eagle Time grid
-        window.addEventListener('resize', () => {
-            if (currentModule === 'eagle_time') {
-                // Debounce or just re-render if active
-                const eaglePage = document.getElementById('eagleTimePage');
-                if (eaglePage && !eaglePage.classList.contains('hidden')) {
-                    // Re-render list to adjust columns
-                    onValue(ref(db, 'eagle_time/sessions'), (snapshot) => {
-                        const sessions = snapshot.val() || {};
-                        renderSessionList(Object.keys(sessions).map(id => ({ id, ...sessions[id] })));
-                    }, { onlyOnce: true });
-                }
-            }
+        initEagleTimeFeature({
+            db,
+            ref,
+            onValue,
+            update,
+            set,
+            push,
+            serverTimestamp,
+            fetchUser,
+            escapeHTML,
+            AppModules,
+            getCurrentUser: () => currentUser,
+            getCurrentModule: () => currentModule,
+            setCurrentModule: (value) => { currentModule = value; },
+            getAllUsers: () => ALL_USERS,
+            getAdminEmail: () => AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL
         });
-
-        async function renderStudentPass(session) {
-            const container = document.getElementById('studentPassContainer');
-            const teacher = await fetchUser(session.teacherId);
-            container.innerHTML = `
-                <div class="w-full max-w-[400px] mx-auto">
-                    <div class="pass-gradient p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden space-y-6">
-                        <div class="flex justify-between items-start relative z-10">
-                            <div>
-                                <p class="text-xs font-bold opacity-70 uppercase tracking-[0.2em] mb-1">Digital Hall Pass</p>
-                                <h2 class="text-3xl font-black tracking-tight leading-tight">EAGLE TIME</h2>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4 pt-4 border-t border-white/20 relative z-10">
-                            <div class="flex justify-between">
-                                <div>
-                                    <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-0.5">Student</p>
-                                    <p class="font-bold text-lg">${escapeHTML(currentUser.name)}</p>
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-0.5">Room</p>
-                                    <p class="font-bold text-lg">${escapeHTML(session.room)}</p>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-0.5">Course / Enrichment</p>
-                                <p class="font-bold text-lg">${escapeHTML(session.title)}</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-0.5">Teacher</p>
-                                <p class="font-bold text-lg">${escapeHTML(teacher?.name || 'Unknown')}</p>
-                            </div>
-                        </div>
-
-                        <div class="ticket-cutout my-2 border-t-2 border-dashed border-white/30 relative z-10"></div>
-
-                        <div class="pt-2 text-center relative z-10">
-                             <div class="inline-block bg-white text-[#007AFF] px-6 py-2 rounded-full font-black text-sm tracking-widest uppercase shadow-lg">
-                                Active Pass
-                             </div>
-                             <p class="mt-4 text-[11px] opacity-70 font-medium">Valid for enrichment period only</p>
-                        </div>
-
-                        <!-- Abstract Background Decorations -->
-                        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-                        <div class="absolute -top-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-3xl"></div>
-                    </div>
-
-                    <button onclick="leaveEagleSession('${session.id}')"
-                        class="w-full mt-6 bg-white dark:bg-[#1C1C1E] text-red-500 py-3 rounded-2xl font-bold text-base shadow-sm active:scale-95 transition-transform border border-red-100 dark:border-red-900/30">
-                        Cancel Registration
-                    </button>
-                </div>
-            `;
-        }
-
-        window.joinEagleSession = async (sessionId) => {
-            try {
-                await update(ref(db, `eagle_time/sessions/${sessionId}/students`), { [currentUser.id]: true });
-                AppModules.Modal.alert("Success", "Successfully joined Eagle Time session!");
-            } catch (e) { AppModules.Modal.alert("Error", "Failed to join: " + e.message); }
-        };
-
-        window.leaveEagleSession = async (sessionId) => {
-            if (!await AppModules.Modal.confirm("Cancel Registration", "Are you sure you want to cancel your registration?", "Leave")) return;
-            try {
-                await set(ref(db, `eagle_time/sessions/${sessionId}/students/${currentUser.id}`), null);
-            } catch (e) { AppModules.Modal.alert("Error", "Failed to leave: " + e.message); }
-        };
-
-        window.openCreateEagleForm = async () => {
-            const form = document.getElementById('eagleCreateForm');
-            form.classList.toggle('hidden');
-            if (!form.classList.contains('hidden')) {
-                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            // Populate teacher select - This still requires some way to find teachers
-            // For now, we use the cached users (those we have chats with)
-            const select = document.getElementById('eagleTeacherSelect');
-            select.innerHTML = '<option value="">Select Teacher</option>';
-            for (const uid in ALL_USERS) {
-                const u = ALL_USERS[uid];
-                if (u.email && (u.email.endsWith('@hcpss.org') || u.email === AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL)) {
-                    const opt = document.createElement('option');
-                    opt.value = uid;
-                    opt.innerText = u.name;
-                    select.appendChild(opt);
-                }
-            }
-        };
-
-        window.submitEagleSession = async () => {
-            const title = document.getElementById('eagleTitleInput').value.trim();
-            const room = document.getElementById('eagleRoomInput').value.trim();
-            const teacherId = document.getElementById('eagleTeacherSelect').value;
-
-            if (!title || !room || !teacherId) return AppModules.Modal.alert("Required", "Please fill all fields");
-
-            try {
-                const newRef = push(ref(db, 'eagle_time/sessions'));
-                await set(newRef, { title, room, teacherId, timestamp: serverTimestamp(), students: {} });
-                document.getElementById('eagleCreateForm').classList.add('hidden');
-                document.getElementById('eagleTitleInput').value = '';
-                document.getElementById('eagleRoomInput').value = '';
-                AppModules.Modal.alert("Success", "Session created successfully!");
-            } catch (e) { AppModules.Modal.alert("Error", "Failed to create: " + e.message); }
-        };
-
-        window.deleteEagleSession = async (id) => {
-            if (!await AppModules.Modal.confirm("Delete Session", "Delete this session and all its registrations?", "Delete")) return;
-            await set(ref(db, `eagle_time/sessions/${id}`), null);
-        };
         // Grade Calculator Logic
         let lastIsMobile = window.innerWidth < 1024;
         window.addEventListener('resize', () => {
@@ -1741,194 +1535,7 @@
             }
         });
 
-        // Cafeteria Menu Logic
-        let cafeteriaPool = {};
-        let cafeteriaMenus = {};
-        let currentCafeteriaTab = 'today';
-        let selectedFoods = { today: new Set(), tomorrow: new Set() };
-        let cafeteriaListener1 = null;
-        let cafeteriaListener2 = null;
         let moduleListener = null;
-
-
-
-        window.openCafeteria = () => {
-            currentModule = 'cafeteria';
-            const btn = document.getElementById('cafeteriaEditBtn');
-            if (btn) {
-                btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
-            }
-
-            document.getElementById('cafeteriaTodayDate').innerText = getLocalDateString(0);
-            document.getElementById('cafeteriaTomorrowDate').innerText = getLocalDateString(1);
-
-            moduleListener = () => {
-                if (cafeteriaListener1) { cafeteriaListener1(); cafeteriaListener1 = null; }
-                if (cafeteriaListener2) { cafeteriaListener2(); cafeteriaListener2 = null; }
-            };
-
-            AppModules.View.openOverlay('cafeteriaPage', { onOpen: loadCafeteriaData, zIndex: AppModules.View.CONSTANTS.Z_INDEX.MODULE, isExclusive: true });
-        };
-
-        function loadCafeteriaData() {
-            if (cafeteriaListener1) cafeteriaListener1();
-            if (cafeteriaListener2) cafeteriaListener2();
-
-            cafeteriaListener1 = onValue(ref(db, 'cafeteria/pool'), (snap) => {
-                cafeteriaPool = snap.val() || {};
-                renderCafeteriaView();
-                renderCafeteriaEditPool();
-            });
-
-            cafeteriaListener2 = onValue(ref(db, 'cafeteria/menus'), (snap) => {
-                cafeteriaMenus = snap.val() || {};
-                renderCafeteriaView();
-            });
-        }
-
-        function renderCafeteriaView() {
-            const todayStr = getLocalDateString(0);
-            const tomorrowStr = getLocalDateString(1);
-
-            const todayIds = cafeteriaMenus[todayStr] || [];
-            const tomorrowIds = cafeteriaMenus[tomorrowStr] || [];
-
-            const todayList = document.getElementById('cafeteriaTodayList');
-            const tomorrowList = document.getElementById('cafeteriaTomorrowList');
-
-            const renderItems = (ids, container) => {
-                if (!ids || ids.length === 0) {
-                    container.innerHTML = '<div class="text-center text-gray-400 py-4 font-medium">No menu published yet.</div>';
-                    return;
-                }
-                let html = '';
-                ids.forEach(id => {
-                    if (cafeteriaPool[id]) {
-                        html += `
-                            <div class="flex items-center gap-3 py-1">
-                                <div class="w-2 h-2 rounded-full bg-[#007AFF]"></div>
-                                <span class="text-base font-bold text-black dark:text-white">${escapeHTML(cafeteriaPool[id].name)}</span>
-                            </div>
-                        `;
-                    }
-                });
-                container.innerHTML = html || '<div class="text-center text-gray-400 py-4 font-medium">Items no longer available.</div>';
-            };
-
-            if (todayList) renderItems(todayIds, todayList);
-            if (tomorrowList) renderItems(tomorrowIds, tomorrowList);
-        }
-
-        window.openCafeteriaEdit = () => {
-            const todayStr = getLocalDateString(0);
-            const tomorrowStr = getLocalDateString(1);
-
-            selectedFoods.today = new Set(cafeteriaMenus[todayStr] || []);
-            selectedFoods.tomorrow = new Set(cafeteriaMenus[tomorrowStr] || []);
-
-            switchCafeteriaTab('today');
-
-            const sheet = document.getElementById('cafeteriaEditSheet');
-            sheet.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                document.getElementById('cafeteriaEditBackdrop').classList.add('opacity-100');
-                document.getElementById('cafeteriaEditContent').classList.remove('translate-y-full');
-            });
-        };
-
-        window.closeCafeteriaEdit = () => {
-            document.getElementById('cafeteriaEditBackdrop').classList.remove('opacity-100');
-            document.getElementById('cafeteriaEditContent').classList.add('translate-y-full');
-            setTimeout(() => document.getElementById('cafeteriaEditSheet').classList.add('hidden'), 400);
-        };
-
-        window.switchCafeteriaTab = (tab) => {
-            currentCafeteriaTab = tab;
-
-            const btnToday = document.getElementById('cafeteriaTabToday');
-            const btnTomorrow = document.getElementById('cafeteriaTabTomorrow');
-            if (tab === 'today') {
-                btnToday.className = 'flex-1 text-center text-sm font-medium h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all';
-                btnTomorrow.className = 'flex-1 text-center text-sm font-medium h-full flex items-center justify-center text-gray-500 rounded-lg transition-all';
-            } else {
-                btnTomorrow.className = 'flex-1 text-center text-sm font-medium h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all';
-                btnToday.className = 'flex-1 text-center text-sm font-medium h-full flex items-center justify-center text-gray-500 rounded-lg transition-all';
-            }
-
-            renderCafeteriaEditPool();
-        };
-
-        function renderCafeteriaEditPool() {
-            const listEl = document.getElementById('cafeteriaPoolList');
-            if (!listEl) return;
-
-            const poolKeys = Object.keys(cafeteriaPool);
-            if (poolKeys.length === 0) {
-                listEl.innerHTML = '<div class="p-6 text-center text-gray-400 font-medium">Pool is empty. Add food above.</div>';
-                return;
-            }
-
-            const currentSet = selectedFoods[currentCafeteriaTab];
-
-            let html = '';
-            poolKeys.sort((a, b) => cafeteriaPool[a].name.localeCompare(cafeteriaPool[b].name)).forEach(id => {
-                const item = cafeteriaPool[id];
-                const isChecked = currentSet.has(id);
-
-                html += `
-                    <div class="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onclick="toggleFoodSelection('${id}')">
-                        <div class="flex items-center gap-4 flex-1">
-                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isChecked ? 'bg-[#007AFF] border-[#007AFF]' : 'border-gray-300 dark:border-gray-600'}">
-                                ${isChecked ? '<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>' : ''}
-                            </div>
-                            <span class="text-base font-semibold text-black dark:text-white ${isChecked ? '' : 'opacity-80'}">${item.name}</span>
-                        </div>
-                        <button onclick="deleteFoodFromPool('${id}', event)" class="p-2 text-gray-400 hover:text-red-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </div>
-                `;
-            });
-
-            listEl.innerHTML = html;
-        }
-
-        window.toggleFoodSelection = (id) => {
-            const currentSet = selectedFoods[currentCafeteriaTab];
-            if (currentSet.has(id)) {
-                currentSet.delete(id);
-            } else {
-                currentSet.add(id);
-            }
-            renderCafeteriaEditPool();
-        };
-
-        window.addFoodToPool = async () => {
-            const input = document.getElementById('newFoodInput');
-            const name = input.value.trim();
-            if (!name) return;
-
-            const isDuplicate = Object.values(cafeteriaPool).some(item => item.name.toLowerCase() === name.toLowerCase());
-            if (isDuplicate) {
-                AppModules.Modal.alert("Notice", "This food is already in the pool!");
-                return;
-            }
-
-            const newRef = push(ref(db, 'cafeteria/pool'));
-            await set(newRef, { name: name, timestamp: serverTimestamp() });
-            input.value = '';
-        };
-
-        window.deleteFoodFromPool = async (id, event) => {
-            event.stopPropagation();
-            const ok = await AppModules.Modal.confirm("Delete Food", "Are you sure you want to delete this food from the pool?", "Delete");
-            if (!ok) return;
-            await set(ref(db, `cafeteria/pool/${id}`), null);
-
-            selectedFoods.today.delete(id);
-            selectedFoods.tomorrow.delete(id);
-            renderCafeteriaEditPool();
-        };
 
         window.clearAllLocalData = async () => {
             if (!await AppModules.Modal.confirm("Reset App", "This will wipe all locally cached messages and reload. Continue?", "Reset")) return;
@@ -1944,21 +1551,22 @@
             }
         };
 
-        window.saveCafeteriaMenu = async () => {
-            const todayStr = getLocalDateString(0);
-            const tomorrowStr = getLocalDateString(1);
-
-            const updates = {};
-            updates[`cafeteria/menus/${todayStr}`] = Array.from(selectedFoods.today);
-            updates[`cafeteria/menus/${tomorrowStr}`] = Array.from(selectedFoods.tomorrow);
-
-            try {
-                await update(ref(db), updates);
-                closeCafeteriaEdit();
-            } catch (e) {
-                AppModules.Modal.alert("Error", "Failed to save menu");
-            }
-        };
+        initCafeteriaFeature({
+            db,
+            ref,
+            push,
+            set,
+            update,
+            onValue,
+            serverTimestamp,
+            escapeHTML: UIUtils.escape,
+            getLocalDateString,
+            AppModules,
+            getCurrentModule: () => currentModule,
+            setCurrentModule: (value) => { currentModule = value; },
+            getModuleListener: () => moduleListener,
+            setModuleListener: (fn) => { moduleListener = fn; }
+        });
 
 
 
@@ -2187,18 +1795,18 @@
                 <div class="space-y-1">
                     <p class="text-xs font-bold text-[#007AFF] uppercase tracking-widest">Supported</p>
                     <ul class="text-[14px] space-y-1.5 text-gray-600 dark:text-gray-300 font-medium">
-                        <li>�?iPhone 6s or newer</li>
-                        <li>�?iPads (iPadOS 13+)</li>
-                        <li>�?School Chrome Books</li>
-                        <li>�?Samsung S8 / Google Pixel 2+</li>
-                        <li>�?PC & Mac: Chrome, Edge, Safari 13.1+</li>
+                        <li>??iPhone 6s or newer</li>
+                        <li>??iPads (iPadOS 13+)</li>
+                        <li>??School Chrome Books</li>
+                        <li>??Samsung S8 / Google Pixel 2+</li>
+                        <li>??PC & Mac: Chrome, Edge, Safari 13.1+</li>
                     </ul>
                 </div>
                 <div class="space-y-1">
                     <p class="text-xs font-bold text-red-500 uppercase tracking-widest">Not Supported</p>
                     <ul class="text-[14px] space-y-1.5 text-gray-400 font-medium">
-                        <li>�?iPhone 6 and older</li>
-                        <li>�?Internet Explorer / Old Firefox</li>
+                        <li>??iPhone 6 and older</li>
+                        <li>??Internet Explorer / Old Firefox</li>
                     </ul>
                 </div>
             </div>
@@ -2258,200 +1866,6 @@
         </div>
     </div>
 
-    <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
-        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-2xl shadow-2xl slide-up overflow-visible">
-            <div
-                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E]">
-                <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
-                <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
-            </div>
-            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl max-h-[70vh] overflow-y-auto">
-
-                <div id="settingsView" class="space-y-6">
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Profile</label>
-                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="firstNameInput" placeholder="First Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
-                                <input type="text" id="lastNameInput" placeholder="Last Name"
-                                    class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
-                            </div>
-                            <button onclick="saveProfileName(event)"
-                                class="w-full text-[#007AFF] font-medium py-3 text-base active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                                Update Name
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="relative" id="themeDropdownContainer">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
-                        <div onclick="toggleDropdown('themeDropdown', event)"
-                            class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl cursor-pointer">
-                            <span class="font-medium">Theme</span>
-                            <div class="flex items-center text-gray-500">
-                                <span id="currentThemeLabel" class="mr-2">System</span>
-                                <svg id="themeDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div id="themeDropdown"
-                            class="custom-dropdown hidden absolute top-[calc(100%+8px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
-                            <button onclick="selectTheme('system', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
-                            <button onclick="selectTheme('light', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
-                            <button onclick="selectTheme('dark', event)"
-                                class="w-full text-left px-4 py-3 text-sm">Dark</button>
-                        </div>
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
-                        <button onclick="showTos(false)"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <span class="font-medium">Terms of Service</span>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
-                        <label class="font-medium">Sound Effects</label>
-                        <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                            class="w-6 h-6 accent-blue-500">
-                    </div>
-
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Software</label>
-                        <button onclick="showChangelog()"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <div class="text-left">
-                                <div class="font-medium">Engineering Log</div>
-                                <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="pt-2 space-y-2">
-                        <button onclick="handleSignOut()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-500 py-3 rounded-xl font-semibold text-base hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
-                            Sign Out
-                        </button>
-                        <button onclick="clearAllLocalData()"
-                            class="w-full text-gray-400 text-xs font-medium py-2 hover:text-red-500 transition-colors">
-                            Trouble? Clear Local Cache
-                        </button>
-                    </div>
-
-                    <div class="pt-4 pb-2 text-center">
-                        <span id="appVersionLabel"
-                            class="text-[10px] text-gray-400 dark:text-gray-600 font-mono tracking-widest uppercase"></span>
-                    </div>
-
-                    <div id="adminPanel"
-                        class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
-                        <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
-                        <button onclick="openAdminConsole()"
-                            class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all mb-4">
-                            Open Database Console (Advanced)
-                        </button>
-
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Management Tools
-                        </h3>
-                        <button onclick="adminPurgeImages()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-4 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-500/20 transition-all active:scale-[0.98]">
-                            Purge Private Image Storage
-                        </button>
-
-                        <div
-                            class="flex items-center justify-between p-4 bg-red-50 dark:bg-red-500/5 rounded-2xl border border-red-100 dark:border-red-500/20">
-                            <div class="flex-1 pr-4">
-                                <label class="font-bold text-red-600 dark:text-red-400 text-sm">Disable All
-                                    Photos</label>
-                                <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Hide/Block
-                                    all images to save data & bandwidth</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="globalPhotoToggle"
-                                    onchange="toggleGlobalPhotos(this.checked)" class="sr-only peer">
-                                <div
-                                    class="w-11 h-6 bg-gray-300 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500">
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="changelogView"
-                    class="hidden space-y-6 pb-6 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
-                    <!-- Content injected from content.js -->
-                </div>
-
-                <div id="donationView" class="hidden space-y-5">
-                    <div class="text-center space-y-2">
-                        <div
-                            class="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto">
-                            <svg class="w-8 h-8 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm px-4">Support CHSchat development. Your
-                            contributions help keep the project running!</p>
-                    </div>
-                    <div id="donationButtons" class="space-y-3">
-                        <button onclick="openDonationQR('paypal', './resources/donate/paypal-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">PayPal</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#003087] text-white font-black text-sm flex items-center justify-center">P</span>
-                        </button>
-                        <button onclick="openDonationQR('wechat', './resources/donate/wechat-qr.png')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">WeChat Pay</span>
-                            <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M8.6 13.5c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zm6.8 0c.3 0 .6-.1.8-.3.2-.2.3-.5.3-.8s-.1-.6-.3-.8c-.2-.2-.5-.3-.8-.3s-.6.1-.8.3c-.2.2-.3.5-.3.8s.1.6.3.8c.2.2.5.3.8.3zM12 2C6.5 2 2 5.8 2 10.5c0 2.6 1.4 4.9 3.6 6.4L5 19.3c-.1.3.1.6.4.5l3.2-1.6c1.1.3 2.2.5 3.4.5 5.5 0 10-3.8 10-8.5S17.5 2 12 2zm6.6 13.9c1.6-1.1 2.6-2.8 2.6-4.6 0-3.8-3.6-6.9-8-6.9s-8 3.1-8 6.9c0 1.9 1 3.6 2.6 4.7l-.4 2c0 .2.1.3.3.3l2.2-1.1c.9.2 1.8.3 2.7.3s1.9-.1 2.8-.3l2.1 1.1c.2.1.4-.1.3-.3l-.4-2.1z" />
-                            </svg>
-                        </button>
-                        <button onclick="openDonationQR('alipay', './resources/donate/alipay-qr.jpg')"
-                            class="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-white/10 rounded-2xl active:scale-95 transition-transform">
-                            <span class="font-bold">Alipay</span>
-                            <span
-                                class="w-6 h-6 rounded-full bg-[#1677FF] text-white font-black text-sm flex items-center justify-center">A</span>
-                        </button>
-                    </div>
-                    <div id="donationQRContainer" class="hidden space-y-4">
-                        <button onclick="closeDonationQR()"
-                            class="text-[#007AFF] text-sm font-medium flex items-center gap-1">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back
-                        </button>
-                        <div class="bg-white rounded-2xl p-4 flex items-center justify-center">
-                            <img id="donationQRImg" src="" class="max-w-full max-h-[50vh] rounded-xl object-contain" />
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div id="galleryModal"
         class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
@@ -2519,7 +1933,7 @@
                 <div class="flex gap-4 items-center justify-between h-9">
                     <div class="flex gap-4 items-end">
                         <button id="headTabNews" onclick="switchLeftTab('news')"
-                            class="text-2xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">News</button>
+                            class="text-2xl font-bold tracking-tight text-black dark:text-white transition-all leading-none">Hub</button>
                         <button id="headTabTools" onclick="switchLeftTab('tools')"
                             class="text-[19px] font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all leading-none">Tools</button>
                         <button id="headTabMore" onclick="switchLeftTab('more')"
@@ -2540,13 +1954,32 @@
 
                 <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
                 <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
-                    <div class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 h-full items-center">
+                    <div id="morphNavContainer" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-9 h-full items-center gap-1 overflow-hidden relative">
                         <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">School
-                            News</button>
+                            style="max-width: 120px;"
+                            class="apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm">
+                            <span>S</span><span id="textSchoolFull" style="max-width: 80px;" class="apple-morph opacity-100 overflow-hidden whitespace-nowrap">chool News</span>
+                        </button>
+
                         <button id="btnClubNews" onclick="toggleNewsTab('club')"
-                            class="flex-1 text-center text-xs font-bold h-full flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all">Club
-                            News</button>
+                            style="max-width: 120px;"
+                            class="apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                            <span>C</span><span id="textClubFull" style="max-width: 80px;" class="apple-morph opacity-100 overflow-hidden whitespace-nowrap">lub News</span>
+                        </button>
+
+                        <div id="discoverPillBlock" onclick="toggleNewsTab('clubs')" class="apple-morph absolute right-1 top-1 bottom-1 w-8 bg-transparent rounded-lg cursor-pointer z-20 overflow-hidden">
+                            <div id="discoverIconWrapper" class="apple-morph absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center pointer-events-none opacity-100 scale-100 text-gray-500 dark:text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                                </svg>
+                            </div>
+                            <div id="subClubTabs" class="apple-morph absolute left-1 right-1 top-0 bottom-0 flex items-center justify-between gap-0.5 text-[11px] font-bold opacity-0 pointer-events-none">
+                                <button id="subTab_joint" onclick="toggleNewsTab('joint', event)" class="flex-1 h-full bg-white text-black dark:bg-[#1C1C1E] dark:text-white rounded-md text-center transition-colors whitespace-nowrap">My Joint</button>
+                                <button id="subTab_discover" onclick="toggleNewsTab('discover', event)" class="flex-1 h-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap">Discover</button>
+                                <button id="subTab_events" onclick="toggleNewsTab('events', event)" class="flex-1 h-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap">Events</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2567,6 +2000,16 @@
                                 <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
                                 <span class="text-xs font-medium">Loading announcements...</span>
                             </div>
+                        </div>
+                        <div id="clubsListContent" class="hidden space-y-6 transition-opacity duration-150 opacity-0 py-10 px-4 text-center">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-gray-400 dark:text-gray-500 mb-4 transition-colors">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                                </svg>
+                            </div>
+                            <h3 class="font-bold text-lg text-black dark:text-white">Clubs Directory</h3>
+                            <p class="text-sm text-gray-400 max-w-[240px] mx-auto">Browse and join Centennial High School clubs. Feature coming soon!</p>
                         </div>
                     </div>
                 </div>
@@ -2816,24 +2259,6 @@
                             </svg>
                         </button>
                     </div>
-                    <div id="globalSearchResults"
-                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
-                        <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
-                        <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
-                            <button onclick="setSearchCategory('messages')" id="searchCat-messages"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
-                            <button onclick="setSearchCategory('community')" id="searchCat-community"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
-                            <button onclick="setSearchCategory('news')" id="searchCat-news"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
-                            <button onclick="setSearchCategory('tools')" id="searchCat-tools"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
-                            <button onclick="setSearchCategory('people')" id="searchCat-people"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
-                        </div>
-                        <!-- Scrollable Results Area -->
-                        <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
-                    </div>
                 </div>
             </div>
             <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-20 lg:pb-8">
@@ -2983,21 +2408,6 @@
         </button>
     </div>
 
-    <!-- Forward User Picker -->
-    <div id="forwardPicker" class="hidden fixed inset-0 z-[260] flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeForwardPicker()"></div>
-        <div
-            class="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div class="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-white/5">
-                <h3 class="text-lg font-bold">Forward to...</h3>
-            </div>
-            <div id="forwardUserList" class="flex-1 overflow-y-auto max-h-[60vh] p-2"></div>
-            <div class="p-4 bg-gray-50 dark:bg-white/5 flex justify-end">
-                <button onclick="closeForwardPicker()"
-                    class="px-5 py-2 text-[15px] font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
-            </div>
-        </div>
-    </div>
     <!-- Dedicated Module Pages for Stacked Navigation -->
     <div id="lostFoundPage"
         class="hidden fixed inset-0 lg:left-80 z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">

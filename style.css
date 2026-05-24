@@ -315,6 +315,10 @@ body {
     animation: highlightPulse 0.4s ease-in-out 2;
 }
 
+.apple-morph {
+    transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /* Search jump highlight for announcement cards: no opacity dimming. */
 .news-jump-highlight {
     outline: 2px solid #007AFF;

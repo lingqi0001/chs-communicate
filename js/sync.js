@@ -13,7 +13,7 @@
  * ==================================================================================
  */
 
-import { ref, get, onChildAdded, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { DBModule } from './db.js';
 
 export const SyncModule = {
@@ -46,9 +46,18 @@ export const SyncModule = {
     async reconcileNews(tab, remoteData, localKeys) {
         console.log(`Sync: Reconciling news for [${tab}]...`);
         const remoteKeys = Object.keys(remoteData);
-        const missingKeys = remoteKeys.filter(k => !localKeys.includes(k));
 
-        if (missingKeys.length === 0) {
+        // Remove locally cached items that were deleted from the server
+        const deletedKeys = localKeys.filter(k => !remoteKeys.includes(k));
+        for (const key of deletedKeys) {
+            console.log(`Sync: Found deleted item [${key}] on server. Removing locally...`);
+            if (DBModule.Local.deleteNews) {
+                await DBModule.Local.deleteNews(tab, key);
+            }
+        }
+
+        const missingKeys = remoteKeys.filter(k => !localKeys.includes(k));
+        if (missingKeys.length === 0 && deletedKeys.length === 0) {
             console.log(`Sync: [${tab}] is already up to date.`);
             return;
         }
@@ -96,6 +105,18 @@ export const SyncModule = {
                 onChildAdded(q, async (snap) => {
                     console.log(`Sync: New item received for news/${tab}`);
                     await DBModule.Local.saveNews(tab, snap.key, snap.val());
+                    const updatedLocal = await DBModule.Local.getNews(tab);
+                    if (this.callbacks.renderNews) {
+                        this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
+                    }
+                });
+
+                // Listen for announcement deletions to update UI and IndexedDB in real-time
+                onChildRemoved(ref(db, `news/${tab}`), async (snap) => {
+                    console.log(`Sync: Item removed from news/${tab}: ${snap.key}`);
+                    if (DBModule.Local.deleteNews) {
+                        await DBModule.Local.deleteNews(tab, snap.key);
+                    }
                     const updatedLocal = await DBModule.Local.getNews(tab);
                     if (this.callbacks.renderNews) {
                         this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
