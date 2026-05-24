@@ -18,7 +18,7 @@
         import { AuthModule } from './js/auth.js';
         import { SecurityModule } from './js/security.js';
         import { SearchModule } from './js/search.js';
-        import { createNewsModule } from './js/news.js?v=20260522-1';
+        import { createNewsModule } from './js/news.js?v=20260524-3';
 
         
         console.log('App: Version 2026-05-02-2115 (Latest)');
