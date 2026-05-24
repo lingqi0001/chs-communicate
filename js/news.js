@@ -6,6 +6,7 @@ export function createNewsModule(deps) {
         ref,
         push,
         set,
+        update,
         get,
         remove,
         getCurrentUser,
@@ -509,15 +510,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 isAdmin: true
             });
         }
-        
-        // For African Student Association, make sure Moss Moss is the student admin
-        const isASA = id === 'african-student-association';
-        if (isASA) {
-            members.push({
-                name: "Moss Moss",
-                isAdmin: true
-            });
-        }
 
         // Sort so admins are first
         members.sort((a, b) => (b.isAdmin ? 1 : 0) - (a.isAdmin ? 1 : 0));
@@ -585,6 +577,9 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
     function renderJointClubs() {
         const iconsBar = document.getElementById('jointClubsIconsBar');
+        const mobileDropdown = document.getElementById('mobileClubDropdown');
+        const mobileLabel = document.getElementById('mobileClubSelectorLabel');
+        
         if (!iconsBar) return;
 
         // Filter clubs to only those the user has joined
@@ -592,6 +587,13 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         if (joinedClubs.length === 0) {
             iconsBar.innerHTML = '';
+            if (mobileDropdown) {
+                mobileDropdown.innerHTML = '<div class="px-4 py-3 text-sm text-gray-400">No joined clubs</div>';
+            }
+            if (mobileLabel) {
+                mobileLabel.innerText = 'No joined clubs';
+            }
+            
             const emptyState = document.getElementById('jointClubEmptyState');
             const detailView = document.getElementById('jointClubDetailView');
             if (emptyState) {
@@ -619,7 +621,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             }
         }
 
-        // Render the vertical icons list with animations
+        // Render the vertical icons list with animations (desktop only)
         iconsBar.innerHTML = joinedClubs.map((club, idx) => {
             const isActive = selectedClubId === club.id;
             const safeName = club.name.replace(/'/g, "\\'");
@@ -633,6 +635,28 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 </div>
             `;
         }).join('');
+        
+        // Update mobile dropdown
+        if (mobileDropdown) {
+            mobileDropdown.innerHTML = joinedClubs.map(club => {
+                const isSelected = selectedClubId === club.id;
+                const activeClass = isSelected ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : '';
+                return `
+                    <button onclick="window.selectMobileClub('${club.id}', event)"
+                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700 last:border-0 ${activeClass}">
+                        ${club.name}
+                    </button>
+                `;
+            }).join('');
+        }
+        
+        // Update mobile label to show currently selected club
+        if (mobileLabel && selectedClubId) {
+            const selectedClub = joinedClubs.find(c => c.id === selectedClubId);
+            if (selectedClub) {
+                mobileLabel.innerText = selectedClub.name;
+            }
+        }
 
         // Load content for active club if selected and still in joined list, otherwise pick first joined or show empty state
         if (selectedClubId && joinedClubIds.has(selectedClubId)) {
@@ -646,6 +670,25 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             if (detailView) detailView.classList.add('hidden');
         }
     }
+    
+    // Global function for mobile club selection
+    window.selectMobileClub = function(clubId, e) {
+        if (e) e.stopPropagation();
+        
+        // Close the dropdown
+        const dropdown = document.getElementById('mobileClubDropdown');
+        const icon = document.getElementById('mobileClubDropdownIcon');
+        if (dropdown) {
+            dropdown.classList.add('opacity-0', 'scale-95', 'hidden');
+            dropdown.classList.remove('opacity-100', 'scale-100');
+        }
+        if (icon) {
+            icon.style.transform = 'rotate(0deg)';
+        }
+        
+        // Select the club
+        AppModules.News.selectClub(clubId);
+    };
 
         function escapeAttr(value) {
         return String(value || '')
@@ -702,7 +745,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             return;
         }
 
-        listEl.innerHTML = filteredClubs.map(club => {
+        listEl.innerHTML = filteredClubs.map((club, index) => {
             const isJoined = joinedClubIds.has(club.id);
             const buttonClass = isJoined 
                 ? 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-800 text-gray-400 cursor-default'
@@ -717,41 +760,204 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 meetingInfo = 'Schedule TBD';
             }
 
+            // Get admin/executive board members
+            const admins = club.members.filter(m => m.isAdmin).map(m => m.name);
+            const adminCards = admins.slice(0, 3).map(name => {
+                const escapedName = name.replace(/'/g, "\\'");
+                return `
+                    <div onclick="AppModules.News.handleMemberClick('${escapedName}')" class="bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-xl text-xs font-bold text-black dark:text-white flex-1 text-center cursor-pointer hover:bg-gray-200 transition-colors">${name}</div>
+                `;
+            }).join('');
+
             return `
-                <div class="p-4 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex flex-col gap-2 hover:bg-gray-100/50 dark:hover:bg-white/10 transition duration-200 text-left">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 aspect-square shrink-0 rounded-lg flex items-center justify-center text-white text-sm" style="background: ${club.gradient}">
+                <div id="discoverClubCard-${club.id}" class="p-4 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex flex-col gap-2 hover:bg-gray-100/50 transition duration-200 text-left mb-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-start gap-3 flex-1">
+                            <div class="w-10 h-10 aspect-square shrink-0 rounded-lg flex items-center justify-center text-white text-base" style="background: ${club.gradient}">
                                 <span class="club-card-icon">${club.icon}</span>
                             </div>
-                            <div>
+                            <div class="flex-1 min-w-0">
                                 <h4 class="font-bold text-base text-black dark:text-white leading-tight">${club.name}</h4>
-                                <p class="text-[11px] text-gray-400 font-medium">Sponsor: ${club.sponsor || 'TBD'}</p>
+                                <p class="text-[11px] text-gray-400 font-medium mt-0.5">Sponsor: ${club.sponsor || 'TBD'}</p>
                             </div>
                         </div>
-                        <button ${joinAction} class="px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1 ${buttonClass}">
-                            ${isJoined ? `
-                                <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                            ` : ''}
-                            ${buttonText}
+                        <button onclick="window.toggleDiscoverClubCard('${club.id}')" class="shrink-0 px-3 py-1.5 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-gray-700 text-black dark:text-white text-xs font-bold rounded-full transition-colors flex items-center gap-1">
+                            <span id="discoverBtnText-${club.id}">View</span>
+                            <svg id="discoverBtnIcon-${club.id}" class="w-3 h-3 transition-transform duration-300" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1 line-clamp-2">${club.desc}</p>
-                    <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        <span>${meetingInfo}</span>
+
+                    <div id="discoverShortDesc-${club.id}" class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1 line-clamp-2 transition-all duration-300 opacity-100">
+                        ${club.desc}
+                    </div>
+
+                    <div id="discoverExpandArea-${club.id}" class="expandable-grid mt-2">
+                        <div class="expandable-content">
+                            <div class="fade-in-content pt-3 border-t border-gray-200 dark:border-white/5">
+                                
+                                <!-- Full Description -->
+                                <div class="mt-3">
+                                    <h5 class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">About</h5>
+                                    <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">${club.desc}</p>
+                                </div>
+
+                                ${admins.length > 0 ? `
+                                <div class="mt-3">
+                                    <h5 class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Sponsor & Executive Board</h5>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        ${adminCards}
+                                    </div>
+                                </div>
+                                ` : ''}
+
+                                <!-- Events Section - Load from Firebase -->
+                                <div class="mt-3" id="clubEventsContainer-${club.id}">
+                                    <h5 class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Events</h5>
+                                    <div class="py-4 flex flex-col items-center justify-center gap-2 text-gray-400">
+                                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-200 border-t-blue-500 dark:border-white/20 dark:border-t-blue-400"></div>
+                                        <span class="text-[11px]">Loading events...</span>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button ${joinAction} class="w-full py-2.5 ${isJoined ? 'bg-gray-200 dark:bg-white/10 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-700' : 'bg-blue-500 hover:bg-blue-600 text-white shadow-sm'} text-xs font-bold rounded-xl transition-colors">
+                                        ${isJoined ? '✓ Joined' : 'Join Club'}
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Add CSS for expandable grid if not already present
+        if (!document.getElementById('discoverExpandStyles')) {
+            const style = document.createElement('style');
+            style.id = 'discoverExpandStyles';
+            style.textContent = `
+                .expandable-grid {
+                    display: grid;
+                    grid-template-rows: 0fr;
+                    transition: grid-template-rows 0.4s ease-out;
+                }
+                
+                .expandable-grid.expanded {
+                    grid-template-rows: 1fr;
+                }
+                
+                .expandable-content {
+                    overflow: hidden;
+                }
+
+                .fade-in-content {
+                    opacity: 0;
+                    transform: translateY(8px);
+                    transition: all 0.3s ease-out;
+                    transition-delay: 0s;
+                }
+
+                .expanded .fade-in-content {
+                    opacity: 1;
+                    transform: translateY(0);
+                    transition-delay: 0.1s;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Load events for each club after rendering
+        setTimeout(() => {
+            filteredClubs.forEach(club => {
+                loadClubEventsForDiscover(club.id);
+            });
+        }, 100);
     }
+
+    async function loadClubEventsForDiscover(clubId) {
+        const container = document.getElementById(`clubEventsContainer-${clubId}`);
+        if (!container) return;
+
+        try {
+            const eventsSnap = await get(ref(db, `modules/club_events/${clubId}`));
+            let events = [];
+            
+            if (eventsSnap.exists()) {
+                const val = eventsSnap.val() || {};
+                events = Object.keys(val).map(key => ({
+                    id: key,
+                    ...val[key]
+                })).sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+
+            // Filter to show only future events
+            const now = new Date();
+            const futureEvents = events.filter(evt => {
+                const eventDate = new Date(evt.date);
+                return eventDate >= now;
+            });
+
+            if (futureEvents.length === 0) {
+                container.innerHTML = `
+                    <h5 class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Events</h5>
+                    <div class="text-center py-4 text-gray-400 dark:text-gray-500">
+                        <p class="text-xs">There are no events recorded on CHSChat.</p>
+                        <p class="text-[11px] mt-1">Contact club board for help.</p>
+                    </div>
+                `;
+            } else {
+                // Show next upcoming event
+                const nextEvent = futureEvents[0];
+                const eventTime = nextEvent.time ? new Date(`1970-01-01T${nextEvent.time}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+                const dateLabel = formatEventDateDisplay(nextEvent.date);
+                
+                container.innerHTML = `
+                    <h5 class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Events</h5>
+                    <div class="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-xl p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white text-sm bg-gradient-to-br from-blue-400 to-blue-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h6 class="text-sm font-bold text-black dark:text-white">${nextEvent.title || 'Untitled Event'}</h6>
+                            <p class="text-[11px] text-gray-400 mt-0.5">${dateLabel}${eventTime ? ' at ' + eventTime : ''}</p>
+                            ${nextEvent.room ? `<p class="text-[11px] text-gray-400">Room ${nextEvent.room}</p>` : ''}
+                            ${nextEvent.desc ? `<p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">${nextEvent.desc}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            console.error(`Failed to load events for club ${clubId}:`, err);
+            container.innerHTML = `
+                <h5 class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Events</h5>
+                <div class="text-center py-4 text-gray-400 dark:text-gray-500">
+                    <p class="text-xs">Unable to load events.</p>
+                </div>
+            `;
+        }
+    }
+
+    window.toggleDiscoverClubCard = function(clubId) {
+        const expandArea = document.getElementById(`discoverExpandArea-${clubId}`);
+        const shortDesc = document.getElementById(`discoverShortDesc-${clubId}`);
+        const btnText = document.getElementById(`discoverBtnText-${clubId}`);
+        const btnIcon = document.getElementById(`discoverBtnIcon-${clubId}`);
+
+        if (!expandArea.classList.contains('expanded')) {
+            expandArea.classList.add('expanded');
+            shortDesc.classList.add('opacity-0', 'h-0', 'mt-0');
+            
+            btnText.innerText = "Close";
+            btnIcon.style.transform = "rotate(180deg)";
+        } else {
+            expandArea.classList.remove('expanded');
+            shortDesc.classList.remove('opacity-0', 'h-0', 'mt-0');
+            
+            btnText.innerText = "View";
+            btnIcon.style.transform = "rotate(0deg)";
+        }
+    };
 
     function handleDiscoverClubSearch(e) {
         clubSearchTerm = (e?.target?.value || '').slice(0, 120);
@@ -774,7 +980,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('discoverClubSearchShell');
         const input = document.getElementById('discoverClubSearchInput');
         const iconBtn = document.getElementById('discoverClubSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-52 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -801,7 +1007,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Clubs Directory</h3>
-                    <div id="discoverClubSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-52' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="discoverClubSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="discoverClubSearchIconBtn" onclick="AppModules.News.toggleDiscoverClubSearch()" class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-400">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -834,7 +1040,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         renderDiscoverClubsList();
     }
-    function joinClub(clubId, e) {
+    async function joinClub(clubId, e) {
         if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         
         const club = dummyClubs.find(c => c.id === clubId);
@@ -843,6 +1049,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Add to joined IDs
         joinedClubIds.add(clubId);
         localStorage.setItem('joinedClubIds', JSON.stringify(Array.from(joinedClubIds)));
+        console.log(`[joinClub] Added club ${clubId} to localStorage. Current joined clubs:`, Array.from(joinedClubIds));
 
         // Add current user to club members list if not already there
         const currentUser = getCurrentUser();
@@ -853,6 +1060,49 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     name: currentUser.name,
                     isAdmin: false
                 });
+                console.log(`[joinClub] Added ${currentUser.name} to dummyClubs members`);
+            }
+
+            // Sync to Firebase - save member to database
+            try {
+                const memberUid = currentUser.uid || currentUser.id;
+                const memberRef = ref(db, `modules/club_members/${club.id}/${memberUid}`);
+                const memberData = {
+                    name: currentUser.name,
+                    email: currentUser.email || '',
+                    uid: memberUid,
+                    joinedAt: Date.now(),
+                    isAdmin: false
+                };
+                
+                console.log(`[joinClub] Attempting to sync to Firebase at path: modules/club_members/${club.id}/${memberUid}`);
+                console.log(`[joinClub] Current user info:`, {
+                    id: currentUser.id,
+                    uid: currentUser.uid,
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    role: currentUser.role
+                });
+                console.log(`[joinClub] Member data to write:`, memberData);
+                
+                await set(memberRef, memberData);
+                console.log(`[joinClub] ✅ Successfully synced member ${currentUser.name} (UID: ${memberUid}) to Firebase for club ${club.id}`);
+                
+                // Verify the write by reading it back
+                const verifySnap = await get(memberRef);
+                if (verifySnap.exists()) {
+                    console.log(`[joinClub] ✅ Verified: Data exists in Firebase:`, verifySnap.val());
+                } else {
+                    console.error(`[joinClub] ❌ ERROR: Data was written but cannot be read back!`);
+                }
+            } catch (err) {
+                console.error('[joinClub] ❌ Failed to sync club member to Firebase:', err);
+                console.error('[joinClub] Error details:', {
+                    message: err.message,
+                    code: err.code,
+                    stack: err.stack
+                });
+                alert('Sync Error', `Failed to sync to Firebase: ${err.message}\n\nThis is likely a permissions issue. Please check:\n1. Firebase rules have been deployed\n2. You are authenticated properly`);
             }
         }
 
@@ -861,6 +1111,21 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         // Re-render "My Joint" left sidebar icons
         renderJointClubs();
+
+        // Re-render Club News to show this club's announcements
+        if (window.AppModules && window.AppModules.News && typeof window.AppModules.News.renderLocalNews === 'function') {
+            console.log(`[joinClub] Triggering Club News refresh for newly joined club: ${club.id}`);
+            // Use getLocalNews from db module to re-fetch and re-filter
+            if (window.AppModules.DB && typeof window.AppModules.DB.Local.getNews === 'function') {
+                window.AppModules.News.renderLocalNews(window.AppModules.DB.Local.getNews).catch(err => {
+                    console.error('[joinClub] Failed to refresh Club News:', err);
+                });
+            } else if (typeof window.getLocalNews === 'function') {
+                window.AppModules.News.renderLocalNews(window.getLocalNews).catch(err => {
+                    console.error('[joinClub] Failed to refresh Club News:', err);
+                });
+            }
+        }
 
         alert('Joined Club', `You are now a member of ${club.name}!`);
     }
@@ -934,9 +1199,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const ok = await confirm('Leave Club', `Are you sure you want to leave ${club.name}?`, 'Leave');
         if (!ok) return;
 
-        // Remove from joined list
+        // Remove from joined list FIRST (before any re-renders)
         joinedClubIds.delete(selectedClubId);
         localStorage.setItem('joinedClubIds', JSON.stringify(Array.from(joinedClubIds)));
+        console.log(`[leaveClub] Removed club ${selectedClubId} from localStorage. Remaining clubs:`, Array.from(joinedClubIds));
 
         // Remove current user from club members list
         const currentUser = getCurrentUser();
@@ -945,14 +1211,33 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             if (idx !== -1) {
                 club.members.splice(idx, 1);
             }
+
+            // Also remove from Firebase
+            try {
+                const memberUid = currentUser.uid || currentUser.id;
+                const memberRef = ref(db, `modules/club_members/${club.id}/${memberUid}`);
+                await remove(memberRef);
+                console.log(`[leaveClub] ✅ Successfully removed member ${currentUser.name} (UID: ${memberUid}) from Firebase for club ${club.id}`);
+            } catch (err) {
+                console.error('[leaveClub]  Failed to remove member from Firebase:', err);
+            }
         }
 
         alert('Left Club', `You have left ${club.name} successfully.`);
         
+        // Clear selected club BEFORE re-rendering
         selectedClubId = null;
         
-        // Re-render
+        // Re-render My Joint (will show empty state or first joined club)
         renderJointClubs();
+        
+        // Also re-render Club News to hide this club's announcements
+        if (window.AppModules && window.AppModules.News && window.AppModules.News.renderLocalNews) {
+            // Trigger a re-sync of news
+            if (window.globalDataSync) {
+                window.globalDataSync();
+            }
+        }
     }
 
     async function openAddClubAnnouncementForm() {
@@ -995,9 +1280,26 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 const newRef = push(ref(db, `modules/club_announcements/${club.id}`));
                 await set(newRef, newAnn);
                 
+                // Also publish to Club News feed so all users can see it
+                const clubNewsRef = push(ref(db, 'news/club'));
+                await set(clubNewsRef, {
+                    title: club.name,
+                    desc: desc,
+                    timestamp: Date.now(),
+                    tabType: 'club',
+                    clubId: club.id,
+                    clubName: club.name,
+                    clubIcon: club.icon,
+                    clubGradient: club.gradient,
+                    postedBy: getCurrentUser()?.name || 'Club Admin',
+                    isClubMemberPost: true
+                });
+                
+                console.log(`[openAddClubAnnouncementForm] Posted announcement to both My Joint and Club News for club ${club.id}`);
+                
                 // Re-select/re-render the club to fetch updated announcements from database
                 selectClub(selectedClubId, true);
-                alert('Posted', 'Announcement published successfully.');
+                alert('Posted', 'Announcement published successfully to Club News.');
             } catch (err) {
                 console.error("Failed to post announcement:", err);
                 alert('Error', 'Failed to publish announcement: ' + err.message);
@@ -1015,7 +1317,33 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         if (!ok) return;
 
         try {
+            // Get the announcement data first to find matching post in Club News
+            const annSnap = await get(ref(db, `modules/club_announcements/${club.id}/${annId}`));
+            let annData = null;
+            if (annSnap.exists()) {
+                annData = annSnap.val();
+            }
+            
+            // Delete from My Joint
             await remove(ref(db, `modules/club_announcements/${club.id}/${annId}`));
+            
+            // Also delete from Club News feed if we have the timestamp
+            if (annData && annData.timestamp) {
+                const newsSnap = await get(ref(db, 'news/club'));
+                if (newsSnap.exists()) {
+                    const newsVal = newsSnap.val() || {};
+                    for (const [newsKey, newsItem] of Object.entries(newsVal)) {
+                        // Match by clubId and similar timestamp (within 2 seconds)
+                        if (newsItem.clubId === club.id && 
+                            newsItem.timestamp && 
+                            Math.abs(newsItem.timestamp - annData.timestamp) < 2000) {
+                            await remove(ref(db, `news/club/${newsKey}`));
+                            console.log(`[deleteClubAnnouncement] Deleted matching post from Club News: ${newsKey}`);
+                            break;
+                        }
+                    }
+                }
+            }
             
             // Re-select/re-render the club to fetch updated announcements
             selectClub(selectedClubId, true);
@@ -1253,7 +1581,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('eventSearchShell');
         const input = document.getElementById('eventSearchInput');
         const iconBtn = document.getElementById('eventSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-52 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -1280,7 +1608,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Club Events</h3>
-                    <div id="eventSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-52' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="eventSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="eventSearchIconBtn" onclick="AppModules.News.toggleEventSearch()" class="${isEventSearchExpanded || eventSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-400">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1501,6 +1829,57 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         });
     }
 
+    function handleMemberClick(memberName) {
+        console.log('handleMemberClick called with:', memberName);
+        
+        // Get current user to check if this is the current user themselves
+        const currentUser = getCurrentUser();
+        console.log('Current user:', currentUser);
+        if (!currentUser || !memberName) return;
+
+        // Don't allow clicking on yourself
+        if (memberName.toLowerCase() === currentUser.name.toLowerCase()) {
+            console.log('Cannot click on yourself');
+            return;
+        }
+
+        // Find the user ID for this member name by searching in ALL_USERS
+        let targetUserId = null;
+        console.log('ALL_USERS keys count:', window.ALL_USERS ? Object.keys(window.ALL_USERS).length : 0);
+        
+        if (window.ALL_USERS) {
+            // Try exact match only (no partial matching to avoid false positives like "Moss Moss" matching "Admin Moss")
+            for (const [userId, userData] of Object.entries(window.ALL_USERS)) {
+                if (userData.name && userData.name.toLowerCase() === memberName.toLowerCase()) {
+                    targetUserId = userId;
+                    console.log('Found exact matching user:', userId, userData.name);
+                    break;
+                }
+            }
+        }
+
+        // If we found a matching user, switch to chat with them
+        if (targetUserId && window.switchChat) {
+            console.log('Switching to chat with:', targetUserId);
+            window.switchChat(targetUserId);
+        } else {
+            console.warn(`Could not find user ID for member: ${memberName}`);
+            console.warn('window.switchChat available:', !!window.switchChat);
+            console.warn('Available users:', window.ALL_USERS ? Object.values(window.ALL_USERS).map(u => u.name).join(', ') : 'none');
+            
+            // Show alert that user has not joined yet
+            if (alert) {
+                alert(
+                    'User Not Joined',
+                    `${memberName} has not joined CHS Chat yet. Invite them to join! `,
+                    'Invite'
+                );
+            } else {
+                window.alert(`${memberName} has not joined CHS Chat yet. Invite them to join! 🎉`);
+            }
+        }
+    }
+
     function toggleMemberAdminStatus(memberName, isAdmin) {
         const club = dummyClubs.find(c => c.id === selectedClubId);
         if (!club) return;
@@ -1508,10 +1887,21 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const member = club.members.find(m => m.name === memberName);
         if (!member) return;
 
+        // Update local state
         member.isAdmin = isAdmin;
 
         // Sort so admins are first
         club.members.sort((a, b) => (b.isAdmin ? 1 : 0) - (a.isAdmin ? 1 : 0));
+
+        // Also update Firebase if this is a real user with UID
+        if (member.uid) {
+            const memberRef = ref(db, `modules/club_members/${club.id}/${member.uid}`);
+            update(memberRef, { isAdmin: isAdmin }).then(() => {
+                console.log(`[toggleMemberAdminStatus] ✅ Updated ${memberName} admin status to ${isAdmin} in Firebase`);
+            }).catch(err => {
+                console.error('[toggleMemberAdminStatus] Failed to update Firebase:', err);
+            });
+        }
 
         // Re-render
         selectClub(selectedClubId, true);
@@ -1524,9 +1914,23 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const ok = await confirm('Remove Member', `Are you sure you want to remove ${formatDisplayName(memberName)} from the club?`, 'Remove');
         if (!ok) return;
 
+        const member = club.members.find(m => m.name === memberName);
         const idx = club.members.findIndex(m => m.name === memberName);
+        
+        // Remove from local state
         if (idx !== -1) {
             club.members.splice(idx, 1);
+        }
+
+        // Also remove from Firebase if this is a real user with UID
+        if (member && member.uid) {
+            try {
+                const memberRef = ref(db, `modules/club_members/${club.id}/${member.uid}`);
+                await remove(memberRef);
+                console.log(`[removeMemberFromClub] ✅ Removed ${memberName} (UID: ${member.uid}) from Firebase for club ${club.id}`);
+            } catch (err) {
+                console.error('[removeMemberFromClub] Failed to remove from Firebase:', err);
+            }
         }
 
         // If the removed member is the current user, update their joined list
@@ -1757,72 +2161,204 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             });
         }
 
-        // Render Club Members list dynamically
+        // Render Club Members list dynamically - load from Firebase first, then fallback to dummyClubs
         const esc = window.escapeHTML || ((str) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
         const membersGrid = document.getElementById('jointClubMembersGrid');
-        if (membersGrid && club.members) {
-            // Make sure the current user is in the member list if they joined
-            const currentUser = getCurrentUser();
-            if (currentUser && joinedClubIds.has(club.id)) {
-                const exists = club.members.some(m => m.name.toLowerCase() === currentUser.name.toLowerCase());
-                if (!exists) {
-                    club.members.push({
-                        name: currentUser.name,
-                        isAdmin: false
-                    });
-                }
-            }
+        
+        if (membersGrid) {
+            // First show loading state
+            membersGrid.innerHTML = `
+                <div class="col-span-2 py-4 flex flex-col items-center justify-center gap-2 text-gray-400">
+                    <div class="animate-spin rounded-full h-5 w-5 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                    <span class="text-xs">Loading members...</span>
+                </div>
+            `;
 
-            // Reorder list to pair short names together and avoid empty spaces when a long name spans 2 columns
-            const packedMembers = [];
-            const remaining = [...club.members];
+            // Try to load from Firebase
+            console.log(`[renderMembers] Loading members from Firebase at path: modules/club_members/${club.id}`);
             
-            while (remaining.length > 0) {
-                const current = remaining.shift();
-                const currentFormatted = formatDisplayName(current.name);
-                const isLong = currentFormatted.length > 9;
-                
-                if (isLong) {
-                    packedMembers.push(current);
+            get(ref(db, `modules/club_members/${club.id}`)).then(snap => {
+                let dbMembers = [];
+                if (snap.exists()) {
+                    const val = snap.val() || {};
+                    dbMembers = Object.keys(val).map(key => ({
+                        uid: key,
+                        ...val[key],
+                        isRealUser: true  // Mark as real user from Firebase
+                    }));
+                    console.log(`[renderMembers] ✅ Loaded ${dbMembers.length} real members from Firebase for club ${club.id}:`, dbMembers.map(m => m.name));
                 } else {
-                    packedMembers.push(current);
-                    // Find the next short member to pair with this one
-                    const partnerIdx = remaining.findIndex(m => formatDisplayName(m.name).length <= 9);
-                    if (partnerIdx !== -1) {
-                        const partner = remaining.splice(partnerIdx, 1)[0];
-                        packedMembers.push(partner);
+                    console.log(`[renderMembers] ️ No members found in Firebase for club ${club.id}. Will use dummyClubs data.`);
+                }
+
+                // Merge Firebase members with dummyClubs members
+                // First, add all real users from Firebase
+                let allMembers = [...dbMembers];
+                
+                // Then add dummy/virtual users that are NOT already in Firebase
+                const firebaseUids = new Set(dbMembers.map(m => m.uid?.toLowerCase()));
+                const firebaseNames = new Set(dbMembers.map(m => m.name?.toLowerCase()));
+                
+                club.members.forEach(dummyMember => {
+                    const dummyUid = dummyMember.uid?.toLowerCase();
+                    const dummyName = dummyMember.name?.toLowerCase();
+                    
+                    // Check if this dummy member is already in Firebase (by UID or name)
+                    const isDuplicate = dummyUid ? firebaseUids.has(dummyUid) : 
+                                       firebaseNames.has(dummyName);
+                    
+                    if (!isDuplicate) {
+                        allMembers.push({
+                            ...dummyMember,
+                            isRealUser: false  // Mark as virtual/dummy user
+                        });
+                    }
+                });
+                
+                console.log(`[renderMembers]  Merged members: ${dbMembers.length} real + ${allMembers.length - dbMembers.length} virtual = ${allMembers.length} total`);
+
+                // Make sure the current user is in the member list if they joined
+                const currentUser = getCurrentUser();
+                if (currentUser && joinedClubIds.has(club.id)) {
+                    const exists = allMembers.some(m => 
+                        (m.uid && m.uid === currentUser.uid) || 
+                        (m.name && m.name.toLowerCase() === currentUser.name.toLowerCase())
+                    );
+                    if (!exists) {
+                        allMembers.push({
+                            name: currentUser.name,
+                            uid: currentUser.uid || '',
+                            email: currentUser.email || '',
+                            isAdmin: false
+                        });
                     }
                 }
-            }
 
-            membersGrid.innerHTML = packedMembers.map(m => {
-                const formattedName = formatDisplayName(m.name);
-                const isLong = formattedName.length > 9;
-                const colSpanClass = isLong ? 'col-span-2' : '';
+                // Reorder list to pair short names together and avoid empty spaces when a long name spans 2 columns
+                const packedMembers = [];
+                const remaining = [...allMembers];
                 
-                const adminDot = m.isAdmin ? `
-                    <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-blue-500 border-2 border-white dark:border-[#1C1C1E] flex items-center justify-center shadow-md z-10" title="Administrator">
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                            <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
-                        </svg>
-                    </div>
-                ` : '';
-                const escapedName = m.name.replace(/'/g, "\\'");
-                return `
-                    <div data-member-card data-member-name="${escapedName}" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-context-menu select-none ${colSpanClass}">
-                        <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
-                        ${adminDot}
-                    </div>
-                `;
-            }).join('');
+                while (remaining.length > 0) {
+                    const current = remaining.shift();
+                    const currentFormatted = formatDisplayName(current.name || 'Unknown');
+                    const isLong = currentFormatted.length > 9;
+                    
+                    if (isLong) {
+                        packedMembers.push(current);
+                    } else {
+                        packedMembers.push(current);
+                        // Find the next short member to pair with this one
+                        const partnerIdx = remaining.findIndex(m => formatDisplayName(m.name || '').length <= 9);
+                        if (partnerIdx !== -1) {
+                            const partner = remaining.splice(partnerIdx, 1)[0];
+                            packedMembers.push(partner);
+                        }
+                    }
+                }
 
-            // Bind setupMemberLongPress to each card
-            const cards = membersGrid.querySelectorAll('[data-member-card]');
-            cards.forEach(card => {
-                const name = card.getAttribute('data-member-name');
-                setupMemberLongPress(card, name);
+                membersGrid.innerHTML = packedMembers.map(m => {
+                    const memberName = m.name || 'Unknown';
+                    const formattedName = formatDisplayName(memberName);
+                    const isLong = formattedName.length > 9;
+                    const colSpanClass = isLong ? 'col-span-2' : '';
+                    
+                    const adminDot = m.isAdmin ? `
+                        <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-blue-500 border-2 border-white dark:border-[#1C1C1E] flex items-center justify-center shadow-md z-10" title="Administrator">
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
+                            </svg>
+                        </div>
+                    ` : '';
+                    const escapedName = memberName.replace(/'/g, "\\'");
+                    return `
+                        <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                            <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
+                            ${adminDot}
+                        </div>
+                    `;
+                }).join('');
+
+                // Bind setupMemberLongPress to each card
+                const cards = membersGrid.querySelectorAll('[data-member-card]');
+                cards.forEach(card => {
+                    const name = card.getAttribute('data-member-name');
+                    setupMemberLongPress(card, name);
+                });
+
+                // Sync merged members back to club.members so context menu can find them
+                // This ensures both Firebase members and dummyClubs members are available for right-click menu
+                club.members = allMembers;
+                console.log(`[renderMembers]  Synced ${allMembers.length} total members back to club.members for context menu support`);
+            }).catch(err => {
+                console.error("Failed to load club members from database:", err);
+                // Fallback to dummyClubs members on error
+                renderMembersFromDummyClubs(club, membersGrid, esc);
             });
         }
+    }
+
+    function renderMembersFromDummyClubs(club, membersGrid, esc) {
+        // Make sure the current user is in the member list if they joined
+        const currentUser = getCurrentUser();
+        if (currentUser && joinedClubIds.has(club.id)) {
+            const exists = club.members.some(m => m.name.toLowerCase() === currentUser.name.toLowerCase());
+            if (!exists) {
+                club.members.push({
+                    name: currentUser.name,
+                    isAdmin: false
+                });
+            }
+        }
+
+        // Reorder list to pair short names together and avoid empty spaces when a long name spans 2 columns
+        const packedMembers = [];
+        const remaining = [...club.members];
+        
+        while (remaining.length > 0) {
+            const current = remaining.shift();
+            const currentFormatted = formatDisplayName(current.name);
+            const isLong = currentFormatted.length > 9;
+            
+            if (isLong) {
+                packedMembers.push(current);
+            } else {
+                packedMembers.push(current);
+                // Find the next short member to pair with this one
+                const partnerIdx = remaining.findIndex(m => formatDisplayName(m.name).length <= 9);
+                if (partnerIdx !== -1) {
+                    const partner = remaining.splice(partnerIdx, 1)[0];
+                    packedMembers.push(partner);
+                }
+            }
+        }
+
+        membersGrid.innerHTML = packedMembers.map(m => {
+            const formattedName = formatDisplayName(m.name);
+            const isLong = formattedName.length > 9;
+            const colSpanClass = isLong ? 'col-span-2' : '';
+            
+            const adminDot = m.isAdmin ? `
+                <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-blue-500 border-2 border-white dark:border-[#1C1C1E] flex items-center justify-center shadow-md z-10" title="Administrator">
+                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
+                    </svg>
+                </div>
+            ` : '';
+            const escapedName = m.name.replace(/'/g, "\\'");
+            return `
+                <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                    <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
+                    ${adminDot}
+                </div>
+            `;
+        }).join('');
+
+        // Bind setupMemberLongPress to each card
+        const cards = membersGrid.querySelectorAll('[data-member-card]');
+        cards.forEach(card => {
+            const name = card.getAttribute('data-member-name');
+            setupMemberLongPress(card, name);
+        });
     }
 
     // Ensure first paint is collapsed and primary state is school.
@@ -1912,9 +2448,74 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             }
         });
         await Promise.all(newsTabs.map(async (tab) => {
-            const posts = await getLocalNews(tab);
+            let posts = await getLocalNews(tab);
+            
+            console.log(`\n========== [DEBUG renderLocalNews] ========== `);
+            console.log(`Tab: ${tab}`);
+            console.log(`Total posts from IndexedDB: ${posts.length}`);
+            
+            // Filter Club News by membership - only show club member posts to users who joined that club
+            if (tab === 'club') {
+                const currentUser = getCurrentUser();
+                const userJoinedClubs = new Set(JSON.parse(localStorage.getItem('joinedClubIds') || '[]'));
+                
+                console.log(`Current user: ${currentUser?.name || 'None'}`);
+                console.log(`User joined clubs (from localStorage):`, Array.from(userJoinedClubs));
+                console.log(`localStorage raw value:`, localStorage.getItem('joinedClubIds'));
+                
+                console.log('\n--- Filtering Club News posts ---');
+                posts.forEach((post, idx) => {
+                    console.log(`Post ${idx + 1}:`);
+                    console.log(`  - Key: ${post.key}`);
+                    console.log(`  - Title: "${post.title}"`);
+                    console.log(`  - clubName: "${post.clubName || 'undefined'}"`);
+                    console.log(`  - clubId: "${post.clubId || 'undefined'}"`);
+                    console.log(`  - has clubId: ${!!post.clubId}`);
+                    
+                    if (post.clubId) {
+                        const isMember = userJoinedClubs.has(post.clubId);
+                        console.log(`  - User is member of this club: ${isMember}`);
+                        console.log(`  - Will show: ${isMember ? 'YES ✓' : 'NO ✗'}`);
+                    } else {
+                        console.log(`  - No clubId (global post): Will show YES ✓`);
+                    }
+                });
+                
+                const beforeCount = posts.length;
+                posts = posts.filter(post => {
+                    // If it's a club member post (has clubId), only show if user has joined that club
+                    if (post.clubId) {
+                        return userJoinedClubs.has(post.clubId);
+                    }
+                    // Otherwise show all posts (teacher/admin posts without clubId)
+                    return true;
+                });
+                
+                console.log(`\n--- After filtering ---`);
+                console.log(`Before: ${beforeCount} posts`);
+                console.log(`After: ${posts.length} posts`);
+                console.log(`Filtered out: ${beforeCount - posts.length} posts`);
+                
+                if (posts.length > 0) {
+                    console.log('\nPosts that will be displayed:');
+                    posts.forEach((post, idx) => {
+                        console.log(`  ${idx + 1}. "${post.title}" (clubId: ${post.clubId || 'none'})`);
+                    });
+                } else {
+                    console.log('\n⚠️ NO POSTS WILL BE DISPLAYED');
+                }
+            }
+            
+            console.log('=========================================\n');
+            
             const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
             renderNewsContentFromData(posts, containerId, tab);
+            
+            // For Club News, also store the filtered posts so sync.js can use them
+            if (tab === 'club') {
+                window._filteredClubNewsPosts = posts;
+                console.log('[DEBUG] Stored filtered posts in window._filteredClubNewsPosts:', posts.length);
+            }
         }));
     }
 
@@ -1956,7 +2557,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         handleEventSearch,
         clearEventSearch,
         toggleDiscoverClubSearch,
-        maybeCollapseDiscoverClubSearch
+        maybeCollapseDiscoverClubSearch,
+        handleMemberClick
     };
 }
 

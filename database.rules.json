@@ -115,6 +115,34 @@
           "likes": { "$uid": { ".write": "auth.uid === $uid" } },
           "comments": { "$commentId": { ".write": "auth != null" } }
         }
+      },
+      "club_members": {
+        ".read": "auth != null",
+        "$clubId": {
+          ".read": "auth != null",
+          "$memberUid": {
+            ".write": "auth != null && (auth.uid === $memberUid || auth.uid.toLowerCase() === $memberUid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+            ".validate": "newData.hasChildren(['name']) && newData.child('name').isString()"
+          }
+        }
+      },
+      "club_announcements": {
+        ".read": "auth != null",
+        "$clubId": {
+          ".read": "auth != null",
+          "$announcementId": {
+            ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || root.child('modules/club_members/' + $clubId + '/' + auth.uid).exists())"
+          }
+        }
+      },
+      "club_events": {
+        ".read": "auth != null",
+        "$clubId": {
+          ".read": "auth != null",
+          "$eventId": {
+            ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || root.child('modules/club_members/' + $clubId + '/' + auth.uid).exists())"
+          }
+        }
       }
     },
 

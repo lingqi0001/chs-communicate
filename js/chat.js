@@ -74,7 +74,7 @@ export function initChatEngine(deps) {
         placeholders.forEach(el => el.remove());
     }
 
-    async function loadChatThread(chatId) {
+    async function loadChatThread(chatId, forceReload = false) {
         const now = Date.now();
         if (chatLoadingLock === chatId && (now - lastLoadTime < 1500)) return;
 
@@ -83,7 +83,9 @@ export function initChatEngine(deps) {
 
         const chatBox = document.getElementById('chatBox');
 
-        if (lastChatId !== chatId) {
+        // Force reload on mobile when re-opening the same chat
+        const isMobile = window.innerWidth <= 850;
+        if (forceReload || lastChatId !== chatId || isMobile) {
             chatBox.style.opacity = '1';
             chatBox.innerHTML = `
                 <div class="h-full min-h-[200px] flex items-center justify-center">
@@ -354,7 +356,12 @@ export function initChatEngine(deps) {
     async function switchChat(targetId) {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
-        if (!targetId || targetId === currentUser.id || targetId === activeTargetId) return;
+        if (!targetId || targetId === currentUser.id) return;
+        
+        // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
+        const isMobile = window.innerWidth <= 850;
+        if (targetId === activeTargetId && !isMobile) return;
+        
         if (safeIsExtensionTargetId(targetId)) {
             await safeOpenExtensionNotificationTarget(targetId);
             return;

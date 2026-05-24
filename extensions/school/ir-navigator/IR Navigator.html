@@ -1026,7 +1026,7 @@
                         <div style="flex-grow:1;">
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${t.text}</div>
-                                ${hasTeacherFeedback ? '<span class="feedback-badge">馃摑 FEEDBACK</span>' : ''}
+                                ${hasTeacherFeedback ? '<span class="feedback-badge"> FEEDBACK</span>' : ''}
                             </div>
                             ${t.date ? `<span class="task-date">${t.date}</span>` : ''}
                             ${link ? buildLitCard(link, `event.stopPropagation(); openTaskFeedback('${fbKey}', '${currentUser.id}', '${currentUser.name}', '${encodeURIComponent(link)}')`) : ''}

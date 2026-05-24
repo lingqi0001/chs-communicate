@@ -129,18 +129,30 @@ export const UIComponents = {
      */
     renderNewsCard: function (post, type, isStaff) {
         const isSchool = type === 'school';
-        const badge = {
-            text: isSchool ? 'Announcement' : 'Club Update',
-            color: isSchool ? 'text-[#007AFF] bg-blue-100 dark:bg-blue-500/20' : 'text-orange-500 bg-orange-100 dark:bg-orange-500/20'
-        };
+        
+        // For Club News, use club name if available, otherwise use generic label
+        let badgeText, badgeColor;
+        if (isSchool) {
+            badgeText = 'Announcement';
+            badgeColor = 'text-[#007AFF] bg-blue-100 dark:bg-blue-500/20';
+        } else {
+            // For club posts, show the specific club name
+            if (post.clubName) {
+                badgeText = post.clubName;
+            } else {
+                badgeText = 'Club Update';
+            }
+            badgeColor = 'text-orange-500 bg-orange-100 dark:bg-orange-500/20';
+        }
+        
         const dateStr = UIUtils.formatTime(post.timestamp);
 
         return `
             <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div class="flex justify-between items-start">
-                    <span class="text-[11px] font-bold ${badge.color} uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 inline-block">${badge.text}</span>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-400 font-medium">${dateStr}</span>
+                <div class="flex items-start gap-2 mb-1">
+                    <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider px-2 py-0.5 rounded-full inline-block flex-shrink-0 max-w-[60%] break-words leading-tight">${UIUtils.escape(badgeText)}</span>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <span class="text-xs text-gray-400 font-medium whitespace-nowrap">${dateStr}</span>
                         ${isStaff ? `<button onclick="deleteNews('${post.key}', '${type}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 -mt-1 -mr-1" title="Delete"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>` : ''}
                     </div>
                 </div>
