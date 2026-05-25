@@ -17,6 +17,9 @@ export function initChatEngine(deps) {
     let selectedMsgData = null;
     let longPressTimer = null;
     let hasMountedUIEvents = false;
+    let lastKnownChatMap = {};
+    let wasDesktopWidth = window.innerWidth >= 1024;
+    let wasMobileLayout = window.innerWidth <= 850;
     const safeSetActiveTargetId = typeof setActiveTargetId === 'function'
         ? setActiveTargetId
         : (id) => { window.activeTargetId = id; };
@@ -608,8 +611,36 @@ export function initChatEngine(deps) {
     function initChatListObserver() {
         const currentUser = getCurrentUser();
         if (!currentUser || !currentUser.id) return;
+
+        const pickFirstRegularChat = (chatMap) => {
+            const map = chatMap || {};
+            const myId = String(currentUser.id || '').toLowerCase();
+            const activeTargetId = getActiveTargetId();
+            const hasRegularActive = !!activeTargetId &&
+                !safeIsExtensionTargetId(activeTargetId) &&
+                activeTargetId !== 'safety_bot';
+
+            if (hasRegularActive) return;
+
+            const sorted = Object.keys(map)
+                .filter(id => !id.includes('_gmail_') && !id.includes('_inst_'))
+                .sort((a, b) => (map[b] || 0) - (map[a] || 0));
+
+            const firstUserId = sorted.find(id => {
+                const normalized = String(id || '').toLowerCase();
+                return (
+                    !safeIsExtensionTargetId(id) &&
+                    normalized !== 'safety_bot' &&
+                    normalized !== myId
+                );
+            });
+
+            if (firstUserId) window.switchChat?.(firstUserId);
+        };
+
         onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
             const chatMap = snapshot.val() || {};
+            lastKnownChatMap = chatMap;
             const chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
             chatIds.forEach(id => {
@@ -620,16 +651,26 @@ export function initChatEngine(deps) {
             if (typeof initGlobalNotificationMonitor === 'function') initGlobalNotificationMonitor();
             AppModules.Bridge.initIRNavigatorNotificationBridge();
 
-            if (window.innerWidth >= 1024 && !getActiveTargetId()) {
-                const sorted = chatIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0));
-                const firstUserId = sorted.find(id =>
-                    !safeIsExtensionTargetId(id) &&
-                    id !== 'safety_bot' &&
-                    id !== currentUser.id &&
-                    id !== currentUser.id.toLowerCase()
-                );
-                if (firstUserId) window.switchChat?.(firstUserId);
+            if (window.innerWidth >= 1024) {
+                pickFirstRegularChat(chatMap);
             }
+        });
+
+        window.addEventListener('resize', () => {
+            const isDesktopWidth = window.innerWidth >= 1024;
+            const isMobileLayout = window.innerWidth <= 850;
+
+            // When shrinking into mobile layout, default back to message list panel.
+            if (!wasMobileLayout && isMobileLayout) {
+                window.AppModules?.View?.showPanel?.('messages');
+            }
+
+            if (!wasDesktopWidth && isDesktopWidth) {
+                pickFirstRegularChat(lastKnownChatMap);
+            }
+
+            wasMobileLayout = isMobileLayout;
+            wasDesktopWidth = isDesktopWidth;
         });
     }
 

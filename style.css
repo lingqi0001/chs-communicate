@@ -80,6 +80,70 @@ body {
     overflow-x: hidden !important;
 }
 
+#chatComposerWrap {
+    background: linear-gradient(to top, rgba(8, 10, 16, 0.28), rgba(8, 10, 16, 0));
+}
+
+#chatInputPill {
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: rgba(16, 18, 25, 0.46);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+#chatCameraBtn.chat-fab-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 0;
+    text-align: center;
+    vertical-align: middle;
+    margin-bottom: 1px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: rgba(16, 18, 25, 0.52);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.32),
+        0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.chat-fab-btn svg {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 22px !important;
+    height: 22px !important;
+    display: block !important;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.dark #chatComposerWrap {
+    background: linear-gradient(to top, rgba(8, 10, 16, 0.34), rgba(8, 10, 16, 0));
+}
+
+.dark #chatInputPill {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(12, 14, 20, 0.56);
+}
+
+.dark #chatCameraBtn.chat-fab-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(12, 14, 20, 0.64);
+}
+
 /* 全站自定义滚动条设计 (Webkit 专用) */
 ::-webkit-scrollbar {
     width: 6px;
@@ -149,6 +213,12 @@ body {
 
 #sidebarSubList {
     overflow-x: hidden !important;
+}
+
+/* Compensate right-side scrollbar gutter so News cards align with top header pill width */
+#newsAnnouncementsScrollArea {
+    --news-scrollbar-comp: 4px;
+    padding-right: calc(1.25rem - var(--news-scrollbar-comp)) !important;
 }
 
 ::-webkit-scrollbar-corner {
@@ -367,6 +437,7 @@ body {
 .app-container {
     height: 100vh;
     height: 100dvh;
+    --news-panel-width: 370px;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -485,7 +556,10 @@ body {
         transform: scale(1) translateX(0);
     }
 
-    body:not(.sidebar-collapsed) #sidePanel,
+    body:not(.sidebar-collapsed) #sidePanel {
+        transform: none;
+    }
+
     body:not(.sidebar-collapsed) #chatSection {
         transform: scale(0.995);
         transform-origin: left center;
@@ -516,7 +590,7 @@ body {
     }
 
     body:not(.sidebar-collapsed) #sidebarHandle {
-        left: 320px;
+        left: var(--news-panel-width);
         width: 16px;
         height: 60px;
         background: #8E8E93;
@@ -532,6 +606,49 @@ body {
     body.is-fullscreen #sidebarHandle,
     body.is-fullscreen #sidebarTrigger {
         display: none !important;
+    }
+}
+
+@media (min-width: 1280px) {
+    body:not(.sidebar-collapsed) #newsSection {
+        width: var(--news-panel-width) !important;
+        min-width: var(--news-panel-width) !important;
+        max-width: var(--news-panel-width) !important;
+        border-right-width: 0 !important;
+    }
+
+    #sidePanel {
+        width: 320px !important;
+        min-width: 320px !important;
+        max-width: 320px !important;
+        flex: 0 0 320px !important;
+    }
+
+    #chatSection {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    #newsSideDivider {
+        width: 1px;
+        min-width: 1px;
+        height: 100%;
+        cursor: col-resize;
+        position: relative;
+        z-index: 25;
+        user-select: none;
+        touch-action: none;
+        background: transparent;
+        border-left: 1px solid rgba(55, 65, 81, 0.78);
+    }
+
+    #newsSideDivider::before {
+        content: none;
+    }
+
+    body.is-resizing-news #newsSideDivider,
+    #newsSideDivider:hover {
+        border-left-color: rgba(0, 122, 255, 0.95);
     }
 }
 

@@ -1555,6 +1555,58 @@
             }
         });
 
+        (() => {
+            const desktopMinWidth = 1280;
+            const minLeft = 300;
+            const maxLeft = 520;
+            const appContainer = document.querySelector('.app-container');
+            const widthScope = appContainer || document.documentElement;
+            const divider = document.getElementById('newsSideDivider');
+            const newsSection = document.getElementById('newsSection');
+            if (!divider || !newsSection) return;
+            let isDragging = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            const applyWidth = (nextWidth) => {
+                const clamped = Math.max(minLeft, Math.min(maxLeft, nextWidth));
+                widthScope.style.setProperty('--news-panel-width', `${clamped}px`);
+            };
+
+            const saved = Number(localStorage.getItem('desktopNewsPanelWidth'));
+            if (Number.isFinite(saved) && saved > 0) applyWidth(saved);
+
+            const stopDrag = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.body.classList.remove('is-resizing-news');
+                const widthValue = getComputedStyle(widthScope).getPropertyValue('--news-panel-width').trim();
+                const width = Number.parseFloat(widthValue);
+                if (Number.isFinite(width)) localStorage.setItem('desktopNewsPanelWidth', String(width));
+            };
+
+            const onDrag = (e) => {
+                if (!isDragging || window.innerWidth < desktopMinWidth) return;
+                const deltaX = e.clientX - startX;
+                applyWidth(startWidth + deltaX);
+            };
+
+            divider.addEventListener('pointerdown', (e) => {
+                if (window.innerWidth < desktopMinWidth || document.body.classList.contains('sidebar-collapsed')) return;
+                e.preventDefault();
+                isDragging = true;
+                startX = e.clientX;
+                startWidth = newsSection.getBoundingClientRect().width || 370;
+                divider.setPointerCapture(e.pointerId);
+                document.body.classList.add('is-resizing-news');
+            });
+
+            divider.addEventListener('pointermove', onDrag);
+            divider.addEventListener('pointerup', stopDrag);
+            divider.addEventListener('pointercancel', stopDrag);
+            divider.addEventListener('lostpointercapture', stopDrag);
+        })();
+
         let moduleListener = null;
 
         window.clearAllLocalData = async () => {
@@ -2359,6 +2411,8 @@
             </div>
         </div>
 
+        <div id="newsSideDivider" class="hidden xl:block" aria-hidden="true"></div>
+
         <!-- Desktop Edge Trigger & Handle -->
         <div id="sidebarTrigger"></div>
         <div id="sidebarHandle" onclick="toggleSidebarPin()">
@@ -2476,7 +2530,7 @@
                 </div>
             </header>
 
-            <div id="chatBox" class="flex-1 overflow-y-auto px-4 pt-20 pb-4 space-y-[2px] relative z-0">
+            <div id="chatBox" class="flex-1 overflow-y-auto px-4 pt-20 pb-40 md:pb-44 space-y-[2px] relative z-0">
                 <div class="h-full min-h-[200px] flex items-center justify-center text-gray-400">
                     <div class="flex flex-col items-center gap-2">
                         <div class="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
@@ -2500,20 +2554,20 @@
                 </button>
             </div>
 
-            <div
-                class="px-3 pt-2 pb-safe bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t dark:border-gray-800 z-10 w-full">
+            <div id="chatComposerWrap"
+                class="absolute bottom-0 inset-x-0 z-20 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] pointer-events-none">
                 <div class="flex gap-2 items-end max-w-4xl mx-auto">
-                    <label id="chatCameraBtn" class="p-[6px] mb-[2px] cursor-pointer transition-all duration-200">
+                    <label id="chatCameraBtn" class="chat-fab-btn cursor-pointer transition-all duration-200 pointer-events-auto">
                         <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
                             <path
                                 d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
                         </svg>
                         <input type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
                     </label>
-                    <div
-                        class="flex-1 flex items-center bg-white dark:bg-white/5 border border-[#c8c8cc] dark:border-gray-700 rounded-[20px] pl-[14px] pr-[4px] min-h-[38px] mb-1.5 overflow-hidden">
+                    <div id="chatInputPill"
+                        class="flex-1 flex items-center rounded-[24px] pl-[14px] pr-[4px] min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-base placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
+                            class="flex-1 bg-transparent outline-none text-base text-black dark:text-white placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
                             <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
