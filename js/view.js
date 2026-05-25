@@ -533,12 +533,12 @@ export const ViewModule = {
 
             chatSec.classList.remove('hidden');
             chatSec.classList.add('flex', 'slide-in-right');
-            if (bottomNav) bottomNav.classList.add('hidden');
-            if (gradientShim) gradientShim.classList.add('hidden');
 
             setTimeout(() => {
                 if (this.state.currentPanel === 'chat') {
                     if (prevPanel) prevPanel.classList.replace('flex', 'hidden');
+                    if (bottomNav) bottomNav.classList.add('hidden');
+                    if (gradientShim) gradientShim.classList.add('hidden');
                 }
                 chatSec.classList.remove('slide-in-right');
             }, 320);
