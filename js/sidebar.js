@@ -163,7 +163,7 @@ export const SidebarModule = {
                             Class
                         </button>
                     </div>
-                    <div id="sidebarSubList" class="flex-1 overflow-y-auto"></div>
+                    <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
                 `;
             } else {
                 const btns = container.querySelectorAll('.sidebar-tabs button');
@@ -223,7 +223,7 @@ export const SidebarModule = {
                                 </div>
                                 <div class="flex-1"></div>
                             </div>
-                            <div id="sidebarSubList" class="flex-1 overflow-y-auto">
+                            <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4">
                                 <div class="p-4 space-y-4 animate-pulse">
                                     <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/4 mb-6"></div>
                                     <div class="flex items-center gap-4">
@@ -482,7 +482,7 @@ export const SidebarModule = {
                                     <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
                                 </div>
                             </div>
-                            <div id="sidebarSubList" class="flex-1 overflow-y-auto">
+                            <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4">
                                 <div class="p-4 space-y-4 animate-pulse">
                                     <div class="flex items-center gap-4">
                                         <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full"></div>

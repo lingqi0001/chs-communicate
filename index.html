@@ -776,6 +776,18 @@
         window.openClubSelector = () => {
             if (window.toggleNewsTab) window.toggleNewsTab('clubs');
         };
+        window.triggerMobileSearch = () => {
+            if (window.AppView && window.AppView.switchTab) {
+                window.AppView.switchTab('messages');
+            }
+            setTimeout(() => {
+                const input = document.getElementById('globalSearchInput');
+                if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 350);
+        };
 
 
 
@@ -1907,35 +1919,44 @@
     <div id="mainPage"
         class="hidden flex app-container relative overflow-hidden bg-white dark:bg-black transition-colors duration-300">
 
-        <div id="bottomNav"
-            class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 flex items-center z-50 px-6">
-            <button onclick="switchTab('news')" class="flex flex-col items-center flex-1 relative" id="tabBtn-news">
-                <svg class="w-6 h-6 mb-1 transition-colors" id="icon-news" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" style="color: #9CA3AF;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
-                </svg>
-                <span class="text-xs font-medium transition-colors" id="text-news" style="color: #9CA3AF;">News</span>
-            </button>
-            <button onclick="switchTab('messages')" class="flex flex-col items-center flex-1 relative"
-                id="tabBtn-messages">
-                <div class="relative">
-                    <svg class="w-6 h-6 mb-1 transition-colors" id="icon-messages" fill="currentColor"
-                        viewBox="0 0 24 24" style="color: #007AFF;">
-                        <path fill-rule="evenodd"
-                            d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
-                            clip-rule="evenodd" />
-                    </svg>
-                    <div id="mainUnreadDot"
-                        class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
+        <div id="bottomNavContainer" class="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[380px] flex items-center gap-3 z-50">
+            <div id="bottomNav"
+                class="relative flex-1 h-[72px] ios26-liquid-glass rounded-full flex items-center px-2 gap-1.5 transition-colors">
+                <div id="bottomNavActivePill" class="absolute left-2 top-2 h-14 w-[calc(50%-11px)] rounded-full ios26-active-pill transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-0 transform translate-x-[calc(100%+6px)]"></div>
+                <button onclick="switchTab('news')" class="relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 text-gray-500 dark:text-gray-400" id="tabBtn-news">
+                    <div class="relative inline-flex mb-1">
+                        <svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" id="icon-news" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2" style="color: #9CA3AF;">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" />
+                        </svg>
                     </div>
-                </div>
-                <span class="text-xs font-medium transition-colors" id="text-messages"
-                    style="color: #007AFF;">Messages</span>
+                    <span class="text-[10px] font-bold tracking-wide" style="color: #9CA3AF;">News</span>
+                </button>
+                <button onclick="switchTab('messages')" class="relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 text-[#007AFF] dark:text-[#0A84FF]"
+                    id="tabBtn-messages">
+                    <div class="relative inline-flex mb-1">
+                        <svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" id="icon-messages" fill="currentColor"
+                            viewBox="0 0 24 24" style="color: #007AFF;">
+                            <path fill-rule="evenodd"
+                                d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        <div id="mainUnreadDot"
+                            class="hidden absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]">
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-bold tracking-wide" style="color: #007AFF;">Messages</span>
+                </button>
+            </div>
+            <button onclick="triggerMobileSearch()" class="w-[72px] h-[72px] rounded-full ios26-liquid-glass flex items-center justify-center transition-colors active:scale-95 shrink-0" id="tabBtn-search">
+                <svg class="w-6 h-6 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
             </button>
         </div>
         <div id="newsSection"
-            class="hidden lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
+            class="hidden lg:flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
             <!-- Header with synchronized height -->
             <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
                 <div class="flex gap-4 items-center justify-between h-9">
@@ -1961,12 +1982,12 @@
                 </div>
 
                 <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
-                <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-10 opacity-100 overflow-hidden">
-                    <div id="morphNavContainer" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-9 h-full items-center gap-1 overflow-hidden relative">
+                <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
+                    <div id="morphNavContainer" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-[72px] h-full items-center gap-1 overflow-hidden relative">
                         <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
                             style="max-width: 50%;"
                             class="apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm">
-                            <svg id="iconSchoolNews" style="max-width: 0px; opacity: 0; overflow: hidden;" class="apple-morph w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <svg id="iconSchoolNews" style="max-width: 0px; opacity: 0; overflow: hidden;" class="apple-morph w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H4a2 2 0 0 1-2-2z"></path>
                                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h5a2 2 0 0 0 2-2z"></path>
                             </svg>
@@ -1976,21 +1997,28 @@
                         <button id="btnClubNews" onclick="toggleNewsTab('club')"
                             style="max-width: 50%;"
                             class="apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                            <svg id="iconClubNews" style="max-width: 0px; opacity: 0; overflow: hidden;" class="apple-morph w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                                <path d="M1 21 Q2 14 7 14h4 Q16 14 17 21"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                                <path d="M23 21 Q22 15 18 15"></path>
-                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            <svg id="iconClubNews" style="max-width: 0px; opacity: 0; overflow: hidden;" class="apple-morph w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                             </svg>
                             <span id="textClubFull" style="max-width: 80px;" class="apple-morph opacity-100 overflow-hidden whitespace-nowrap">Club News</span>
                         </button>
 
-                        <div id="discoverPillBlock" onclick="toggleNewsTab('clubs')" class="apple-morph absolute right-1 top-1 bottom-1 w-8 bg-transparent rounded-lg cursor-pointer z-20 overflow-hidden group">
-                            <div id="discoverIconWrapper" class="apple-morph absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center pointer-events-none opacity-100 scale-100 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-                                </svg>
+                        <div id="discoverPillBlock" class="apple-morph absolute right-1 top-1 bottom-1 w-16 bg-transparent rounded-lg z-20 overflow-hidden group">
+                            <div id="discoverIconWrapper" class="apple-morph absolute right-0 top-0 bottom-0 left-0 flex items-center justify-end opacity-100 scale-100 text-gray-500 dark:text-gray-400 transition-all pointer-events-auto">
+                                <button id="btnCollMyJoint" onclick="toggleNewsTab('joint', event)" class="w-8 h-full flex items-center justify-center hover:text-black dark:hover:text-white transition-colors" title="My Joint">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </button>
+                                <button id="btnCollDiscover" onclick="toggleNewsTab('clubs', event)" class="w-8 h-full flex items-center justify-center hover:text-black dark:hover:text-white transition-colors" title="Clubs / Discover">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                                    </svg>
+                                </button>
                             </div>
                             <div id="subClubTabs" class="apple-morph absolute left-0 right-0 top-0 bottom-0 flex items-center justify-between gap-0.5 text-[11px] font-bold opacity-0 pointer-events-none">
                                 <button id="subTab_discover" onclick="toggleNewsTab('discover', event)" class="flex-1 h-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap">Discover</button>
@@ -2007,7 +2035,7 @@
                 <div id="newsMainContent"
                     class="relative h-full flex flex-col transition-all duration-300 transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
                     <!-- Announcements & generic scroll area -->
-                    <div id="newsAnnouncementsScrollArea" class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-0">
+                    <div id="newsAnnouncementsScrollArea" class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-0">
                         <div id="schoolNewsContent" class="space-y-4 transition-opacity duration-150">
                             <div class="py-10 flex flex-col items-center gap-2 text-gray-400">
                                 <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
@@ -2054,7 +2082,7 @@
                         </div>
                         
                         <!-- Right Content Area for selected club details -->
-                        <div id="jointClubDetailContent" class="flex-1 overflow-y-auto pt-2 px-4 md:px-5 pb-20 lg:pb-8">
+                        <div id="jointClubDetailContent" class="flex-1 overflow-y-auto pt-2 px-4 md:px-5 pb-28 lg:pb-8">
                             
                             <!-- Mobile club selector - Visible only on mobile, positioned at top -->
                             <div class="md:hidden mb-4 relative">
@@ -2145,7 +2173,7 @@
                 <!-- Global Tools / Extensions List -->
                 <div id="toolsMainContent"
                     class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
+                    <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-2 space-y-3">
                         <!-- School Tools Section -->
                         <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-4 px-1">
                             School Tools
@@ -2263,7 +2291,7 @@
 
                 <div id="moreMainContent"
                     class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-20 lg:pb-8 pt-2 space-y-3">
+                    <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-2 space-y-3">
                         <div onclick="openModule('peer_tutoring')"
                             class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                             <div
@@ -2339,7 +2367,7 @@
         </div>
 
         <div id="sidePanel"
-            class="flex lg:flex flex-col bg-white dark:bg-[#1C1C1E] border-r dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
+            class="flex lg:flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-r dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
             <!-- Header synchronized with News panel -->
             <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
                 <div class="flex justify-between items-center h-9">
@@ -2389,7 +2417,7 @@
                     </div>
                 </div>
             </div>
-            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-20 lg:pb-8">
+            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-0 lg:pb-8">
                 <div class="h-full flex items-center justify-center text-gray-400">
                     <div class="flex flex-col items-center gap-2">
                         <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>

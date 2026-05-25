@@ -151,6 +151,7 @@ export function createNewsModule(deps) {
         discoverBlock.style.width = 'calc(100% - 72px)';
         iconWrapper.style.opacity = '0';
         iconWrapper.style.transform = 'scale(0.5)';
+        iconWrapper.style.pointerEvents = 'none';
         subTabs.classList.remove('opacity-0', 'pointer-events-none');
         subTabs.classList.add('opacity-100');
         isNavExpanded = true;
@@ -188,9 +189,10 @@ export function createNewsModule(deps) {
         schoolBtn.style.maxWidth = '50%';
         clubBtn.style.maxWidth = '50%';
 
-        discoverBlock.style.width = '32px';
+        discoverBlock.style.width = '64px';
         iconWrapper.style.opacity = '1';
         iconWrapper.style.transform = 'scale(1)';
+        iconWrapper.style.pointerEvents = 'auto';
         subTabs.classList.add('opacity-0', 'pointer-events-none');
         subTabs.classList.remove('opacity-100');
         isNavExpanded = false;
