@@ -81,18 +81,18 @@ body {
 }
 
 #chatComposerWrap {
-    background: linear-gradient(to top, rgba(8, 10, 16, 0.28), rgba(8, 10, 16, 0));
+    background: linear-gradient(to top, rgba(242, 242, 247, 0.4), rgba(242, 242, 247, 0));
 }
 
 #chatInputPill {
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    background: rgba(16, 18, 25, 0.46);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
-        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
-        0 12px 34px rgba(0, 0, 0, 0.34);
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
+        0 10px 24px rgba(15, 23, 42, 0.1);
 }
 
 #chatCameraBtn.chat-fab-btn {
@@ -108,14 +108,14 @@ body {
     text-align: center;
     vertical-align: middle;
     margin-bottom: 1px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    background: rgba(16, 18, 25, 0.52);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
-        inset 0 -1px 1.5px rgba(0, 0, 0, 0.32),
-        0 12px 30px rgba(0, 0, 0, 0.35);
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
+        0 10px 22px rgba(15, 23, 42, 0.1);
 }
 
 .chat-fab-btn svg {
@@ -137,11 +137,19 @@ body {
 .dark #chatInputPill {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(12, 14, 20, 0.56);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
 }
 
 .dark #chatCameraBtn.chat-fab-btn {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(12, 14, 20, 0.64);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.32),
+        0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
 /* 全站自定义滚动条设计 (Webkit 专用) */
@@ -438,6 +446,7 @@ body {
     height: 100vh;
     height: 100dvh;
     --news-panel-width: 370px;
+    --desktop-overlay-left: 320px;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -614,7 +623,7 @@ body {
         width: var(--news-panel-width) !important;
         min-width: var(--news-panel-width) !important;
         max-width: var(--news-panel-width) !important;
-        border-right-width: 0 !important;
+        border-right: 0 !important;
     }
 
     #sidePanel {
@@ -622,6 +631,7 @@ body {
         min-width: 320px !important;
         max-width: 320px !important;
         flex: 0 0 320px !important;
+        border-right: 0 !important;
     }
 
     #chatSection {
@@ -639,7 +649,13 @@ body {
         user-select: none;
         touch-action: none;
         background: transparent;
-        border-left: 1px solid rgba(55, 65, 81, 0.78);
+        border-left: 1px solid rgba(229, 231, 235, 0.95);
+        border-right: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .dark #newsSideDivider {
+        border-left-color: rgba(55, 65, 81, 0.78);
     }
 
     #newsSideDivider::before {
@@ -649,6 +665,12 @@ body {
     body.is-resizing-news #newsSideDivider,
     #newsSideDivider:hover {
         border-left-color: rgba(0, 122, 255, 0.95);
+    }
+}
+
+@media (min-width: 1024px) {
+    .desktop-dynamic-left {
+        left: var(--desktop-overlay-left, 320px) !important;
     }
 }
 

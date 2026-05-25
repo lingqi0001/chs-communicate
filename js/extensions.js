@@ -13,6 +13,43 @@ const ALIAS_MAP = {
 };
 
 let _currentExtensionUrl = '';
+let _isPanelExtensionOpen = false;
+
+const getDesktopLeftOffset = () => {
+    if (window.innerWidth < 1024 || document.body.classList.contains('sidebar-collapsed')) return 0;
+
+    const newsSection = document.getElementById('newsSection');
+    if (newsSection) {
+        const rect = newsSection.getBoundingClientRect();
+        if (Number.isFinite(rect.width) && rect.width > 0) return Math.round(rect.width);
+    }
+
+    const appContainer = document.querySelector('.app-container');
+    const widthScope = appContainer || document.documentElement;
+    const widthValue = getComputedStyle(widthScope).getPropertyValue('--news-panel-width').trim();
+    const parsed = Number.parseFloat(widthValue);
+    return Number.isFinite(parsed) ? parsed : 320;
+};
+
+const syncExtensionPanelOffset = () => {
+    const extPage = document.getElementById('extensionPage');
+    if (!extPage) return;
+
+    if (!_isPanelExtensionOpen) {
+        extPage.style.left = '';
+        return;
+    }
+
+    const offset = getDesktopLeftOffset();
+    extPage.style.left = offset > 0 ? `${offset}px` : '';
+};
+
+const bindExtensionPanelOffsetSync = () => {
+    window.removeEventListener('resize', syncExtensionPanelOffset);
+    window.removeEventListener('news-panel-width-change', syncExtensionPanelOffset);
+    window.addEventListener('resize', syncExtensionPanelOffset);
+    window.addEventListener('news-panel-width-change', syncExtensionPanelOffset);
+};
 
 export const openExtension = (eid, customUrl = null, customTitle = null) => {
     const titleEl = document.getElementById('extensionTitle');
@@ -78,14 +115,19 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
 
     if (extPage) {
         if (isPanel) {
-            extPage.classList.add('lg:left-80');
+            _isPanelExtensionOpen = true;
+            extPage.classList.add('desktop-dynamic-left');
             extPage.classList.remove('z-[160]');
             extPage.classList.add('z-[95]');
             document.body.classList.remove('is-fullscreen');
+            bindExtensionPanelOffsetSync();
+            syncExtensionPanelOffset();
         } else {
-            extPage.classList.remove('lg:left-80');
+            _isPanelExtensionOpen = false;
+            extPage.classList.remove('desktop-dynamic-left');
             extPage.classList.add('z-[160]');
             extPage.classList.remove('z-[95]');
+            extPage.style.left = '';
             document.body.classList.add('is-fullscreen');
         }
     }
@@ -97,11 +139,16 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
 };
 
 export const closeExtension = () => {
+    _isPanelExtensionOpen = false;
+    window.removeEventListener('resize', syncExtensionPanelOffset);
+    window.removeEventListener('news-panel-width-change', syncExtensionPanelOffset);
     const ViewModule = window.ViewModule || window.AppModules?.View;
     if (ViewModule && ViewModule.closeOverlay) {
         ViewModule.closeOverlay('extensionPage', {
             onClose: () => {
+                const extPage = document.getElementById('extensionPage');
                 const iframe = document.getElementById('extensionIframe');
+                if (extPage) extPage.style.left = '';
                 if (iframe) iframe.src = 'about:blank';
                 _currentExtensionUrl = '';
             }
