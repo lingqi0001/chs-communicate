@@ -910,4 +910,64 @@ body {
     animation: slideOutRight 0.32s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
+/* Responsive Navigation Headers and Announcement Buttons */
+@media (max-width: 1023px) {
+    /* Hide top Hub and Tools headers on mobile/narrow windows */
+    #headTabNews, #headTabTools {
+        display: none !important;
+    }
+
+    /* Hide the whole top tabs row so content moves up */
+    #newsTopTabsRowDesktop {
+        display: none !important;
+    }
+
+    #newsTopTabsRowMobile {
+        display: flex !important;
+    }
+
+    /* Match Hub/Tool header spacing to Messages header spacing on mobile */
+    #newsHeader {
+        padding-top: 1.5rem !important;   /* same as Messages: pt-6 */
+        padding-bottom: 0.75rem !important; /* same as Messages: pb-3 */
+    }
+    #newsSubTabsWrapper {
+        margin-top: 0.75rem !important; /* same as Messages search row: mt-3 */
+    }
+    
+    /* Hide the top-right desktop announcement plus button on mobile */
+    #addAnnouncementBtn {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    #newsTopTabsRowMobile {
+        display: none !important;
+    }
+}
+
+/* Unify add button behavior across all screen sizes:
+   only use inline + next to School/Club News labels. */
+#addAnnouncementBtn {
+    display: none !important;
+}
+
+.inline-news-add {
+    transition: opacity 180ms ease, transform 180ms ease, max-width 180ms ease, margin-left 180ms ease;
+    max-width: 18px;
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+.inline-news-add.is-hidden {
+    max-width: 0;
+    margin-left: 0 !important;
+    opacity: 0;
+    transform: scale(0.7);
+    pointer-events: none;
+    overflow: hidden;
+}
+
 

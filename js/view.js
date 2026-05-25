@@ -652,6 +652,14 @@ export const ViewModule = {
 
         if (currentTab === tab) return;
 
+        // Update mobile header title to match current function (mobile-only row).
+        const newsPanelTitle = document.getElementById('newsPanelTitle');
+        if (newsPanelTitle) {
+            if (tab === 'tools') newsPanelTitle.textContent = 'Tool';
+            else if (tab === 'more') newsPanelTitle.textContent = 'More';
+            else newsPanelTitle.textContent = 'Hub';
+        }
+
         // 更新标题样式
         tabs.forEach(t => {
             const el = document.getElementById(labels[t]);
@@ -695,12 +703,18 @@ export const ViewModule = {
                     const currentNewsTab = validTabs.has(rawNewsTab) ? rawNewsTab : 'school';
                     // Wait one frame so the Hub panel is visible before restoring sub-tab/content state.
                     requestAnimationFrame(() => window.toggleNewsTab(currentNewsTab));
+                } else if (window.AppModules && window.AppModules.Security && typeof window.AppModules.Security.updateNewsAccess === 'function') {
+                    window.AppModules.Security.updateNewsAccess();
                 } else if (addBtn && window.isAppStaff && window.isAppStaff()) {
                     addBtn.classList.remove('hidden');
                 }
             } else {
                 subTabs.style.height = '0'; subTabs.style.opacity = '0'; subTabs.style.marginTop = '0';
-                if (addBtn) addBtn.classList.add('hidden');
+                if (window.AppModules && window.AppModules.Security && typeof window.AppModules.Security.updateNewsAccess === 'function') {
+                    window.AppModules.Security.updateNewsAccess();
+                } else if (addBtn) {
+                    addBtn.classList.add('hidden');
+                }
             }
         }
 
@@ -709,6 +723,10 @@ export const ViewModule = {
         if (window.innerWidth >= 1024) {
             if (tab === 'more') this.showPanel('messages');
             else this.showPanel('news');
+        } else {
+            if (tab === 'news' || tab === 'tools') {
+                this.refreshBottomNav(tab);
+            }
         }
     },
 

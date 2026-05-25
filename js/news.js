@@ -67,18 +67,22 @@ export function createNewsModule(deps) {
     }
 
     function setAddAnnouncementVisibility(type) {
-        const addBtn = document.getElementById('addAnnouncementBtn');
-        if (!addBtn) return;
-
-        if (type !== 'school' && type !== 'club') {
-            addBtn.classList.add('hidden');
-            return;
-        }
-
-        if (window.AppModules && window.AppModules.User && (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
-            addBtn.classList.remove('hidden');
+        if (window.AppModules && window.AppModules.Security && typeof window.AppModules.Security.updateNewsAccess === 'function') {
+            window.AppModules.Security.updateNewsAccess();
         } else {
-            addBtn.classList.add('hidden');
+            const addBtn = document.getElementById('addAnnouncementBtn');
+            if (!addBtn) return;
+
+            if (type !== 'school' && type !== 'club') {
+                addBtn.classList.add('hidden');
+                return;
+            }
+
+            if (window.AppModules && window.AppModules.User && (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
+                addBtn.classList.remove('hidden');
+            } else {
+                addBtn.classList.add('hidden');
+            }
         }
     }
 

@@ -206,12 +206,41 @@ export const SecurityModule = {
      * Updates news creation button visibility based on permission logic.
      */
     updateNewsAccess() {
+        const isStaff = window.AppModules && window.AppModules.User && (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin());
+        const setInlineAddVisible = (el, visible) => {
+            if (!el) return;
+            if (visible) el.classList.remove('is-hidden');
+            else el.classList.add('is-hidden');
+        };
+        
+        // Desktop plus button
         const btn = document.getElementById('addAnnouncementBtn');
         if (btn) {
-            if (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin()) {
-                btn.classList.remove('hidden');
+            btn.classList.add('hidden');
+        }
+
+        // Mobile plus buttons inside sub-tabs
+        const schoolAddBtn = document.getElementById('btnSchoolNewsAdd');
+        const clubAddBtn = document.getElementById('btnClubNewsAdd');
+        if (schoolAddBtn && clubAddBtn) {
+            const currentTab = (window.AppModules && window.AppModules.News && typeof window.AppModules.News.getCurrentNewsTab === 'function')
+                ? (window.AppModules.News.getCurrentNewsTab() || 'school')
+                : 'school';
+
+            if (isStaff) {
+                if (currentTab === 'school') {
+                    setInlineAddVisible(schoolAddBtn, true);
+                    setInlineAddVisible(clubAddBtn, false);
+                } else if (currentTab === 'club') {
+                    setInlineAddVisible(schoolAddBtn, false);
+                    setInlineAddVisible(clubAddBtn, true);
+                } else {
+                    setInlineAddVisible(schoolAddBtn, false);
+                    setInlineAddVisible(clubAddBtn, false);
+                }
             } else {
-                btn.classList.add('hidden');
+                setInlineAddVisible(schoolAddBtn, false);
+                setInlineAddVisible(clubAddBtn, false);
             }
         }
     },

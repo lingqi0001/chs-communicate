@@ -1584,6 +1584,20 @@
                     // Switch to Mobile: determine which panel to show based on activeTargetId or currentPanel
                     const panelToRestore = activeTargetId ? 'chat' : (window.AppView.currentPanel || 'news');
                     window.AppView.showPanel(panelToRestore);
+                    if (window.refreshBottomNav) {
+                        if (panelToRestore === 'messages') {
+                            window.refreshBottomNav('messages');
+                        } else if (panelToRestore === 'tools') {
+                            window.refreshBottomNav('tools');
+                        } else if (panelToRestore === 'news') {
+                            const activeLeftTab = document.querySelector('.head-tab-active');
+                            const activeName = activeLeftTab ? activeLeftTab.id.replace('headTab', '').toLowerCase() : 'news';
+                            window.refreshBottomNav(activeName === 'tools' ? 'tools' : 'news');
+                        } else if (panelToRestore === 'chat') {
+                            // Chat detail belongs to Messages lane in bottom nav semantics.
+                            window.refreshBottomNav('messages');
+                        }
+                    }
                 }
             }
         });
@@ -2104,8 +2118,8 @@
         <div id="newsSection"
             class="hidden lg:flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden relative">
             <!-- Header with synchronized height -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
-                <div class="flex gap-4 items-center justify-between h-9">
+            <div id="newsHeader" class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
+                <div id="newsTopTabsRowDesktop" class="flex gap-4 items-center justify-between h-9">
                     <div class="flex gap-4 items-end">
                         <button id="headTabNews" onclick="switchLeftTab('news')"
                             class="text-2xl font-bold tracking-tight text-black dark:text-white tab-transition leading-none head-tab-active scale-110 origin-bottom">Hub</button>
@@ -2125,6 +2139,29 @@
                     </button>
                 </div>
 
+                <div id="newsTopTabsRowMobile" class="flex justify-between items-center h-9">
+                    <h2 id="newsPanelTitle" class="text-2xl font-bold tracking-tight leading-none">Hub</h2>
+                    <div class="flex items-center gap-3 mb-1">
+                        <button id="donationBtnNews" onclick="toggleDonation()"
+                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                        <button id="settingsBtnNews" onclick="toggleSettings()"
+                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                </path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
                 <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
                     <div id="morphNavContainer" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-[72px] h-full items-center gap-1 overflow-hidden relative">
@@ -2136,6 +2173,11 @@
                                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h5a2 2 0 0 0 2-2z"></path>
                             </svg>
                             <span id="textSchoolFull" style="max-width: 80px;" class="apple-morph opacity-100 overflow-hidden whitespace-nowrap">School News</span>
+                            <span id="btnSchoolNewsAdd" onclick="event.stopPropagation(); openNewsPostForm()" class="inline-news-add is-hidden ml-1 text-[#007AFF] hover:opacity-70 active:scale-90 cursor-pointer flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                            </span>
                         </button>
 
                         <button id="btnClubNews" onclick="toggleNewsTab('club')"
@@ -2145,6 +2187,11 @@
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                             </svg>
                             <span id="textClubFull" style="max-width: 80px;" class="apple-morph opacity-100 overflow-hidden whitespace-nowrap">Club News</span>
+                            <span id="btnClubNewsAdd" onclick="event.stopPropagation(); openNewsPostForm()" class="inline-news-add is-hidden ml-1 text-[#007AFF] hover:opacity-70 active:scale-90 cursor-pointer flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                            </span>
                         </button>
 
                         <div id="discoverPillBlock" class="apple-morph absolute right-1 top-1 bottom-1 w-16 bg-transparent rounded-lg z-20 overflow-hidden group">
