@@ -278,9 +278,9 @@ export const ExtensionModule = {
                 if (this.callbacks.renderCategory) {
                     this.callbacks.renderCategory(categoryName, mergedFiles);
                 }
-                return true;
+                return { rendered: true, hasRealLocalFiles: filesList.length > 0 };
             }
-            return false;
+            return { rendered: false, hasRealLocalFiles: false };
         };
 
         // Fallback to query GitHub API for hosted plugins (production)
@@ -337,7 +337,8 @@ export const ExtensionModule = {
 
         let foundLocal = false;
         for (const cat of Object.keys(categoryMap)) {
-            if (await syncFolderLocal(cat)) foundLocal = true;
+            const result = await syncFolderLocal(cat);
+            if (result.hasRealLocalFiles) foundLocal = true;
         }
 
         if (!foundLocal) {
