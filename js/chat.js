@@ -200,7 +200,11 @@ export function initChatEngine(deps) {
 
     function handleMsgQuote() {
         if (!selectedMsgData) return;
-        currentQuote = { senderName: selectedMsgData.senderName, text: selectedMsgData.text };
+        currentQuote = { 
+            senderName: selectedMsgData.senderName, 
+            text: selectedMsgData.text,
+            messageId: selectedMsgData.key || null
+        };
         document.getElementById('quoteUser').innerText = currentQuote.senderName;
         document.getElementById('quoteText').innerText = currentQuote.text;
         document.getElementById('quoteArea').classList.remove('hidden');

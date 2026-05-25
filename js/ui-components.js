@@ -28,26 +28,42 @@ export const UIComponents = {
      * [豸域豌疲ｳ｡扈ｻｶ] createMsgElement
      * 逕滓閨雁､ｩ逡碁擇荳ｭ逧黒譚｡豸域
      */
-    createChatBubble: function (msg, key, currentUser, setupLongPressCallback) {
+    createChatBubble: function (msg, key, currentUser, setupLongPressCallback, showSenderName = true) {
         // 逻辑判定：使用 UserModule 统一判定管理权限
         const isAdmin = UserModule.isAdmin ? UserModule.isAdmin() : false;
         if (msg.isSecret && !isAdmin) return null;
 
+        if (msg && typeof msg === 'object') {
+            msg.key = key;
+        }
+
         const isMe = msg.senderId === currentUser.id;
         const div = document.createElement('div');
         div.dataset.key = key;
+        div.setAttribute('data-sender-id', String(msg.senderId || ''));
+        const rawTs = msg?.timestamp;
+        let tsMs = null;
+        if (typeof rawTs === 'number' && Number.isFinite(rawTs)) {
+            tsMs = rawTs > 1e12 ? rawTs : rawTs * 1000;
+        } else if (rawTs instanceof Date) {
+            tsMs = rawTs.getTime();
+        } else if (rawTs && typeof rawTs === 'object') {
+            if (typeof rawTs.toMillis === 'function') {
+                tsMs = rawTs.toMillis();
+            } else if (typeof rawTs.seconds === 'number') {
+                tsMs = rawTs.seconds * 1000;
+            }
+        }
+        if (typeof tsMs === 'number' && Number.isFinite(tsMs)) {
+            div.setAttribute('data-timestamp-ms', String(Math.floor(tsMs)));
+        }
         if (msg.text) {
             div.setAttribute('data-raw-text', msg.text);
         }
-        div.className = `msg-pop flex flex-col mb-1.5 w-full ${isMe ? 'items-end' : 'items-start'}`;
+        div.className = `msg-pop flex flex-col mb-4 w-full ${isMe ? 'items-end' : 'items-start'}`;
 
         // 螟�炊蠑慕畑豸域�
-        if (msg.quote) {
-            const qDiv = document.createElement('div');
-            qDiv.className = `text-xs opacity-50 mb-0.5 px-3 py-1 border-l-2 border-gray-400 max-w-[70%] truncate ${isMe ? 'mr-1 text-right' : 'ml-1 text-left'}`;
-            qDiv.innerHTML = `<span class="font-bold">${UIUtils.escape(msg.quote.senderName)}:</span> ${UIUtils.escape(msg.quote.text)}`;
-            div.appendChild(qDiv);
-        }
+
 
         let content = '';
         let images = [];
@@ -109,7 +125,7 @@ export const UIComponents = {
             }
         } else {
             const bS = isMe ? 'bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
-            content = `<div class="px-3.5 py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(msg.text), isMe)}</div>`;
+            content = `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(msg.text), isMe)}</div>`;
         }
 
         const wrapper = document.createElement('div');
@@ -119,8 +135,24 @@ export const UIComponents = {
         // 扈大ｮ夐柄謖我ｺ倶ｻｶ
         if (setupLongPressCallback) setupLongPressCallback(msgEl, msg);
 
-        div.appendChild(!isMe ? (Object.assign(document.createElement('span'), { className: 'text-xs text-gray-400 mb-0.5 ml-3', innerText: msg.senderName || "Unknown" })) : document.createTextNode(''));
+        const shouldRenderSenderName = !isMe && showSenderName;
+        div.appendChild(shouldRenderSenderName ? (Object.assign(document.createElement('span'), { className: 'text-xs text-gray-400 mb-0.5 ml-3', innerText: msg.senderName || "Unknown" })) : document.createTextNode(''));
         div.appendChild(msgEl);
+
+        if (msg.quote) {
+            const qDiv = document.createElement('div');
+            // Style with flat corner at top-right for isMe, top-left for !isMe
+            const cornerClass = isMe 
+                ? 'rounded-tl-xl rounded-bl-xl rounded-br-xl rounded-tr-none mr-1' 
+                : 'rounded-tr-xl rounded-br-xl rounded-bl-xl rounded-tl-none ml-1';
+            
+            qDiv.className = `text-[11px] mt-0.5 px-2.5 py-1 max-w-[78%] border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 shadow-sm ${cornerClass} text-left`;
+            const replyIcon = `<svg class="w-3 h-3 inline-block mr-1 -mt-0.5 opacity-60" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>`;
+            const clickAttr = msg.quote.messageId ? `onclick="window.jumpToMessage('', '', '${msg.quote.messageId}')" class="cursor-pointer hover:opacity-80 transition-opacity"` : 'class="select-none"';
+            qDiv.innerHTML = `<div ${clickAttr}>${replyIcon}<span class="font-bold text-gray-600 dark:text-gray-300">${UIUtils.escape(msg.quote.senderName)}:</span> <span class="opacity-90">${UIUtils.escape(msg.quote.text)}</span></div>`;
+            div.appendChild(qDiv);
+        }
+
         return div;
     },
 

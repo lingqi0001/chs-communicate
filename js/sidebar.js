@@ -152,14 +152,14 @@ export const SidebarModule = {
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
                     <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}">
+                        <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
                             Recent
                             <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
                         </button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}">Contacts</button>
+                        <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Contacts</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}">
+                        <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
                             Class
                         </button>
                     </div>
@@ -167,9 +167,9 @@ export const SidebarModule = {
                 `;
             } else {
                 const btns = container.querySelectorAll('.sidebar-tabs button');
-                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`;
-                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`;
-                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`;
+                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
+                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
+                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
             }
             const tabButtons = container.querySelectorAll('.sidebar-tabs [data-sidebar-mode]');
             tabButtons.forEach(btn => {
@@ -954,4 +954,3 @@ export const SidebarModule = {
         return undefined;
     }
 };
-

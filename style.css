@@ -84,7 +84,8 @@ body {
     background: linear-gradient(to top, rgba(242, 242, 247, 0.4), rgba(242, 242, 247, 0));
 }
 
-#chatInputPill {
+#chatInputPill,
+#quoteArea {
     border: 1px solid rgba(15, 23, 42, 0.1);
     background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(28px) saturate(180%);
@@ -134,7 +135,8 @@ body {
     background: linear-gradient(to top, rgba(8, 10, 16, 0.34), rgba(8, 10, 16, 0));
 }
 
-.dark #chatInputPill {
+.dark #chatInputPill,
+.dark #quoteArea {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(12, 14, 20, 0.56);
     box-shadow:
