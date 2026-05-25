@@ -659,8 +659,8 @@ export const ViewModule = {
         const msgBtn = document.getElementById('tabBtn-messages');
         const activePill = document.getElementById('bottomNavActivePill');
         const icons = {
-            newsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="color: #007AFF;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`,
-            newsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color: #9CA3AF;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5L18.5 7H20" /></svg>`,
+            newsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
+            newsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
             msgActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`,
             msgInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`
         };
@@ -676,7 +676,7 @@ export const ViewModule = {
         if (newsBtn) {
             const active = (activeTab === 'news');
             newsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">News</span>`;
+            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Hub</span>`;
         }
         if (msgBtn) {
             const active = (activeTab === 'messages');
