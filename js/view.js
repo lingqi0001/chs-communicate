@@ -489,7 +489,7 @@ export const ViewModule = {
             }
         }
 
-        // 桌面端布局：全�?        
+        // Desktop Layout: All flex
         if (!isMobile) {
             newsSec.classList.replace('hidden', 'flex');
             sidePanel.classList.replace('hidden', 'flex');
@@ -498,7 +498,53 @@ export const ViewModule = {
             return;
         }
 
-        // 移动端布局：单面板切换
+        // Mobile Layout: Single panel transition with slide animations
+        const isCurrentlyOnChat = !chatSec.classList.contains('hidden') && !chatSec.classList.contains('slide-out-right');
+        const isTransitioningFromChat = isCurrentlyOnChat && panelId !== 'chat';
+
+        if (isTransitioningFromChat) {
+            if (panelId === 'news') {
+                newsSec.classList.replace('hidden', 'flex');
+                if (bottomNav) bottomNav.classList.remove('hidden');
+            } else if (panelId === 'tools' || panelId === 'messages') {
+                sidePanel.classList.replace('hidden', 'flex');
+                if (bottomNav) bottomNav.classList.remove('hidden');
+            }
+            chatSec.classList.add('slide-out-right');
+            setTimeout(() => {
+                if (this.state.currentPanel !== 'chat') {
+                    chatSec.classList.replace('flex', 'hidden');
+                }
+                chatSec.classList.remove('slide-out-right');
+            }, 320);
+            return;
+        }
+
+        const isTransitioningToChat = panelId === 'chat' && !isCurrentlyOnChat;
+        if (isTransitioningToChat) {
+            const prevPanel = !sidePanel.classList.contains('hidden') ? sidePanel : (!newsSec.classList.contains('hidden') ? newsSec : null);
+            
+            [newsSec, sidePanel, chatSec].forEach(p => {
+                if (p !== prevPanel && p !== chatSec) {
+                    p.classList.add('hidden');
+                    p.classList.remove('flex', 'slide-in-left', 'slide-in-right');
+                }
+            });
+
+            chatSec.classList.remove('hidden');
+            chatSec.classList.add('flex', 'slide-in-right');
+            if (bottomNav) bottomNav.classList.add('hidden');
+            if (gradientShim) gradientShim.classList.add('hidden');
+
+            setTimeout(() => {
+                if (this.state.currentPanel === 'chat') {
+                    if (prevPanel) prevPanel.classList.replace('flex', 'hidden');
+                }
+                chatSec.classList.remove('slide-in-right');
+            }, 320);
+            return;
+        }
+
         [newsSec, sidePanel, chatSec].forEach(p => {
             p.classList.add('hidden');
             p.classList.remove('flex', 'slide-in-left', 'slide-in-right');
@@ -512,14 +558,11 @@ export const ViewModule = {
             if (bottomNav) bottomNav.classList.remove('hidden');
         } else if (panelId === 'chat') {
             chatSec.classList.replace('hidden', 'flex');
-            if (bottomNav) bottomNav.classList.add('hidden'); // 聊天时隐藏底�?        
+            if (bottomNav) bottomNav.classList.add('hidden');
         }
     },
 
-    /**
-     * [标签页切换] switchTab (移动端底�?
-     */
-    switchTab: function (tab) {
+        switchTab: function (tab) {
         if (window.innerWidth >= 1024) return;
         if (this.state.isAnimating) return;
 
@@ -530,21 +573,29 @@ export const ViewModule = {
         if (!newsEl || !msgEl) return;
 
         const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
-        const currentTab = isCurrentlyOnNews ? 'news' : 'messages';
+        let currentTab = 'messages';
+        if (isCurrentlyOnNews) {
+            const activeEl = document.querySelector('.head-tab-active');
+            currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
+        }
 
-        let normalizedTab = tab;
-        if (tab === 'more' || tab === 'tools') normalizedTab = 'news';
+        // normalizedTab removed
+        // normalizedTab fallback removed
 
-        if (currentTab === normalizedTab) {
-            if (tab !== 'messages') this.switchLeftTab(tab);
+        if (currentTab === tab) return;
+
+        const isSwitchingWithinNews = (tab === 'news' || tab === 'tools') && (currentTab === 'news' || currentTab === 'tools');
+        if (isSwitchingWithinNews) {
+            this.switchLeftTab(tab);
+            this.refreshBottomNav(tab);
             return;
         }
 
         this.state.isAnimating = true;
-        this.refreshBottomNav(normalizedTab);
+        this.refreshBottomNav(tab);
 
         // 如果切到 News 面板，同时触发内部的二级标签切换
-        if (normalizedTab === 'news') {
+        if (tab === 'news' || tab === 'tools') {
             this.switchLeftTab(tab);
         }
 
@@ -553,7 +604,7 @@ export const ViewModule = {
             chatSec.classList.remove('flex');
         }
 
-        const isForward = (normalizedTab === 'messages');
+        const isForward = (tab === 'messages');
         const currentEl = isCurrentlyOnNews ? newsEl : msgEl;
         const targetEl = isCurrentlyOnNews ? msgEl : newsEl;
 
@@ -666,11 +717,14 @@ export const ViewModule = {
      */
     refreshBottomNav: function (activeTab) {
         const newsBtn = document.getElementById('tabBtn-news');
+        const toolsBtn = document.getElementById('tabBtn-tools');
         const msgBtn = document.getElementById('tabBtn-messages');
         const activePill = document.getElementById('bottomNavActivePill');
         const icons = {
             newsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
             newsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
+            toolsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #007AFF;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+            toolsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #9CA3AF;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
             msgActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`,
             msgInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`
         };
@@ -678,8 +732,10 @@ export const ViewModule = {
         if (activePill) {
             if (activeTab === 'news') {
                 activePill.style.transform = 'translateX(0)';
-            } else {
+            } else if (activeTab === 'tools') {
                 activePill.style.transform = 'translateX(calc(100% + 6px))';
+            } else {
+                activePill.style.transform = 'translateX(calc(200% + 12px))';
             }
         }
 
@@ -687,6 +743,11 @@ export const ViewModule = {
             const active = (activeTab === 'news');
             newsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
             newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Hub</span>`;
+        }
+        if (toolsBtn) {
+            const active = (activeTab === 'tools');
+            toolsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
+            toolsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.toolsActive : icons.toolsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Tool</span>`;
         }
         if (msgBtn) {
             const active = (activeTab === 'messages');

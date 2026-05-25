@@ -17,7 +17,7 @@
         import { ExtensionModule } from './js/extensions.js';
         import { AuthModule } from './js/auth.js';
         import { SecurityModule } from './js/security.js';
-        import { SearchModule } from './js/search.js';
+        import SearchModule from './js/search.js';
         import { createNewsModule } from './js/news.js?v=20260524-3';
 
         

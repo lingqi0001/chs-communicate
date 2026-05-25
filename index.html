@@ -112,6 +112,7 @@
             Config: { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS }
         });
 
+        let currentNewsTab = 'school';
         AppModules.News = createNewsModule({
             db,
             ref,
@@ -215,7 +216,6 @@
 
         window.isPhotoDisabled = false;
         window.isSidebarAnimating = false;
-        let currentNewsTab = 'school';
         window.currentClassId = null;
 
         Object.defineProperty(window, 'isSyncDone', {
@@ -777,6 +777,16 @@
             if (window.toggleNewsTab) window.toggleNewsTab('clubs');
         };
         window.triggerMobileSearch = () => {
+            const results = document.getElementById('globalSearchResults');
+            const isSearchOpen = results && !results.classList.contains('opacity-0');
+            const sidePanel = document.getElementById('sidePanel');
+            const isSidePanelVisible = sidePanel && !sidePanel.classList.contains('hidden');
+
+            if (isSearchOpen && isSidePanelVisible) {
+                window.clearGlobalSearch();
+                return;
+            }
+
             if (window.AppView && window.AppView.switchTab) {
                 window.AppView.switchTab('messages');
             }
@@ -785,6 +795,7 @@
                 if (input) {
                     input.focus();
                     input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    window.handleGlobalSearch?.({ target: input });
                 }
             }, 350);
         };
@@ -1189,8 +1200,8 @@
             setTimeout(() => {
                 const isMobile = window.innerWidth < 1024;
                 if (isMobile) {
-                    const messagesBtn = document.getElementById('tabBtn-messages');
-                    if (messagesBtn) messagesBtn.click();
+                    if (window.refreshBottomNav) window.refreshBottomNav('messages');
+                    // messagesBtn.click() removed
                 }
                 window.switchChat?.(authorId);
             }, 350);
@@ -1993,8 +2004,28 @@
     <div id="galleryModal"
         class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
         <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
-            <button class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity">Save</button>
-            <button class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
+            <button id="gallerySaveBtn" class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity">Save</button>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/10 dark:bg-white/5 border border-white/15 px-2 py-1 rounded-xl backdrop-blur-md shadow-lg z-[3010]">
+                <button id="galleryZoomOutBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Zoom Out">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
+                    </svg>
+                </button>
+                <button id="galleryZoomInBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Zoom In">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                    </svg>
+                </button>
+                <div class="w-[1px] h-5 bg-white/15 mx-1"></div>
+                <button id="galleryRotateBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Rotate">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12.5c0-3.3 2.7-6 6-6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4 L11 6.5 L7.5 9" />
+                        <rect x="8" y="11.5" width="12" height="8" rx="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+            <button id="galleryDoneBtn" class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
         </header>
 
         <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12">
@@ -2028,7 +2059,7 @@
         <div id="bottomNavContainer" class="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[380px] flex items-center gap-3 z-50">
             <div id="bottomNav"
                 class="relative flex-1 h-[72px] ios26-liquid-glass rounded-full flex items-center px-2 gap-1.5 transition-colors">
-                <div id="bottomNavActivePill" class="absolute left-2 top-2 h-14 w-[calc(50%-11px)] rounded-full ios26-active-pill transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-0 transform translate-x-[calc(100%+6px)]"></div>
+                <div id="bottomNavActivePill" class="absolute left-2 top-2 h-14 rounded-full ios26-active-pill transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-0 transform translate-x-[calc(200%+12px)]" style="width: calc((100% - 28px) / 3);"></div>
                 <button onclick="switchTab('news')" class="relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 text-gray-500 dark:text-gray-400" id="tabBtn-news">
                     <div class="relative inline-flex mb-1">
                         <svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" id="icon-news" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;">
@@ -2039,6 +2070,14 @@
                         </svg>
                     </div>
                     <span class="text-[10px] font-bold tracking-wide" style="color: #9CA3AF;">Hub</span>
+                </button>
+                <button onclick="switchTab('tools')" class="relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 text-gray-500 dark:text-gray-400" id="tabBtn-tools">
+                    <div class="relative inline-flex mb-1">
+                        <svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" id="icon-tools" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #9CA3AF;">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-bold tracking-wide" style="color: #9CA3AF;">Tool</span>
                 </button>
                 <button onclick="switchTab('messages')" class="relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 text-[#007AFF] dark:text-[#0A84FF]"
                     id="tabBtn-messages">
@@ -2072,8 +2111,6 @@
                             class="text-2xl font-bold tracking-tight text-black dark:text-white tab-transition leading-none head-tab-active scale-110 origin-bottom">Hub</button>
                         <button id="headTabTools" onclick="switchLeftTab('tools')"
                             class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 tab-transition leading-none scale-100 origin-bottom mb-0.5">Tools</button>
-                        <button id="headTabMore" onclick="switchLeftTab('more')"
-                            class="text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 tab-transition leading-none scale-100 origin-bottom mb-0.5">Social</button>
                         <div id="newsSyncHint"
                             class="mb-1 text-xs font-bold text-blue-500 opacity-0 transition-opacity duration-300">
                             Updating...</div>
@@ -2280,9 +2317,9 @@
                 <!-- Global Tools / Extensions List -->
                 <div id="toolsMainContent"
                     class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-2 space-y-3">
+                    <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-0 space-y-3">
                         <!-- School Tools Section -->
-                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-4 px-1">
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-0 px-1">
                             School Tools
                         </div>
                         <div id="schoolToolsList" class="space-y-3">
@@ -2350,6 +2387,68 @@
                                     <p class="text-sm text-gray-500">School links and resources.</p>
                                 </div>
                             </div>
+
+                            <div onclick="openModule('peer_tutoring')"
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-base">Peer Tutoring</h3>
+                                    <p class="text-sm text-gray-500">Get or offer academic help.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="openModule('suggestions')"
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-base">Suggestions</h3>
+                                    <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="openModule('lost_and_found')"
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-base">Lost and Found</h3>
+                                    <p class="text-sm text-gray-500">Report or find lost items.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="openModule('marketplace')"
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-base">Marketplace</h3>
+                                    <p class="text-sm text-gray-500">Buy and sell within the school.</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="dynamicExtensionsList" class="space-y-3">
@@ -2360,7 +2459,7 @@
                         </div>
 
                         <div
-                            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1 flex justify-between items-center">
+                            class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-4 px-1 flex justify-between items-center">
                             <span>Coming Soon</span>
                             <button onclick="openExtensionRequest()"
                                 class="text-[#007AFF] lowercase font-bold tracking-normal hover:underline transition-all cursor-pointer">What
@@ -2396,72 +2495,6 @@
                     </div>
                 </div>
 
-                <div id="moreMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
-                    <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-2 space-y-3">
-                        <div onclick="openModule('peer_tutoring')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Peer Tutoring</h3>
-                                <p class="text-sm text-gray-500">Get or offer academic help.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('suggestions')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Suggestions</h3>
-                                <p class="text-sm text-gray-500">Share your ideas anonymously.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('lost_and_found')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Lost and Found</h3>
-                                <p class="text-sm text-gray-500">Report or find lost items.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="openModule('marketplace')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
-                            <div
-                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base">Marketplace</h3>
-                                <p class="text-sm text-gray-500">Buy and sell within the school.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -2510,7 +2543,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input id="globalSearchInput" type="text" placeholder="Search people, messages, news..."
+                        <input id="globalSearchInput" type="text" placeholder="Search people, messages, tools..."
                             oninput="handleGlobalSearch(event)"
                             onfocus="handleGlobalSearch(event)"
                             autocomplete="one-time-code"
@@ -2526,7 +2559,7 @@
                     </div>
                 </div>
             </div>
-            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-0 lg:pb-8">
+            <div id="sidebarList" class="flex-1 min-h-0 flex flex-col overflow-hidden pb-0 lg:pb-0">
                 <div class="h-full flex items-center justify-center text-gray-400">
                     <div class="flex flex-col items-center gap-2">
                         <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>

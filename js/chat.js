@@ -476,11 +476,6 @@ export function initChatEngine(deps) {
         }
 
         AppModules.View.showPanel('chat');
-        const chatSec = document.getElementById('chatSection');
-        if (AppModules.View.isMobile() && chatSec) {
-            chatSec.classList.add('slide-in-right');
-            setTimeout(() => chatSec.classList.remove('slide-in-right'), 400);
-        }
 
         loadChatThread(chatId);
 

@@ -19,7 +19,9 @@ export const GalleryModule = {
         touchStartX: 0,
         touchStartY: 0,
         isSwiping: false,
-        preloadedUrls: new Set()
+        preloadedUrls: new Set(),
+        scale: 1,
+        rotate: 0
     },
 
     // Elements cache
@@ -28,7 +30,12 @@ export const GalleryModule = {
             modal: document.getElementById('galleryModal'),
             img: document.getElementById('mainGalleryImg'),
             prevBtn: document.getElementById('galleryPrevBtn'),
-            nextBtn: document.getElementById('galleryNextBtn')
+            nextBtn: document.getElementById('galleryNextBtn'),
+            zoomInBtn: document.getElementById('galleryZoomInBtn'),
+            zoomOutBtn: document.getElementById('galleryZoomOutBtn'),
+            rotateBtn: document.getElementById('galleryRotateBtn'),
+            saveBtn: document.getElementById('gallerySaveBtn'),
+            doneBtn: document.getElementById('galleryDoneBtn')
         };
     },
 
@@ -36,7 +43,7 @@ export const GalleryModule = {
      * Initializes gestures and listeners
      */
     init() {
-        const { modal, img, prevBtn, nextBtn } = this.els;
+        const { modal, img, prevBtn, nextBtn, zoomInBtn, zoomOutBtn, rotateBtn, saveBtn, doneBtn } = this.els;
         if (!modal || !img) return;
 
         // 1. Gesture Events
@@ -61,7 +68,6 @@ export const GalleryModule = {
         });
 
         // Bind Save button
-        const saveBtn = modal.querySelector('header button:first-child');
         if (saveBtn) {
             saveBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -70,7 +76,6 @@ export const GalleryModule = {
         }
 
         // Bind Done button
-        const doneBtn = modal.querySelector('header button:last-child');
         if (doneBtn) {
             doneBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -94,8 +99,53 @@ export const GalleryModule = {
             });
         }
 
+        // Bind Zoom In button
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.zoomIn();
+            });
+        }
+
+        // Bind Zoom Out button
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.zoomOut();
+            });
+        }
+
+        // Bind Rotate button
+        if (rotateBtn) {
+            rotateBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.rotate();
+            });
+        }
+
         // 4. Prevent dragging defaults on desktop
         img.addEventListener('dragstart', (e) => e.preventDefault());
+
+        // 5. Intercept pinch-to-zoom on desktop touchpad/wheel
+        modal.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault(); // Prevent browser default zoom page
+                
+                const { img } = this.els;
+                if (img) img.style.transition = 'none';
+                
+                const zoomFactor = 0.03; // Smooth zoom step per tick
+                if (e.deltaY < 0) {
+                    // Zoom In
+                    this.state.scale = Math.min(4, (this.state.scale || 1) + zoomFactor);
+                } else {
+                    // Zoom Out
+                    this.state.scale = Math.max(0.5, (this.state.scale || 1) - zoomFactor);
+                }
+                
+                this._applyTransform();
+            }
+        }, { passive: false });
     },
 
     /**
@@ -200,7 +250,9 @@ export const GalleryModule = {
         const applyAsset = () => {
             img.src = currentUrl;
             img.style.opacity = '1';
-            img.style.transform = 'scale(1)';
+            this.state.scale = 1;
+            this.state.rotate = 0;
+            this._applyTransform();
         };
 
         if (isFirstOpen) {
@@ -225,11 +277,13 @@ export const GalleryModule = {
                 
                 // Set source
                 img.src = currentUrl;
+                this.state.scale = 1;
+                this.state.rotate = 0;
                 
                 requestAnimationFrame(() => {
                     img.style.transition = 'all 0.25s cubic-bezier(0.1, 0.76, 0.55, 0.94)';
                     img.style.opacity = '1';
-                    img.style.transform = 'translateX(0px) scale(1)';
+                    this._applyTransform();
                 });
             }, 150);
         }
@@ -261,14 +315,70 @@ export const GalleryModule = {
         });
     },
 
+    zoomIn() {
+        console.log("Gallery: zoomIn clicked. Current scale:", this.state.scale);
+        const { img } = this.els;
+        if (img) img.style.transition = 'transform 0.2s cubic-bezier(0.1, 0.76, 0.55, 0.94)';
+        const step = 0.25;
+        const maxScale = 4;
+        this.state.scale = Math.min(maxScale, (this.state.scale || 1) + step);
+        console.log("Gallery: new scale:", this.state.scale);
+        this._applyTransform();
+    },
+
+    zoomOut() {
+        console.log("Gallery: zoomOut clicked. Current scale:", this.state.scale);
+        const { img } = this.els;
+        if (img) img.style.transition = 'transform 0.2s cubic-bezier(0.1, 0.76, 0.55, 0.94)';
+        const step = 0.25;
+        const minScale = 0.5;
+        this.state.scale = Math.max(minScale, (this.state.scale || 1) - step);
+        console.log("Gallery: new scale:", this.state.scale);
+        this._applyTransform();
+    },
+
+    rotate() {
+        console.log("Gallery: rotate clicked. Current rotate:", this.state.rotate);
+        const { img } = this.els;
+        if (img) img.style.transition = 'transform 0.3s cubic-bezier(0.1, 0.76, 0.55, 0.94)';
+        this.state.rotate = ((this.state.rotate || 0) + 90) % 360;
+        console.log("Gallery: new rotate:", this.state.rotate);
+        this._applyTransform();
+    },
+
+    _applyTransform(translateX = 0) {
+        const { img } = this.els;
+        if (!img) return;
+        const scale = this.state.scale !== undefined ? this.state.scale : 1;
+        const rotate = this.state.rotate !== undefined ? this.state.rotate : 0;
+        console.log("Gallery: applying transform. scale:", scale, "rotate:", rotate, "translateX:", translateX);
+        img.style.transform = `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`;
+    },
+
     /**
      * Touch Event Tracking Logic (Gestures)
      */
     _onTouchStart(e) {
+        if (e.touches.length === 2) {
+            // Initiate two-finger pinch zoom
+            this.state.isPinching = true;
+            this.state.isSwiping = false;
+            this.state.pinchStartDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            this.state.pinchStartScale = this.state.scale || 1;
+            
+            const { img } = this.els;
+            if (img) img.style.transition = 'none';
+            return;
+        }
+
         if (e.touches.length !== 1) return;
         this.state.touchStartX = e.touches[0].clientX;
         this.state.touchStartY = e.touches[0].clientY;
         this.state.isSwiping = true;
+        this.state.isPinching = false;
 
         // Reset transition styles for instant drag response
         const { img } = this.els;
@@ -276,6 +386,22 @@ export const GalleryModule = {
     },
 
     _onTouchMove(e) {
+        if (this.state.isPinching && e.touches.length === 2) {
+            e.preventDefault();
+            const currentDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (this.state.pinchStartDistance > 0) {
+                const factor = currentDist / this.state.pinchStartDistance;
+                const minScale = 0.5;
+                const maxScale = 4;
+                this.state.scale = Math.max(minScale, Math.min(maxScale, this.state.pinchStartScale * factor));
+                this._applyTransform();
+            }
+            return;
+        }
+
         if (!this.state.isSwiping || e.touches.length !== 1) return;
 
         const deltaX = e.touches[0].clientX - this.state.touchStartX;
@@ -284,15 +410,18 @@ export const GalleryModule = {
         // Horizontal swipe priority check (avoid scrolling conflicts)
         if (Math.abs(deltaX) > Math.abs(deltaY)) {
             e.preventDefault(); // Prevent standard pull-to-refresh
-            const { img } = this.els;
-            if (img) {
-                // Subtle drag feedback transition styling
-                img.style.transform = `translateX(${deltaX * 0.7}px) scale(0.98)`;
-            }
+            this._applyTransform(deltaX * 0.7);
         }
     },
 
     _onTouchEnd(e) {
+        if (this.state.isPinching) {
+            if (e.touches.length === 0) {
+                this.state.isPinching = false;
+            }
+            return;
+        }
+
         if (!this.state.isSwiping) return;
         this.state.isSwiping = false;
 
@@ -311,7 +440,7 @@ export const GalleryModule = {
                 this.next();
             } else {
                 // Spring back animation if last
-                img.style.transform = 'translateX(0px) scale(1)';
+                this._applyTransform(0);
             }
         } else if (deltaX > swipeThreshold) {
             // Swiped Right -> Load Prev Image
@@ -319,11 +448,11 @@ export const GalleryModule = {
                 this.prev();
             } else {
                 // Spring back animation if first
-                img.style.transform = 'translateX(0px) scale(1)';
+                this._applyTransform(0);
             }
         } else {
             // Swipe was too shallow; spring back
-            img.style.transform = 'translateX(0px) scale(1)';
+            this._applyTransform(0);
         }
     }
 };

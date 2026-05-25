@@ -17,7 +17,7 @@
         import { BridgeModule } from './js/bridge.js';
         import { AuthModule } from './js/auth.js';
         import { SecurityModule } from './js/security.js';
-        import { SearchModule } from './js/search.js';
+        import SearchModule from './js/search.js';
         import { initChatEngine } from './js/chat.js';
         import { createNewsModule } from './js/news.js?v=20260524-20';
         import { SettingsModule } from './js/settings.js';

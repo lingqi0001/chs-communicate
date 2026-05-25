@@ -396,7 +396,10 @@ export const SearchModule = {
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
 
-            if (input) input.value = '';
+            if (input) {
+                input.value = '';
+                input.blur();
+            }
             window.hideGlobalSearchResults();
             if (resultList) {
                 setTimeout(() => {
@@ -753,7 +756,11 @@ export const SearchModule = {
                     }
                 }, isAlreadyOnTargetTab ? 120 : 500);
             } else if (storeName === 'modules') {
-                window.switchLeftTab('more');
+                if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+                    window.switchTab('tools');
+                } else {
+                    window.switchLeftTab('tools');
+                }
                 window.openModule(typeOrModule);
                 setTimeout(() => window.openPostDetail(itemId), 400);
             }
@@ -781,6 +788,7 @@ export const SearchModule = {
         };
     }
 };
+export default SearchModule;
 
 // Bind to window to integrate directly into global environment hooks
 if (window) {
