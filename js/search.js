@@ -70,6 +70,8 @@ export const SearchModule = {
                                 class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
                             <button onclick="setSearchCategory('people')" id="searchCat-people"
                                 class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
+                            <button onclick="setSearchCategory('club')" id="searchCat-club"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Club</button>
                         </div>
                         <!-- Scrollable Results Area -->
                         <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
@@ -314,6 +316,55 @@ export const SearchModule = {
         ]);
 
         return results;
+    },
+
+    async searchClubEvents(term, db) {
+        const termLower = String(term || '').trim().toLowerCase();
+        if (!termLower || !db) return [];
+
+        try {
+            const snap = await get(ref(db, 'modules/club_events'));
+            if (!snap.exists()) return [];
+
+            const raw = snap.val() || {};
+            const newsModule = window.AppModules && window.AppModules.News;
+            const clubs = (newsModule && typeof newsModule.getClubsForSearch === 'function')
+                ? newsModule.getClubsForSearch('')
+                : [];
+            const clubNameMap = new Map(clubs.map(c => [c.id, c.name]));
+
+            const out = [];
+            Object.keys(raw).forEach((clubId) => {
+                const clubEvents = raw[clubId] || {};
+                Object.keys(clubEvents).forEach((eventId) => {
+                    const evt = clubEvents[eventId] || {};
+                    const clubName = clubNameMap.get(clubId) || evt.clubName || 'Unknown Club';
+                    const haystack = [
+                        evt.title || '',
+                        evt.desc || '',
+                        evt.date || '',
+                        evt.time || '',
+                        evt.room || '',
+                        clubName
+                    ].join(' ').toLowerCase();
+                    if (!haystack.includes(termLower)) return;
+                    out.push({
+                        id: eventId,
+                        clubId,
+                        title: evt.title || 'Untitled Event',
+                        clubName,
+                        date: evt.date || '',
+                        time: evt.time || '',
+                        room: evt.room || ''
+                    });
+                });
+            });
+
+            return out.slice(0, 25);
+        } catch (e) {
+            console.warn('Club events search failed:', e);
+            return [];
+        }
     },
 
     /**
@@ -616,6 +667,52 @@ export const SearchModule = {
                     }
                 }
 
+                // --- Club Search ---
+                if (cat === 'all' || cat === 'club') {
+                    const newsModule = window.AppModules && window.AppModules.News;
+                    if (newsModule && typeof newsModule.getClubsForSearch === 'function') {
+                        const clubResults = newsModule.getClubsForSearch(term).slice(0, 20);
+                        if (clubResults.length > 0) {
+                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club</div>`;
+                            clubResults.forEach((clubItem) => {
+                                const escapedClubId = escapeForInlineHandler(clubItem.id);
+                                const locationLabel = clubItem.isJoined ? 'My Joint' : 'Discover';
+                                const badgeClass = clubItem.isJoined
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300';
+                                html += `<div onclick="navigateToClubSearch('${escapedClubId}', '${escapedTerm}')" class="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(clubItem.name)}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(clubItem.desc || clubItem.sponsor || 'Club')}</div>
+                                    </div>
+                                    <div class="shrink-0 px-2 py-1 rounded-full text-[10px] font-bold ${badgeClass}">${locationLabel}</div>
+                                </div>`;
+                            });
+                        }
+                    }
+
+                    const eventResults = await this.searchClubEvents(term, db);
+                    if (eventResults.length > 0) {
+                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club Events</div>`;
+                        eventResults.forEach((evt) => {
+                            const escapedEventId = escapeForInlineHandler(evt.id);
+                            const escapedClubId = escapeForInlineHandler(evt.clubId);
+                            const meta = [evt.clubName, evt.date, evt.time, evt.room ? (String(evt.room).toLowerCase().startsWith('room') ? evt.room : `Room ${evt.room}`) : '']
+                                .filter(Boolean)
+                                .join(' | ');
+                            html += `<div onclick="navigateToClubEventSearch('${escapedEventId}', '${escapedClubId}', '${escapedTerm}')" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300 flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(evt.title)}</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(meta || evt.clubName)}</div>
+                                </div>
+                            </div>`;
+                        });
+                    }
+                }
+
                 // Final render
                 if (html === '') {
                     if (resultList) resultList.innerHTML = '<div class="px-4 py-10 text-center text-gray-400 text-xs">No results found.</div>';
@@ -659,6 +756,26 @@ export const SearchModule = {
                 window.switchLeftTab('more');
                 window.openModule(typeOrModule);
                 setTimeout(() => window.openPostDetail(itemId), 400);
+            }
+            window.clearGlobalSearch();
+        };
+
+        window.navigateToClubSearch = (clubId, term = '') => {
+            const newsModule = window.AppModules && window.AppModules.News;
+            const ok = !!(newsModule && typeof newsModule.navigateToClubFromSearch === 'function' && newsModule.navigateToClubFromSearch(clubId));
+            if (ok && term && String(term).trim()) {
+                this.addHistory(String(term).trim());
+            }
+            window.clearGlobalSearch();
+        };
+
+        window.navigateToClubEventSearch = (eventId, clubId, term = '') => {
+            const newsModule = window.AppModules && window.AppModules.News;
+            const ok = !!(newsModule
+                && typeof newsModule.navigateToClubEventFromSearch === 'function'
+                && newsModule.navigateToClubEventFromSearch(eventId, clubId));
+            if (ok && term && String(term).trim()) {
+                this.addHistory(String(term).trim());
             }
             window.clearGlobalSearch();
         };

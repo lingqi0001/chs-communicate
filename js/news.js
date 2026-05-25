@@ -733,6 +733,63 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         });
     }
 
+    function getClubsForSearch(term = '') {
+        const needle = String(term || '').trim().toLowerCase();
+        const clubs = !needle ? dummyClubs : dummyClubs.filter((club) => {
+            const haystack = [
+                club.name,
+                club.sponsor || '',
+                club.desc || '',
+                club.meetingDay || '',
+                club.meetingRoom || ''
+            ].join(' ').toLowerCase();
+            return haystack.includes(needle);
+        });
+
+        return clubs.map((club) => ({
+            id: club.id,
+            name: club.name,
+            desc: club.desc || '',
+            sponsor: club.sponsor || '',
+            isJoined: joinedClubIds.has(club.id)
+        }));
+    }
+
+    function navigateToClubFromSearch(clubId) {
+        const club = dummyClubs.find(c => c.id === clubId);
+        if (!club) return false;
+
+        if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+            window.switchTab('news');
+        }
+        if (typeof window.switchLeftTab === 'function') {
+            window.switchLeftTab('news');
+        }
+
+        const isJoined = joinedClubIds.has(club.id);
+        if (isJoined) {
+            toggleNewsTab('joint');
+            setTimeout(() => selectClub(club.id, true), 280);
+            return true;
+        }
+
+        toggleNewsTab('discover');
+        setTimeout(() => {
+            const card = document.getElementById(`discoverClubCard-${club.id}`);
+            if (!card) return;
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('ring-2', 'ring-[#007AFF]');
+            setTimeout(() => card.classList.remove('ring-2', 'ring-[#007AFF]'), 1800);
+
+            const expandArea = document.getElementById(`discoverExpandArea-${club.id}`);
+            const isExpanded = !!(expandArea && expandArea.classList.contains('expanded'));
+            if (!isExpanded && typeof window.toggleDiscoverClubCard === 'function') {
+                window.toggleDiscoverClubCard(club.id);
+            }
+        }, 320);
+        return true;
+    }
+
     function renderDiscoverClubsList() {
         const listEl = document.getElementById('discoverClubsList');
         if (!listEl) return;
@@ -1535,7 +1592,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 const safeDesc = (evt.desc || '').trim();
 
                 return `
-                    <div class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3 transition-all duration-200 text-left">
+                    <div id="globalEventCard-${evt.clubId}-${evt.id}" class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3 transition-all duration-200 text-left">
                         <div class="flex items-start gap-3">
                             <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-bold" style="background: ${hostClub.gradient}">
                                 <span class="club-card-icon">${hostClub.icon}</span>
@@ -1662,6 +1719,34 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             const listContainer = document.getElementById('globalEventsList');
             if (listContainer) listContainer.innerHTML = `<div class="text-xs text-gray-400 italic py-2 text-center">Failed to load events.</div>`;
         });
+    }
+
+    function navigateToClubEventFromSearch(eventId, clubId) {
+        if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+            window.switchTab('news');
+        }
+        if (typeof window.switchLeftTab === 'function') {
+            window.switchLeftTab('news');
+        }
+
+        toggleNewsTab('events');
+
+        const cardId = `globalEventCard-${clubId}-${eventId}`;
+        let attempts = 0;
+        const maxAttempts = 12;
+        const timer = setInterval(() => {
+            attempts += 1;
+            const card = document.getElementById(cardId);
+            if (card) {
+                clearInterval(timer);
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.classList.add('ring-2', 'ring-[#007AFF]');
+                setTimeout(() => card.classList.remove('ring-2', 'ring-[#007AFF]'), 1800);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(timer);
+            }
+        }, 180);
+        return true;
     }
 
     function showMemberContextMenu(clientX, clientY, memberName) {
@@ -2560,12 +2645,12 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         clearEventSearch,
         toggleDiscoverClubSearch,
         maybeCollapseDiscoverClubSearch,
-        handleMemberClick
+        handleMemberClick,
+        getClubsForSearch,
+        navigateToClubFromSearch,
+        navigateToClubEventFromSearch
     };
 }
-
-
-
 
 
 
