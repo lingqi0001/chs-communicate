@@ -473,11 +473,21 @@ export const ViewModule = {
         const sidePanel = document.getElementById('sidePanel');
         const chatSec = document.getElementById('chatSection');
         const bottomNav = document.getElementById('bottomNavContainer') || document.getElementById('bottomNav');
+        const gradientShim = document.querySelector('.bottom-gradient-shim');
 
         if (!newsSec || !sidePanel || !chatSec) return;
 
         this.state.currentPanel = panelId;
         const isMobile = window.innerWidth <= 850;
+
+        // Toggle mobile bottom gradient overlay
+        if (gradientShim) {
+            if (isMobile && panelId !== 'chat') {
+                gradientShim.classList.remove('hidden');
+            } else {
+                gradientShim.classList.add('hidden');
+            }
+        }
 
         // 桌面端布局：全�?        
         if (!isMobile) {

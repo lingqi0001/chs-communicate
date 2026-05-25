@@ -84,16 +84,25 @@ body {
     background: linear-gradient(to top, rgba(242, 242, 247, 0.4), rgba(242, 242, 247, 0));
 }
 
-#chatInputPill,
-#quoteArea {
+#chatInputPill {
     border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(242, 242, 247, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
         inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 24px rgba(15, 23, 42, 0.1);
+        0 10px 24px rgba(15, 23, 42, 0.04); /* softened shadow to remove dirty/blackish look */
+}
+
+#quoteArea {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.8),
+        0 6px 20px rgba(15, 23, 42, 0.06);
 }
 
 #chatCameraBtn.chat-fab-btn {
@@ -110,13 +119,13 @@ body {
     vertical-align: middle;
     margin-bottom: 1px;
     border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(242, 242, 247, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
         inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 22px rgba(15, 23, 42, 0.1);
+        0 10px 22px rgba(15, 23, 42, 0.04); /* softened shadow to remove dirty/blackish look */
 }
 
 .chat-fab-btn svg {
@@ -135,19 +144,26 @@ body {
     background: linear-gradient(to top, rgba(8, 10, 16, 0.34), rgba(8, 10, 16, 0));
 }
 
-.dark #chatInputPill,
-.dark #quoteArea {
+.dark #chatInputPill {
     border-color: rgba(255, 255, 255, 0.12);
-    background: rgba(12, 14, 20, 0.56);
+    background: rgba(52, 52, 55, 0.7); /* middle-ground grey in dark mode */
     box-shadow:
         inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
         inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
         0 12px 34px rgba(0, 0, 0, 0.34);
 }
 
+.dark #quoteArea {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(28, 28, 30, 0.92);
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.1),
+        0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
 .dark #chatCameraBtn.chat-fab-btn {
     border-color: rgba(255, 255, 255, 0.12);
-    background: rgba(12, 14, 20, 0.64);
+    background: rgba(52, 52, 55, 0.7); /* middle-ground grey in dark mode */
     box-shadow:
         inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
         inset 0 -1px 1.5px rgba(0, 0, 0, 0.32),
@@ -650,13 +666,16 @@ body {
         z-index: 25;
         user-select: none;
         touch-action: none;
-        background: transparent;
+        background: #ffffff; /* Solid white background under the border ensures no background bleeding */
         border-left: 1px solid rgba(229, 231, 235, 0.95);
         border-right: 0 !important;
+        border-top: 0 !important;
+        border-bottom: 0 !important;
         box-shadow: none !important;
     }
 
     .dark #newsSideDivider {
+        background: #1C1C1E; /* Dark background under the border */
         border-left-color: rgba(55, 65, 81, 0.78);
     }
 
@@ -829,6 +848,28 @@ body {
 
 #bottomNav button {
     border: 1px solid transparent !important;
+}
+
+/* Bottom gradient overlay to hide scrolling content under floating nav bar on mobile */
+.bottom-gradient-shim {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 96px; /* covers bottom-6 (24px) plus height of nav bar to fade content smoothly */
+    background: linear-gradient(to top, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.95) 45%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+    z-index: 45; /* between scrollable content (z-10) and bottomNavContainer (z-50) */
+}
+
+.dark .bottom-gradient-shim {
+    background: linear-gradient(to top, rgba(28, 28, 30, 1) 0%, rgba(28, 28, 30, 0.95) 45%, rgba(28, 28, 30, 0) 100%);
+}
+
+@media (min-width: 1024px) {
+    .bottom-gradient-shim {
+        display: none !important;
+    }
 }
 
 

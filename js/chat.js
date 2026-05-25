@@ -206,7 +206,7 @@ export function initChatEngine(deps) {
             messageId: selectedMsgData.key || null
         };
         document.getElementById('quoteUser').innerText = currentQuote.senderName;
-        document.getElementById('quoteText').innerText = currentQuote.text;
+        document.getElementById('quoteText').innerText = (currentQuote.text || '').replace(/\r?\n/g, ' ');
         document.getElementById('quoteArea').classList.remove('hidden');
         const menu = document.getElementById('messageContextMenu');
         menu.classList.add('hidden');

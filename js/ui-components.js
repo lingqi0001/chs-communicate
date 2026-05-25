@@ -143,13 +143,13 @@ export const UIComponents = {
             const qDiv = document.createElement('div');
             // Style with flat corner at top-right for isMe, top-left for !isMe
             const cornerClass = isMe 
-                ? 'rounded-tl-xl rounded-bl-xl rounded-br-xl rounded-tr-none mr-1' 
-                : 'rounded-tr-xl rounded-br-xl rounded-bl-xl rounded-tl-none ml-1';
+                ? 'rounded-tl-xl rounded-bl-xl rounded-br-xl rounded-tr-none' 
+                : 'rounded-tr-xl rounded-br-xl rounded-bl-xl rounded-tl-none';
             
-            qDiv.className = `text-[11px] mt-0.5 px-2.5 py-1 max-w-[78%] border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 shadow-sm ${cornerClass} text-left`;
+            qDiv.className = `text-[11px] mt-0.5 px-2.5 py-1 max-w-[78%] border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 shadow-sm ${cornerClass} text-left truncate whitespace-nowrap`;
             const replyIcon = `<svg class="w-3 h-3 inline-block mr-1 -mt-0.5 opacity-60" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>`;
             const clickAttr = msg.quote.messageId ? `onclick="window.jumpToMessage('', '', '${msg.quote.messageId}')" class="cursor-pointer hover:opacity-80 transition-opacity"` : 'class="select-none"';
-            qDiv.innerHTML = `<div ${clickAttr}>${replyIcon}<span class="font-bold text-gray-600 dark:text-gray-300">${UIUtils.escape(msg.quote.senderName)}:</span> <span class="opacity-90">${UIUtils.escape(msg.quote.text)}</span></div>`;
+            qDiv.innerHTML = `<div ${clickAttr} class="truncate whitespace-nowrap w-full">${replyIcon}<span class="font-bold text-gray-600 dark:text-gray-300">${UIUtils.escape(msg.quote.senderName)}:</span> <span class="opacity-90">${UIUtils.escape((msg.quote.text || '').replace(/\r?\n/g, ' '))}</span></div>`;
             div.appendChild(qDiv);
         }
 
