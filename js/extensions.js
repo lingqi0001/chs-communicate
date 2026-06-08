@@ -9,7 +9,8 @@ const ALIAS_MAP = {
     'calc_volume_3d': 'bc_volume_3d_present',
     'independent_research': 'ir_navigator',
     'selection_logic': 'selection_logic_visualizer',
-    'grade_calc': 'grade_calculator'
+    'grade_calc': 'grade_calculator',
+    'yearbook_symmetry': 'yearbook_symmetry_studio'
 };
 
 let _currentExtensionUrl = '';
@@ -77,6 +78,9 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     } else if (eid === 'grade_calculator') {
         url = 'extensions/grade_calculator.html';
         title = 'Grade Calculator';
+    } else if (eid === 'yearbook_symmetry' || eid === 'yearbook_symmetry_studio') {
+        url = 'extensions/fun/yearbook_symmetry_studio.html';
+        title = 'Yearbook Symmetry Studio';
     }
 
     _currentExtensionUrl = url;
@@ -110,7 +114,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     }
 
     // Apply Panel vs Fullscreen logic based on extension type
-    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine'].includes(eid);
+    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'yearbook_symmetry', 'yearbook_symmetry_studio'].includes(eid);
     const extPage = document.getElementById('extensionPage');
 
     if (extPage) {
@@ -190,6 +194,13 @@ export const ExtensionModule = {
             url: 'extensions/school/ir-navigator/IR Navigator.html',
             title: 'IR Navigator',
             category: 'Learning Tools'
+        },
+        'yearbook_symmetry_studio': {
+            eid: 'yearbook_symmetry_studio',
+            url: 'extensions/fun/yearbook_symmetry_studio.html',
+            title: 'Yearbook Symmetry Studio',
+            category: 'Fun Tools',
+            description: 'Mirror left/right faces to create a yearbook collage.'
         }
     },
 
@@ -230,7 +241,7 @@ export const ExtensionModule = {
         if (!container) return;
         container.innerHTML = ''; // Clears loader indicator
 
-        const categoryMap = { 'school': 'Learning Tools', 'staff': 'Staff Tools' };
+        const categoryMap = { 'school': 'Learning Tools', 'fun': 'Fun Tools', 'staff': 'Staff Tools' };
 
         // Helper to scan local relative paths (development)
         const syncFolderLocal = async (folder) => {
