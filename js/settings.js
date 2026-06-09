@@ -332,6 +332,19 @@ window.toggleDonation = () => {
     }
 };
 
+window.openPortfolio = async () => {
+    const Modal = window.AppModules?.Modal;
+    const confirmed = Modal
+        ? await Modal.confirm(
+            "Author Portfolio",
+            "You are about to visit the portfolio of chschat.xyz author, Centennial High Junior Lingqi Mo. Continue?",
+            "Visit",
+            "Cancel"
+          )
+        : window.confirm("Visit the author portfolio site?");
+    if (confirmed) window.open("https://lingqi-mo-portfolio.vercel.app/", "_blank");
+};
+
 window.openDonationQR = (method, fallbackUrl) => {
     const AppModules = window.AppModules || {};
     const DONATIONS = window.DONATIONS || {};
