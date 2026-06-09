@@ -332,13 +332,17 @@ export const ExtensionModule = {
             });
             const mergedFiles = Array.from(dedup.values());
 
-            if (mergedFiles.length > 0) {
+            const hasRealLocalFiles = filesList.length > 0;
+            if (hasRealLocalFiles && mergedFiles.length > 0) {
                 if (this.callbacks.renderCategory) {
                     this.callbacks.renderCategory(categoryName, mergedFiles);
                 }
-                return { rendered: true, hasRealLocalFiles: filesList.length > 0 };
             }
-            return { rendered: false, hasRealLocalFiles: false };
+            return {
+                rendered: hasRealLocalFiles && mergedFiles.length > 0,
+                hasRealLocalFiles: hasRealLocalFiles,
+                fallbackFiles: mergedFiles
+            };
         };
 
         // Fallback to query GitHub API for hosted plugins (production)
@@ -394,13 +398,26 @@ export const ExtensionModule = {
         };
 
         let foundLocal = false;
+        const fallbackMap = {};
+
         for (const cat of Object.keys(categoryMap)) {
             const result = await syncFolderLocal(cat);
-            if (result.hasRealLocalFiles) foundLocal = true;
+            if (result.hasRealLocalFiles) {
+                foundLocal = true;
+            } else {
+                fallbackMap[categoryMap[cat] || cat] = result.fallbackFiles;
+            }
         }
 
         if (!foundLocal) {
-            await syncViaGitHub();
+            const githubSuccess = await syncViaGitHub();
+            if (!githubSuccess) {
+                for (const [categoryName, files] of Object.entries(fallbackMap)) {
+                    if (files && files.length > 0 && this.callbacks.renderCategory) {
+                        this.callbacks.renderCategory(categoryName, files);
+                    }
+                }
+            }
         }
 
         // Also add aliases to registry for easier lookup
