@@ -201,6 +201,12 @@ export const ExtensionModule = {
             title: 'Yearbook Symmetry Studio',
             category: 'Fun Tools',
             description: 'Mirror left/right faces to create a yearbook collage.'
+        },
+        'portfolio': {
+            eid: 'portfolio',
+            url: 'portfolio/',
+            title: 'Portfolio',
+            category: 'Learning Tools'
         }
     },
 
