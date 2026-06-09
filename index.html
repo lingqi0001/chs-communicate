@@ -2142,7 +2142,7 @@
                 <div id="newsTopTabsRowMobile" class="flex justify-between items-center h-9">
                     <h2 id="newsPanelTitle" class="text-2xl font-bold tracking-tight leading-none">Hub</h2>
                     <div class="flex items-center gap-3 mb-1">
-                        <button id="portfolioBtnNews" onclick="window.openExtension('portfolio')"
+                        <button id="portfolioBtnNews" onclick="(async()=>{if(await window.AppModules?.Modal?.confirm('访问作者 Portfolio','即将跳转至作者的个人作品集网站，是否继续？','前往','取消'))window.open('https://lingqi-mo-portfolio.vercel.app/','_blank');})()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
@@ -2570,7 +2570,7 @@
                 <div class="flex justify-between items-center h-9">
                     <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
                     <div class="flex items-center gap-3 mb-1">
-                        <button id="portfolioBtn" onclick="window.openExtension('portfolio')"
+                        <button id="portfolioBtn" onclick="(async()=>{if(await window.AppModules?.Modal?.confirm('访问作者 Portfolio','即将跳转至作者的个人作品集网站，是否继续？','前往','取消'))window.open('https://lingqi-mo-portfolio.vercel.app/','_blank');})()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
