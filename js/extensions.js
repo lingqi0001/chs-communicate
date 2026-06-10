@@ -10,7 +10,8 @@ const ALIAS_MAP = {
     'independent_research': 'ir_navigator',
     'selection_logic': 'selection_logic_visualizer',
     'grade_calc': 'grade_calculator',
-    'yearbook_symmetry': 'yearbook_symmetry_studio'
+    'yearbook_symmetry': 'face_of_the_good_and_evil',
+    'yearbook_symmetry_studio': 'face_of_the_good_and_evil'
 };
 
 let _currentExtensionUrl = '';
@@ -78,9 +79,9 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     } else if (eid === 'grade_calculator') {
         url = 'extensions/grade_calculator.html';
         title = 'Grade Calculator';
-    } else if (eid === 'yearbook_symmetry' || eid === 'yearbook_symmetry_studio') {
-        url = 'extensions/fun/yearbook_symmetry_studio.html';
-        title = 'Yearbook Symmetry Studio';
+    } else if (eid === 'yearbook_symmetry' || eid === 'yearbook_symmetry_studio' || eid === 'face_of_the_good_and_evil') {
+        url = 'extensions/fun/Face of the good and evil.html';
+        title = 'Face of the good and evil';
     }
 
     _currentExtensionUrl = url;
@@ -114,7 +115,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     }
 
     // Apply Panel vs Fullscreen logic based on extension type
-    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'yearbook_symmetry', 'yearbook_symmetry_studio'].includes(eid);
+    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'yearbook_symmetry', 'yearbook_symmetry_studio', 'face_of_the_good_and_evil'].includes(eid);
     const extPage = document.getElementById('extensionPage');
 
     if (extPage) {
@@ -195,12 +196,12 @@ export const ExtensionModule = {
             title: 'IR Navigator',
             category: 'Learning Tools'
         },
-        'yearbook_symmetry_studio': {
-            eid: 'yearbook_symmetry_studio',
-            url: 'extensions/fun/yearbook_symmetry_studio.html',
-            title: 'Yearbook Symmetry Studio',
+        'face_of_the_good_and_evil': {
+            eid: 'face_of_the_good_and_evil',
+            url: 'extensions/fun/Face of the good and evil.html',
+            title: 'Face of the good and evil',
             category: 'Fun Tools',
-            description: 'Mirror left/right faces to create a yearbook collage.'
+            description: 'Mirror left/right faces to create a collage.'
         },
         'portfolio': {
             eid: 'portfolio',

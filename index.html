@@ -28,7 +28,7 @@
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=20260610-1153">
 
     <script type="importmap">
     {
@@ -37,7 +37,7 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260519-0925",
         "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260516-2380",
+        "./js/view.js": "./js/view.js?v=20260610-1153",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
         "./js/modal.js": "./js/modal.js?v=20260516-2380",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
@@ -47,14 +47,14 @@
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
         "./js/sidebar.js": "./js/sidebar.js?v=20260521-1905",
-        "./js/extensions.js": "./js/extensions.js?v=20260605",
+        "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
         "./js/search.js": "./js/search.js?v=20260522-structsplit-1",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522"
-        ,"./js/chat.js": "./js/chat.js?v=20260522-structsplit-1"
+        ,"./js/chat.js": "./js/chat.js?v=20260610-1153"
       }
     }
     </script>
@@ -87,6 +87,7 @@
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
         import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260522-1';
+
 
 
         console.log('App: Version 2026-05-02-2115 (Latest)');
@@ -1356,6 +1357,7 @@
                     senderId: ADVICE_BOT_ID,
                     senderName: 'Advice Bot',
                     text: requestText,
+                    type: 'text',
                     timestamp: serverTimestamp()
                 });
                 update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });
@@ -1366,6 +1368,7 @@
                     senderId: ADVICE_BOT_ID,
                     senderName: 'Advice Bot',
                     text: confirmText,
+                    type: 'text',
                     timestamp: serverTimestamp()
                 });
                 update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [ADVICE_BOT_ID]: serverTimestamp() });

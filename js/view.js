@@ -1,3 +1,5 @@
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260610-1153';
+
 /**
  * ==================================================================================
  * 模块名称：ViewModule (视图导航与路由状态机)
@@ -304,6 +306,46 @@ export const ViewModule = {
         this.initTheme();
         this.initSidebar();
         this.initNavigation(); // 启动返回键拦?        
+        
+        // Initialize Liquid Glass effect on bottom navigation bar
+        try {
+            const bottomNav = document.getElementById('bottomNav');
+            if (bottomNav) {
+                console.log("ViewModule: Initializing bottomNav liquid glass...");
+                new LiquidGlassEffect(bottomNav, {
+                    radius: 36,            // matches 72px height (rounded-full)
+                    refractionWidth: 14,   // bevel width
+                    maxDisplacement: 8,    // warp strength
+                    mouseRadius: 100,      // ripple active radius
+                    mouseStrength: 1.2     // ripple bulge height
+                });
+            }
+            const activePill = document.getElementById('bottomNavActivePill');
+            if (activePill) {
+                console.log("ViewModule: Initializing activePill liquid glass...");
+                new LiquidGlassEffect(activePill, {
+                    radius: 28,            // matches 56px height (rounded-full)
+                    refractionWidth: 10,   // bevel width
+                    maxDisplacement: 6,    // warp strength
+                    mouseRadius: 80,       // ripple active radius
+                    mouseStrength: 0.8     // ripple bulge height
+                });
+            }
+            const searchBtn = document.getElementById('tabBtn-search');
+            if (searchBtn) {
+                console.log("ViewModule: Initializing searchBtn liquid glass...");
+                new LiquidGlassEffect(searchBtn, {
+                    radius: 36,            // matches 72px height (rounded-full)
+                    refractionWidth: 14,   // bevel width
+                    maxDisplacement: 8,    // warp strength
+                    mouseRadius: 100,      // ripple active radius
+                    mouseStrength: 1.2     // ripple bulge height
+                });
+            }
+        } catch (e) {
+            console.error("ViewModule: LiquidGlassEffect error:", e);
+        }
+
         console.log('ViewModule: Initialized.');
     },
 
@@ -360,7 +402,7 @@ export const ViewModule = {
         this.state.isSidebarOpen = !isCollapsed;
         localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
 
-        // 侧边栏切换时，触�?resize 以便聊天窗口滚动对齐
+        // 侧边栏切换时，触?resize 以便聊天窗口滚动对齐
         setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
     },
 
@@ -423,6 +465,18 @@ export const ViewModule = {
             localStorage.setItem('theme', storageMode);
         } else if (storageMode === null && arguments.length === 1) {
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        // 刷新导航栏颜色样式以适应新主题
+        const newsEl = document.getElementById('newsSection');
+        if (newsEl) {
+            const isCurrentlyOnNews = !newsEl.classList.contains('hidden');
+            let currentTab = 'messages';
+            if (isCurrentlyOnNews) {
+                const activeEl = document.querySelector('.head-tab-active');
+                currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
+            }
+            this.refreshBottomNav(currentTab);
         }
 
         // 广播：当主程序全局主题改变时，同步给页面上所有正在运行的插件
@@ -738,13 +792,18 @@ export const ViewModule = {
         const toolsBtn = document.getElementById('tabBtn-tools');
         const msgBtn = document.getElementById('tabBtn-messages');
         const activePill = document.getElementById('bottomNavActivePill');
+
+        const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+        const activeColor = '#0055FF';
+        const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(0, 0, 0, 0.65)';
+
         const icons = {
-            newsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
-            newsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
-            toolsActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #007AFF;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-            toolsInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #9CA3AF;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-            msgActive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #007AFF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`,
-            msgInactive: `<svg class="w-5 h-5 transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: #9CA3AF;"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`
+            newsActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${activeColor};"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
+            newsInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${inactiveColor};"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
+            toolsActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="color: ${activeColor};"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+            toolsInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="color: ${inactiveColor};"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+            msgActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${activeColor};"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`,
+            msgInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${inactiveColor};"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`
         };
 
         if (activePill) {
@@ -760,17 +819,17 @@ export const ViewModule = {
         if (newsBtn) {
             const active = (activeTab === 'news');
             newsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Hub</span>`;
+            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Hub</span>`;
         }
         if (toolsBtn) {
             const active = (activeTab === 'tools');
             toolsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            toolsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.toolsActive : icons.toolsInactive}</div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Tool</span>`;
+            toolsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.toolsActive : icons.toolsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Tool</span>`;
         }
         if (msgBtn) {
             const active = (activeTab === 'messages');
             msgBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="hidden absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-[#007AFF] rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-[10px] font-bold tracking-wide" style="color: ${active ? '#007AFF' : '#9CA3AF'}">Messages</span>`;
+            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="hidden absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#1C1C1E]" style="background-color: ${activeColor}"></div></div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Messages</span>`;
         }
     },
 

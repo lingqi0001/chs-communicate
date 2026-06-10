@@ -301,6 +301,7 @@ export const SecurityModule = {
                 senderId: SAFETY_BOT_ID,
                 senderName: 'Safety Bot',
                 text: reportText,
+                type: 'text',
                 timestamp: serverTimestamp()
             });
             await update(ref(db, `user_chats/${adminId.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
@@ -312,6 +313,7 @@ export const SecurityModule = {
                 senderId: SAFETY_BOT_ID,
                 senderName: 'Safety Bot',
                 text: confirmText,
+                type: 'text',
                 timestamp: serverTimestamp()
             });
             await update(ref(db, `user_chats/${window.currentUser.id.toLowerCase()}`), { [SAFETY_BOT_ID]: serverTimestamp() });
