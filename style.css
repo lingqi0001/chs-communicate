@@ -1004,4 +1004,567 @@ body {
     overflow: hidden;
 }
 
+/* ==========================================================================
+   Hub Theme: Dynamic Accent Colors (Split Announcement & Messaging)
+   ========================================================================== */
 
+/* Keep header utility buttons matching the theme color */
+
+/* =========================================
+   Part A: Announcement Panel Accent (ann-theme-*)
+   ========================================= */
+
+/* 1. Announcement Theme: Orange Mode */
+.ann-theme-orange .text-\[\#007AFF\] {
+    color: #F97316 !important;
+}
+.ann-theme-orange .dark\:text-\[\#0A84FF\] {
+    color: #FB923C !important;
+}
+.ann-theme-orange .text-blue-500 {
+    color: #F97316 !important;
+}
+.ann-theme-orange .bg-\[\#007AFF\] {
+    background-color: #F97316 !important;
+}
+.ann-theme-orange .dark\:bg-\[\#0A84FF\] {
+    background-color: #FB923C !important;
+}
+.ann-theme-orange .bg-blue-50 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+}
+.ann-theme-orange .dark\:bg-blue-500\/10 {
+    background-color: rgba(251, 146, 60, 0.1) !important;
+}
+.ann-theme-orange .border-t-\[\#007AFF\] {
+    border-top-color: #F97316 !important;
+}
+.ann-theme-orange .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #FB923C !important;
+}
+.ann-theme-orange .border-\[\#007AFF\] {
+    border-color: #F97316 !important;
+}
+.ann-theme-orange .dark\:border-\[\#0A84FF\] {
+    border-color: #FB923C !important;
+}
+.ann-theme-orange .hover\:border-\[\#007AFF\]:hover {
+    border-color: #F97316 !important;
+}
+.ann-theme-orange .dark\:hover\:border-\[\#007AFF\]:hover {
+    border-color: #FB923C !important;
+}
+.ann-theme-orange .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.2), 0 2px 4px -2px rgba(249, 115, 22, 0.2) !important;
+}
+.ann-theme-orange .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+}
+.ann-theme-orange .text-blue-700 {
+    color: #C2410C !important;
+}
+.ann-theme-orange .dark\:text-blue-300 {
+    color: #FDBA74 !important;
+}
+.ann-theme-orange .bg-blue-100 {
+    background-color: #FFEDD5 !important;
+}
+.ann-theme-orange .dark\:bg-blue-500\/15 {
+    background-color: rgba(251, 146, 60, 0.15) !important;
+}
+.ann-theme-orange .news-jump-highlight {
+    outline-color: #F97316 !important;
+}
+
+/* 2. Announcement Theme: Blue Mode */
+/* Default blue values apply automatically */
+
+/* 3. Announcement Theme: Green Mode */
+.ann-theme-green .text-\[\#007AFF\] {
+    color: #34C759 !important; /* iOS Green */
+}
+.ann-theme-green .dark\:text-\[\#0A84FF\] {
+    color: #95FF14 !important; /* Neon Green */
+}
+.ann-theme-green .text-blue-500 {
+    color: #34C759 !important;
+}
+.ann-theme-green .dark\:text-blue-300 {
+    color: #95FF14 !important;
+}
+.ann-theme-green .bg-\[\#007AFF\] {
+    background-color: #34C759 !important;
+}
+.ann-theme-green .dark\:bg-\[\#0A84FF\] {
+    background-color: #95FF14 !important;
+}
+.ann-theme-green .bg-blue-50 {
+    background-color: rgba(52, 199, 89, 0.1) !important;
+}
+.ann-theme-green .dark\:bg-blue-500\/10 {
+    background-color: rgba(149, 255, 20, 0.1) !important;
+}
+.ann-theme-green .border-t-\[\#007AFF\] {
+    border-top-color: #34C759 !important;
+}
+.ann-theme-green .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #95FF14 !important;
+}
+.ann-theme-green .border-\[\#007AFF\] {
+    border-color: #34C759 !important;
+}
+.ann-theme-green .dark\:border-\[\#0A84FF\] {
+    border-color: #95FF14 !important;
+}
+.ann-theme-green .hover\:border-\[\#007AFF\]:hover {
+    border-color: #34C759 !important;
+}
+.ann-theme-green .dark\:hover\:border-\[\#007AFF\]:hover {
+    border-color: #95FF14 !important;
+}
+.ann-theme-green .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px rgba(52, 199, 89, 0.2), 0 2px 4px -2px rgba(52, 199, 89, 0.2) !important;
+}
+.dark .ann-theme-green .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px rgba(149, 255, 20, 0.2), 0 2px 4px -2px rgba(149, 255, 20, 0.2) !important;
+}
+.ann-theme-green .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(52, 199, 89, 0.1) !important;
+}
+.ann-theme-green .text-blue-700 {
+    color: #1E824C !important;
+}
+.ann-theme-green .bg-blue-100 {
+    background-color: #E8F8F5 !important;
+}
+.ann-theme-green .dark\:bg-blue-500\/15 {
+    background-color: rgba(149, 255, 20, 0.15) !important;
+}
+.ann-theme-green .news-jump-highlight {
+    outline-color: #34C759 !important;
+}
+.dark .ann-theme-green .news-jump-highlight {
+    outline-color: #95FF14 !important;
+}
+
+/* 4. Announcement Theme: Purple Mode */
+.ann-theme-purple .text-\[\#007AFF\] {
+    color: #AF52DE !important; /* iOS Purple */
+}
+.ann-theme-purple .dark\:text-\[\#0A84FF\] {
+    color: #A724FF !important; /* Neon Purple */
+}
+.ann-theme-purple .text-blue-500 {
+    color: #AF52DE !important;
+}
+.ann-theme-purple .dark\:text-blue-300 {
+    color: #A724FF !important;
+}
+.ann-theme-purple .bg-\[\#007AFF\] {
+    background-color: #AF52DE !important;
+}
+.ann-theme-purple .dark\:bg-\[\#0A84FF\] {
+    background-color: #A724FF !important;
+}
+.ann-theme-purple .bg-blue-50 {
+    background-color: rgba(175, 82, 222, 0.1) !important;
+}
+.ann-theme-purple .dark\:bg-blue-500\/10 {
+    background-color: rgba(167, 36, 255, 0.1) !important;
+}
+.ann-theme-purple .border-t-\[\#007AFF\] {
+    border-top-color: #AF52DE !important;
+}
+.ann-theme-purple .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #A724FF !important;
+}
+.ann-theme-purple .border-\[\#007AFF\] {
+    border-color: #AF52DE !important;
+}
+.ann-theme-purple .dark\:border-\[\#0A84FF\] {
+    border-color: #A724FF !important;
+}
+.ann-theme-purple .hover\:border-\[\#007AFF\]:hover {
+    border-color: #AF52DE !important;
+}
+.ann-theme-purple .dark\:hover\:border-\[\#007AFF\]:hover {
+    border-color: #A724FF !important;
+}
+.ann-theme-purple .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px rgba(175, 82, 222, 0.2), 0 2px 4px -2px rgba(175, 82, 222, 0.2) !important;
+}
+.dark .ann-theme-purple .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px rgba(167, 36, 255, 0.2), 0 2px 4px -2px rgba(167, 36, 255, 0.2) !important;
+}
+.ann-theme-purple .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(175, 82, 222, 0.1) !important;
+}
+.ann-theme-purple .text-blue-700 {
+    color: #6C3483 !important;
+}
+.ann-theme-purple .bg-blue-100 {
+    background-color: #F5EEF8 !important;
+}
+.ann-theme-purple .dark\:bg-blue-500\/15 {
+    background-color: rgba(167, 36, 255, 0.15) !important;
+}
+.ann-theme-purple .news-jump-highlight {
+    outline-color: #AF52DE !important;
+}
+.dark .ann-theme-purple .news-jump-highlight {
+    outline-color: #A724FF !important;
+}
+
+/* 5. Announcement Theme: Custom Color Mode */
+.ann-theme-custom .text-\[\#007AFF\],
+.ann-theme-custom .text-blue-500,
+.ann-theme-custom .text-blue-700 {
+    color: var(--ann-accent-color) !important;
+}
+.dark .ann-theme-custom .text-\[\#007AFF\],
+.dark .ann-theme-custom .dark\:text-\[\#0A84FF\],
+.dark .ann-theme-custom .text-blue-500,
+.dark .ann-theme-custom .dark\:text-blue-300,
+.dark .ann-theme-custom .text-blue-700 {
+    color: var(--ann-accent-color-dark) !important;
+}
+.ann-theme-custom .bg-\[\#007AFF\] {
+    background-color: var(--ann-accent-color) !important;
+}
+.dark .ann-theme-custom .bg-\[\#007AFF\],
+.dark .ann-theme-custom .dark\:bg-\[\#0A84FF\] {
+    background-color: var(--ann-accent-color-dark) !important;
+}
+.ann-theme-custom .bg-blue-50,
+.ann-theme-custom .bg-blue-100,
+.ann-theme-custom .bg-\[\#007AFF\]\/10 {
+    background-color: var(--ann-accent-color-alpha10) !important;
+}
+.dark .ann-theme-custom .bg-blue-50,
+.dark .ann-theme-custom .dark\:bg-blue-500\/10,
+.dark .ann-theme-custom .bg-blue-100,
+.dark .ann-theme-custom .dark\:bg-blue-500\/15,
+.dark .ann-theme-custom .bg-\[\#007AFF\]\/10 {
+    background-color: var(--ann-accent-color-dark-alpha10) !important;
+}
+.ann-theme-custom .border-t-\[\#007AFF\],
+.ann-theme-custom .border-\[\#007AFF\] {
+    border-color: var(--ann-accent-color) !important;
+}
+.dark .ann-theme-custom .border-t-\[\#007AFF\],
+.dark .ann-theme-custom .dark\:border-t-\[\#0A84FF\],
+.dark .ann-theme-custom .border-\[\#007AFF\],
+.dark .ann-theme-custom .dark\:border-\[\#0A84FF\] {
+    border-color: var(--ann-accent-color-dark) !important;
+}
+.ann-theme-custom .hover\:border-\[\#007AFF\]:hover {
+    border-color: var(--ann-accent-color) !important;
+}
+.dark .ann-theme-custom .hover\:border-\[\#007AFF\]:hover,
+.dark .ann-theme-custom .dark\:hover\:border-\[\#007AFF\]:hover {
+    border-color: var(--ann-accent-color-dark) !important;
+}
+.ann-theme-custom .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px var(--ann-accent-color-alpha20), 0 2px 4px -2px var(--ann-accent-color-alpha20) !important;
+}
+.dark .ann-theme-custom .shadow-blue-500\/20 {
+    box-shadow: 0 4px 6px -1px var(--ann-accent-color-dark-alpha20), 0 2px 4px -2px var(--ann-accent-color-dark-alpha20) !important;
+}
+.ann-theme-custom .news-jump-highlight {
+    outline-color: var(--ann-accent-color) !important;
+}
+.dark .ann-theme-custom .news-jump-highlight {
+    outline-color: var(--ann-accent-color-dark) !important;
+}
+
+
+/* =========================================
+   Part B: Messaging / Sidebar Accent (msg-theme-*)
+   ========================================= */
+
+/* 1. Messaging Theme: Orange Mode */
+.msg-theme-orange .text-\[\#007AFF\] {
+    color: #F97316 !important;
+}
+.dark .msg-theme-orange .text-\[\#007AFF\],
+.dark .msg-theme-orange .dark\:text-\[\#0A84FF\] {
+    color: #FB923C !important;
+}
+.msg-theme-orange .bg-\[\#007AFF\] {
+    background-color: #F97316 !important;
+}
+.dark .msg-theme-orange .bg-\[\#007AFF\],
+.dark .msg-theme-orange .dark\:bg-\[\#0A84FF\] {
+    background-color: #FB923C !important;
+}
+.msg-theme-orange .peer-checked\:bg-\[\#007AFF\] {
+    background-color: #F97316 !important;
+}
+.dark .msg-theme-orange .peer-checked\:bg-\[\#007AFF\],
+.dark .msg-theme-orange .dark\:peer-checked\:bg-\[\#007AFF\] {
+    background-color: #FB923C !important;
+}
+.msg-theme-orange .focus\:border-\[\#007AFF\]:focus {
+    border-color: #F97316 !important;
+}
+.dark .msg-theme-orange .focus\:border-\[\#007AFF\]:focus,
+.dark .msg-theme-orange .dark\:focus\:border-\[\#007AFF\]:focus {
+    border-color: #FB923C !important;
+}
+.msg-theme-orange .bg-blue-500\/10,
+.msg-theme-orange .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+}
+.dark .msg-theme-orange .bg-blue-500\/10,
+.dark .msg-theme-orange .dark\:bg-blue-500\/10,
+.dark .msg-theme-orange .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(251, 146, 60, 0.1) !important;
+}
+
+/* 2. Messaging Theme: Blue Mode */
+/* Default blue values apply automatically */
+
+/* 3. Messaging Theme: Green Mode */
+.msg-theme-green .text-\[\#007AFF\] {
+    color: #34C759 !important;
+}
+.dark .msg-theme-green .text-\[\#007AFF\],
+.dark .msg-theme-green .dark\:text-\[\#0A84FF\] {
+    color: #95FF14 !important;
+}
+.msg-theme-green .bg-\[\#007AFF\] {
+    background-color: #34C759 !important;
+}
+.dark .msg-theme-green .bg-\[\#007AFF\],
+.dark .msg-theme-green .dark\:bg-\[\#0A84FF\] {
+    background-color: #95FF14 !important;
+}
+.msg-theme-green .peer-checked\:bg-\[\#007AFF\] {
+    background-color: #34C759 !important;
+}
+.dark .msg-theme-green .peer-checked\:bg-\[\#007AFF\],
+.dark .msg-theme-green .dark\:peer-checked\:bg-\[\#007AFF\] {
+    background-color: #95FF14 !important;
+}
+.msg-theme-green .focus\:border-\[\#007AFF\]:focus {
+    border-color: #34C759 !important;
+}
+.dark .msg-theme-green .focus\:border-\[\#007AFF\]:focus,
+.dark .msg-theme-green .dark\:focus\:border-\[\#007AFF\]:focus {
+    border-color: #95FF14 !important;
+}
+.msg-theme-green .bg-blue-500\/10,
+.msg-theme-green .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(52, 199, 89, 0.1) !important;
+}
+.dark .msg-theme-green .bg-blue-500\/10,
+.dark .msg-theme-green .dark\:bg-blue-500\/10,
+.dark .msg-theme-green .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(149, 255, 20, 0.1) !important;
+}
+
+/* 4. Messaging Theme: Purple Mode */
+.msg-theme-purple .text-\[\#007AFF\] {
+    color: #AF52DE !important;
+}
+.dark .msg-theme-purple .text-\[\#007AFF\],
+.dark .msg-theme-purple .dark\:text-\[\#0A84FF\] {
+    color: #A724FF !important;
+}
+.msg-theme-purple .bg-\[\#007AFF\] {
+    background-color: #AF52DE !important;
+}
+.dark .msg-theme-purple .bg-\[\#007AFF\],
+.dark .msg-theme-purple .dark\:bg-\[\#0A84FF\] {
+    background-color: #A724FF !important;
+}
+.msg-theme-purple .peer-checked\:bg-\[\#007AFF\] {
+    background-color: #AF52DE !important;
+}
+.dark .msg-theme-purple .peer-checked\:bg-\[\#007AFF\],
+.dark .msg-theme-purple .dark\:peer-checked\:bg-\[\#007AFF\] {
+    background-color: #A724FF !important;
+}
+.msg-theme-purple .focus\:border-\[\#007AFF\]:focus {
+    border-color: #AF52DE !important;
+}
+.dark .msg-theme-purple .focus\:border-\[\#007AFF\]:focus,
+.dark .msg-theme-purple .dark\:focus\:border-\[\#007AFF\]:focus {
+    border-color: #A724FF !important;
+}
+.msg-theme-purple .bg-blue-500\/10,
+.msg-theme-purple .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(175, 82, 222, 0.1) !important;
+}
+.dark .msg-theme-purple .bg-blue-500\/10,
+.dark .msg-theme-purple .dark\:bg-blue-500\/10,
+.dark .msg-theme-purple .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(167, 36, 255, 0.1) !important;
+}
+
+/* 5. Messaging Theme: Custom Color Mode */
+.msg-theme-custom .text-\[\#007AFF\] {
+    color: var(--msg-accent-color) !important;
+}
+.dark .msg-theme-custom .text-\[\#007AFF\],
+.dark .msg-theme-custom .dark\:text-\[\#0A84FF\] {
+    color: var(--msg-accent-color-dark) !important;
+}
+.msg-theme-custom .bg-\[\#007AFF\] {
+    background-color: var(--msg-accent-color) !important;
+}
+.dark .msg-theme-custom .bg-\[\#007AFF\],
+.dark .msg-theme-custom .dark\:bg-\[\#0A84FF\] {
+    background-color: var(--msg-accent-color-dark) !important;
+}
+.msg-theme-custom .peer-checked\:bg-\[\#007AFF\] {
+    background-color: var(--msg-accent-color) !important;
+}
+.dark .msg-theme-custom .peer-checked\:bg-\[\#007AFF\],
+.dark .msg-theme-custom .dark\:peer-checked\:bg-\[\#007AFF\] {
+    background-color: var(--msg-accent-color-dark) !important;
+}
+.msg-theme-custom .focus\:border-\[\#007AFF\]:focus {
+    border-color: var(--msg-accent-color) !important;
+}
+.dark .msg-theme-custom .focus\:border-\[\#007AFF\]:focus {
+    border-color: var(--msg-accent-color-dark) !important;
+}
+.msg-theme-custom .bg-blue-500\/10,
+.msg-theme-custom .bg-\[\#007AFF\]\/10 {
+    background-color: var(--msg-accent-color-alpha10) !important;
+}
+.dark .msg-theme-custom .bg-blue-500\/10,
+.dark .msg-theme-custom .bg-\[\#007AFF\]\/10 {
+    background-color: var(--msg-accent-color-dark-alpha10) !important;
+}
+
+
+/* =========================================
+   Part C: Custom Elements
+   ========================================= */
+
+/* Teacher badge follows announcement theme via :root CSS variables */
+.teacher-badge {
+    color: var(--ann-accent-color, #007AFF) !important;
+}
+.dark .teacher-badge {
+    color: var(--ann-accent-color-dark, #0A84FF) !important;
+}
+
+/* Active chat item background color */
+.active-chat-item {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+.dark .active-chat-item {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+
+/* =========================================
+   Part D: Chat Message & Send Button Accent (chat-theme-*)
+   ========================================= */
+
+.chat-theme-orange .chat-accent-bg {
+    background-color: #F97316 !important;
+}
+.dark .chat-theme-orange .chat-accent-bg {
+    background-color: #FB923C !important;
+}
+
+.chat-theme-blue .chat-accent-bg {
+    background-color: #007AFF !important;
+}
+.dark .chat-theme-blue .chat-accent-bg {
+    background-color: #0A84FF !important;
+}
+
+.chat-theme-green .chat-accent-bg {
+    background-color: #34C759 !important;
+}
+.dark .chat-theme-green .chat-accent-bg {
+    background-color: #95FF14 !important;
+}
+
+.chat-theme-purple .chat-accent-bg {
+    background-color: #AF52DE !important;
+}
+.dark .chat-theme-purple .chat-accent-bg {
+    background-color: #A724FF !important;
+}
+
+.chat-theme-custom .chat-accent-bg {
+    background-color: var(--chat-accent-color) !important;
+}
+.dark .chat-theme-custom .chat-accent-bg {
+    background-color: var(--chat-accent-color-dark) !important;
+}
+
+
+/* =========================================
+   Part E: Other Messages Bubble Accent (other-theme-*)
+   ========================================= */
+
+/* Default (gray) - matches original */
+.other-accent-bg {
+    background-color: #E9E9EB;
+    color: #000;
+}
+.dark .other-accent-bg {
+    background-color: #3A3A3C;
+    color: #fff;
+}
+
+.other-theme-gray .other-accent-bg {
+    background-color: #E9E9EB !important;
+    color: #000 !important;
+}
+.dark .other-theme-gray .other-accent-bg {
+    background-color: #3A3A3C !important;
+    color: #fff !important;
+}
+
+.other-theme-orange .other-accent-bg {
+    background-color: #F97316 !important;
+    color: #fff !important;
+}
+.dark .other-theme-orange .other-accent-bg {
+    background-color: #FB923C !important;
+    color: #fff !important;
+}
+
+.other-theme-blue .other-accent-bg {
+    background-color: #007AFF !important;
+    color: #fff !important;
+}
+.dark .other-theme-blue .other-accent-bg {
+    background-color: #0A84FF !important;
+    color: #fff !important;
+}
+
+.other-theme-green .other-accent-bg {
+    background-color: #34C759 !important;
+    color: #000 !important;
+}
+.dark .other-theme-green .other-accent-bg {
+    background-color: #95FF14 !important;
+    color: #000 !important;
+}
+
+.other-theme-purple .other-accent-bg {
+    background-color: #AF52DE !important;
+    color: #fff !important;
+}
+.dark .other-theme-purple .other-accent-bg {
+    background-color: #A724FF !important;
+    color: #fff !important;
+}
+
+.other-theme-custom .other-accent-bg {
+    background-color: var(--other-accent-color) !important;
+    color: #fff !important;
+}
+.dark .other-theme-custom .other-accent-bg {
+    background-color: var(--other-accent-color-dark) !important;
+    color: #fff !important;
+}

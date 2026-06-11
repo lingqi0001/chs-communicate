@@ -382,8 +382,8 @@ export function initChatEngine(deps) {
         let isRemoved = false;
         if (targetId.startsWith('group_')) {
             const classId = targetId.replace('group_', '');
-            isDisbanded = !!safeGetIsSyncDone() && !(getCnCache()[classId]);
-            isRemoved = !!safeGetIsSyncDone() && !(safeGetSidebarClasses()[classId]);
+            isDisbanded = !!safeGetIsSyncDone() && !(AppModules.Sync.existingClassIds && AppModules.Sync.existingClassIds[classId]);
+            isRemoved = !!safeGetIsSyncDone() && !isDisbanded && !(safeGetSidebarClasses()[classId]);
         }
 
         if (targetId === 'safety_bot') {
@@ -423,7 +423,13 @@ export function initChatEngine(deps) {
             chatId = targetId;
             const classId = targetId.replace('group_', '');
             titleEl.innerText = getCnCache()[classId] || "Class Group Chat";
-            statusEl.innerText = ctCache[classId] || "Group Chat";
+            if (isDisbanded) {
+                statusEl.innerText = "Class disbanded";
+            } else if (isRemoved) {
+                statusEl.innerText = "You have been removed from this chat";
+            } else {
+                statusEl.innerText = ctCache[classId] || "Group Chat";
+            }
 
             if (!getCnCache()[classId] || !ctCache[classId]) {
                 get(ref(db, `classes/${classId}`)).then(async snap => {

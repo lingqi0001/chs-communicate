@@ -305,7 +305,8 @@ export const ViewModule = {
         this.initViewport();
         this.initTheme();
         this.initSidebar();
-        this.initNavigation(); // 启动返回键拦?        
+        this.initNavigation(); // 启动返回键拦截
+        this.initHubColor();
         
         // Initialize Liquid Glass effect on bottom navigation bar
         try {
@@ -467,6 +468,31 @@ export const ViewModule = {
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
+        // Re-apply saved accent colors so CSS variables update for current theme
+        const currentAnn = localStorage.getItem('annAccentColor') || 'orange';
+        const lightAnn = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+        const darkAnn = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+        this.applyAnnColor(currentAnn, lightAnn, darkAnn);
+
+        const currentMsg = localStorage.getItem('msgAccentColor') || 'blue';
+        const lightMsg = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+        const darkMsg = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+        this.applyMsgColor(currentMsg, lightMsg, darkMsg);
+
+        const currentChat = localStorage.getItem('chatAccentColor') || 'blue';
+        const lightChat = localStorage.getItem('chatCustomColorLightHex') || '#007AFF';
+        const darkChat = localStorage.getItem('chatCustomColorDarkHex') || '#0A84FF';
+        this.applyChatColor(currentChat, lightChat, darkChat);
+
+        const currentOtherMsg = localStorage.getItem('otherMsgAccentColor') || 'gray';
+        const lightOtherMsg = localStorage.getItem('otherMsgCustomColorLightHex') || '#E9E9EB';
+        const darkOtherMsg = localStorage.getItem('otherMsgCustomColorDarkHex') || '#3A3A3C';
+        this.applyOtherMsgColor(currentOtherMsg, lightOtherMsg, darkOtherMsg);
+
+        if (typeof window.updateSettingsLabels === 'function') {
+            window.updateSettingsLabels();
+        }
+
         // 刷新导航栏颜色样式以适应新主题
         const newsEl = document.getElementById('newsSection');
         if (newsEl) {
@@ -490,6 +516,220 @@ export const ViewModule = {
 
     toggleDarkMode: function () {
         this.setDarkMode(!this.state.isDarkMode);
+    },
+
+    initHubColor: function () {
+        const savedAnnColor = localStorage.getItem('annAccentColor') || 'orange';
+        const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+        this.applyAnnColor(savedAnnColor, customAnnLightHex, customAnnDarkHex);
+
+        const savedMsgColor = localStorage.getItem('msgAccentColor') || 'blue';
+        const customMsgLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+        const customMsgDarkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+        this.applyMsgColor(savedMsgColor, customMsgLightHex, customMsgDarkHex);
+
+        const savedChatColor = localStorage.getItem('chatAccentColor') || 'blue';
+        const customChatLightHex = localStorage.getItem('chatCustomColorLightHex') || '#007AFF';
+        const customChatDarkHex = localStorage.getItem('chatCustomColorDarkHex') || '#0A84FF';
+        this.applyChatColor(savedChatColor, customChatLightHex, customChatDarkHex);
+
+        const savedOtherMsgColor = localStorage.getItem('otherMsgAccentColor') || 'gray';
+        const customOtherMsgLightHex = localStorage.getItem('otherMsgCustomColorLightHex') || '#E9E9EB';
+        const customOtherMsgDarkHex = localStorage.getItem('otherMsgCustomColorDarkHex') || '#3A3A3C';
+        this.applyOtherMsgColor(savedOtherMsgColor, customOtherMsgLightHex, customOtherMsgDarkHex);
+    },
+
+    applyAnnColor: function (color, customLightHex = null, customDarkHex = null) {
+        const newsSec = document.getElementById('newsSection');
+        const postPage = document.getElementById('postPage');
+        const elements = [newsSec, postPage];
+
+        elements.forEach(el => {
+            if (el) {
+                el.classList.remove('ann-theme-orange', 'ann-theme-blue', 'ann-theme-green', 'ann-theme-purple', 'ann-theme-custom');
+            }
+        });
+
+        localStorage.setItem('annAccentColor', color);
+
+        const hexToRGBA = (h, alpha) => {
+            let cleanHex = h.replace('#', '');
+            if (cleanHex.length === 3) {
+                cleanHex = cleanHex.split('').map(char => char + char).join('');
+            }
+            const r = parseInt(cleanHex.substring(0, 2), 16);
+            const g = parseInt(cleanHex.substring(2, 4), 16);
+            const b = parseInt(cleanHex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        // Determine the resolved light/dark hex values for any mode
+        let resolvedLight = '#007AFF';
+        let resolvedDark = '#0A84FF';
+
+        if (color === 'orange') {
+            elements.forEach(el => el && el.classList.add('ann-theme-orange'));
+            resolvedLight = '#F97316';
+            resolvedDark = '#FB923C';
+        } else if (color === 'blue') {
+            elements.forEach(el => el && el.classList.add('ann-theme-blue'));
+            resolvedLight = '#007AFF';
+            resolvedDark = '#0A84FF';
+        } else if (color === 'green') {
+            elements.forEach(el => el && el.classList.add('ann-theme-green'));
+            resolvedLight = '#34C759';
+            resolvedDark = '#95FF14';
+        } else if (color === 'purple') {
+            elements.forEach(el => el && el.classList.add('ann-theme-purple'));
+            resolvedLight = '#AF52DE';
+            resolvedDark = '#A724FF';
+        } else if (color === 'custom') {
+            elements.forEach(el => el && el.classList.add('ann-theme-custom'));
+            resolvedLight = customLightHex || localStorage.getItem('annCustomColorLightHex') || '#F97316';
+            resolvedDark = customDarkHex || localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+            localStorage.setItem('annCustomColorLightHex', resolvedLight);
+            localStorage.setItem('annCustomColorDarkHex', resolvedDark);
+        }
+
+        // Set CSS variables on target elements for ann-theme-custom styling
+        if (color === 'custom') {
+            const alpha10 = hexToRGBA(resolvedLight, 0.1);
+            const alpha20 = hexToRGBA(resolvedLight, 0.2);
+            const darkAlpha10 = hexToRGBA(resolvedDark, 0.1);
+            const darkAlpha20 = hexToRGBA(resolvedDark, 0.2);
+
+            elements.forEach(el => {
+                if (el) {
+                    el.style.setProperty('--ann-accent-color', resolvedLight);
+                    el.style.setProperty('--ann-accent-color-alpha10', alpha10);
+                    el.style.setProperty('--ann-accent-color-alpha20', alpha20);
+                    
+                    el.style.setProperty('--ann-accent-color-dark', resolvedDark);
+                    el.style.setProperty('--ann-accent-color-dark-alpha10', darkAlpha10);
+                    el.style.setProperty('--ann-accent-color-dark-alpha20', darkAlpha20);
+                }
+            });
+        }
+
+        // Always set resolved ann accent on :root so teacher badges (outside #newsSection) can reference them
+        document.documentElement.style.setProperty('--ann-accent-color', resolvedLight);
+        document.documentElement.style.setProperty('--ann-accent-color-dark', resolvedDark);
+    },
+
+    applyMsgColor: function (color, customLightHex = null, customDarkHex = null) {
+        const sidePanel = document.getElementById('sidePanel');
+        const chatSection = document.getElementById('chatSection');
+        const newsTopButtonsContainer = document.getElementById('newsTopButtonsContainer');
+        const elements = [sidePanel, chatSection, newsTopButtonsContainer];
+
+        elements.forEach(el => {
+            if (el) {
+                el.classList.remove('msg-theme-orange', 'msg-theme-blue', 'msg-theme-green', 'msg-theme-purple', 'msg-theme-custom');
+            }
+        });
+
+        localStorage.setItem('msgAccentColor', color);
+
+        if (color === 'orange') {
+            elements.forEach(el => el && el.classList.add('msg-theme-orange'));
+        } else if (color === 'blue') {
+            elements.forEach(el => el && el.classList.add('msg-theme-blue'));
+        } else if (color === 'green') {
+            elements.forEach(el => el && el.classList.add('msg-theme-green'));
+        } else if (color === 'purple') {
+            elements.forEach(el => el && el.classList.add('msg-theme-purple'));
+        } else if (color === 'custom') {
+            elements.forEach(el => el && el.classList.add('msg-theme-custom'));
+            const lightHex = customLightHex || localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+            const darkHex = customDarkHex || localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+            localStorage.setItem('msgCustomColorLightHex', lightHex);
+            localStorage.setItem('msgCustomColorDarkHex', darkHex);
+
+            const hexToRGBA = (h, alpha) => {
+                let cleanHex = h.replace('#', '');
+                if (cleanHex.length === 3) {
+                    cleanHex = cleanHex.split('').map(char => char + char).join('');
+                }
+                const r = parseInt(cleanHex.substring(0, 2), 16);
+                const g = parseInt(cleanHex.substring(2, 4), 16);
+                const b = parseInt(cleanHex.substring(4, 6), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            };
+
+            const alpha10 = hexToRGBA(lightHex, 0.1);
+            const alpha20 = hexToRGBA(lightHex, 0.2);
+            const darkAlpha10 = hexToRGBA(darkHex, 0.1);
+            const darkAlpha20 = hexToRGBA(darkHex, 0.2);
+
+            elements.forEach(el => {
+                if (el) {
+                    el.style.setProperty('--msg-accent-color', lightHex);
+                    el.style.setProperty('--msg-accent-color-alpha10', alpha10);
+                    el.style.setProperty('--msg-accent-color-alpha20', alpha20);
+                    
+                    el.style.setProperty('--msg-accent-color-dark', darkHex);
+                    el.style.setProperty('--msg-accent-color-dark-alpha10', darkAlpha10);
+                    el.style.setProperty('--msg-accent-color-dark-alpha20', darkAlpha20);
+                }
+            });
+        }
+
+        if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.updateUI === 'function') {
+            window.AppModules.Notify.updateUI();
+        }
+
+        // Keep bottom nav active color in sync with this setting
+        const newsSec = document.getElementById('newsSection');
+        const sidePan = document.getElementById('sidePanel');
+        let currentTab = 'messages';
+        if (newsSec && !newsSec.classList.contains('hidden')) currentTab = 'news';
+        else if (sidePan && !sidePan.classList.contains('hidden')) currentTab = 'tools';
+        this.refreshBottomNav(currentTab);
+    },
+
+    applyChatColor: function (color, customLightHex = null, customDarkHex = null) {
+        const chatSection = document.getElementById('chatSection');
+        if (chatSection) {
+            chatSection.classList.remove('chat-theme-orange', 'chat-theme-blue', 'chat-theme-green', 'chat-theme-purple', 'chat-theme-custom');
+            chatSection.classList.add('chat-theme-' + color);
+        }
+
+        localStorage.setItem('chatAccentColor', color);
+
+        if (color === 'custom') {
+            const lightHex = customLightHex || localStorage.getItem('chatCustomColorLightHex') || '#007AFF';
+            const darkHex = customDarkHex || localStorage.getItem('chatCustomColorDarkHex') || '#0A84FF';
+            localStorage.setItem('chatCustomColorLightHex', lightHex);
+            localStorage.setItem('chatCustomColorDarkHex', darkHex);
+
+            if (chatSection) {
+                chatSection.style.setProperty('--chat-accent-color', lightHex);
+                chatSection.style.setProperty('--chat-accent-color-dark', darkHex);
+            }
+        }
+    },
+
+    applyOtherMsgColor: function (color, customLightHex = null, customDarkHex = null) {
+        const chatSection = document.getElementById('chatSection');
+        if (chatSection) {
+            chatSection.classList.remove('other-theme-gray', 'other-theme-orange', 'other-theme-blue', 'other-theme-green', 'other-theme-purple', 'other-theme-custom');
+            chatSection.classList.add('other-theme-' + color);
+        }
+
+        localStorage.setItem('otherMsgAccentColor', color);
+
+        if (color === 'custom') {
+            const lightHex = customLightHex || localStorage.getItem('otherMsgCustomColorLightHex') || '#E9E9EB';
+            const darkHex = customDarkHex || localStorage.getItem('otherMsgCustomColorDarkHex') || '#3A3A3C';
+            localStorage.setItem('otherMsgCustomColorLightHex', lightHex);
+            localStorage.setItem('otherMsgCustomColorDarkHex', darkHex);
+
+            if (chatSection) {
+                chatSection.style.setProperty('--other-accent-color', lightHex);
+                chatSection.style.setProperty('--other-accent-color-dark', darkHex);
+            }
+        }
     },
 
     /**
@@ -721,7 +961,7 @@ export const ViewModule = {
             if (t === tab) {
                 el.className = "text-2xl font-bold tracking-tight text-black dark:text-white tab-transition leading-none head-tab-active scale-110 origin-bottom";
             } else {
-                el.className = "text-2xl font-bold tracking-tight text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 tab-transition leading-none scale-100 origin-bottom mb-0.5";
+                el.className = "text-2xl font-bold tracking-tight text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white tab-transition leading-none scale-100 origin-bottom mb-0.5";
             }
         });
 
@@ -794,7 +1034,26 @@ export const ViewModule = {
         const activePill = document.getElementById('bottomNavActivePill');
 
         const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
-        const activeColor = '#0055FF';
+
+        // Derive active color from the "Recent List" (msg) accent setting
+        const msgAccent = localStorage.getItem('msgAccentColor') || 'blue';
+        let activeColor;
+        if (msgAccent === 'orange') {
+            activeColor = isDark ? '#FB923C' : '#F97316';
+        } else if (msgAccent === 'blue') {
+            activeColor = isDark ? '#0A84FF' : '#007AFF';
+        } else if (msgAccent === 'green') {
+            activeColor = isDark ? '#95FF14' : '#34C759';
+        } else if (msgAccent === 'purple') {
+            activeColor = isDark ? '#A724FF' : '#AF52DE';
+        } else if (msgAccent === 'custom') {
+            const customLight = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+            const customDark  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
+            activeColor = isDark ? customDark : customLight;
+        } else {
+            activeColor = isDark ? '#0A84FF' : '#007AFF';
+        }
+
         const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(0, 0, 0, 0.65)';
 
         const icons = {

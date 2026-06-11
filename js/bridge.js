@@ -118,13 +118,14 @@ export const BridgeModule = {
             const currentUser = window.currentUser || window.AppModules?.User?.current;
             if (!currentUser || !currentUser.id) return;
 
-            const extensionId = String(payload?.extensionId || '').trim();
-            if (!extensionId) return;
+        const extensionId = String(payload?.extensionId || '').trim();
+        if (!extensionId) return;
 
-            const targetId = `ext_${extensionId.toLowerCase()}`;
-            const text = String(payload?.body || payload?.title || 'Extension notification');
-            const unreadCount = Number(payload?.unreadCount || 0);
-            const route = String(payload?.route || 'notification');
+        const targetId = `ext_${extensionId.toLowerCase()}`;
+        const regItem = window.AppModules?.Extension?.getRegistryItem?.(extensionId);
+        const text = String(payload?.body || payload?.title || 'Extension notification');
+        const unreadCount = Number(payload?.unreadCount || 0);
+        const route = String(payload?.route || 'notification');
             const uid = currentUser.id.toLowerCase();
             const prevUnread = Number(_extensionUnreadCount[targetId] || 0);
             _extensionUnreadCount[targetId] = unreadCount;

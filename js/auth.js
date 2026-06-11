@@ -205,6 +205,10 @@ export const AuthModule = {
             return window.AppModules.Modal.alert("Name Required", "Please enter both your first and last name to continue.");
         }
 
+        if (rawFirst.length > 20 || rawLast.length > 20) {
+            return window.AppModules.Modal.alert("Invalid Name", "First name and last name must not exceed 20 characters each.");
+        }
+
         const btn = document.getElementById('setupSubmitBtn');
         btn.disabled = true;
         btn.innerText = "Setting up...";

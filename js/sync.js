@@ -19,8 +19,13 @@ import { DBModule } from './db.js';
 export const SyncModule = {
     isSyncDone: false,
     sidebarClasses: {},
-    cnCache: {},
-    ctCache: {},
+    existingClassIds: {},
+    cnCache: (() => {
+        try { return JSON.parse(localStorage.getItem('chs_cn_cache') || '{}'); } catch (e) { return {}; }
+    })(),
+    ctCache: (() => {
+        try { return JSON.parse(localStorage.getItem('chs_ct_cache') || '{}'); } catch (e) { return {}; }
+    })(),
     callbacks: {
         renderNews: null,
         renderSidebar: null,
@@ -208,6 +213,12 @@ export const SyncModule = {
         try {
             const snap = await get(ref(db, 'classes'));
             const classes = snap.val() || {};
+            
+            this.existingClassIds = {};
+            Object.keys(classes).forEach(id => {
+                this.existingClassIds[id] = true;
+            });
+
             const myClasses = Object.keys(classes).filter(id => {
                 const c = classes[id];
                 return c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]);
@@ -229,6 +240,7 @@ export const SyncModule = {
                     window.AppModules.User.fetchUser(c.teacherId).then(u => {
                         if (u && u.name) {
                             this.ctCache[cid] = u.name;
+                            localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
                             if (this.callbacks.renderSidebar) this.callbacks.renderSidebar();
                         }
                     });
@@ -244,6 +256,10 @@ export const SyncModule = {
                     }
                 }
             }
+
+            localStorage.setItem('chs_cn_cache', JSON.stringify(this.cnCache));
+            localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
+
             const firstSync = !this.isSyncDone;
             this.isSyncDone = true;
             if (firstSync && this.callbacks.renderSidebar) {

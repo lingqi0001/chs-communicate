@@ -594,6 +594,10 @@
 
             if (!newName) return AppModules.Modal.alert("Name Required", "Please enter a valid name");
 
+            if (rawFirst.length > 20 || rawLast.length > 20) {
+                return AppModules.Modal.alert("Invalid Name", "First name and last name must not exceed 20 characters each.");
+            }
+
             const btn = e.target;
             const originalText = btn.innerText;
             btn.innerText = "Updating...";
@@ -2144,7 +2148,7 @@
 
                 <div id="newsTopTabsRowMobile" class="flex justify-between items-center h-9">
                     <h2 id="newsPanelTitle" class="text-2xl font-bold tracking-tight leading-none">Hub</h2>
-                    <div class="flex items-center gap-3 mb-1">
+                    <div id="newsTopButtonsContainer" class="flex items-center gap-3 mb-1">
                         <button id="portfolioBtnNews" onclick="openPortfolio()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2724,7 +2728,7 @@
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
                             class="flex-1 bg-transparent outline-none text-base text-black dark:text-white placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
-                            class="ml-2 w-[30px] h-[30px] bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
+                            class="ml-2 w-[30px] h-[30px] chat-accent-bg bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
                             <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="22" y1="2" x2="11" y2="13"></line>

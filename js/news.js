@@ -92,7 +92,7 @@ export function createNewsModule(deps) {
         if (!btnSchool || !btnClub) return;
 
         const activePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm";
-        const inactivePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300";
+        const inactivePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white";
 
         if (currentPrimaryTab === 'school') {
             btnSchool.className = activePrimaryClass;
@@ -111,7 +111,7 @@ export function createNewsModule(deps) {
             if (id === selectedSubTab) {
                 btn.className = "flex-1 h-full bg-white text-black dark:bg-[#2C2C2E] dark:text-white rounded-lg text-center transition-colors whitespace-nowrap shadow-sm";
             } else {
-                btn.className = "flex-1 h-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap";
+                btn.className = "flex-1 h-full text-gray-600 dark:text-white/80 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap";
             }
         });
     }
@@ -129,7 +129,7 @@ export function createNewsModule(deps) {
 
         if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
 
-        const inactiveClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300";
+        const inactiveClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white";
         schoolBtn.className = inactiveClass;
         clubBtn.className = inactiveClass;
 
@@ -833,7 +833,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             }).join('');
 
             return `
-                <div id="discoverClubCard-${club.id}" class="p-4 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex flex-col gap-2 hover:bg-gray-100/50 transition duration-200 text-left mb-3">
+                <div id="discoverClubCard-${club.id}" class="p-4 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex flex-col gap-2 hover:bg-gray-100/50 transition duration-200 text-left mb-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-3 flex-1">
                             <div class="w-10 h-10 aspect-square shrink-0 rounded-lg flex items-center justify-center text-white text-base" style="background: ${club.gradient}">
@@ -1071,12 +1071,12 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Clubs Directory</h3>
                     <div id="discoverClubSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
-                        <button id="discoverClubSearchIconBtn" onclick="AppModules.News.toggleDiscoverClubSearch()" class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-400">
+                        <button id="discoverClubSearchIconBtn" onclick="AppModules.News.toggleDiscoverClubSearch()" class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </button>
-                        <svg class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? '' : 'hidden'} ml-2 text-gray-400 w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <svg class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? '' : 'hidden'} ml-2 text-gray-600 dark:text-white/80 w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input id="discoverClubSearchInput" type="text" placeholder="Search"
@@ -1085,7 +1085,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             onblur="AppModules.News.maybeCollapseDiscoverClubSearch()"
                             oninput="AppModules.News.handleDiscoverClubSearch(event)"
                             autocomplete="off"
-                            class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? '' : 'hidden'} flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-400">
+                            class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? '' : 'hidden'} flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-600 dark:placeholder-white/80">
                         <button id="discoverClubSearchClear" onclick="AppModules.News.clearDiscoverClubSearch(); AppModules.News.maybeCollapseDiscoverClubSearch();"
                             class="${clubSearchTerm.trim() ? '' : 'hidden'} ml-1 mr-1.5 shrink-0 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -1596,7 +1596,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 const safeDesc = (evt.desc || '').trim();
 
                 return `
-                    <div id="globalEventCard-${evt.clubId}-${evt.id}" class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3 transition-all duration-200 text-left">
+                    <div id="globalEventCard-${evt.clubId}-${evt.id}" class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-white/5 rounded-2xl p-3 transition-all duration-200 text-left">
                         <div class="flex items-start gap-3">
                             <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-bold" style="background: ${hostClub.gradient}">
                                 <span class="club-card-icon">${hostClub.icon}</span>
@@ -1672,12 +1672,12 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Club Events</h3>
                     <div id="eventSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
-                        <button id="eventSearchIconBtn" onclick="AppModules.News.toggleEventSearch()" class="${isEventSearchExpanded || eventSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-400">
+                        <button id="eventSearchIconBtn" onclick="AppModules.News.toggleEventSearch()" class="${isEventSearchExpanded || eventSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </button>
-                        <svg class="${isEventSearchExpanded || eventSearchTerm.trim() ? '' : 'hidden'} ml-2 text-gray-400 w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <svg class="${isEventSearchExpanded || eventSearchTerm.trim() ? '' : 'hidden'} ml-2 text-gray-600 dark:text-white/80 w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input id="eventSearchInput" type="text" placeholder="Search"
@@ -1686,7 +1686,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             onblur="AppModules.News.maybeCollapseEventSearch()"
                             oninput="AppModules.News.handleEventSearch(event)"
                             autocomplete="off"
-                            class="${isEventSearchExpanded || eventSearchTerm.trim() ? '' : 'hidden'} flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-400">
+                            class="${isEventSearchExpanded || eventSearchTerm.trim() ? '' : 'hidden'} flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-600 dark:placeholder-white/80">
                         <button id="eventSearchClear" onclick="AppModules.News.clearEventSearch(); AppModules.News.maybeCollapseEventSearch();"
                             class="${eventSearchTerm.trim() ? '' : 'hidden'} ml-1 mr-1.5 shrink-0 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -2169,7 +2169,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                         ` : '';
 
                         return `
-                            <div class="relative p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                            <div class="relative p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                                 <h4 class="font-bold text-base text-black dark:text-white mb-1 pr-6">${ann.title}</h4>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">${ann.desc}</p>
                                 ${deleteBtn}
@@ -2182,7 +2182,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 club.announcements = [...club.defaultAnnouncements];
                 listEl.innerHTML = club.announcements.map(ann => {
                     return `
-                        <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                        <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                             <h4 class="font-bold text-base text-black dark:text-white mb-1">${ann.title}</h4>
                             <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">${ann.desc}</p>
                         </div>
@@ -2234,7 +2234,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                         const safeDesc = (evt.desc || '').trim();
 
                         return `
-                            <div class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-3 transition-all duration-200">
+                            <div class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-white/5 rounded-2xl p-3 transition-all duration-200">
                                 <div class="pr-8">
                                     <h4 class="text-sm font-bold text-black dark:text-white truncate">${evt.title || 'Untitled Event'}</h4>
                                     <p class="text-[11px] text-gray-400 truncate mt-0.5">${club.name}</p>
@@ -2362,7 +2362,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     ` : '';
                     const escapedName = memberName.replace(/'/g, "\\'");
                     return `
-                        <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                        <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
                             ${adminDot}
                         </div>
@@ -2437,7 +2437,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             ` : '';
             const escapedName = m.name.replace(/'/g, "\\'");
             return `
-                <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                     <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
                     ${adminDot}
                 </div>

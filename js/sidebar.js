@@ -151,15 +151,15 @@ export const SidebarModule = {
 
             if (!container.querySelector('.sidebar-tabs')) {
                 container.innerHTML = `
-                    <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 bg-gray-50/50 dark:bg-white/5 flex-shrink-0">
-                        <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                    <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 flex-shrink-0">
+                        <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
                             Recent
                             <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
                         </button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Contacts</button>
+                        <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">Contacts</button>
                         <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                        <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
                             Class
                         </button>
                     </div>
@@ -167,9 +167,9 @@ export const SidebarModule = {
                 `;
             } else {
                 const btns = container.querySelectorAll('.sidebar-tabs button');
-                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
-                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
-                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`;
+                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
+                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
+                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
             }
             const tabButtons = container.querySelectorAll('.sidebar-tabs [data-sidebar-mode]');
             tabButtons.forEach(btn => {
@@ -213,7 +213,7 @@ export const SidebarModule = {
                     const cachedName = window.cnCache[window.currentClassId] || 'Class';
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
-                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
+                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
                                 <button data-sidebar-back="class" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
                                     <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                     Back
@@ -296,16 +296,9 @@ export const SidebarModule = {
                         activeExts.forEach(eid => {
                             const regItem = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistryItem ? window.AppModules.Extension.getRegistryItem(eid) : null;
                             if (regItem) {
-                                let iconColor = 'text-[#007AFF]';
-                                let iconBg = 'bg-blue-100 dark:bg-blue-500/20';
-                                const lowerName = regItem.eid.toLowerCase();
-                                if (lowerName.includes('logic')) { iconColor = 'text-green-500'; iconBg = 'bg-green-100 dark:bg-green-500/20'; }
-                                else if (lowerName.includes('ir') || lowerName.includes('navigator') || lowerName.includes('research')) { iconColor = 'text-cyan-500'; iconBg = 'bg-cyan-100 dark:bg-cyan-500/20'; }
-                                else if (lowerName.includes('staff')) { iconColor = 'text-purple-500'; iconBg = 'bg-purple-100 dark:bg-purple-500/20'; }
-
                                 innerHtml += `
-                                    <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}">
+                                    <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                             </svg>
@@ -326,7 +319,7 @@ export const SidebarModule = {
 
                 let html = `
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
-                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
                         <div>
                             <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(teacher?.name || 'Teacher')}</div>
                             <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
@@ -334,7 +327,7 @@ export const SidebarModule = {
                     </div>
                     ${extensionHtml}
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
-                    <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                    <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
                         <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2 relative">
                             ${(rt.eagleIcon || '')}
                             <span id="dot-group_${window.currentClassId}" class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#007AFF] border-2 border-white dark:border-[#1C1C1E] rounded-full ${window.AppModules.Notify.unreadSet.has('group_' + window.currentClassId) ? '' : 'hidden'}"></span>
@@ -362,13 +355,13 @@ export const SidebarModule = {
                     if (isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
                     else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
                     return `
-                        <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'active-chat-item' : 'hover:bg-gray-50/50 dark:hover:bg-white/5'}">
+                        <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
                             <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div class="flex flex-col overflow-hidden">
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">
-                                        ${window.escapeHTML(u.name)}${badge} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
+                                        ${window.escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
                                     </div>
-                                    <div class="text-xs text-gray-400 truncate">${window.escapeHTML(u.email || u.id)}</div>
+                                    <div class="text-xs text-gray-400 truncate flex items-center">${window.escapeHTML(u.email || u.id)}${badge}</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 pr-5">
@@ -407,7 +400,7 @@ export const SidebarModule = {
 
                 if ((window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
                     const createBtn = document.createElement('div');
-                    createBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all group';
+                    createBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                     createBtn.onclick = () => window.addNewClass();
                     createBtn.innerHTML = `
                         <div class="w-10 h-10 bg-[#007AFF]/10 rounded-xl flex items-center justify-center text-[#007AFF]">
@@ -431,7 +424,7 @@ export const SidebarModule = {
                         window.cnCache[c.id] = c.name;
                         const escName = window.escapeHTML(c.name);
                         const item = document.createElement('div');
-                        item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all group';
+                        item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                         item.onclick = () => {
                             window.currentClassId = c.id;
                             AppModules.Sidebar.renderSidebar();
@@ -439,7 +432,7 @@ export const SidebarModule = {
                         };
                         item.innerHTML = `
                             <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-[#007AFF]">
+                                <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF]">
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
                                 </div>
                                 <div>
@@ -473,7 +466,7 @@ export const SidebarModule = {
                 if (!isAlreadyInRecentJoined) {
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
-                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 relative">
+                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
                                 <button data-sidebar-back="recent" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
                                     <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
                                     Back
@@ -542,12 +535,12 @@ export const SidebarModule = {
                         else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
 
                         const div = document.createElement('div');
-                        div.className = 'p-3 pl-5 cursor-pointer flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/5 dark:hover:bg-white/5 transition-colors group';
+                        div.className = 'p-3 pl-5 cursor-pointer flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group';
                         div.onclick = () => window.switchChat(id);
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
-                                <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${window.escapeHTML(u.name || id)}${badge}</span>
-                                <span class="text-xs text-gray-400 truncate">${window.escapeHTML(u.email || id)}</span>
+                                <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${window.escapeHTML(u.name || id)}</span>
+                                <span class="text-xs text-gray-400 truncate flex items-center">${window.escapeHTML(u.email || id)}${badge}</span>
                             </div>
                         `;
                         subList.appendChild(div);
@@ -638,16 +631,16 @@ export const SidebarModule = {
 
             if (window.sidebarMode === 'recent') {
                 const entry = document.createElement('div');
-                entry.className = 'p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-gray-50/5 dark:hover:bg-white/5';
+                entry.className = 'p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-black/5 dark:hover:bg-white/5';
                 entry.onclick = () => { window.sidebarMode = 'recent_joined'; AppModules.Sidebar.renderSidebar(); };
                 entry.innerHTML = `
-                    <div class="flex items-center gap-3 flex-1 overflow-hidden">
-                        <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center p-2 text-[#007AFF]">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                    <div class="flex items-center gap-4 flex-1 overflow-hidden">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                         </div>
                         <div class="flex flex-col overflow-hidden">
-                            <span class="font-bold text-sm text-[#007AFF] truncate">Recently Joined</span>
-                            <span class="text-xs text-gray-400 truncate">Meet new community members</span>
+                            <span class="font-bold text-base text-black dark:text-white leading-tight truncate">Recently Joined</span>
+                            <span class="text-xs text-gray-400 mt-0.5 truncate">Meet new community members</span>
                         </div>
                     </div>
                 `;
@@ -666,7 +659,7 @@ export const SidebarModule = {
 
                 if (id.startsWith('group_')) {
                     const classId = id.replace('group_', '');
-                    const isDisbanded = window.isSyncDone && !window.cnCache[classId];
+                    const isDisbanded = window.isSyncDone && !(AppModules.Sync.existingClassIds && AppModules.Sync.existingClassIds[classId]);
                     const isParticipant = window.sidebarClasses[classId];
 
                     displayName = window.cnCache[classId] || 'Class Group Chat';
@@ -675,9 +668,9 @@ export const SidebarModule = {
                     else if (window.isSyncDone && !isParticipant) displayEmail = 'You have been removed from this chat';
                     else displayEmail = window.ctCache[classId] || 'Multi-person conversation';
 
-                    const bgClass = isDisbanded || (window.isSyncDone && !isParticipant) ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#ED2129]/10';
+                    const bgClass = isDisbanded || (window.isSyncDone && !isParticipant) ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10';
                     const iconToUse = isDisbanded || (window.isSyncDone && !isParticipant) ? (rt.eagleIconBw || '') : (rt.eagleIcon || '');
-                    avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-full flex items-center justify-center p-2">${iconToUse}</div>`;
+                    avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-xl flex items-center justify-center p-2">${iconToUse}</div>`;
                 } else {
                     const user = window.ALL_USERS[id];
                     if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
@@ -685,7 +678,7 @@ export const SidebarModule = {
                         displayName = user?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
                         displayEmail = 'Notification from Extension Tool';
                         avatarHtml = `
-                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[#007AFF]">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center p-2 text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                 </svg>
@@ -695,27 +688,34 @@ export const SidebarModule = {
                         displayName = user?.name || id;
                         displayEmail = user?.email || id;
                     }
-
+ 
                     const isAdminUser = user ? (user.role === 'admin' || user.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) : false;
                     const isTeacherUser = user ? (user.role === 'teacher' || (user.email && user.email.endsWith('@hcpss.org'))) : false;
-
+ 
                     if (user && isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
                     else if (user && isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
                 }
-
+ 
                 const isActive = activeTargetId === id;
                 const div = document.createElement('div');
                 div.id = `item-${id}`;
-                div.className = `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-gray-50/5 dark:hover:bg-white/5'}`;
+                const isGroup = id.startsWith('group_');
+                div.className = isGroup
+                    ? `p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`
+                    : `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
                 div.style.paddingRight = '60px';
                 div.onclick = () => (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) ? window.openExtensionNotificationTarget(id) : window.switchChat(id);
-
+ 
+                const gapClass = isGroup ? 'gap-4' : 'gap-3';
+                const titleTextSize = isGroup ? 'text-base leading-tight' : 'text-sm';
+                const subtitleMargin = isGroup ? 'mt-0.5' : '';
+ 
                 div.innerHTML = `
-                    <div class="flex items-center gap-3 flex-1 overflow-hidden">
+                    <div class="flex items-center ${gapClass} flex-1 overflow-hidden">
                         ${avatarHtml}
                         <div class="flex flex-col overflow-hidden">
-                            <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${window.escapeHTML(displayName)}${badge}</span>
-                            <span class="text-xs text-gray-400 truncate">${window.escapeHTML(displayEmail)}</span>
+                            <span class="font-bold ${titleTextSize} text-black dark:text-white truncate flex items-center">${window.escapeHTML(displayName)}</span>
+                            <span class="text-xs text-gray-400 ${subtitleMargin} truncate flex items-center">${window.escapeHTML(displayEmail)}${badge}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
@@ -797,7 +797,7 @@ export const SidebarModule = {
                     (u.email || '').toLowerCase().includes(filter.toLowerCase())
                 );
                 return filtered.map(u => `
-                    <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
+                    <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                         <div class="flex flex-col overflow-hidden mr-4">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(u.name)}</span>
                             <span class="text-xs text-gray-400 truncate">${window.escapeHTML(u.email || u.id)}</span>
@@ -832,17 +832,10 @@ export const SidebarModule = {
                 return filteredKeys.map(eid => {
                     const regItem = registry[eid];
                     const isSelected = extensionsState[eid];
-                    let iconColor = 'text-[#007AFF]';
-                    let iconBg = 'bg-blue-100 dark:bg-blue-500/20';
-                    const lowerName = eid.toLowerCase();
-                    if (lowerName.includes('logic')) { iconColor = 'text-green-500'; iconBg = 'bg-green-100 dark:bg-green-500/20'; }
-                    else if (lowerName.includes('ir') || lowerName.includes('navigator') || lowerName.includes('research')) { iconColor = 'text-cyan-500'; iconBg = 'bg-cyan-100 dark:bg-cyan-500/20'; }
-                    else if (lowerName.includes('staff')) { iconColor = 'text-purple-500'; iconBg = 'bg-purple-100 dark:bg-purple-500/20'; }
-
                     return `
-                        <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
+                        <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                                 </div>
                                 <div class="flex flex-col text-left">

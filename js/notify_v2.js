@@ -243,9 +243,26 @@ export const NotifyModule = {
             ctx.fillStyle = '#FFFFFF';
             ctx.fill();
 
+            const msgColor = localStorage.getItem('msgAccentColor') || 'blue';
+            const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+            let dotColor = '#007AFF';
+            if (msgColor === 'orange') {
+                dotColor = isDark ? '#FB923C' : '#F97316';
+            } else if (msgColor === 'blue') {
+                dotColor = isDark ? '#0A84FF' : '#007AFF';
+            } else if (msgColor === 'green') {
+                dotColor = isDark ? '#95FF14' : '#34C759';
+            } else if (msgColor === 'purple') {
+                dotColor = isDark ? '#A724FF' : '#AF52DE';
+            } else if (msgColor === 'custom') {
+                const customLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+                const customDarkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+                dotColor = isDark ? customDarkHex : customLightHex;
+            }
+
             ctx.beginPath();
             ctx.arc(50, 50, 8.5, 0, Math.PI * 2);
-            ctx.fillStyle = '#007AFF'; 
+            ctx.fillStyle = dotColor; 
             ctx.fill();
 
             favicon.href = canvas.toDataURL('image/png');

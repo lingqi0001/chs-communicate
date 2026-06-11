@@ -203,6 +203,13 @@ export const ExtensionModule = {
             category: 'Fun Tools',
             description: 'Mirror left/right faces to create a collage.'
         },
+        'find_the_gao_kao_cheater': {
+            eid: 'find_the_gao_kao_cheater',
+            url: 'extensions/fun/Find the gao kao cheater.html',
+            title: 'Find the gao kao cheater',
+            category: 'Fun Tools',
+            description: 'Solve the investigation chain and identify the cheater.'
+        },
         'portfolio': {
             eid: 'portfolio',
             url: 'portfolio/',

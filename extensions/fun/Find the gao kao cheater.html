@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GaoKao Forensic Files: Case #9038</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Courier New', 'monospace'],
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Georgia', 'serif'],
+          },
+          animation: {
+            'stamp': 'stamp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards',
+            'shake': 'shake 0.4s ease-in-out',
+            'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'fade-in': 'fadeIn 0.2s ease-out forwards',
+          }
+        }
+      }
+    };
+  </script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <!-- KaTeX CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
+  <style>
+    /* Dark desk surface under lamp light */
+    body {
+      background: 
+        radial-gradient(circle at 50% 25%, rgba(254, 243, 199, 0.15) 0%, rgba(0, 0, 0, 0.96) 80%),
+        repeating-linear-gradient(0deg, rgba(20, 14, 8, 0.99), rgba(20, 14, 8, 0.99) 30px, rgba(12, 8, 4, 0.99) 30px, rgba(12, 8, 4, 0.99) 60px);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Desk card document styling */
+    .aged-paper {
+      background-color: #f7eedc;
+      color: #2b2318;
+      box-shadow: 
+        0 25px 60px rgba(0, 0, 0, 0.85),
+        inset 0 0 60px rgba(139, 92, 26, 0.08);
+      border: 1px solid rgba(139, 92, 26, 0.2);
+    }
+
+    .coffee-ring {
+      background: radial-gradient(ellipse at center, rgba(139, 92, 26, 0.14) 0%, rgba(139, 92, 26, 0.04) 65%, transparent 100%);
+      pointer-events: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Error Shake Animation */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      15%, 45%, 75% { transform: translateX(-6px); }
+      30%, 60%, 90% { transform: translateX(6px); }
+    }
+    .shake-target { animation: shake 0.4s ease-in-out; }
+
+    /* Red alarm visual glow */
+    @keyframes redGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.2); }
+      50% { box-shadow: 0 0 45px rgba(220, 38, 38, 0.85); }
+    }
+    .alarm-glow { animation: redGlow 1s infinite; }
+
+    /* Stamp Effect */
+    @keyframes stamp {
+      0% { opacity: 0; transform: scale(3.5) rotate(-45deg); filter: blur(5px); }
+      100% { opacity: 0.85; transform: scale(1) rotate(-12deg); filter: blur(0); }
+    }
+    .badge-stamp { animation: stamp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+  </style>
+  <script src="../js/app-bridge.js"></script>
+</head>
+<body class="font-sans text-slate-100 flex flex-col p-4 md:p-6 select-none min-h-screen justify-between">
+
+  <!-- Cleaned HUD Header (Full Width) -->
+  <header class="w-full mx-auto mb-6 border-b border-amber-955/20 pb-4 z-20 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-4 w-4 rounded-full bg-amber-500 shadow-[0_0_14px_#f59e0b] animate-pulse"></div>
+      <h1 class="text-xl font-serif text-slate-200 tracking-wider">GAOKAO CHEATING INVESTIGATION FILE</h1>
+    </div>
+    <button onclick="toggleDiagKey()" class="text-amber-800 hover:text-amber-600 font-mono text-sm font-bold">[SHOW ANSWERS]</button>
+  </header>
+
+  <!-- Full Screen Desktop Workspace Layout -->
+  <main id="desk-surface" class="flex-grow w-full flex flex-col lg:flex-row gap-6 relative z-10 py-2 items-stretch min-h-[580px]">
+    
+    <!-- LEFT SIDEBAR: Vertical Tab Indexes -->
+    <div class="w-full lg:w-[280px] shrink-0 flex flex-col gap-4 bg-black/45 border border-amber-955/25 p-6 rounded-3xl">
+      <span class="text-xs md:text-sm font-mono tracking-widest text-amber-600 font-bold border-b border-amber-950/20 pb-3 mb-3 block uppercase text-center">INDEXED DOSSIERS</span>
+      <div id="dossier-nav-tabs" class="flex flex-col gap-3">
+        <!-- Rendered vertically by JS -->
+      </div>
+    </div>
+
+    <!-- MAIN INTERACTIVE WORKSPACE -->
+    <div id="main-scene-panel" class="flex-grow flex flex-col justify-between aged-paper rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-y-auto">
+      <div id="active-viewport" class="w-full h-full flex-grow flex flex-col justify-between"></div>
+    </div>
+
+  </main>
+
+  <footer class="w-full mx-auto mt-6 border-t border-amber-955/20 pt-4 text-center text-xs text-amber-900/40 font-mono flex items-center justify-between">
+    <span>SYSTEM: FORENSIC_DESK // AUDITOR_LEVEL_1</span>
+    <span>TOP SECRET INTEL</span>
+  </footer>
+
+  <!-- Diagnostic Key Box -->
+  <div id="diag-box" class="fixed bottom-4 right-4 bg-slate-950/95 border border-slate-800 p-4 rounded-xl text-[10px] font-mono text-slate-500 max-w-xs hidden z-50 shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2 text-slate-400">
+      <span>DIAGNOSTIC KEYS</span>
+      <button onclick="toggleDiagKey()" class="text-red-400">✕</button>
+    </div>
+    <div class="space-y-1">
+      <p>1) Cafeteria Log: "20"</p>
+      <p>2) Padlock Door: Click lock digits to form "8125" then click ENT</p>
+      <p>3) Blood Lab: "20"</p>
+      <p>4) Microscope: "6" (Option C)</p>
+      <p>5) Outbreak P(1): "881"</p>
+      <p>6) Rona Locker combo sum: "3292"</p>
+      <p>7) USB Decrypt Code: Adjust dials to "16" then click OPEN</p>
+      <p>8) Abort System wipe: Enter Euler output "4" (or 2, or 0.5)</p>
+    </div>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    let viewStep = 1;
+    let secondsLeft = 300;
+    let timerInterval = null;
+
+    let keypadDigits = "";
+    let safeDial1 = 0;
+    let safeDial2 = 0;
+
+    const dialogueStates = {
+      1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0
+    };
+
+    // Track steps that have been solved to display verified answers when backtracking
+    const solvedAnswers = {
+      1: "20",
+      2: "8125",
+      3: "20",
+      4: "6",
+      5: "881",
+      6: "3292",
+      7: "16",
+      8: "4"
+    };
+
+    const suspects = [
+      { name: "Bryan", id: "9083", blood: "AB", pets: "Cat" },
+      { name: "Matthew", id: "5145", blood: "O", pets: "Dog" },
+      { name: "Lakshith", id: "8791", blood: "A", pets: "Cat" },
+      { name: "Moss", id: "4329", blood: "A", pets: "Pig" },
+      { name: "Rona", id: "3193", blood: "AB", pets: "None" }
+    ];
+
+    const dialogs = {
+      1: [
+        { char: "Teacher (You)", text: "I am the lead supervisor for this year's GaoKao exam session. Yesterday evening, an envelope was slipped under my office door..." },
+        { char: "Teacher (You)", text: "It's an anonymous tip: 'Someone has cheated on the GaoKao!' It lists five suspect students: Bryan, Matthew, Lakshith, Moss, and Rona." },
+        { char: "Teacher (You)", text: "The note notes: 'The student always buys Roujiamo for lunch everyday.' I need to query the cafeteria sales log from yesterday." },
+        { char: "Cafeteria Lady", text: "Ah, teacher! Here is yesterday's printout sheet. However, the system masks the names with student IDs." },
+        { char: "Teacher (You)", text: "Let's examine the cafeteria registry sheet on the clipboard." }
+      ],
+      2: [
+        { char: "Teacher (You)", text: "I am sorting through the logs in the back of the cafeteria archives..." },
+        { char: "Teacher (You)", text: "BAM! The heavy steel door slams shut and clicks locked. I try the handle... nothing. I am trapped inside!" },
+        { char: "Teacher (You)", text: "Wait, the electronic override lock on the frame is active. There is a yellow sticky note pasted on it." },
+        { char: "Sticky Note", text: "'The pin to unlock the door can be found with your calculus skills. Good luck!'" }
+      ],
+      3: [
+        { char: "Teacher (You)", text: "Click! The mechanical deadbolt overrides. I push the door open and step out." },
+        { char: "Teacher (You)", text: "As I peel the sticky note from the keypad, I notice a tiny red smear on the corner... a droplet of blood!" },
+        { char: "Teacher (You)", text: "I immediately run to the biology lab to test the sample. Blood agglutination reactions will narrow down our suspect list." },
+        { char: "Lab Manual", text: "AB cells agglutinate in both Anti-A and Anti-B serums. Let's run the sample..." }
+      ],
+      4: [
+        { char: "Teacher (You)", text: "While the blood test wells dry, I inspect the note again. There is a weird fiber strand stuck to the adhesive." },
+        { char: "Teacher (You)", text: "It's a hair. I mount it on a glass slide and align the microscope slide holder." },
+        { char: "Teacher (You)", text: "Adjusting focus dials... lens magnification 400x. Let's look inside." }
+      ],
+      5: [
+        { char: "Teacher (You)", text: "Suddenly, a loud buzzer rings out across the hallway!" },
+        { char: "Containment System", text: "ALERT: BIOHAZARD SPILL. CABINET BACTERIAL AMPOULE BROKEN. SEALING VENT GATES." },
+        { char: "Teacher (You)", text: "The room is locked! The ventilation control panel requires a math override input based on the logistic growth model." }
+      ],
+      6: [
+        { char: "Teacher (You)", text: "Vents override. The air clears. I inspect the cabinet locker..." },
+        { char: "Teacher (You)", text: "The vial was pre-greased and punctured. Sabotage! Only biology students had cabinet keys." },
+        { char: "Teacher (You)", text: "Suspect profiles check: Rona takes Biology, has AB blood type, and eats Roujiamo. Rona is the culprit!" },
+        { char: "Teacher (You)", text: "I must search Rona's locker. I'll pull the school's locker combinations sheet from the directory desk." }
+      ],
+      7: [
+        { char: "Teacher (You)", text: "I dial the combination and open Rona's locker. Under a stack of books, there is a metallic USB drive." },
+        { char: "Teacher (You)", text: "I plug the USB into my computer. A dialogue window pops up: 'MOUNT DIRECTORY ENCRYPTED. INPUT DUAL DIAL AUTHS.'" }
+      ],
+      8: [
+        { char: "Teacher (You)", text: "Decryption success! A volume named 'GaoKao' mounts on the screen." },
+        { char: "Wipe System", text: "UNAUTHORIZED SOURCE DETECTED. INITIATING FILES DELETION SCRIPT." },
+        { char: "Teacher (You)", text: "No! It is deleting the exam records! I must solve Euler's approximation problems immediately to cancel the script!" }
+      ]
+    };
+
+    function toggleDiagKey() {
+      const db = document.getElementById("diag-box");
+      db.classList.toggle("hidden");
+    }
+
+    function triggerFailure() {
+      const activeObj = document.getElementById("main-scene-panel");
+      if (activeObj) {
+        activeObj.classList.add("shake-target");
+        setTimeout(() => activeObj.classList.remove("shake-target"), 400);
+      }
+    }
+
+    function stepDialogue(step, dir) {
+      dialogueStates[step] += dir;
+      renderActiveSpread();
+    }    // Dialogue page layout (Enhanced font size)
+    function getDialogueHTML(step, char, text, state, total) {
+      return `
+        <div class="flex-grow flex flex-col justify-between relative h-full">
+          <div class="space-y-6">
+            <h3 class="text-3xl font-serif text-amber-955 font-bold">${char}</h3>
+            <p class="font-serif text-2xl md:text-3xl text-slate-800 leading-relaxed md:leading-loose my-8 font-medium">${text}</p>
+          </div>
+          <div class="flex items-center justify-between border-t border-amber-900/10 pt-6">
+            <span class="text-sm font-mono text-slate-500 font-bold">Dialogue ${state + 1} / ${total}</span>
+            <div class="flex items-center gap-3">
+              ${state > 0 ? `<button onclick="stepDialogue(${step}, -1)" class="text-base font-mono text-amber-900 font-bold px-4 py-2">◀ Back</button>` : ''}
+              <button onclick="stepDialogue(${step}, 1)" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-sm font-bold px-10 py-4 rounded-xl shadow-md">CONTINUE ▶</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Step-by-Step Content Generators (All non-dialogue font sizes drastically increased)
+    const stepContents = {
+      1: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(1, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col justify-between">
+            <div class="space-y-6">
+              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_A: CAFETERIA RECORD DATABASE</span>
+              
+              <div class="bg-amber-900/5 p-6 rounded-xl border border-amber-900/10 font-mono text-lg md:text-xl leading-10 text-slate-850">
+                <div class="grid grid-cols-3 font-bold border-b-2 border-slate-350 pb-3 mb-4 text-amber-900">
+                  <span>STUDENT ID</span>
+                  <span>PRODUCT</span>
+                  <span>TIME</span>
+                </div>
+                <div class="space-y-3">
+                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>5145 (Matthew)</span><span>Roujiamo</span><span>10:00 AM</span></div>
+                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>3193 (Rona)</span><span>Roujiamo</span><span>10:00 AM</span></div>
+                  <div class="grid grid-cols-3 text-slate-400"><span>8791 (Lakshith)</span><span>Liangpi</span><span>10:00 AM</span></div>
+                  <div class="grid grid-cols-3 text-slate-400"><span>0413 (Guest)</span><span>Baozi</span><span>12:00 PM</span></div>
+                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>4329 (Moss)</span><span>Roujiamo</span><span>12:00 PM</span></div>
+                  <div class="grid grid-cols-3 text-slate-400"><span>2908 (Guest)</span><span>Baozi</span><span>12:30 PM</span></div>
+                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>9083 (Bryan)</span><span>Roujiamo</span><span>12:30 PM</span></div>
+                  <div class="grid grid-cols-3 text-slate-400"><span>0983 (Guest)</span><span>Liangpi</span><span>12:30 PM</span></div>
+                </div>
+              </div>
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-6 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
+                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of the letters in the names of all students who bought Roujiamo yesterday.</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Enter code sum..." 
+                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-8 py-4 rounded-xl text-sm transition-all uppercase tracking-wide">
+                    LOG EVIDENCE
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ VERIFIED EVIDENCE: Roujiamo Buyers Letter Sum = ${solvedAnswers[1]}
+              </div>
+            `}
+          </div>
+        `;
+      },
+      2: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(2, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col md:flex-row items-center justify-around gap-8">
+            <!-- Left Side: Sticky Note -->
+            <div class="bg-yellow-100 text-yellow-955 p-8 rounded-2xl shadow-xl border border-yellow-250 rotate-[-1deg] font-serif text-lg md:text-xl max-w-xl flex-1 leading-relaxed">
+              <span class="font-mono font-bold block border-b border-yellow-350 pb-2 mb-4 text-amber-900">STICKY NOTE EXAM:</span>
+              <p class="mb-4">Compute the escape code integral to unlock keypad:</p>
+              <div class="font-sans font-bold text-center text-xl md:text-2xl py-6 bg-yellow-50/70 rounded-2xl my-4 text-amber-955">
+                PIN = $$\\int_{0}^{5} (4x^5 + 4x^3 + 2x^2) \\, dx - 3000$$
+              </div>
+            </div>
+
+            <!-- Right Side: Keypad Widget (Larger size) -->
+            <div class="w-80 bg-gradient-to-r from-yellow-700 via-amber-800 to-yellow-900 border-2 border-yellow-955 rounded-3xl p-6 flex flex-col items-center shadow-2xl relative">
+              <div class="absolute -top-12 w-36 h-16 border-8 border-slate-500 rounded-t-full -z-10"></div>
+              <div id="keypad-display" class="bg-black border border-amber-955/80 w-full rounded-xl px-4 py-3 text-right font-mono text-3xl font-bold text-amber-500 tracking-wider mb-6 h-16 flex items-center justify-end">
+                <span>${isAlreadySolved ? solvedAnswers[2] : keypadDigits || "----"}</span>
+              </div>
+              
+              ${!isAlreadySolved ? `
+                <div class="grid grid-cols-3 gap-3 w-full">
+                  ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `
+                    <button onclick="dialKeypad('${n}')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">${n}</button>
+                  `).join("")}
+                  <button onclick="dialKeypad('CLR')" class="bg-red-955/50 hover:bg-red-900 text-red-200 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">CLR</button>
+                  <button onclick="dialKeypad('0')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">0</button>
+                  <button onclick="dialKeypad('ENT')" class="bg-amber-900 hover:bg-amber-850 text-amber-100 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">ENT</button>
+                </div>
+              ` : `
+                <div class="text-sm font-mono text-emerald-400 font-bold uppercase tracking-wider mt-2">✔ OVERRIDDEN</div>
+              `}
+            </div>
+          </div>
+        `;
+      },
+      3: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(3, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col justify-between">
+            <div class="space-y-6">
+              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_B: AGGLUTINATION ANALYSIS</span>
+              
+              <div class="flex flex-col items-center gap-3 border border-amber-900/15 p-4 rounded-xl bg-white/40 max-w-md mx-auto shadow">
+                <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-64 object-contain rounded-lg border border-amber-900/10">
+                <span class="text-xs font-mono text-slate-500">File link: assets/blood-type-key.png</span>
+              </div>
+
+              <div class="p-6 bg-[#f0e8d9] border border-amber-900/10 rounded-xl space-y-5 text-base md:text-lg font-mono text-slate-808 w-full">
+                <div>
+                  <span class="font-serif font-bold text-slate-905 text-lg">Bryan (AB):</span>
+                  <p class="font-sans text-lg md:text-xl my-1 font-bold text-amber-950">$$\\lim_{x \\to 2} \\frac{x^3 - 8}{x - 2}$$</p>
+                </div>
+                <div class="border-t border-amber-900/5 pt-3">
+                  <span class="font-serif font-bold text-slate-905 text-lg">Rona (AB):</span>
+                  <p class="font-sans text-lg md:text-xl my-1 font-bold text-amber-955">$$\\int_{0}^{2} (6x^2 - 4x) \\, dx$$</p>
+                </div>
+              </div>
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
+                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of the solutions to the suspects' equations.</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Enter sum..." 
+                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                    SUBMIT
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ VERIFIED EVIDENCE: Equations Sum = ${solvedAnswers[3]}
+              </div>
+            `}
+          </div>
+        `;
+      },
+      4: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(4, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col justify-between">
+            <div class="space-y-6">
+              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_C: EYEPIECE SLIDE PREVIEW</span>
+              
+              <div class="flex flex-col items-center gap-3 border border-amber-900/15 p-4 rounded-xl bg-white/40 max-w-md mx-auto shadow">
+                <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg border border-amber-900/10">
+                <span class="text-xs font-mono text-slate-500">File link: assets/animal-hair-key.png</span>
+              </div>
+
+              <div class="p-6 bg-yellow-50 border border-yellow-250 rounded-xl text-base md:text-lg font-mono text-slate-800 w-full">
+                <span class="font-bold text-amber-900 text-lg block mb-1">Option C (Canine Match Clue):</span>
+                <p class="font-sans text-xl font-bold my-2 text-amber-955">
+                  $$\\int_{1}^{4} \\frac{3}{\\sqrt{x}} \\, dx$$
+                </p>
+              </div>
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
+                <p class="font-bold text-amber-900 text-lg">TASK: Input the answer to Option C.</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Option C output..." 
+                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                    SUBMIT
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ VERIFIED EVIDENCE: Option C Output = ${solvedAnswers[4]}
+              </div>
+            `}
+          </div>
+        `;
+      },
+      5: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(5, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col justify-between relative">
+            <div class="absolute inset-0 bg-red-600/5 pointer-events-none animate-pulse"></div>
+            
+            <div class="space-y-6">
+              <div class="flex items-center gap-3 text-red-650 border-b border-red-900/20 pb-3">
+                <div class="w-6 h-6 bg-red-600 rounded-full animate-pulse shadow-[0_0_10px_#dc2626]"></div>
+                <span class="text-base font-mono font-bold tracking-widest uppercase">VENTILATION SHUTDOWN TIMEOUT</span>
+              </div>
+
+              <p class="font-serif text-lg text-slate-800 leading-relaxed">
+                The automatic containment gates require override calculations based on the bacterial growth projection:
+              </p>
+
+              <div class="p-8 bg-slate-900 text-red-400 rounded-2xl border border-slate-950 text-center font-mono">
+                <p class="text-base text-slate-400 mb-2 font-bold">Bacteria Logistic Differential Rate:</p>
+                <p class="font-sans text-xl md:text-2xl font-bold my-4">
+                  $$\\frac{dP}{dt} = 0.002 P(1000 - P), \\quad P(0) = 500$$
+                </p>
+                <p class="text-sm text-slate-400 mt-2">Find P(1) rounded to the nearest integer.</p>
+              </div>
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-4 border-t border-red-900/20 flex flex-col gap-3 font-mono text-sm text-slate-850">
+                <p class="font-bold text-red-950 text-lg">TASK: Calculate the bacteria counts P(1) at t=1.</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Vent override code..." 
+                         class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none focus:border-red-900 text-xl"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                    VENTILATE
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-red-900/20 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ NEUTRALIZED: Override code verified = ${solvedAnswers[5]}
+              </div>
+            `}
+          </div>
+        `;
+      },
+      6: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(6, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="w-full h-full flex flex-col justify-between relative">
+            <div class="space-y-6">
+              <div class="flex items-center justify-between border-b border-slate-350 pb-3 mb-4">
+                <span class="text-base font-mono text-slate-600 block font-bold">OFFICIAL LOCKER REGISTER DIRECTORY</span>
+                <input type="text" id="locker-filter" oninput="filterLockerTable()" placeholder="Search suspects..." 
+                       class="bg-amber-900/5 border border-amber-900/30 rounded-xl px-4 py-2.5 text-base text-amber-955 font-mono focus:outline-none w-56">
+              </div>
+
+              <div class="overflow-x-auto rounded-xl border border-slate-350 bg-white/45 text-base md:text-lg font-mono">
+                <table class="w-full text-left text-slate-850">
+                  <thead class="bg-amber-900/5 text-amber-955 border-b border-slate-300 font-bold">
+                    <tr>
+                      <th class="px-5 py-4">Name</th>
+                      <th class="px-5 py-4">Locker No.</th>
+                      <th class="px-5 py-4">Dial 1</th>
+                      <th class="px-5 py-4">Dial 2</th>
+                      <th class="px-5 py-4">Dial 3</th>
+                    </tr>
+                  </thead>
+                  <tbody id="locker-table-body" class="divide-y divide-slate-200">
+                    <tr><td class="px-5 py-4">Bryan</td><td class="px-5 py-4">341</td><td class="px-5 py-4">23</td><td class="px-5 py-4">54</td><td class="px-5 py-4">12</td></tr>
+                    <tr><td class="px-5 py-4">Matthew</td><td class="px-5 py-4">218</td><td class="px-5 py-4">12</td><td class="px-5 py-4">31</td><td class="px-5 py-4">95</td></tr>
+                    <tr><td class="px-5 py-4">Lakshith</td><td class="px-5 py-4">315</td><td class="px-5 py-4">42</td><td class="px-5 py-4">53</td><td class="px-5 py-4">77</td></tr>
+                    <tr><td class="px-5 py-4">Moss</td><td class="px-5 py-4">625</td><td class="px-5 py-4">40</td><td class="px-5 py-4">18</td><td class="px-5 py-4">62</td></tr>
+                    <tr class="bg-amber-900/10 font-bold"><td class="px-5 py-4 text-amber-900">Rona</td><td class="px-5 py-4">3193</td><td class="px-5 py-4">45</td><td class="px-5 py-4">34</td><td class="px-5 py-4 text-red-808">20</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
+                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of all 4 numbers in Rona's locker row (Locker No. + Dials).</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Sum value..." 
+                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                    SUBMIT
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ UNLOCKED: Locker code verified = ${solvedAnswers[6]}
+              </div>
+            `}
+          </div>
+        `;
+      },
+      7: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(7, d.char, d.text, dState, dTotal);
+        }
+
+        return `
+          <div class="bg-gradient-to-b from-[#181d28] to-[#0c0f17] border border-slate-800 rounded-3xl p-8 flex flex-col justify-between min-h-[500px] w-full shadow-2xl">
+            <div class="w-full border-b border-slate-800 pb-3 flex items-center justify-between text-sm font-mono text-slate-400">
+              <span class="text-cyan-400 font-bold">USB DECRYPT SHIELD KEY</span>
+              <span>STATE: ${isAlreadySolved ? "DECRYPTED" : "MOUNT_LOCKED"}</span>
+            </div>
+
+            <!-- safe dials -->
+            <div class="flex items-center justify-center gap-10 my-8">
+              <div class="flex flex-col items-center gap-3">
+                ${!isAlreadySolved ? `<button onclick="changeDial(1, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▲</button>` : ''}
+                <div class="w-24 h-24 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-4xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "1" : safeDial1}</div>
+                ${!isAlreadySolved ? `<button onclick="changeDial(1, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▼</button>` : ''}
+                <span class="text-xs font-mono text-slate-500 tracking-wider">DIAL A</span>
+              </div>
+              <div class="flex flex-col items-center gap-3">
+                ${!isAlreadySolved ? `<button onclick="changeDial(2, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▲</button>` : ''}
+                <div class="w-24 h-24 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-4xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "6" : safeDial2}</div>
+                ${!isAlreadySolved ? `<button onclick="changeDial(2, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▼</button>` : ''}
+                <span class="text-xs font-mono text-slate-500 tracking-wider">DIAL B</span>
+              </div>
+              ${!isAlreadySolved ? `
+                <button onclick="unlockSafe()" class="ml-6 w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center font-bold text-base text-slate-200 hover:text-white active:scale-95 transition-all shadow-2xl">
+                  OPEN SAFE
+                </button>
+              ` : `
+                <span class="ml-6 text-emerald-400 font-bold font-mono text-sm">✔ ACCESS GRANTED</span>
+              `}
+            </div>
+
+            <div class="bg-black/60 p-6 rounded-xl border border-slate-800 text-sm font-mono text-slate-400 space-y-4">
+              <div>
+                <span class="text-cyan-500 font-bold text-base">Dial A Code integration:</span>
+                <p class="font-sans text-slate-200 mt-2 text-lg">$$\\int_{0}^{\\infty} 4x e^{-2x} \\, dx$$</p>
+              </div>
+              <div class="border-t border-slate-800 pt-3">
+                <span class="text-cyan-500 font-bold text-base">Dial B Series sum:</span>
+                <p class="font-sans text-slate-200 mt-2 text-lg">$$\\sum_{n=0}^{\\infty} 3\\left(\\frac{1}{2}\\right)^n$$</p>
+              </div>
+            </div>
+          </div>
+        `;
+      },
+      8: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
+        if (isDialogueActive) {
+          return getDialogueHTML(8, d.char, d.text, dState, dTotal);
+        }
+
+        if (!timerInterval) {
+          startCountdown();
+        }
+
+        const renderEulerQuestion = () => {
+          if (secondsLeft > 180) {
+            return `
+              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed">
+                <span class="font-bold text-emerald-800 block text-sm uppercase">EULER NODE LEVEL A (T > 3 MIN)</span>
+                <p class="my-3 font-semibold text-lg">Calculate V(1) using step size x=0.5:</p>
+                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-emerald-400 rounded-xl font-bold">
+                  $$\\frac{dv}{dx} = 2V, \\quad V(0) = 1, \\quad \\Delta x = 0.5$$
+                </div>
+              </div>
+            `;
+          } else if (secondsLeft > 60) {
+            return `
+              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed">
+                <span class="font-bold text-yellow-800 block text-sm uppercase">EULER NODE LEVEL B (1 MIN &lt; T &le; 3 MIN)</span>
+                <p class="my-3 font-semibold text-lg">Calculate V(2) using step size x=1.0:</p>
+                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-yellow-400 rounded-xl font-bold">
+                  $$\\frac{dv}{dx} = -0.5V, \\quad V(0) = 8, \\quad \\Delta x = 1.0$$
+                </div>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed animate-pulse-fast">
+                <span class="font-bold text-red-800 block text-sm uppercase">EULER NODE LEVEL C (T &le; 1 MIN)</span>
+                <p class="my-3 font-semibold text-lg">Calculate V(0.5) using step size x=0.5:</p>
+                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-red-400 rounded-xl font-bold">
+                  $$\\frac{dv}{dx} = -x - V, \\quad V(0) = 1, \\quad \\Delta x = 0.5$$
+                </div>
+              </div>
+            `;
+          }
+        };
+
+        return `
+          <div id="active-object" class="w-full h-full flex flex-col justify-between relative">
+            <div class="absolute inset-0 bg-red-600/5 pointer-events-none animate-pulse"></div>
+            
+            <div class="space-y-6">
+              <div class="border border-red-800 bg-black text-red-600 p-6 rounded-2xl flex items-center justify-between shadow-lg mb-3">
+                <span class="text-sm font-mono uppercase font-bold tracking-wider">SECURE FILE WIPE TIMER</span>
+                <div id="deletion-countdown" class="font-mono text-4xl md:text-5xl font-bold tracking-widest text-red-500 animate-pulse">05:00</div>
+              </div>
+              
+              ${renderEulerQuestion()}
+            </div>
+
+            ${!isAlreadySolved ? `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-850">
+                <p class="font-bold text-red-950 text-lg">TASK: Calculate the Euler outcome key to stop deletion.</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="text" id="active-input" placeholder="Override key..." 
+                         class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none text-xl font-mono"
+                         onkeydown="if(event.key==='Enter') submitAnswer()">
+                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-8 py-3.5 rounded-xl text-sm transition-all uppercase">
+                    ABORT WIPE
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+                ✔ COMPLETED: Override secured = ${solvedAnswers[8]}
+              </div>
+            `}
+          </div>
+        `;
+      }
+    };
+
+    function changeDial(dialNo, val) {
+      if (dialNo === 1) {
+        safeDial1 = (safeDial1 + val + 10) % 10;
+      } else {
+        safeDial2 = (safeDial2 + val + 10) % 10;
+      }
+      renderActiveSpread();
+    }
+
+    function unlockSafe() {
+      const code = `${safeDial1}${safeDial2}`;
+      if (code === "16") {
+        currentStep = 8;
+        viewStep = 8;
+        updateTabs();
+        renderActiveSpread();
+      } else {
+        triggerFailure();
+        safeDial1 = 0;
+        safeDial2 = 0;
+        renderActiveSpread();
+      }
+    }
+
+    function dialKeypad(val) {
+      if (val === "CLR") {
+        keypadDigits = "";
+      } else if (val === "ENT") {
+        if (keypadDigits === "8125") {
+          currentStep = 3;
+          viewStep = 3;
+          keypadDigits = "";
+          updateTabs();
+          renderActiveSpread();
+        } else {
+          triggerFailure();
+          keypadDigits = "";
+        }
+      } else {
+        if (keypadDigits.length < 4) {
+          keypadDigits += val;
+        }
+      }
+      loadActiveStageKeypad();
+    }
+
+    function loadActiveStageKeypad() {
+      const disp = document.querySelector("#keypad-display span");
+      if (disp) disp.innerText = keypadDigits || "----";
+    }
+
+    function startCountdown() {
+      timerInterval = setInterval(() => {
+        if (secondsLeft <= 0) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          handleTimeout();
+          return;
+        }
+        secondsLeft--;
+        
+        const minutes = Math.floor(secondsLeft / 60);
+        const seconds = secondsLeft % 60;
+        const displayStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        const countdownEl = document.getElementById("deletion-countdown");
+        if (countdownEl) {
+          countdownEl.innerText = displayStr;
+          if (secondsLeft === 180 || secondsLeft === 60) {
+            renderActiveSpread();
+          }
+        }
+      }, 1000);
+    }
+
+    function handleTimeout() {
+      alert("TIMEOUT! The files are wiped out. Restarting stage...");
+      currentStep = 1;
+      viewStep = 1;
+      secondsLeft = 300;
+      updateTabs();
+      renderActiveSpread();
+    }
+
+    function submitAnswer() {
+      const inputEl = document.getElementById("active-input");
+      if (!inputEl) return;
+      const rawAns = inputEl.value.trim().toLowerCase();
+      let isCorrect = false;
+
+      switch (currentStep) {
+        case 1:
+          if (rawAns === "20") isCorrect = true;
+          break;
+        case 3:
+          if (rawAns === "20") isCorrect = true;
+          break;
+        case 4:
+          if (rawAns === "6") isCorrect = true;
+          break;
+        case 5:
+          if (rawAns === "881") isCorrect = true;
+          break;
+        case 6:
+          if (rawAns === "3292") isCorrect = true;
+          break;
+        case 8:
+          if (secondsLeft > 180) {
+            if (rawAns === "4") isCorrect = true;
+          } else if (secondsLeft > 60) {
+            if (rawAns === "2") isCorrect = true;
+          } else {
+            if (rawAns === "0.5") isCorrect = true;
+          }
+          break;
+      }
+
+      if (isCorrect) {
+        if (currentStep < 8) {
+          currentStep++;
+          viewStep = currentStep;
+          updateTabs();
+          renderActiveSpread();
+        } else {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          showVictory();
+        }
+      } else {
+        triggerFailure();
+      }
+    }
+
+    window.filterLockerTable = function() {
+      const text = document.getElementById("locker-filter").value.toLowerCase();
+      const rows = document.querySelectorAll("#locker-table-body tr");
+      rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(text) ? "" : "none";
+      });
+    };
+
+    function updateTabs() {
+      const container = document.getElementById("dossier-nav-tabs");
+      const tabNames = {
+        1: "01: Tip Log",
+        2: "02: Key Lock",
+        3: "03: Blood Lab",
+        4: "04: Microscope",
+        5: "05: Biohazard",
+        6: "06: Locker Db",
+        7: "07: USB safe",
+        8: "08: Console"
+      };
+
+      container.innerHTML = Object.keys(tabNames).map(step => {
+        const isLocked = step > currentStep;
+        const isActive = step == viewStep;
+        
+        return `
+          <button onclick="${isLocked ? '' : `navigateStep(${step})`}" 
+                  class="font-mono text-sm md:text-base tracking-wider uppercase px-5 py-4 border rounded-2xl transition-all duration-150 w-full text-left flex items-center justify-between
+                         ${isLocked ? 'border-amber-955/15 text-amber-955/20 cursor-not-allowed bg-black/10' : 
+                           isActive ? 'border-amber-500 bg-amber-950/70 text-amber-400 font-bold scale-105 shadow-md' : 
+                                      'border-amber-900/40 text-amber-655/80 hover:border-amber-700/60 bg-black/40 hover:scale-102'}" style="outline: none;">
+            <span>${tabNames[step]}</span>
+            <span>${isLocked ? '🔒' : '🗂️'}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function navigateStep(step) {
+      viewStep = step;
+      // Reset dialogue index to 0 when backtrack viewing or current step
+      if (step <= currentStep) {
+        dialogueStates[step] = 0;
+      }
+      updateTabs();
+      renderActiveSpread();
+    }
+
+    function renderActiveSpread() {
+      const rightPanel = document.getElementById("active-viewport");
+
+      const dState = dialogueStates[viewStep];
+      const dTotal = dialogs[viewStep].length;
+      const isDialogueActive = dState < dTotal - 1;
+      const d = dialogs[viewStep][dState];
+      const isAlreadySolved = viewStep < currentStep;
+
+      // Inject combined logic layout
+      const rightHTML = stepContents[viewStep](isDialogueActive, dState, dTotal, d, isAlreadySolved);
+      rightPanel.innerHTML = rightHTML;
+
+      // Render math equations on the whole spread
+      renderMathInElement(document.getElementById("desk-surface"), {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        throwOnError: false
+      });
+    }
+
+    function showVictory() {
+      const surface = document.getElementById("desk-surface");
+      surface.innerHTML = `
+        <div class="aged-paper rounded-3xl p-10 md:p-14 text-center flex flex-col items-center justify-center relative min-h-[500px] desk-dossier w-full animate-fade-in font-serif">
+          <div class="absolute top-12 right-12 w-28 h-28 coffee-ring rounded-full"></div>
+          
+          <div class="badge-stamp border-8 border-red-800 rounded-xl px-12 py-4 text-red-800 font-black text-4xl uppercase tracking-widest bg-transparent mb-8">
+            CASE CLOSED
+          </div>
+          
+          <div class="bg-[#eee7da]/95 p-8 rounded-xl border border-amber-950/10 text-left text-slate-800 max-w-2xl w-full space-y-4 shadow-inner">
+            <h4 class="text-xl font-bold border-b border-amber-950/10 pb-2">RONA INCRIMINATED (GAOKAO SESSION CHEATER)</h4>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm font-mono text-slate-650 border-b border-amber-950/10 pb-4">
+              <div>
+                <strong>REGISTRY ID:</strong> 3193<br>
+                <strong>LOCKER TARGET:</strong> #3193<br>
+                <strong>BLOOD ASSAY:</strong> TYPE AB (+)
+              </div>
+              <div>
+                <strong>PET INVENTORY:</strong> NONE<br>
+                <strong>LAB ASSIGNMENT:</strong> BIOLOGY/CHEMISTRY
+              </div>
+            </div>
+
+            <p class="text-sm italic leading-relaxed text-slate-905 pt-2">
+              Dossier audit concluded. Recovered leaked GaoKao exam booklets inside Rona's Chemistry closet. All files secured. Forensic report saved.
+            </p>
+          </div>
+
+          <button onclick="location.reload()" class="mt-8 bg-amber-900 hover:bg-amber-850 text-amber-50 px-8 py-3 rounded-xl font-mono font-bold text-xs tracking-wider transition-all shadow-md active:translate-y-0.5">
+            REOPEN CASE FILES
+          </button>
+        </div>
+      `;
+    }
+
+    window.addEventListener("load", () => {
+      updateTabs();
+      renderActiveSpread();
+    });
+  </script>
+</body>
+</html>

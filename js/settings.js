@@ -46,6 +46,193 @@ export const SettingsModule = {
         if (document.getElementById('currentThemeLabel')) {
             document.getElementById('currentThemeLabel').innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
         }
+        // Announcement Color UI Update
+        const annColor = localStorage.getItem('annAccentColor') || 'orange';
+        const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+
+        if (document.getElementById('currentAnnColorLabel')) {
+            document.getElementById('currentAnnColorLabel').innerText = annColor === 'custom' ? 'Custom' : (annColor.charAt(0).toUpperCase() + annColor.slice(1));
+        }
+
+        const annPreview = document.getElementById('currentAnnColorPreview');
+        if (annPreview) {
+            if (annColor === 'orange') {
+                annPreview.style.backgroundColor = '#F97316';
+            } else if (annColor === 'blue') {
+                annPreview.style.backgroundColor = '#007AFF';
+            } else if (annColor === 'green') {
+                annPreview.style.backgroundColor = '#95FF14';
+            } else if (annColor === 'purple') {
+                annPreview.style.backgroundColor = '#A724FF';
+            } else if (annColor === 'custom') {
+                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+                annPreview.style.backgroundColor = isDark ? customAnnDarkHex : customAnnLightHex;
+            }
+        }
+
+        const annPickersContainer = document.getElementById('annCustomPickersContainer');
+        if (annPickersContainer) {
+            if (annColor === 'custom') {
+                annPickersContainer.classList.remove('hidden');
+            } else {
+                annPickersContainer.classList.add('hidden');
+            }
+        }
+
+        const annLightPreview = document.getElementById('annCustomColorLightPreview');
+        if (annLightPreview) annLightPreview.style.backgroundColor = customAnnLightHex;
+
+        const annDarkPreview = document.getElementById('annCustomColorDarkPreview');
+        if (annDarkPreview) annDarkPreview.style.backgroundColor = customAnnDarkHex;
+
+        const annLightInput = document.getElementById('annColorPickerLight');
+        if (annLightInput) annLightInput.value = customAnnLightHex;
+
+        const annDarkInput = document.getElementById('annColorPickerDark');
+        if (annDarkInput) annDarkInput.value = customAnnDarkHex;
+
+
+        // Messaging Color UI Update
+        const msgColor = localStorage.getItem('msgAccentColor') || 'blue';
+        const customMsgLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+        const customMsgDarkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+
+        if (document.getElementById('currentMsgColorLabel')) {
+            document.getElementById('currentMsgColorLabel').innerText = msgColor === 'custom' ? 'Custom' : (msgColor.charAt(0).toUpperCase() + msgColor.slice(1));
+        }
+
+        const msgPreview = document.getElementById('currentMsgColorPreview');
+        if (msgPreview) {
+            if (msgColor === 'orange') {
+                msgPreview.style.backgroundColor = '#F97316';
+            } else if (msgColor === 'blue') {
+                msgPreview.style.backgroundColor = '#007AFF';
+            } else if (msgColor === 'green') {
+                msgPreview.style.backgroundColor = '#95FF14';
+            } else if (msgColor === 'purple') {
+                msgPreview.style.backgroundColor = '#A724FF';
+            } else if (msgColor === 'custom') {
+                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+                msgPreview.style.backgroundColor = isDark ? customMsgDarkHex : customMsgLightHex;
+            }
+        }
+
+        const msgPickersContainer = document.getElementById('msgCustomPickersContainer');
+        if (msgPickersContainer) {
+            if (msgColor === 'custom') {
+                msgPickersContainer.classList.remove('hidden');
+            } else {
+                msgPickersContainer.classList.add('hidden');
+            }
+        }
+
+        const msgLightPreview = document.getElementById('msgCustomColorLightPreview');
+        if (msgLightPreview) msgLightPreview.style.backgroundColor = customMsgLightHex;
+
+        const msgDarkPreview = document.getElementById('msgCustomColorDarkPreview');
+        if (msgDarkPreview) msgDarkPreview.style.backgroundColor = customMsgDarkHex;
+
+        const msgLightInput = document.getElementById('msgColorPickerLight');
+        if (msgLightInput) msgLightInput.value = customMsgLightHex;
+
+        const msgDarkInput = document.getElementById('msgColorPickerDark');
+        if (msgDarkInput) msgDarkInput.value = customMsgDarkHex;
+
+
+        // Your Message (chat) Color UI Update
+        const chatColor = localStorage.getItem('chatAccentColor') || 'blue';
+        const customChatLightHex = localStorage.getItem('chatCustomColorLightHex') || '#007AFF';
+        const customChatDarkHex = localStorage.getItem('chatCustomColorDarkHex') || '#0A84FF';
+
+        if (document.getElementById('currentChatColorLabel')) {
+            document.getElementById('currentChatColorLabel').innerText = chatColor === 'custom' ? 'Custom' : (chatColor.charAt(0).toUpperCase() + chatColor.slice(1));
+        }
+
+        const chatPreview = document.getElementById('currentChatColorPreview');
+        if (chatPreview) {
+            if (chatColor === 'orange') {
+                chatPreview.style.backgroundColor = '#F97316';
+            } else if (chatColor === 'blue') {
+                chatPreview.style.backgroundColor = '#007AFF';
+            } else if (chatColor === 'green') {
+                chatPreview.style.backgroundColor = '#95FF14';
+            } else if (chatColor === 'purple') {
+                chatPreview.style.backgroundColor = '#A724FF';
+            } else if (chatColor === 'custom') {
+                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+                chatPreview.style.backgroundColor = isDark ? customChatDarkHex : customChatLightHex;
+            }
+        }
+
+        const chatPickersContainer = document.getElementById('chatCustomPickersContainer');
+        if (chatPickersContainer) {
+            if (chatColor === 'custom') {
+                chatPickersContainer.classList.remove('hidden');
+            } else {
+                chatPickersContainer.classList.add('hidden');
+            }
+        }
+
+        const chatLightPreview = document.getElementById('chatCustomColorLightPreview');
+        if (chatLightPreview) chatLightPreview.style.backgroundColor = customChatLightHex;
+
+        const chatDarkPreview = document.getElementById('chatCustomColorDarkPreview');
+        if (chatDarkPreview) chatDarkPreview.style.backgroundColor = customChatDarkHex;
+
+        const chatLightInput = document.getElementById('chatColorPickerLight');
+        if (chatLightInput) chatLightInput.value = customChatLightHex;
+
+        const chatDarkInput = document.getElementById('chatColorPickerDark');
+        if (chatDarkInput) chatDarkInput.value = customChatDarkHex;
+
+        // Other Messages Color UI Update
+        const otherMsgColor = localStorage.getItem('otherMsgAccentColor') || 'gray';
+        const customOtherMsgLightHex = localStorage.getItem('otherMsgCustomColorLightHex') || '#E9E9EB';
+        const customOtherMsgDarkHex = localStorage.getItem('otherMsgCustomColorDarkHex') || '#3A3A3C';
+
+        if (document.getElementById('currentOtherMsgColorLabel')) {
+            document.getElementById('currentOtherMsgColorLabel').innerText = otherMsgColor === 'custom' ? 'Custom' : (otherMsgColor.charAt(0).toUpperCase() + otherMsgColor.slice(1));
+        }
+
+        const otherMsgPreview = document.getElementById('currentOtherMsgColorPreview');
+        if (otherMsgPreview) {
+            if (otherMsgColor === 'gray') {
+                otherMsgPreview.style.backgroundColor = '#8E8E93';
+            } else if (otherMsgColor === 'orange') {
+                otherMsgPreview.style.backgroundColor = '#F97316';
+            } else if (otherMsgColor === 'blue') {
+                otherMsgPreview.style.backgroundColor = '#007AFF';
+            } else if (otherMsgColor === 'green') {
+                otherMsgPreview.style.backgroundColor = '#95FF14';
+            } else if (otherMsgColor === 'purple') {
+                otherMsgPreview.style.backgroundColor = '#A724FF';
+            } else if (otherMsgColor === 'custom') {
+                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
+                otherMsgPreview.style.backgroundColor = isDark ? customOtherMsgDarkHex : customOtherMsgLightHex;
+            }
+        }
+
+        const otherMsgPickersContainer = document.getElementById('otherMsgCustomPickersContainer');
+        if (otherMsgPickersContainer) {
+            if (otherMsgColor === 'custom') {
+                otherMsgPickersContainer.classList.remove('hidden');
+            } else {
+                otherMsgPickersContainer.classList.add('hidden');
+            }
+        }
+
+        const otherMsgLightPreview = document.getElementById('otherMsgCustomColorLightPreview');
+        if (otherMsgLightPreview) otherMsgLightPreview.style.backgroundColor = customOtherMsgLightHex;
+
+        const otherMsgDarkPreview = document.getElementById('otherMsgCustomColorDarkPreview');
+        if (otherMsgDarkPreview) otherMsgDarkPreview.style.backgroundColor = customOtherMsgDarkHex;
+
+        const otherMsgLightInput = document.getElementById('otherMsgColorPickerLight');
+        if (otherMsgLightInput) otherMsgLightInput.value = customOtherMsgLightHex;
+
+        const otherMsgDarkInput = document.getElementById('otherMsgColorPickerDark');
+        if (otherMsgDarkInput) otherMsgDarkInput.value = customOtherMsgDarkHex;
     },
 
     ensureSettingsModal() {
@@ -80,42 +267,301 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="relative" id="themeDropdownContainer">
+                    <div id="themeDropdownContainer">
                         <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
-                        <div onclick="toggleDropdown('themeDropdown', event)"
-                            class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl cursor-pointer">
-                            <span class="font-medium">Theme</span>
-                            <div class="flex items-center text-gray-500">
-                                <span id="currentThemeLabel" class="mr-2">System</span>
-                                <svg id="themeDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7" />
-                                </svg>
+                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl">
+                            <!-- Theme Row -->
+                            <div class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('themeDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Theme</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentThemeLabel" class="mr-2 text-xs">System</span>
+                                        <svg id="themeDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="themeDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectTheme('system', event)"
+                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
+                                    <button onclick="selectTheme('light', event)"
+                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
+                                    <button onclick="selectTheme('dark', event)"
+                                        class="w-full text-left px-4 py-3 text-sm">Dark</button>
+                                </div>
+                            </div>
+
+                            <!-- Announcement Accent -->
+                            <div class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('annColorDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Announcement</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentAnnColorLabel" class="mr-2 text-xs">Orange</span>
+                                        <div id="currentAnnColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-orange-500"></div>
+                                        <svg id="annColorDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="annColorDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectAnnColor('orange', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Orange</span>
+                                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                                    </button>
+                                    <button onclick="selectAnnColor('blue', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Blue</span>
+                                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    </button>
+                                    <button onclick="selectAnnColor('green', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Green</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#95FF14]"></div>
+                                    </button>
+                                    <button onclick="selectAnnColor('purple', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Purple</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                    </button>
+                                    <button onclick="selectAnnColor('custom', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
+                                        <span>Custom</span>
+                                        <div class="flex gap-0.5 items-center">
+                                            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>
+                                            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Panel Accent -->
+                            <div class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('msgColorDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Recent List</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentMsgColorLabel" class="mr-2 text-xs">Blue</span>
+                                        <div id="currentMsgColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-blue-500"></div>
+                                        <svg id="msgColorDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="msgColorDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectMsgColor('orange', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Orange</span>
+                                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                                    </button>
+                                    <button onclick="selectMsgColor('blue', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Blue</span>
+                                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    </button>
+                                    <button onclick="selectMsgColor('green', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Green</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#95FF14]"></div>
+                                    </button>
+                                    <button onclick="selectMsgColor('purple', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Purple</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                    </button>
+                                    <button onclick="selectMsgColor('custom', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
+                                        <span>Custom</span>
+                                        <div class="flex gap-0.5 items-center">
+                                            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>
+                                            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Messages Accent -->
+                            <div class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('chatColorDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Your Messages</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentChatColorLabel" class="mr-2 text-xs">Blue</span>
+                                        <div id="currentChatColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-blue-500"></div>
+                                        <svg id="chatColorDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="chatColorDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectChatColor('orange', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Orange</span>
+                                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                                    </button>
+                                    <button onclick="selectChatColor('blue', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Blue</span>
+                                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    </button>
+                                    <button onclick="selectChatColor('green', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Green</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#95FF14]"></div>
+                                    </button>
+                                    <button onclick="selectChatColor('purple', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Purple</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                    </button>
+                                    <button onclick="selectChatColor('custom', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
+                                        <span>Custom</span>
+                                        <div class="flex gap-0.5 items-center">
+                                            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>
+                                            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Other Messages Accent -->
+                            <div class="relative">
+                                <div onclick="toggleDropdown('otherMsgColorDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Other Messages</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentOtherMsgColorLabel" class="mr-2 text-xs">Gray</span>
+                                        <div id="currentOtherMsgColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-gray-400"></div>
+                                        <svg id="otherMsgColorDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="otherMsgColorDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectOtherMsgColor('gray', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Gray</span>
+                                        <div class="w-3 h-3 rounded-full bg-gray-400"></div>
+                                    </button>
+                                    <button onclick="selectOtherMsgColor('orange', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Orange</span>
+                                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                                    </button>
+                                    <button onclick="selectOtherMsgColor('blue', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Blue</span>
+                                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    </button>
+                                    <button onclick="selectOtherMsgColor('green', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Green</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#95FF14]"></div>
+                                    </button>
+                                    <button onclick="selectOtherMsgColor('purple', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span>Purple</span>
+                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                    </button>
+                                    <button onclick="selectOtherMsgColor('custom', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
+                                        <span>Custom</span>
+                                        <div class="flex gap-0.5 items-center">
+                                            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>
+                                            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                                        </div>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div id="themeDropdown"
-                            class="custom-dropdown hidden absolute top-[calc(100%+8px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
-                            <button onclick="selectTheme('system', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
-                            <button onclick="selectTheme('light', event)"
-                                class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
-                            <button onclick="selectTheme('dark', event)"
-                                class="w-full text-left px-4 py-3 text-sm">Dark</button>
-                        </div>
-                    </div>
 
-                    <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
-                        <button onclick="showTos(false)"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <span class="font-medium">Terms of Service</span>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
+                        <!-- Custom color pickers containers outside grouped container -->
+                        <div id="annCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerLight').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="annCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="annColorPickerLight" oninput="handleAnnColorPickerLightInput(this.value, event)" onchange="handleAnnColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerDark').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="annCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="annColorPickerDark" oninput="handleAnnColorPickerDarkInput(this.value, event)" onchange="handleAnnColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="msgCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerLight').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="msgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="msgColorPickerLight" oninput="handleMsgColorPickerLightInput(this.value, event)" onchange="handleMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerDark').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="msgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="msgColorPickerDark" oninput="handleMsgColorPickerDarkInput(this.value, event)" onchange="handleMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="chatCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerLight').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="chatCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="chatColorPickerLight" oninput="handleChatColorPickerLightInput(this.value, event)" onchange="handleChatColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerDark').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="chatCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="chatColorPickerDark" oninput="handleChatColorPickerDarkInput(this.value, event)" onchange="handleChatColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="otherMsgCustomPickersContainer" class="hidden mt-3 grid grid-cols-2 gap-3">
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerLight').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="otherMsgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="otherMsgColorPickerLight" oninput="handleOtherMsgColorPickerLightInput(this.value, event)" onchange="handleOtherMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerDark').click();">
+                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                <div class="flex items-center gap-2">
+                                    <div id="otherMsgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                    <input type="color" id="otherMsgColorPickerDark" oninput="handleOtherMsgColorPickerDarkInput(this.value, event)" onchange="handleOtherMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                </div>
+                            </div>
+                        </div>
+                    </div></div>
 
                     <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
                         <label class="font-medium">Sound Effects</label>
@@ -124,18 +570,28 @@ export const SettingsModule = {
                     </div>
 
                     <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Software</label>
-                        <button onclick="showChangelog()"
-                            class="w-full flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl active:bg-gray-200 dark:active:bg-white/20 transition-colors">
-                            <div class="text-left">
-                                <div class="font-medium">Engineering Log</div>
-                                <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
+                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
+                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
+                            <button onclick="showTos(false)"
+                                class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <span class="font-medium">Terms of Service</span>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                            <button onclick="showChangelog()"
+                                class="w-full flex items-center justify-between p-3.5 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <div class="text-left">
+                                    <div class="font-medium">Engineering Log</div>
+                                    <div class="text-xs text-gray-500">Version 5.0.0 (Latest)</div>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="pt-2 space-y-2">
@@ -308,6 +764,166 @@ window.selectTheme = (val, e) => {
     window.applyTheme(val);
     SettingsModule.updateSettingsLabels();
     window.toggleDropdown('themeDropdown', e);
+};
+
+window.selectAnnColor = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyAnnColor(val);
+    SettingsModule.updateSettingsLabels();
+    window.toggleDropdown('annColorDropdown', e);
+};
+
+window.applyAnnColor = (color, customLightHex = null, customDarkHex = null) => {
+    const AppModules = window.AppModules || {};
+    if (AppModules.View && typeof AppModules.View.applyAnnColor === 'function') {
+        AppModules.View.applyAnnColor(color, customLightHex, customDarkHex);
+    }
+};
+
+window.handleAnnColorPickerLightInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyAnnColor('custom', val, null);
+};
+
+window.handleAnnColorPickerLightChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('annCustomColorLightHex', val);
+    const darkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+    window.applyAnnColor('custom', val, darkHex);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.handleAnnColorPickerDarkInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyAnnColor('custom', null, val);
+};
+
+window.handleAnnColorPickerDarkChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('annCustomColorDarkHex', val);
+    const lightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+    window.applyAnnColor('custom', lightHex, val);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.selectMsgColor = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyMsgColor(val);
+    SettingsModule.updateSettingsLabels();
+    window.toggleDropdown('msgColorDropdown', e);
+};
+
+window.applyMsgColor = (color, customLightHex = null, customDarkHex = null) => {
+    const AppModules = window.AppModules || {};
+    if (AppModules.View && typeof AppModules.View.applyMsgColor === 'function') {
+        AppModules.View.applyMsgColor(color, customLightHex, customDarkHex);
+    }
+};
+
+window.handleMsgColorPickerLightInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyMsgColor('custom', val, null);
+};
+
+window.handleMsgColorPickerLightChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('msgCustomColorLightHex', val);
+    const darkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+    window.applyMsgColor('custom', val, darkHex);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.handleMsgColorPickerDarkInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyMsgColor('custom', null, val);
+};
+
+window.handleMsgColorPickerDarkChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('msgCustomColorDarkHex', val);
+    const lightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+    window.applyMsgColor('custom', lightHex, val);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.selectOtherMsgColor = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyOtherMsgColor(val);
+    SettingsModule.updateSettingsLabels();
+    window.toggleDropdown('otherMsgColorDropdown', e);
+};
+
+window.applyOtherMsgColor = (color, customLightHex = null, customDarkHex = null) => {
+    const AppModules = window.AppModules || {};
+    if (AppModules.View && typeof AppModules.View.applyOtherMsgColor === 'function') {
+        AppModules.View.applyOtherMsgColor(color, customLightHex, customDarkHex);
+    }
+};
+
+window.handleOtherMsgColorPickerLightInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyOtherMsgColor('custom', val, null);
+};
+
+window.handleOtherMsgColorPickerLightChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('otherMsgCustomColorLightHex', val);
+    const darkHex = localStorage.getItem('otherMsgCustomColorDarkHex') || '#3A3A3C';
+    window.applyOtherMsgColor('custom', val, darkHex);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.handleOtherMsgColorPickerDarkInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyOtherMsgColor('custom', null, val);
+};
+
+window.handleOtherMsgColorPickerDarkChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('otherMsgCustomColorDarkHex', val);
+    const lightHex = localStorage.getItem('otherMsgCustomColorLightHex') || '#E9E9EB';
+    window.applyOtherMsgColor('custom', lightHex, val);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.selectChatColor = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyChatColor(val);
+    SettingsModule.updateSettingsLabels();
+    window.toggleDropdown('chatColorDropdown', e);
+};
+
+window.applyChatColor = (color, customLightHex = null, customDarkHex = null) => {
+    const AppModules = window.AppModules || {};
+    if (AppModules.View && typeof AppModules.View.applyChatColor === 'function') {
+        AppModules.View.applyChatColor(color, customLightHex, customDarkHex);
+    }
+};
+
+window.handleChatColorPickerLightInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyChatColor('custom', val, null);
+};
+
+window.handleChatColorPickerLightChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('chatCustomColorLightHex', val);
+    const darkHex = localStorage.getItem('chatCustomColorDarkHex') || '#0A84FF';
+    window.applyChatColor('custom', val, darkHex);
+    SettingsModule.updateSettingsLabels();
+};
+
+window.handleChatColorPickerDarkInput = (val, e) => {
+    if (e) e.stopPropagation();
+    window.applyChatColor('custom', null, val);
+};
+
+window.handleChatColorPickerDarkChange = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('chatCustomColorDarkHex', val);
+    const lightHex = localStorage.getItem('chatCustomColorLightHex') || '#007AFF';
+    window.applyChatColor('custom', lightHex, val);
+    SettingsModule.updateSettingsLabels();
 };
 
 // Wrapper bindings around AppModules.View
