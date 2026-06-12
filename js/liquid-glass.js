@@ -102,17 +102,13 @@ export class LiquidGlassEffect {
     this.isFallback = isSafari || isFirefox || isIOS;
     
     if (this.isFallback) {
-      // Create background element to prevent child text/icons from getting blurred by the filter
-      this.bgElement = document.createElement('div');
-      this.bgElement.className = 'liquid-glass-bg';
-      this.bgElement.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: inherit; pointer-events: none; z-index: -1;';
-      
-      // Ensure target element has relative positioning so bg element is relative to it
-      if (window.getComputedStyle(this.element).position === 'static') {
-        this.element.style.position = 'relative';
-      }
-      this.element.insertBefore(this.bgElement, this.element.firstChild);
       this.element.classList.add('liquid-glass-fallback');
+      if (this.element.id !== 'bottomNavActivePill') {
+        const fallbackFilter = 'blur(20px) saturate(190%) contrast(100%) brightness(1.05)';
+        this.element.style.setProperty('backdrop-filter', fallbackFilter, 'important');
+        this.element.style.setProperty('-webkit-backdrop-filter', fallbackFilter, 'important');
+      }
+      return;
     }
 
     // 1. Create SVG Filter element and append to body

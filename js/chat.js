@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260610-1153';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260612-1741';
 
 export function initChatEngine(deps) {
     const {
