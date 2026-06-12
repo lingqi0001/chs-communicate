@@ -102,11 +102,17 @@ export class LiquidGlassEffect {
     this.isFallback = isSafari || isFirefox || isIOS;
     
     if (this.isFallback) {
+      // Create background element to prevent child text/icons from getting blurred by the filter
+      this.bgElement = document.createElement('div');
+      this.bgElement.className = 'liquid-glass-bg';
+      this.bgElement.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: inherit; pointer-events: none; z-index: -1;';
+      
+      // Ensure target element has relative positioning so bg element is relative to it
+      if (window.getComputedStyle(this.element).position === 'static') {
+        this.element.style.position = 'relative';
+      }
+      this.element.insertBefore(this.bgElement, this.element.firstChild);
       this.element.classList.add('liquid-glass-fallback');
-      const fallbackFilter = 'blur(20px) saturate(190%) contrast(100%) brightness(1.05)';
-      this.element.style.setProperty('backdrop-filter', fallbackFilter, 'important');
-      this.element.style.setProperty('-webkit-backdrop-filter', fallbackFilter, 'important');
-      return;
     }
 
     // 1. Create SVG Filter element and append to body
@@ -176,11 +182,22 @@ export class LiquidGlassEffect {
     this.svgElement.appendChild(defs);
     document.body.appendChild(this.svgElement);
     
-    // 2. Apply styling to the target element
+    // 2. Apply styling to the target element (or bg element for fallback)
     this.element.classList.add('liquid-glass-active');
-    const filterVal = `url(#${this.id}_filter) blur(0.25px) contrast(1.15) var(--lg-brightness, brightness(1.04)) saturate(1.1)`;
-    this.element.style.setProperty('backdrop-filter', filterVal, 'important');
-    this.element.style.setProperty('-webkit-backdrop-filter', filterVal, 'important');
+    
+    if (this.isFallback) {
+      const backdropFilterVal = `blur(20px) saturate(190%) contrast(100%) brightness(1.05)`;
+      this.bgElement.style.setProperty('backdrop-filter', backdropFilterVal, 'important');
+      this.bgElement.style.setProperty('-webkit-backdrop-filter', backdropFilterVal, 'important');
+      
+      const elementFilterVal = `url(#${this.id}_filter)`;
+      this.bgElement.style.setProperty('filter', elementFilterVal, 'important');
+      this.bgElement.style.setProperty('-webkit-filter', elementFilterVal, 'important');
+    } else {
+      const filterVal = `url(#${this.id}_filter) blur(0.25px) contrast(1.15) var(--lg-brightness, brightness(1.04)) saturate(1.1)`;
+      this.element.style.setProperty('backdrop-filter', filterVal, 'important');
+      this.element.style.setProperty('-webkit-backdrop-filter', filterVal, 'important');
+    }
     
     // 3. Listen for size changes
     this.resizeObserver = new ResizeObserver(() => {
@@ -392,9 +409,14 @@ export class LiquidGlassEffect {
     if (this.svgElement && this.svgElement.parentNode) {
       this.svgElement.parentNode.removeChild(this.svgElement);
     }
+    if (this.bgElement && this.bgElement.parentNode) {
+      this.bgElement.parentNode.removeChild(this.bgElement);
+    }
     this.element.classList.remove('liquid-glass-active');
     this.element.classList.remove('liquid-glass-fallback');
     this.element.style.backdropFilter = '';
     this.element.style.webkitBackdropFilter = '';
+    this.element.style.filter = '';
+    this.element.style.webkitFilter = '';
   }
 }

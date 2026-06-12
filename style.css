@@ -96,9 +96,24 @@ body {
 }
 
 #chatInputPill.liquid-glass-active,
+#chatCameraBtn.chat-fab-btn.liquid-glass-active {
+    border: 1px solid rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.5),
+        inset 0 -1px 2px rgba(15, 23, 42, 0.05),
+        0 8px 32px rgba(15, 23, 42, 0.08) !important;
+}
+
 #chatInputPill.liquid-glass-fallback,
-#chatCameraBtn.chat-fab-btn.liquid-glass-active,
 #chatCameraBtn.chat-fab-btn.liquid-glass-fallback {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#chatInputPill.liquid-glass-fallback .liquid-glass-bg,
+#chatCameraBtn.chat-fab-btn.liquid-glass-fallback .liquid-glass-bg {
     border: 1px solid rgba(255, 255, 255, 0.45) !important;
     background: rgba(255, 255, 255, 0.12) !important;
     box-shadow:
@@ -166,9 +181,24 @@ body {
 }
 
 .dark #chatInputPill.liquid-glass-active,
+.dark #chatCameraBtn.chat-fab-btn.liquid-glass-active {
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.2),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4),
+        0 12px 38px rgba(0, 0, 0, 0.45) !important;
+}
+
 .dark #chatInputPill.liquid-glass-fallback,
-.dark #chatCameraBtn.chat-fab-btn.liquid-glass-active,
 .dark #chatCameraBtn.chat-fab-btn.liquid-glass-fallback {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.dark #chatInputPill.liquid-glass-fallback .liquid-glass-bg,
+.dark #chatCameraBtn.chat-fab-btn.liquid-glass-fallback .liquid-glass-bg {
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     box-shadow:
@@ -859,8 +889,7 @@ body {
     --lg-brightness: brightness(1.14);
 }
 
-.ios26-liquid-glass.liquid-glass-active,
-.ios26-liquid-glass.liquid-glass-fallback {
+.ios26-liquid-glass.liquid-glass-active {
     background: rgba(255, 255, 255, 0.15) !important;
     border: 1px solid rgba(255, 255, 255, 0.55) !important;
     box-shadow: 
@@ -868,8 +897,36 @@ body {
         0 12px 32px rgba(0, 0, 0, 0.08) !important;
 }
 
-.dark .ios26-liquid-glass.liquid-glass-active,
+.ios26-liquid-glass.liquid-glass-fallback {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.ios26-liquid-glass.liquid-glass-fallback .liquid-glass-bg {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.55) !important;
+    box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.6), 
+        0 12px 32px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dark .ios26-liquid-glass.liquid-glass-active {
+    background: rgba(15, 15, 15, 0.68) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.15), 
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.5), 
+        0 16px 48px rgba(0, 0, 0, 0.55) !important;
+}
+
 .dark .ios26-liquid-glass.liquid-glass-fallback {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.dark .ios26-liquid-glass.liquid-glass-fallback .liquid-glass-bg {
     background: rgba(15, 15, 15, 0.68) !important;
     border: 1px solid rgba(255, 255, 255, 0.16) !important;
     box-shadow: 
@@ -884,10 +941,34 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.18) !important;
 }
 
+.ios26-active-pill.liquid-glass-fallback {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.ios26-active-pill.liquid-glass-fallback .liquid-glass-bg {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+}
+
 .dark .ios26-active-pill {
     background: rgba(255, 255, 255, 0.86) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
     border: 1px solid rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .ios26-active-pill.liquid-glass-fallback {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.dark .ios26-active-pill.liquid-glass-fallback .liquid-glass-bg {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2) !important;
 }
 
 /* iOS resets for bottom navigation buttons and their descendants */
