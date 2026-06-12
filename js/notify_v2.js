@@ -328,10 +328,13 @@ export const NotifyModule = {
 
             const vapidKey = 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w';
             
-            // Wait for service worker registration to be active and ready
-            let registration;
-            if ('serviceWorker' in navigator) {
-                registration = await navigator.serviceWorker.ready;
+            // Get the specific service worker registration for FCM
+            let registration = window.fcmRegistration;
+            if (!registration && 'serviceWorker' in navigator) {
+                registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+                if (!registration) {
+                    registration = await navigator.serviceWorker.ready;
+                }
             }
             
             const token = await getToken(this.engine, { 
