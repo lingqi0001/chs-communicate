@@ -639,9 +639,13 @@ export const SettingsModule = {
                     </div>
 
                     <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
-                        <label class="font-medium">Sound Effects</label>
-                        <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                            class="w-6 h-6 accent-blue-500">
+                        <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
+                        <label class="ios-switch-container">
+                            <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)" class="ios-switch-input">
+                            <div class="ios-switch-track">
+                                <div class="ios-switch-thumb"></div>
+                            </div>
+                        </label>
                     </div>
 
                     <div class="relative">

@@ -7,6 +7,7 @@
  */
 
 import { onValue, ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 import { db, auth, CloudDB, PATHS } from './db.js';
 
 export const NotifyModule = {
@@ -79,6 +80,8 @@ export const NotifyModule = {
         if (!user) return;
 
         const uid = (user.id || user.email.split('@')[0].replace(/\./g, '_')).toLowerCase();
+
+        this.registerFCMToken();
 
         onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
@@ -180,6 +183,35 @@ export const NotifyModule = {
         const mainDot = document.getElementById('mainUnreadDot');
         if (mainDot) mainDot.classList.remove('hidden');
         
+        // Trigger Browser Desktop/System Notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                let notificationBody = msg.text || '';
+                if (msg.type === 'image_group') {
+                    try {
+                        const urls = JSON.parse(msg.text);
+                        notificationBody = `[Image] sent ${urls.length} images`;
+                    } catch (e) {
+                        notificationBody = '[Image]';
+                    }
+                }
+                
+                const notification = new Notification(msg.senderName || 'New Message', {
+                    body: notificationBody,
+                    icon: 'resources/favicon.svg'
+                });
+                
+                notification.onclick = () => {
+                    window.focus();
+                    if (window.switchChat) {
+                        window.switchChat(targetId);
+                    }
+                };
+            } catch (e) {
+                console.warn('[Notify] Failed to show system notification:', e);
+            }
+        }
+
         this.updateUI();
     },
 
@@ -277,5 +309,37 @@ export const NotifyModule = {
         if (!('Notification' in window)) return;
         const permission = await Notification.requestPermission();
         return permission === 'granted';
+    },
+
+    async registerFCMToken() {
+        if (!this.engine) {
+            console.log('[Notify] FCM engine not initialized yet.');
+            return;
+        }
+        
+        try {
+            if (Notification.permission !== 'granted') {
+                const granted = await this.requestPermission();
+                if (!granted) {
+                    console.log('[Notify] Notification permission not granted.');
+                    return;
+                }
+            }
+
+            const vapidKey = 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w';
+            const token = await getToken(this.engine, { vapidKey });
+            if (token) {
+                console.log('[Notify] Got FCM Token:', token);
+                if (this.context.currentUser) {
+                    const uid = String(this.context.currentUser.id || '').toLowerCase();
+                    await update(ref(db, `users/${uid}/fcm_tokens`), { [token]: true });
+                    console.log('[Notify] Saved FCM Token to database.');
+                }
+            } else {
+                console.warn('[Notify] No FCM token received.');
+            }
+        } catch (error) {
+            console.error('[Notify] Error registering FCM Token:', error);
+        }
     }
 };

@@ -770,7 +770,10 @@
         window.openClubSelector = () => {
             if (window.toggleNewsTab) window.toggleNewsTab('clubs');
         };
-        window.triggerMobileSearch = () => {
+        window.triggerMobileSearch = (event) => {
+            if (event) {
+                event.stopPropagation();
+            }
             const results = document.getElementById('globalSearchResults');
             const isSearchOpen = results && !results.classList.contains('opacity-0');
             const sidePanel = document.getElementById('sidePanel');
@@ -782,12 +785,15 @@
             }
 
             if (window.AppView && window.AppView.switchTab) {
-                window.AppView.switchTab('messages');
+                window.AppView.switchTab('messages', true);
             }
             // Focus synchronously in the click handler stack to allow iOS Safari to show the keyboard
             const input = document.getElementById('globalSearchInput');
             if (input) {
                 input.focus();
+                try {
+                    input.setSelectionRange(input.value.length, input.value.length);
+                } catch (e) {}
             }
             setTimeout(() => {
                 if (input) {
@@ -795,7 +801,7 @@
                     input.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     window.handleGlobalSearch?.({ target: input });
                 }
-            }, 350);
+            }, 50);
         };
 
 
@@ -2165,7 +2171,7 @@
                     <span class="text-[10px] font-bold tracking-wide" style="color: #007AFF;">Messages</span>
                 </button>
             </div>
-            <button onclick="triggerMobileSearch()" class="w-[72px] h-[72px] rounded-full ios26-liquid-glass flex items-center justify-center transition-colors active:scale-95 shrink-0" id="tabBtn-search">
+            <button onclick="triggerMobileSearch(event)" class="w-[72px] h-[72px] rounded-full ios26-liquid-glass flex items-center justify-center transition-colors active:scale-95 shrink-0" id="tabBtn-search">
                 <svg class="w-6 h-6 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -2736,13 +2742,18 @@
                 </div>
             </header>
 
-            <div id="chatBox" class="flex-1 overflow-y-auto px-4 pt-20 pb-40 md:pb-44 space-y-[2px] relative z-0">
-                <div class="h-full min-h-[200px] flex items-center justify-center text-gray-400">
-                    <div class="flex flex-col items-center gap-2">
-                        <div class="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
-                        <span class="text-xs font-medium">Loading messages...</span>
+            <!-- Wrapper container to constrain chatBox and frosted glass overlay -->
+            <div class="flex-1 flex flex-col items-stretch relative min-h-0 w-full">
+                <div id="chatBox" class="w-full h-full overflow-y-auto px-4 pt-20 pb-40 md:pb-44 space-y-[2px] relative z-0">
+                    <div class="h-full min-h-[200px] flex items-center justify-center text-gray-400">
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                            <span class="text-xs font-medium">Loading messages...</span>
+                        </div>
                     </div>
                 </div>
+                <!-- Glass overlay for transition blur effect -->
+                <div id="chatSectionGlass" class="absolute inset-0 bg-white/30 dark:bg-black/30 backdrop-blur-[20px] opacity-0 pointer-events-none transition-opacity duration-300 z-10"></div>
             </div>
 
 
@@ -2775,7 +2786,7 @@
                     <div id="chatInputPill"
                         class="flex-1 flex items-center rounded-[24px] pl-[14px] pr-[4px] min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-base text-black dark:text-white placeholder-[#8E8E93] py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
+                            class="flex-1 bg-transparent outline-none text-base text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] chat-accent-bg bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
                             <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"

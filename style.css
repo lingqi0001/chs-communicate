@@ -581,6 +581,46 @@ body {
         cursor: pointer;
     }
 
+    #sidebarHandle.is-transitioning {
+        pointer-events: none !important;
+    }
+
+    .dark #sidebarHandle {
+        background: #0A84FF;
+    }
+
+    /* Message list color themes for sidebarHandle only when collapsed/shrunk */
+    body.sidebar-collapsed .msg-theme-orange#sidebarHandle {
+        background: #F97316 !important;
+    }
+    .dark body.sidebar-collapsed .msg-theme-orange#sidebarHandle {
+        background: #FB923C !important;
+    }
+    body.sidebar-collapsed .msg-theme-blue#sidebarHandle {
+        background: #007AFF !important;
+    }
+    .dark body.sidebar-collapsed .msg-theme-blue#sidebarHandle {
+        background: #0A84FF !important;
+    }
+    body.sidebar-collapsed .msg-theme-green#sidebarHandle {
+        background: #34C759 !important;
+    }
+    .dark body.sidebar-collapsed .msg-theme-green#sidebarHandle {
+        background: #95FF14 !important;
+    }
+    body.sidebar-collapsed .msg-theme-purple#sidebarHandle {
+        background: #AF52DE !important;
+    }
+    .dark body.sidebar-collapsed .msg-theme-purple#sidebarHandle {
+        background: #A724FF !important;
+    }
+    body.sidebar-collapsed .msg-theme-custom#sidebarHandle {
+        background: var(--msg-accent-color) !important;
+    }
+    .dark body.sidebar-collapsed .msg-theme-custom#sidebarHandle {
+        background: var(--msg-accent-color-dark) !important;
+    }
+
     #newsSection {
         transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         transform-origin: left center;
@@ -589,12 +629,19 @@ body {
         z-index: 20;
     }
 
+    #newsSection > * {
+        width: 320px !important;
+        flex-shrink: 0 !important;
+    }
+
     body.sidebar-collapsed #newsSection {
         width: 0 !important;
         min-width: 0 !important;
         opacity: 0;
         pointer-events: none;
         border-right-width: 0;
+        visibility: hidden;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.5s;
     }
 
     #sidePanel,
@@ -654,6 +701,11 @@ body {
         opacity: 1;
         width: 22px;
         box-shadow: none;
+        background: var(--ann-accent-color) !important;
+    }
+
+    .dark body:not(.sidebar-collapsed) #sidebarHandle:hover {
+        background: var(--ann-accent-color-dark) !important;
     }
 
     body.is-fullscreen #sidebarHandle,
@@ -672,6 +724,11 @@ body {
         min-width: var(--news-panel-width) !important;
         max-width: var(--news-panel-width) !important;
         border-right: 0 !important;
+    }
+
+    #newsSection > * {
+        width: var(--news-panel-width) !important;
+        flex-shrink: 0 !important;
     }
 
     #sidePanel {
@@ -1610,4 +1667,104 @@ body {
 .dark .other-theme-custom .other-accent-bg {
     background-color: var(--other-accent-color-dark) !important;
     color: #fff !important;
+}
+
+/* iOS Switch Toggle */
+.ios-switch-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ios-switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ios-switch-track {
+    width: 46px;
+    height: 26px;
+    background-color: rgba(120, 120, 128, 0.16);
+    border-radius: 999px;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.dark .ios-switch-track {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.ios-switch-thumb {
+    width: 22px;
+    height: 22px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.ios-switch-input:checked + .ios-switch-track {
+    background-color: var(--msg-accent-color, #34C759);
+}
+
+.dark .ios-switch-input:checked + .ios-switch-track {
+    background-color: var(--msg-accent-color-dark, #30D158);
+}
+
+.ios-switch-input:checked + .ios-switch-track .ios-switch-thumb {
+    transform: translateX(20px);
+}
+
+/* Custom styling to improve readability of chat input and camera icon on Liquid Glass backgrounds */
+#u-msg::placeholder {
+    color: rgba(0, 0, 0, 0.7) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.dark #u-msg::placeholder {
+    color: rgba(255, 255, 255, 0.75) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Force high contrast when input is disabled (e.g. system notification only) */
+#u-msg:disabled {
+    color: rgba(0, 0, 0, 0.8) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark #u-msg:disabled {
+    color: rgba(255, 255, 255, 0.9) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+#u-msg:disabled::placeholder {
+    color: rgba(0, 0, 0, 0.8) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark #u-msg:disabled::placeholder {
+    color: rgba(255, 255, 255, 0.9) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Custom override for the camera SVG color to prevent blending into grey messages */
+#chatCameraBtn svg {
+    color: rgba(0, 0, 0, 0.75) !important;
+}
+
+.dark #chatCameraBtn svg {
+    color: rgba(255, 255, 255, 0.85) !important;
 }

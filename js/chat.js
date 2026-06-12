@@ -499,7 +499,10 @@ export function initChatEngine(deps) {
         });
     }
 
-    async function deleteChatRecord(targetId) {
+    async function deleteChatRecord(targetId) {
+        if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.markAsRead === 'function') {
+            window.AppModules.Notify.markAsRead(targetId);
+        }
         if (!await AppModules.Modal.confirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
 
         const currentUser = getCurrentUser();

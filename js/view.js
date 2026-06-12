@@ -307,6 +307,7 @@ export const ViewModule = {
         this.initSidebar();
         this.initNavigation(); // 启动返回键拦截
         this.initHubColor();
+        this.updateChatBoxDimensions(); // Apply correct dimensions on initial load
         
         // Initialize Liquid Glass effect on bottom navigation bar
         try {
@@ -397,13 +398,149 @@ export const ViewModule = {
             this.state.isSidebarOpen = true;
         }
     },
-
+    updateChatBoxDimensions: function () {
+        const chatBox = document.getElementById('chatBox');
+        if (chatBox) {
+            chatBox.style.width = '';
+            chatBox.style.alignSelf = '';
+            chatBox.style.flex = '';
+        }
+    },
     toggleSidebarPin: function () {
-        const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+        const sidebarHandle = document.getElementById('sidebarHandle');
+        const chatSection = document.getElementById('chatSection');
+        const chatBox = document.getElementById('chatBox');
+        const glass = document.getElementById('chatSectionGlass');
+
+        // Detect if we should use the glass overlay/width-locking effect
+        let useGlass = true;
+        if (chatBox) {
+            const messages = chatBox.querySelectorAll('.msg-pop');
+            // Only inspect the last 35 messages (representing the active visible messages in the viewport)
+            const activeMessages = Array.from(messages).slice(-35);
+            
+            let complexCount = 0;
+            let hasTallCard = false;
+            for (let i = 0; i < activeMessages.length; i++) {
+                const msg = activeMessages[i];
+                // Group chats append a sender name element before the bubble. 
+                // Target the actual bubble (last child) to avoid name height/text bias.
+                const bubble = msg.lastElementChild || msg;
+                const height = bubble.offsetHeight || 0;
+                const text = bubble.textContent || bubble.innerText || '';
+                
+                // Height > 200px indicates an extremely tall card/media block
+                if (height > 200) {
+                    hasTallCard = true;
+                    break;
+                }
+                // Height > 60px, containing newlines, or text length > 200 indicates complex rich text/wrap
+                if (height > 60 || text.includes('\n') || text.trim().length > 200) {
+                    complexCount++;
+                }
+            }
+            // If there are no extremely tall media/cards and at most 12 wrapping multiline messages, it won't stutter
+            if (!hasTallCard && complexCount <= 12) {
+                useGlass = false;
+            }
+        }
+
+        if (sidebarHandle) {
+            sidebarHandle.classList.add('is-transitioning');
+        }
+
+        const isCollapsed = !document.body.classList.contains('sidebar-collapsed'); // next state
+
+        let startWidth = 0;
+        let finalWidth = 0;
+
+        if (useGlass && chatSection) {
+            startWidth = chatSection.getBoundingClientRect().width;
+            
+            // Measure final width by temporarily toggling the class and measuring
+            document.body.classList.toggle('sidebar-collapsed');
+            finalWidth = chatSection.getBoundingClientRect().width;
+            document.body.classList.toggle('sidebar-collapsed'); // toggle back
+        }
+
+        if (useGlass && glass && !this.isMobile()) {
+            // Immediately show the glass overlay to cover layout snap
+            glass.style.opacity = '1';
+            glass.style.pointerEvents = 'auto';
+        }
+
+        if (useGlass && chatBox && !this.isMobile()) {
+            // Lock chatBox to its current start width right-aligned during the transition
+            // to keep it perfectly stationary on the screen with no layout thrashing.
+            chatBox.style.width = startWidth + 'px';
+            chatBox.style.alignSelf = 'flex-end';
+            chatBox.style.flex = 'none';
+            chatBox.style.transform = '';
+            chatBox.style.transition = '';
+            chatBox.offsetHeight; // force reflow
+        }
+
+        // Find the top-most visible message bubble to use as a scroll anchor
+        let anchorElement = null;
+        let anchorOffset = 0;
+        const isAtBottom = chatBox ? (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 50) : false;
+        
+        if (chatBox && !isAtBottom) {
+            const bubbles = chatBox.querySelectorAll('.msg-pop');
+            const boxRect = chatBox.getBoundingClientRect();
+            for (let i = 0; i < bubbles.length; i++) {
+                const rect = bubbles[i].getBoundingClientRect();
+                // Find the first bubble that is visible (its top is near or below the chat container's top)
+                if (rect.bottom > boxRect.top) {
+                    anchorElement = bubbles[i];
+                    anchorOffset = rect.top - boxRect.top;
+                    break;
+                }
+            }
+        }
+
+        // Trigger the sidebar transition
+        document.body.classList.toggle('sidebar-collapsed');
         this.state.isSidebarOpen = !isCollapsed;
         localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
 
-        // 侧边栏切换时，触?resize 以便聊天窗口滚动对齐
+        setTimeout(() => {
+            if (sidebarHandle) {
+                sidebarHandle.classList.remove('is-transitioning');
+            }
+
+            // Once left panel animation is complete, reset inline styles
+            // to let the chatBox stretch to fill the newly layout width
+            if (useGlass) {
+                this.updateChatBoxDimensions();
+            }
+
+            // Smoothly fade out the glass overlay
+            if (useGlass && glass) {
+                glass.style.opacity = '0';
+                glass.style.pointerEvents = 'none';
+            }
+
+            // Precisely restore scroll position using element-based anchoring
+            const restoreScroll = () => {
+                if (!chatBox) return;
+                if (isAtBottom) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                } else if (anchorElement) {
+                    const boxRect = chatBox.getBoundingClientRect();
+                    const elemRect = anchorElement.getBoundingClientRect();
+                    const currentOffset = elemRect.top - boxRect.top;
+                    chatBox.scrollTop += (currentOffset - anchorOffset);
+                }
+            };
+
+            // Run restoration immediately and also after next frame to catch layout calculations
+            restoreScroll();
+            requestAnimationFrame(restoreScroll);
+            setTimeout(restoreScroll, 60); // catch any resize-induced layout shifts
+        }, 500);
+
+        // 侧边栏切换时，触发 resize 以便聊天窗口滚动对齐
         setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
     },
 
@@ -413,6 +550,16 @@ export const ViewModule = {
     showSidebar: function () {
         // activeTargetId 的清理仍由业务层处理，这里只�?UI
         this.showPanel('tools');
+        if (this.isMobile()) {
+            if (typeof window.setActiveTargetId === 'function') {
+                window.setActiveTargetId(null);
+            } else {
+                window.activeTargetId = null;
+            }
+            document.querySelectorAll('.active-chat-item').forEach(div => {
+                div.classList.remove('active-chat-item');
+            });
+        }
 
         if (this.isMobile()) {
             this.refreshBottomNav('messages'); // 侧边栏对应的�?messages 标签
@@ -431,7 +578,12 @@ export const ViewModule = {
             document.documentElement.style.setProperty('--vh', `${vh}px`);
         };
 
-        window.addEventListener('resize', fixVH);
+        const handleResize = () => {
+            fixVH();
+            this.updateChatBoxDimensions();
+        };
+
+        window.addEventListener('resize', handleResize);
         fixVH();
 
         // 拦截 iOS 橡皮筋黑边效�?        
@@ -615,13 +767,22 @@ export const ViewModule = {
         // Always set resolved ann accent on :root so teacher badges (outside #newsSection) can reference them
         document.documentElement.style.setProperty('--ann-accent-color', resolvedLight);
         document.documentElement.style.setProperty('--ann-accent-color-dark', resolvedDark);
+
+        // Keep bottom nav active color in sync with this setting
+        let currentTab = 'messages';
+        if (newsSec && !newsSec.classList.contains('hidden')) {
+            const activeEl = document.querySelector('.head-tab-active');
+            currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
+        }
+        this.refreshBottomNav(currentTab);
     },
 
     applyMsgColor: function (color, customLightHex = null, customDarkHex = null) {
         const sidePanel = document.getElementById('sidePanel');
         const chatSection = document.getElementById('chatSection');
         const newsTopButtonsContainer = document.getElementById('newsTopButtonsContainer');
-        const elements = [sidePanel, chatSection, newsTopButtonsContainer];
+        const sidebarHandle = document.getElementById('sidebarHandle');
+        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle];
 
         elements.forEach(el => {
             if (el) {
@@ -681,10 +842,11 @@ export const ViewModule = {
 
         // Keep bottom nav active color in sync with this setting
         const newsSec = document.getElementById('newsSection');
-        const sidePan = document.getElementById('sidePanel');
         let currentTab = 'messages';
-        if (newsSec && !newsSec.classList.contains('hidden')) currentTab = 'news';
-        else if (sidePan && !sidePan.classList.contains('hidden')) currentTab = 'tools';
+        if (newsSec && !newsSec.classList.contains('hidden')) {
+            const activeEl = document.querySelector('.head-tab-active');
+            currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
+        }
         this.refreshBottomNav(currentTab);
     },
 
@@ -856,7 +1018,7 @@ export const ViewModule = {
         }
     },
 
-        switchTab: function (tab) {
+    switchTab: function (tab, immediate = false) {
         if (window.innerWidth >= 1024) return;
         if (this.state.isAnimating) return;
 
@@ -873,15 +1035,30 @@ export const ViewModule = {
             currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
         }
 
-        // normalizedTab removed
-        // normalizedTab fallback removed
-
         if (currentTab === tab) return;
 
         const isSwitchingWithinNews = (tab === 'news' || tab === 'tools') && (currentTab === 'news' || currentTab === 'tools');
         if (isSwitchingWithinNews) {
             this.switchLeftTab(tab);
             this.refreshBottomNav(tab);
+            return;
+        }
+
+        if (immediate) {
+            this.refreshBottomNav(tab);
+            if (tab === 'news' || tab === 'tools') {
+                this.switchLeftTab(tab);
+            }
+            if (chatSec) {
+                chatSec.classList.add('hidden');
+                chatSec.classList.remove('flex');
+            }
+            const currentEl = isCurrentlyOnNews ? newsEl : msgEl;
+            const targetEl = isCurrentlyOnNews ? msgEl : newsEl;
+            currentEl.classList.add('hidden');
+            currentEl.classList.remove('flex');
+            targetEl.classList.remove('hidden');
+            targetEl.classList.add('flex');
             return;
         }
 
@@ -1035,23 +1212,43 @@ export const ViewModule = {
 
         const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
 
-        // Derive active color from the "Recent List" (msg) accent setting
-        const msgAccent = localStorage.getItem('msgAccentColor') || 'blue';
+        // Derive active color: msgAccent for messages tab, annAccent for news/tools
         let activeColor;
-        if (msgAccent === 'orange') {
-            activeColor = isDark ? '#FB923C' : '#F97316';
-        } else if (msgAccent === 'blue') {
-            activeColor = isDark ? '#0A84FF' : '#007AFF';
-        } else if (msgAccent === 'green') {
-            activeColor = isDark ? '#95FF14' : '#34C759';
-        } else if (msgAccent === 'purple') {
-            activeColor = isDark ? '#A724FF' : '#AF52DE';
-        } else if (msgAccent === 'custom') {
-            const customLight = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
-            const customDark  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
-            activeColor = isDark ? customDark : customLight;
+        if (activeTab === 'messages') {
+            const msgAccent = localStorage.getItem('msgAccentColor') || 'blue';
+            if (msgAccent === 'orange') {
+                activeColor = isDark ? '#FB923C' : '#F97316';
+            } else if (msgAccent === 'blue') {
+                activeColor = isDark ? '#0A84FF' : '#007AFF';
+            } else if (msgAccent === 'green') {
+                activeColor = isDark ? '#95FF14' : '#34C759';
+            } else if (msgAccent === 'purple') {
+                activeColor = isDark ? '#A724FF' : '#AF52DE';
+            } else if (msgAccent === 'custom') {
+                const customLight = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+                const customDark  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
+                activeColor = isDark ? customDark : customLight;
+            } else {
+                activeColor = isDark ? '#0A84FF' : '#007AFF';
+            }
         } else {
-            activeColor = isDark ? '#0A84FF' : '#007AFF';
+            // Active tab is news (hub) or tools
+            const annAccent = localStorage.getItem('annAccentColor') || 'orange';
+            if (annAccent === 'orange') {
+                activeColor = isDark ? '#FB923C' : '#F97316';
+            } else if (annAccent === 'blue') {
+                activeColor = isDark ? '#0A84FF' : '#007AFF';
+            } else if (annAccent === 'green') {
+                activeColor = isDark ? '#95FF14' : '#34C759';
+            } else if (annAccent === 'purple') {
+                activeColor = isDark ? '#A724FF' : '#AF52DE';
+            } else if (annAccent === 'custom') {
+                const customLight = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+                const customDark  = localStorage.getItem('annCustomColorDarkHex')  || '#A724FF';
+                activeColor = isDark ? customDark : customLight;
+            } else {
+                activeColor = isDark ? '#FB923C' : '#F97316';
+            }
         }
 
         const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(0, 0, 0, 0.65)';
@@ -1087,8 +1284,9 @@ export const ViewModule = {
         }
         if (msgBtn) {
             const active = (activeTab === 'messages');
+            const hasUnread = !!(window.AppModules && window.AppModules.Notify && window.AppModules.Notify.unreadCount > 0);
             msgBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="hidden absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#1C1C1E]" style="background-color: ${activeColor}"></div></div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Messages</span>`;
+            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="${hasUnread ? '' : 'hidden'} absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Messages</span>`;
         }
     },
 

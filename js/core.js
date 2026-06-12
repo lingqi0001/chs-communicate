@@ -80,14 +80,15 @@ export const CoreModule = {
             }
         });
 
-        // 7. Cleanup old SW
+        // 7. Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) {
-                    registration.unregister();
-                    console.log('App: Force Unregistered old SW');
-                }
-            });
+            navigator.serviceWorker.register('firebase-messaging-sw.js')
+                .then(registration => {
+                    console.log('App: Service Worker registered successfully:', registration.scope);
+                })
+                .catch(err => {
+                    console.error('App: Service Worker registration failed:', err);
+                });
         }
 
         return this.services;
