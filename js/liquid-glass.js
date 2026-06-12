@@ -93,6 +93,22 @@ export class LiquidGlassEffect {
   }
   
   init() {
+    // Browser/feature detection for SVG filter inside backdrop-filter support.
+    // Safari, Firefox, and iOS browsers do not support referencing SVG filters in backdrop-filter.
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    this.isFallback = isSafari || isFirefox || isIOS;
+    
+    if (this.isFallback) {
+      this.element.classList.add('liquid-glass-fallback');
+      const fallbackFilter = 'blur(20px) saturate(190%) contrast(100%) brightness(1.05)';
+      this.element.style.setProperty('backdrop-filter', fallbackFilter, 'important');
+      this.element.style.setProperty('-webkit-backdrop-filter', fallbackFilter, 'important');
+      return;
+    }
+
     // 1. Create SVG Filter element and append to body
     this.svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svgElement.setAttribute('id', `${this.id}_svg`);
@@ -377,6 +393,7 @@ export class LiquidGlassEffect {
       this.svgElement.parentNode.removeChild(this.svgElement);
     }
     this.element.classList.remove('liquid-glass-active');
+    this.element.classList.remove('liquid-glass-fallback');
     this.element.style.backdropFilter = '';
     this.element.style.webkitBackdropFilter = '';
   }
