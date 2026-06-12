@@ -1255,15 +1255,40 @@
         // =====================================================================
         function loadTaskFeedback() {
             const b = getBridge(); if (!b) return;
-            b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback`), snap => {
-                taskFeedback = snap.val() || {};
-                renderTasks(); // refresh badges
-            });
+            if (viewMode === 'student') {
+                b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback/${currentUser.id}`), snap => {
+                    const val = snap.val() || {};
+                    taskFeedback = {};
+                    Object.keys(val).forEach(taskKey => {
+                        const fbKey = `${taskKey}_${currentUser.id}`;
+                        taskFeedback[fbKey] = val[taskKey];
+                    });
+                    renderTasks(); // refresh badges
+                });
+            } else {
+                b.fOnValue(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback`), snap => {
+                    const rootVal = snap.val() || {};
+                    taskFeedback = {};
+                    Object.keys(rootVal).forEach(uid => {
+                        const userFeedback = rootVal[uid] || {};
+                        Object.keys(userFeedback).forEach(taskKey => {
+                            const fbKey = `${taskKey}_${uid}`;
+                            taskFeedback[fbKey] = userFeedback[taskKey];
+                        });
+                    });
+                    renderTasks(); // refresh badges
+                });
+            }
         }
 
         function saveTaskFeedback(fbKey) {
             const b = getBridge(); if (!b) return;
-            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback/${fbKey}`), taskFeedback[fbKey]);
+            const parts = fbKey.split('_');
+            const stageIdx = parts[0];
+            const taskIdx = parts[1];
+            const uid = parts.slice(2).join('_');
+            const taskKey = `${stageIdx}_${taskIdx}`;
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/taskfeedback/${uid}/${taskKey}`), taskFeedback[fbKey]);
         }
 
         window.openTaskFeedback = (fbKey, uid, displayName, encodedLink) => {

@@ -379,7 +379,7 @@ export const SettingsModule = {
                             <div class="relative border-b border-gray-200 dark:border-gray-700">
                                 <div onclick="toggleDropdown('annColorDropdown', event)"
                                     class="flex items-center justify-between p-3.5 cursor-pointer">
-                                    <span class="font-medium text-sm">Announcement</span>
+                                    <span class="font-medium text-sm">Hub Panel</span>
                                     <div class="flex items-center text-gray-500">
                                         <span id="currentAnnColorLabel" class="mr-2 text-xs">Orange</span>
                                         <div id="currentAnnColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-orange-500"></div>
@@ -443,7 +443,7 @@ export const SettingsModule = {
                             <div class="relative border-b border-gray-200 dark:border-gray-700">
                                 <div onclick="toggleDropdown('msgColorDropdown', event)"
                                     class="flex items-center justify-between p-3.5 cursor-pointer">
-                                    <span class="font-medium text-sm">Recent List</span>
+                                    <span class="font-medium text-sm">Messaging List</span>
                                     <div class="flex items-center text-gray-500">
                                         <span id="currentMsgColorLabel" class="mr-2 text-xs">Blue</span>
                                         <div id="currentMsgColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-blue-500"></div>

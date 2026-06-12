@@ -704,7 +704,46 @@ export const SidebarModule = {
                     ? `p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`
                     : `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
                 div.style.paddingRight = '60px';
-                div.onclick = () => (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) ? window.openExtensionNotificationTarget(id) : window.switchChat(id);
+                
+                let touchTimeout = null;
+                let isLongPress = false;
+
+                div.addEventListener('touchstart', () => {
+                    isLongPress = false;
+                    touchTimeout = setTimeout(() => {
+                        isLongPress = true;
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        if (window.deleteChatRecord) {
+                            window.deleteChatRecord(id);
+                        }
+                    }, 700);
+                }, { passive: true });
+
+                div.addEventListener('touchend', () => {
+                    if (touchTimeout) {
+                        clearTimeout(touchTimeout);
+                        touchTimeout = null;
+                    }
+                });
+
+                div.addEventListener('touchmove', () => {
+                    if (touchTimeout) {
+                        clearTimeout(touchTimeout);
+                        touchTimeout = null;
+                    }
+                }, { passive: true });
+
+                div.onclick = () => {
+                    if (isLongPress) {
+                        isLongPress = false;
+                        return;
+                    }
+                    if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
+                        window.openExtensionNotificationTarget(id);
+                    } else {
+                        window.switchChat(id);
+                    }
+                };
  
                 const gapClass = isGroup ? 'gap-4' : 'gap-3';
                 const titleTextSize = isGroup ? 'text-base leading-tight' : 'text-sm';

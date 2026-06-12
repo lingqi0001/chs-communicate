@@ -50,7 +50,7 @@ export const UIComponents = {
         } else if (rawTs && typeof rawTs === 'object') {
             if (typeof rawTs.toMillis === 'function') {
                 tsMs = rawTs.toMillis();
-            } else if (typeof rawTs.seconds === 'number') {
+            } else if (rawTs.seconds === 'number') {
                 tsMs = rawTs.seconds * 1000;
             }
         }
@@ -62,12 +62,12 @@ export const UIComponents = {
         }
         div.className = `msg-pop flex flex-col mb-4 w-full ${isMe ? 'items-end' : 'items-start'}`;
 
-        // 螟�炊蠑慕畑豸域�
+        // 螟炊蠑慕畑豸域
 
 
         let content = '';
         let images = [];
-        // 隗｣譫仙崟迚�ｻ�ｻ霎
+        // 隗｣譫仙崟迚ｻ ｻ霎 
         if (msg.type === 'image_group' || (msg.text && msg.text.trim().startsWith('['))) {
             try { images = JSON.parse(msg.text); } catch (e) { }
         } else if (msg.type === 'image' || (msg.text && msg.text.includes('data:image'))) {
@@ -92,7 +92,7 @@ export const UIComponents = {
                 const enc = encodeURIComponent(JSON.stringify(images));
                 if (images.length === 1) {
                     content = `<div class="relative w-36 h-48 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-sm">
-                                <img src="${images[0]}" 
+                                <img src="${UIUtils.escape(images[0])}" 
                                      onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" 
                                      onclick="openGallery('${enc}', 0)" 
                                      class="w-full h-full object-cover cursor-pointer ${msg.isExpired ? 'opacity-20 grayscale' : ''}">
@@ -108,7 +108,7 @@ export const UIComponents = {
                         sH += `<div id="img-${key}-${i}" class="absolute left-0 w-36 h-48 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl shadow-md transition-all duration-300 ${isMe ? 'origin-left' : 'origin-right'} cursor-pointer overflow-hidden border border-gray-200 dark:border-white/5"
                                     style="top:0px; z-index:${30 - i}; transform:translateX(${tX}px) scale(${1 - (i * 0.05)}); opacity:${i > 3 ? 0 : 1};"
                                     onclick="openGallery('${enc}', ${i})">
-                                    <img src="${images[i]}" 
+                                    <img src="${UIUtils.escape(images[i])}" 
                                          onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
                                          class="w-full h-full object-cover ${msg.isExpired ? 'opacity-20 grayscale' : ''}">
                                     <div class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-4 text-center">
@@ -157,7 +157,7 @@ export const UIComponents = {
     },
 
     /**
-     * [蜊｡迚�ｻ�ｻｶ] renderNewsCard
+     * [蜊｡迚ｻｻｶ] renderNewsCard
      */
     renderNewsCard: function (post, type, isStaff) {
         const isSchool = type === 'school';
@@ -194,7 +194,7 @@ export const UIComponents = {
     },
 
     /**
-     * [蟐剃ｽ鍋ｻ�ｻｶ] renderMedia
+     * [蟐剃ｽ鍋ｻｻｶ] renderMedia
      */
     renderMedia: function (post) {
         if (!post.image) return '';
@@ -205,7 +205,7 @@ export const UIComponents = {
         const enc = encodeURIComponent(JSON.stringify([post.image]));
         return `
             <div class="relative w-full">
-                <img src="${post.image}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" 
+                <img src="${UIUtils.escape(post.image)}" class="w-full h-auto rounded-xl mt-3 cursor-pointer object-cover max-h-[300px] border border-gray-100 dark:border-white/5" 
                      onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
                      onclick="openGallery('${enc}')">
                 <div class="hidden mt-3 px-4 py-3 bg-gray-50 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-dashed border-gray-200 dark:border-white/10">
@@ -216,8 +216,8 @@ export const UIComponents = {
     },
 
     /**
-     * [謚慕･ｨ扈�ｻｶ] getSuggestionVotingHtml
-     * 蟾ｲ騾る�莨蜈･ currentUser 騾ｻ霎
+     * [謚慕･ｨ扈ｻｶ] getSuggestionVotingHtml
+     * 蟾ｲ騾る莨 蜈･ currentUser 騾ｻ霎 
      */
     getSuggestionVotingHtml: function (post, currentUser) {
         if (!window.MODULE_CONFIG[window.currentModule]?.hasVoting) return '';
@@ -225,7 +225,7 @@ export const UIComponents = {
         const upvotes = Object.values(votes).filter(v => v === 1).length;
         const downvotes = Object.values(votes).filter(v => v === -1).length;
 
-        // 菴ｿ逕ｨ莨蜈･逧?currentUser 謌門�螻莉｣逅�執蜿門ｽ灘燕逕ｨ謌ｷ逧�兜逾ｨ迥ｶ諤?        const user = currentUser || UserModule.current;
+        // 菴ｿ逕ｨ莨 蜈･逧?currentUser 謌門螻 莉｣逅執蜿門ｽ灘燕逕ｨ謌ｷ逧兜逾ｨ迥ｶ諤?        const user = currentUser || UserModule.current;
         const myVote = user ? votes[user.id] : 0;
 
         return `
@@ -242,7 +242,7 @@ export const UIComponents = {
     },
 
     /**
-     * [蜊墓擅隸�ｮｺ扈�ｻｶ] renderComment
+     * [蜊墓擅隸ｮｺ扈ｻｶ] renderComment
      */
     renderComment: function (c, config, currentUser, author) {
         const cAuthorName = config.anonymous ? 'Anonymous' : (c.authorName || 'Unknown');

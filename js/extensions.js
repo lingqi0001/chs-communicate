@@ -194,21 +194,29 @@ export const ExtensionModule = {
             eid: 'ir_navigator',
             url: 'extensions/school/ir-navigator/IR Navigator.html',
             title: 'IR Navigator',
-            category: 'Learning Tools'
+            category: 'Learning Tools',
+            description: 'Created for Miss. Ireland'
         },
         'face_of_the_good_and_evil': {
             eid: 'face_of_the_good_and_evil',
             url: 'extensions/fun/Face of the good and evil.html',
             title: 'Face of the good and evil',
             category: 'Fun Tools',
-            description: 'Mirror left/right faces to create a collage.'
+            description: 'Made for Mr. Bartholomew'
         },
         'find_the_gao_kao_cheater': {
             eid: 'find_the_gao_kao_cheater',
             url: 'extensions/fun/Find the gao kao cheater.html',
             title: 'Find the gao kao cheater',
             category: 'Fun Tools',
-            description: 'Solve the investigation chain and identify the cheater.'
+            description: "Calculus game created in Miss. Li's class"
+        },
+        'honor_roll': {
+            eid: 'honor_roll',
+            url: 'extensions/staff/Honor Roll.html',
+            title: 'Honor Roll',
+            category: 'Staff Tools',
+            description: 'Made for Miss. Cipriano and Miss. Dow'
         },
         'portfolio': {
             eid: 'portfolio',
