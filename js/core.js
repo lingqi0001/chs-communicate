@@ -82,7 +82,7 @@ export const CoreModule = {
 
         // 7. Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('firebase-messaging-sw.js')
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
                 .then(registration => {
                     console.log('App: Service Worker registered successfully:', registration.scope);
                 })

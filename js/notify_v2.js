@@ -327,7 +327,17 @@ export const NotifyModule = {
             }
 
             const vapidKey = 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w';
-            const token = await getToken(this.engine, { vapidKey });
+            
+            // Wait for service worker registration to be active and ready
+            let registration;
+            if ('serviceWorker' in navigator) {
+                registration = await navigator.serviceWorker.ready;
+            }
+            
+            const token = await getToken(this.engine, { 
+                vapidKey: vapidKey,
+                serviceWorkerRegistration: registration
+            });
             if (token) {
                 console.log('[Notify] Got FCM Token:', token);
                 if (this.context.currentUser) {
