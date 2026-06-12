@@ -5,13 +5,18 @@ admin.initializeApp();
 exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId}')
     .onCreate(async (snapshot, context) => {
         const message = snapshot.val();
-        if (!message) return null;
+        if (!message) {
+            console.log('No message data found, skipping.');
+            return null;
+        }
 
         const chatId = context.params.chatId;
         const senderId = message.senderId;
         const senderName = message.senderName || 'New Message';
         const text = message.text || '';
         const msgType = message.type || 'text';
+
+        console.log(`Triggered sendNotification. ChatId: ${chatId}, SenderId: ${senderId}, SenderName: ${senderName}`);
 
         // Format notification body based on type
         let notificationBody = text;
@@ -29,6 +34,7 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
 
         if (chatId.startsWith('group_')) {
             const classId = chatId.replace('group_', '');
+            console.log(`Group chat detected. Class ID: ${classId}`);
             // Get class group members (students + teacher)
             const classSnap = await admin.database().ref(`classes/${classId}`).once('value');
             const classData = classSnap.val() || {};
@@ -54,17 +60,27 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
             if (otherUser) {
                 recipients.push(otherUser);
             }
+            console.log(`Direct chat detected. Recipient: ${otherUser}`);
         }
 
-        if (recipients.length === 0) return null;
+        console.log(`Resolved recipients: ${JSON.stringify(recipients)}`);
+
+        if (recipients.length === 0) {
+            console.log('No recipients found to send notifications to.');
+            return null;
+        }
 
         // Send to each recipient's registered FCM tokens
         const sendPromises = recipients.map(async (uid) => {
             const tokensSnap = await admin.database().ref(`users/${uid}/fcm_tokens`).once('value');
             const tokensData = tokensSnap.val();
-            if (!tokensData) return;
+            if (!tokensData) {
+                console.log(`No tokens registered for user: ${uid}`);
+                return;
+            }
 
             const tokens = Object.keys(tokensData);
+            console.log(`Found ${tokens.length} tokens for user: ${uid}`);
             if (tokens.length === 0) return;
 
             const payload = {
@@ -78,44 +94,53 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
                 }
             };
 
-            // Send to tokens
-            const response = await admin.messaging().sendEachForMulticast({
-                tokens: tokens,
-                notification: payload.notification,
-                data: payload.data,
-                android: {
-                    notification: {
-                        sound: 'default'
-                    }
-                },
-                apns: {
-                    payload: {
-                        aps: {
+            try {
+                // Send to tokens
+                const response = await admin.messaging().sendEachForMulticast({
+                    tokens: tokens,
+                    notification: payload.notification,
+                    data: payload.data,
+                    android: {
+                        notification: {
                             sound: 'default'
                         }
+                    },
+                    apns: {
+                        payload: {
+                            aps: {
+                                sound: 'default'
+                            }
+                        }
                     }
-                }
-            });
+                });
 
-            // Clean up invalid tokens
-            const tokensToRemove = [];
-            response.responses.forEach((res, idx) => {
-                if (!res.success) {
-                    const error = res.error;
-                    if (error.code === 'messaging/invalid-registration-token' ||
-                        error.code === 'messaging/registration-token-not-registered') {
-                        tokensToRemove.push(
-                            admin.database().ref(`users/${uid}/fcm_tokens/${tokens[idx]}`).remove()
-                        );
+                console.log(`FCM Multicast complete for ${uid}. Success: ${response.successCount}, Failure: ${response.failureCount}`);
+
+                // Clean up invalid tokens
+                const tokensToRemove = [];
+                response.responses.forEach((res, idx) => {
+                    if (!res.success) {
+                        const error = res.error;
+                        console.log(`FCM failure details for token index ${idx}:`, error.message);
+                        if (error.code === 'messaging/invalid-registration-token' ||
+                            error.code === 'messaging/registration-token-not-registered') {
+                            tokensToRemove.push(
+                                admin.database().ref(`users/${uid}/fcm_tokens/${tokens[idx]}`).remove()
+                            );
+                        }
                     }
-                }
-            });
+                });
 
-            if (tokensToRemove.length > 0) {
-                await Promise.all(tokensToRemove);
+                if (tokensToRemove.length > 0) {
+                    await Promise.all(tokensToRemove);
+                    console.log(`Cleaned up ${tokensToRemove.length} invalid tokens for ${uid}`);
+                }
+            } catch (err) {
+                console.error(`Error sending multicast to user ${uid}:`, err);
             }
         });
 
         await Promise.all(sendPromises);
+        console.log('Finished processing all notifications.');
         return null;
     });
