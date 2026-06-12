@@ -130,8 +130,8 @@
       </div>
       
       <!-- Action -->
-      <div class="mt-6 border-t border-amber-900/10 pt-4 flex justify-end shrink-0">
-        <button id="intro-btn" onclick="closeIntro()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-xs font-bold px-8 py-3.5 rounded-xl shadow-md opacity-0 transition-opacity duration-500 uppercase tracking-widest select-none active:translate-y-0.5" style="outline: none;">
+      <div id="intro-actions-container" class="mt-6 border-t border-amber-900/10 pt-4 flex justify-end shrink-0 transition-all duration-300">
+        <button id="intro-btn" onclick="showPlayOptions()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-xs font-bold px-8 py-3.5 rounded-xl shadow-md opacity-0 transition-opacity duration-500 uppercase tracking-widest select-none active:translate-y-0.5" style="outline: none;">
           Open Case File
         </button>
       </div>
@@ -282,19 +282,23 @@
     function stepDialogue(step, dir) {
       dialogueStates[step] += dir;
       renderActiveSpread();
-    }    // Dialogue page layout (Enhanced font size)
+}    // Dialogue page layout (Enhanced font size)
     function getDialogueHTML(step, char, text, state, total) {
+      let backBtnHTML = '';
+      if (state > 0) {
+        backBtnHTML = '<button onclick="stepDialogue(' + step + ', -1)" class="text-base font-mono text-amber-900 font-bold px-4 py-2">◀ Back</button>';
+      }
       return `
         <div class="flex-grow flex flex-col justify-between relative h-full">
           <div class="space-y-6">
-            <h3 class="text-3xl font-serif text-amber-955 font-bold">${char}</h3>
-            <p class="font-serif text-2xl md:text-3xl text-slate-800 leading-relaxed md:leading-loose my-8 font-medium">${text}</p>
+            <h3 class="text-3xl font-serif text-amber-955 font-bold">` + char + `</h3>
+            <p class="font-serif text-2xl md:text-3xl text-slate-800 leading-relaxed md:leading-loose my-8 font-medium">` + text + `</p>
           </div>
           <div class="flex items-center justify-between border-t border-amber-900/10 pt-6">
-            <span class="text-sm font-mono text-slate-500 font-bold">Dialogue ${state + 1} / ${total}</span>
+            <span class="text-sm font-mono text-slate-500 font-bold">Dialogue ` + (state + 1) + ` / ` + total + `</span>
             <div class="flex items-center gap-3">
-              ${state > 0 ? `<button onclick="stepDialogue(${step}, -1)" class="text-base font-mono text-amber-900 font-bold px-4 py-2">◀ Back</button>` : ''}
-              <button onclick="stepDialogue(${step}, 1)" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-sm font-bold px-10 py-4 rounded-xl shadow-md">CONTINUE ▶</button>
+              ` + backBtnHTML + `
+              <button onclick="stepDialogue(` + step + `, 1)" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-sm font-bold px-10 py-4 rounded-xl shadow-md">CONTINUE ▶</button>
             </div>
           </div>
         </div>
@@ -307,12 +311,35 @@
           return getDialogueHTML(1, d.char, d.text, dState, dTotal);
         }
 
+        let taskHTML = '';
+        if (!isAlreadySolved) {
+          taskHTML = `
+            <div class="flex flex-col gap-3 font-mono text-sm text-slate-800">
+              <p class="font-bold text-amber-900 text-xs">TASK: Calculate the sum of the letters in the names of all suspects who bought Roujiamo yesterday.</p>
+              <div class="flex flex-col gap-3 mt-1">
+                <input type="text" id="active-input" placeholder="Enter sum..." 
+                       class="bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-2 py-1 focus:outline-none focus:border-amber-900 text-lg"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-4 py-3 rounded-xl text-xs transition-all uppercase tracking-wide">
+                  LOG EVIDENCE
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          taskHTML = `
+            <div class="text-base font-mono text-emerald-850 font-bold text-center py-4">
+              ✔ VERIFIED EVIDENCE: Roujiamo Buyers Letter Sum = ` + solvedAnswers[1] + `
+            </div>
+          `;
+        }
+
         return `
           <div class="w-full h-full flex flex-col justify-between overflow-hidden">
             <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
               <!-- Left Column: Log table only -->
-              <div class="flex-1 bg-amber-900/5 p-4 rounded-xl border border-amber-900/10 font-mono text-xs leading-relaxed text-slate-850 overflow-y-auto min-w-0">
+              <div class="flex-1 bg-amber-900/5 p-4 rounded-xl border border-amber-900/10 font-mono text-xs leading-relaxed text-slate-855 overflow-y-auto min-w-0">
                 <span class="text-xs font-mono text-slate-600 block font-bold border-b border-slate-300 pb-1 mb-2">EXHIBIT_A: CAFETERIA RECORD LOG</span>
                 <table class="w-full text-left border-collapse">
                   <thead>
@@ -442,23 +469,7 @@
                 </div>
 
                 <div class="border-t border-amber-900/10 pt-3">
-                  ${!isAlreadySolved ? `
-                    <div class="flex flex-col gap-3 font-mono text-sm text-slate-800">
-                      <p class="font-bold text-amber-900 text-xs">TASK: Calculate the sum of the letters in the names of all suspects who bought Roujiamo yesterday.</p>
-                      <div class="flex flex-col gap-3 mt-1">
-                        <input type="text" id="active-input" placeholder="Enter sum..." 
-                               class="bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-2 py-1 focus:outline-none focus:border-amber-900 text-lg"
-                               onkeydown="if(event.key==='Enter') submitAnswer()">
-                        <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-4 py-3 rounded-xl text-xs transition-all uppercase tracking-wide">
-                          LOG EVIDENCE
-                        </button>
-                      </div>
-                    </div>
-                  ` : `
-                    <div class="text-base font-mono text-emerald-850 font-bold text-center py-4">
-                      ✔ VERIFIED EVIDENCE: Roujiamo Buyers Letter Sum = ${solvedAnswers[1]}
-                    </div>
-                  `}
+                  ` + taskHTML + `
                 </div>
               </div>
 
@@ -470,6 +481,28 @@
         if (isDialogueActive) {
           return getDialogueHTML(2, d.char, d.text, dState, dTotal);
         }
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          let buttonsHTML = '';
+          for (let n = 1; n <= 9; n++) {
+            buttonsHTML += '<button onclick="dialKeypad(\'' + n + '\')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">' + n + '</button>';
+          }
+          actionHTML = `
+            <div class="grid grid-cols-3 gap-3 w-full">
+              ` + buttonsHTML + `
+              <button onclick="dialKeypad('CLR')" class="bg-red-955/50 hover:bg-red-900 text-red-200 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">CLR</button>
+              <button onclick="dialKeypad('0')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">0</button>
+              <button onclick="dialKeypad('ENT')" class="bg-amber-900 hover:bg-amber-850 text-amber-100 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">ENT</button>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="text-sm font-mono text-emerald-400 font-bold uppercase tracking-wider mt-2">✔ OVERRIDDEN</div>
+          `;
+        }
+
+        const displayDigits = isAlreadySolved ? solvedAnswers[2] : (keypadDigits || "----");
 
         return `
           <div class="w-full h-full flex flex-col md:flex-row items-center justify-around gap-8">
@@ -486,21 +519,10 @@
             <div class="w-80 bg-gradient-to-r from-yellow-700 via-amber-800 to-yellow-900 border-2 border-yellow-955 rounded-3xl p-6 flex flex-col items-center shadow-2xl relative">
               <div class="absolute -top-12 w-36 h-16 border-8 border-slate-500 rounded-t-full -z-10"></div>
               <div id="keypad-display" class="bg-black border border-amber-955/80 w-full rounded-xl px-4 py-3 text-right font-mono text-3xl font-bold text-amber-500 tracking-wider mb-6 h-16 flex items-center justify-end">
-                <span>${isAlreadySolved ? solvedAnswers[2] : keypadDigits || "----"}</span>
+                <span>` + displayDigits + `</span>
               </div>
               
-              ${!isAlreadySolved ? `
-                <div class="grid grid-cols-3 gap-3 w-full">
-                  ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `
-                    <button onclick="dialKeypad('${n}')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">${n}</button>
-                  `).join("")}
-                  <button onclick="dialKeypad('CLR')" class="bg-red-955/50 hover:bg-red-900 text-red-200 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">CLR</button>
-                  <button onclick="dialKeypad('0')" class="bg-yellow-950 hover:bg-yellow-900 border border-yellow-900/30 text-yellow-300 font-mono text-xl font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">0</button>
-                  <button onclick="dialKeypad('ENT')" class="bg-amber-900 hover:bg-amber-850 text-amber-100 font-mono text-sm font-bold py-4 rounded-2xl shadow-md active:scale-95 transition-all">ENT</button>
-                </div>
-              ` : `
-                <div class="text-sm font-mono text-emerald-400 font-bold uppercase tracking-wider mt-2">✔ OVERRIDDEN</div>
-              `}
+              ` + actionHTML + `
             </div>
           </div>
         `;
@@ -510,52 +532,81 @@
           return getDialogueHTML(3, d.char, d.text, dState, dTotal);
         }
 
+        let exhibitHTML = '';
+        if (!exhibitCollapsed) {
+          exhibitHTML = `
+            <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
+              <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
+                <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_B: ANALYSIS CARD</span>
+                <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
+              </div>
+              
+              <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-36 object-contain rounded-lg">
+                <span class="text-[9px] font-mono text-slate-500 mt-1">Agglutination Reference Sheet</span>
+              </div>
+              
+              <div class="flex flex-col border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                <span class="block font-sans font-bold text-slate-800 text-[10px] mb-1.5 text-center">Test Card #SC-9038 Results</span>
+                <table class="w-full text-center font-mono border-collapse border border-amber-900/20 bg-white/80 rounded-lg overflow-hidden">
+                  <thead>
+                    <tr class="bg-amber-900/5 text-amber-900 font-bold border-b border-amber-900/20 text-[10px]">
+                      <th class="py-1 border-r border-amber-900/20">Anti-A</th>
+                      <th class="py-1">Anti-B</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="py-2 border-r border-amber-900/20">
+                        <div class="mx-auto blood-circle-clumped scale-75"></div>
+                      </td>
+                      <td class="py-2">
+                        <div class="mx-auto blood-circle-clumped scale-75"></div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        } else {
+          exhibitHTML = `
+            <div class="shrink-0 flex items-start">
+              <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
+                📂 SHOW EXHIBIT B
+              </button>
+            </div>
+          `;
+        }
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
+              <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Type the sum of the solutions to the equations of the implicated suspects (AB blood type).</p>
+              <div class="flex items-center gap-4">
+                <input type="text" id="active-input" placeholder="Enter sum..." 
+                       class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  SUBMIT
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
+              ✔ VERIFIED EVIDENCE: Implicated Equations Sum = ` + solvedAnswers[3] + `
+            </div>
+          `;
+        }
+
         return `
           <div class="w-full h-full flex flex-col justify-between overflow-hidden">
             <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
-              <!-- Exhibit Column -->
-              ${!exhibitCollapsed ? `
-                <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
-                  <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
-                    <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_B: ANALYSIS CARD</span>
-                    <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
-                  </div>
-                  
-                  <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
-                    <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-36 object-contain rounded-lg">
-                    <span class="text-[9px] font-mono text-slate-500 mt-1">Agglutination Reference Sheet</span>
-                  </div>
-                  
-                  <div class="flex flex-col border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
-                    <span class="block font-sans font-bold text-slate-800 text-[10px] mb-1.5 text-center">Test Card #SC-9038 Results</span>
-                    <table class="w-full text-center font-mono border-collapse border border-amber-900/20 bg-white/80 rounded-lg overflow-hidden">
-                      <thead>
-                        <tr class="bg-amber-900/5 text-amber-900 font-bold border-b border-amber-900/20 text-[10px]">
-                          <th class="py-1 border-r border-amber-900/20">Anti-A</th>
-                          <th class="py-1">Anti-B</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td class="py-2 border-r border-amber-900/20">
-                            <div class="mx-auto blood-circle-clumped scale-75"></div>
-                          </td>
-                          <td class="py-2">
-                            <div class="mx-auto blood-circle-clumped scale-75"></div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ` : `
-                <div class="shrink-0 flex items-start">
-                  <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
-                    📂 SHOW EXHIBIT B
-                  </button>
-                </div>
-              `}
+              ` + exhibitHTML + `
 
               <!-- Questions Column -->
               <div class="flex-1 flex flex-col justify-between overflow-hidden min-w-0">
@@ -611,23 +662,7 @@
                   </div>
                 </div>
 
-                ${!isAlreadySolved ? `
-                  <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
-                    <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Type the sum of the solutions to the equations of the implicated suspects (AB blood type).</p>
-                    <div class="flex items-center gap-4">
-                      <input type="text" id="active-input" placeholder="Enter sum..." 
-                             class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                             onkeydown="if(event.key==='Enter') submitAnswer()">
-                      <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                        SUBMIT
-                      </button>
-                    </div>
-                  </div>
-                ` : `
-                  <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
-                    ✔ VERIFIED EVIDENCE: Implicated Equations Sum = ${solvedAnswers[3]}
-                  </div>
-                `}
+                ` + actionHTML + `
               </div>
 
             </div>
@@ -639,30 +674,59 @@
           return getDialogueHTML(4, d.char, d.text, dState, dTotal);
         }
 
+        let exhibitHTML = '';
+        if (!exhibitCollapsed) {
+          exhibitHTML = `
+            <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
+              <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
+                <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_C: microscope slide</span>
+                <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
+              </div>
+              
+              <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg">
+                <span class="text-[9px] font-mono text-slate-500 mt-1">File link: assets/animal-hair-key.png</span>
+              </div>
+            </div>
+          `;
+        } else {
+          exhibitHTML = `
+            <div class="shrink-0 flex items-start">
+              <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
+                📂 SHOW EXHIBIT C
+              </button>
+            </div>
+          `;
+        }
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
+              <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Submit your answer by solving the corresponding equation for the matching hair.</p>
+              <div class="flex items-center gap-4">
+                <input type="text" id="active-input" placeholder="Enter answer..." 
+                       class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  SUBMIT
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
+              ✔ VERIFIED EVIDENCE: Correct Hair Equation Output = ` + solvedAnswers[4] + `
+            </div>
+          `;
+        }
+
         return `
           <div class="w-full h-full flex flex-col justify-between overflow-hidden">
             <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
-              <!-- Exhibit Column -->
-              ${!exhibitCollapsed ? `
-                <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
-                  <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
-                    <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_C: microscope slide</span>
-                    <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
-                  </div>
-                  
-                  <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
-                    <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg">
-                    <span class="text-[9px] font-mono text-slate-500 mt-1">File link: assets/animal-hair-key.png</span>
-                  </div>
-                </div>
-              ` : `
-                <div class="shrink-0 flex items-start">
-                  <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
-                    📂 SHOW EXHIBIT C
-                  </button>
-                </div>
-              `}
+              ` + exhibitHTML + `
 
               <!-- Questions Column -->
               <div class="flex-1 flex flex-col justify-between overflow-hidden min-w-0">
@@ -704,23 +768,7 @@
                   </div>
                 </div>
 
-                ${!isAlreadySolved ? `
-                  <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
-                    <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Submit your answer by solving the corresponding equation for the matching hair.</p>
-                    <div class="flex items-center gap-4">
-                      <input type="text" id="active-input" placeholder="Enter answer..." 
-                             class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                             onkeydown="if(event.key==='Enter') submitAnswer()">
-                      <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                        SUBMIT
-                      </button>
-                    </div>
-                  </div>
-                ` : `
-                  <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
-                    ✔ VERIFIED EVIDENCE: Correct Hair Equation Output = ${solvedAnswers[4]}
-                  </div>
-                `}
+                ` + actionHTML + `
               </div>
 
             </div>
@@ -730,6 +778,29 @@
       5: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
         if (isDialogueActive) {
           return getDialogueHTML(5, d.char, d.text, dState, dTotal);
+        }
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-red-900/20 flex flex-col gap-3 font-mono text-sm text-slate-855 shrink-0">
+              <p class="font-bold text-red-955 text-sm">TASK: Calculate the bacteria counts P(1) at t=1.</p>
+              <div class="flex items-center gap-4">
+                <input type="text" id="active-input" placeholder="Vent override code..." 
+                       class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none focus:border-red-900 text-xl"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  VENTILATE
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-red-900/20 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
+              ✔ NEUTRALIZED: Override code verified = ` + solvedAnswers[5] + `
+            </div>
+          `;
         }
 
         return `
@@ -755,29 +826,36 @@
               </div>
             </div>
 
-            ${!isAlreadySolved ? `
-              <div class="mt-4 pt-4 border-t border-red-900/20 flex flex-col gap-3 font-mono text-sm text-slate-855 shrink-0">
-                <p class="font-bold text-red-955 text-sm">TASK: Calculate the bacteria counts P(1) at t=1.</p>
-                <div class="flex items-center gap-4">
-                  <input type="text" id="active-input" placeholder="Vent override code..." 
-                         class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none focus:border-red-900 text-xl"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                    VENTILATE
-                  </button>
-                </div>
-              </div>
-            ` : `
-              <div class="mt-4 pt-4 border-t border-red-900/20 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
-                ✔ NEUTRALIZED: Override code verified = ${solvedAnswers[5]}
-              </div>
-            `}
+            ` + actionHTML + `
           </div>
         `;
       },
       6: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
         if (isDialogueActive) {
           return getDialogueHTML(6, d.char, d.text, dState, dTotal);
+        }
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <div class="mt-4 pt-3 border-t border-slate-900/10 flex flex-col gap-2 font-mono text-sm text-slate-800 shrink-0">
+              <p class="font-bold text-amber-900 text-sm">TASK: Calculate the sum of all 4 numbers in Rona's locker row (Locker No. + Dials).</p>
+              <div class="flex items-center gap-4">
+                <input type="text" id="active-input" placeholder="Sum value..." 
+                       class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  SUBMIT
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="mt-4 pt-3 border-t border-slate-900/10 text-base font-mono text-emerald-850 font-bold text-center shrink-0">
+              ✔ UNLOCKED: Locker code verified = ` + solvedAnswers[6] + `
+            </div>
+          `;
         }
 
         return `
@@ -903,23 +981,7 @@
               </div>
             </div>
 
-            ${!isAlreadySolved ? `
-              <div class="mt-4 pt-3 border-t border-slate-900/10 flex flex-col gap-2 font-mono text-sm text-slate-800 shrink-0">
-                <p class="font-bold text-amber-900 text-sm">TASK: Calculate the sum of all 4 numbers in Rona's locker row (Locker No. + Dials).</p>
-                <div class="flex items-center gap-4">
-                  <input type="text" id="active-input" placeholder="Sum value..." 
-                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                    SUBMIT
-                  </button>
-                </div>
-              </div>
-            ` : `
-              <div class="mt-4 pt-3 border-t border-slate-900/10 text-base font-mono text-emerald-850 font-bold text-center shrink-0">
-                ✔ UNLOCKED: Locker code verified = ${solvedAnswers[6]}
-              </div>
-            `}
+            ` + actionHTML + `
           </div>
         `;
       },
@@ -928,34 +990,46 @@
           return getDialogueHTML(7, d.char, d.text, dState, dTotal);
         }
 
+        let dialA_up = !isAlreadySolved ? `<button onclick="changeDial(1, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : '';
+        let dialA_down = !isAlreadySolved ? `<button onclick="changeDial(1, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : '';
+        let dialB_up = !isAlreadySolved ? `<button onclick="changeDial(2, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : '';
+        let dialB_down = !isAlreadySolved ? `<button onclick="changeDial(2, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : '';
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <button onclick="unlockSafe()" class="ml-4 w-20 h-20 rounded-full bg-slate-805 border-4 border-slate-950 flex items-center justify-center font-bold text-xs text-slate-200 hover:text-white active:scale-95 transition-all shadow-2xl">
+              OPEN SAFE
+            </button>
+          `;
+        } else {
+          actionHTML = `
+            <span class="ml-4 text-emerald-400 font-bold font-mono text-sm">✔ ACCESS GRANTED</span>
+          `;
+        }
+
         return `
           <div class="bg-gradient-to-b from-[#181d28] to-[#0c0f17] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between h-full w-full shadow-2xl overflow-hidden">
             <div class="w-full border-b border-slate-800 pb-2 mb-2 flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
               <span class="text-cyan-400 font-bold">USB DECRYPT SHIELD KEY</span>
-              <span>STATE: ${isAlreadySolved ? "DECRYPTED" : "MOUNT_LOCKED"}</span>
+              <span>STATE: ` + (isAlreadySolved ? "DECRYPTED" : "MOUNT_LOCKED") + `</span>
             </div>
 
             <!-- safe dials -->
             <div class="flex items-center justify-center gap-8 my-4 shrink-0">
               <div class="flex flex-col items-center gap-2">
-                ${!isAlreadySolved ? `<button onclick="changeDial(1, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : ''}
-                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "1" : safeDial1}</div>
-                ${!isAlreadySolved ? `<button onclick="changeDial(1, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : ''}
+                ` + dialA_up + `
+                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">` + (isAlreadySolved ? "1" : safeDial1) + `</div>
+                ` + dialA_down + `
                 <span class="text-[10px] font-mono text-slate-500 tracking-wider">DIAL A</span>
               </div>
               <div class="flex flex-col items-center gap-2">
-                ${!isAlreadySolved ? `<button onclick="changeDial(2, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : ''}
-                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "6" : safeDial2}</div>
-                ${!isAlreadySolved ? `<button onclick="changeDial(2, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : ''}
+                ` + dialB_up + `
+                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">` + (isAlreadySolved ? "6" : safeDial2) + `</div>
+                ` + dialB_down + `
                 <span class="text-[10px] font-mono text-slate-500 tracking-wider">DIAL B</span>
               </div>
-              ${!isAlreadySolved ? `
-                <button onclick="unlockSafe()" class="ml-4 w-20 h-20 rounded-full bg-slate-805 border-4 border-slate-950 flex items-center justify-center font-bold text-xs text-slate-200 hover:text-white active:scale-95 transition-all shadow-2xl">
-                  OPEN SAFE
-                </button>
-              ` : `
-                <span class="ml-4 text-emerald-400 font-bold font-mono text-sm">✔ ACCESS GRANTED</span>
-              `}
+              ` + actionHTML + `
             </div>
 
             <div class="flex-grow overflow-y-auto bg-black/60 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-400 space-y-3">
@@ -983,7 +1057,7 @@
         const renderEulerQuestion = () => {
           if (secondsLeft > 180) {
             return `
-              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-855 font-mono text-sm leading-relaxed">
                 <span class="font-bold text-emerald-800 block text-xs uppercase">EULER NODE LEVEL A (T > 3 MIN)</span>
                 <p class="my-2 font-semibold text-base">Calculate V(1) using step size x=0.5:</p>
                 <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-emerald-400 rounded-xl font-bold">
@@ -993,7 +1067,7 @@
             `;
           } else if (secondsLeft > 60) {
             return `
-              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-855 font-mono text-sm leading-relaxed">
                 <span class="font-bold text-yellow-800 block text-xs uppercase">EULER NODE LEVEL B (1 MIN &lt; T &le; 3 MIN)</span>
                 <p class="my-2 font-semibold text-base">Calculate V(2) using step size x=1.0:</p>
                 <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-yellow-400 rounded-xl font-bold">
@@ -1003,7 +1077,7 @@
             `;
           } else {
             return `
-              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed animate-pulse-fast">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-855 font-mono text-sm leading-relaxed animate-pulse-fast">
                 <span class="font-bold text-red-800 block text-xs uppercase">EULER NODE LEVEL C (T &le; 1 MIN)</span>
                 <p class="my-2 font-semibold text-base">Calculate V(0.5) using step size x=0.5:</p>
                 <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-red-400 rounded-xl font-bold">
@@ -1013,6 +1087,29 @@
             `;
           }
         };
+
+        let actionHTML = '';
+        if (!isAlreadySolved) {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-855 shrink-0">
+              <p class="font-bold text-red-955 text-sm">TASK: Calculate the Euler outcome key to stop deletion.</p>
+              <div class="flex items-center gap-4">
+                <input type="text" id="active-input" placeholder="Override key..." 
+                       class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none text-xl font-mono"
+                       onkeydown="if(event.key==='Enter') submitAnswer()">
+                <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  ABORT WIPE
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          actionHTML = `
+            <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-855 font-bold text-center shrink-0">
+              ✔ COMPLETED: Override secured = ` + solvedAnswers[8] + `
+            </div>
+          `;
+        }
 
         return `
           <div id="active-object" class="w-full h-full flex flex-col justify-between overflow-hidden relative">
@@ -1024,26 +1121,10 @@
                 <div id="deletion-countdown" class="font-mono text-3xl md:text-4xl font-bold tracking-widest text-red-500 animate-pulse">05:00</div>
               </div>
               
-              ${renderEulerQuestion()}
+              ` + renderEulerQuestion() + `
             </div>
 
-            ${!isAlreadySolved ? `
-              <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-850 shrink-0">
-                <p class="font-bold text-red-955 text-sm">TASK: Calculate the Euler outcome key to stop deletion.</p>
-                <div class="flex items-center gap-4">
-                  <input type="text" id="active-input" placeholder="Override key..." 
-                         class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none text-xl font-mono"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                    ABORT WIPE
-                  </button>
-                </div>
-              </div>
-            ` : `
-              <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
-                ✔ COMPLETED: Override secured = ${solvedAnswers[8]}
-              </div>
-            `}
+            ` + actionHTML + `
           </div>
         `;
       }
@@ -1214,19 +1295,22 @@
         `;
         
         const folderIcon = `
-          <svg class="h-5 w-5 shrink-0 ${isActive ? 'text-amber-400' : 'text-amber-600/70'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="h-5 w-5 shrink-0 ` + (isActive ? 'text-amber-400' : 'text-amber-600/70') + `" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
         `;
         
+        const onClickAction = isLocked ? '' : 'navigateStep(' + step + ')';
+        const buttonClass = isLocked ? 'border-amber-955/15 text-amber-955/20 cursor-not-allowed bg-black/10' : 
+                            isActive ? 'border-amber-500 bg-amber-950/70 text-amber-400 font-bold scale-105 shadow-md' : 
+                                       'border-amber-900/40 text-amber-655/80 hover:border-amber-700/60 bg-black/40 hover:scale-102';
+        
         return `
-          <button onclick="${isLocked ? '' : `navigateStep(${step})`}" 
+          <button onclick="` + onClickAction + `" 
                   class="font-mono text-sm md:text-base tracking-wider uppercase px-5 py-4 border rounded-2xl transition-all duration-150 w-full text-left flex items-center justify-between
-                         ${isLocked ? 'border-amber-955/15 text-amber-955/20 cursor-not-allowed bg-black/10' : 
-                           isActive ? 'border-amber-500 bg-amber-950/70 text-amber-400 font-bold scale-105 shadow-md' : 
-                                      'border-amber-900/40 text-amber-655/80 hover:border-amber-700/60 bg-black/40 hover:scale-102'}" style="outline: none;">
-            <span>${tabNames[step]}</span>
-            ${isLocked ? lockIcon : folderIcon}
+                         ` + buttonClass + `" style="outline: none;">
+            <span>` + tabNames[step] + `</span>
+            ` + (isLocked ? lockIcon : folderIcon) + `
           </button>
         `;
       }).join("");
@@ -1338,11 +1422,50 @@ Good luck, Supervisor. The integrity of the state exam lies in your hands.`;
           } else {
             textTarget.classList.remove("cursor-active");
             btn.classList.remove("opacity-0");
-            btn.classList.add("animate-pulse-slow");
+            // Pulsing animation removed to stop the constant flashing
           }
         }
         type();
       }
+    }
+
+    function showPlayOptions() {
+      const container = document.getElementById("intro-actions-container");
+      container.style.opacity = "0";
+      setTimeout(() => {
+        container.innerHTML = `
+          <div class="flex flex-col md:flex-row items-center justify-between w-full gap-4">
+            <span class="font-mono text-[10px] text-amber-900/60 uppercase tracking-wider text-left font-bold">
+              RECOMMENDED: IMMERSIVE FULLSCREEN MODE
+            </span>
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+              <button onclick="startGame(false)" class="text-amber-900 hover:text-amber-700 font-mono text-xs font-bold px-5 py-3 border border-amber-900/30 rounded-xl select-none active:translate-y-0.5" style="outline: none;">
+                Windowed Mode
+              </button>
+              <button onclick="startGame(true)" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-sm font-bold px-8 py-4 rounded-xl shadow-lg uppercase tracking-wider select-none active:translate-y-0.5 transform scale-105 border-2 border-amber-700" style="outline: none;">
+                Fullscreen (Recommended)
+              </button>
+            </div>
+          </div>
+        `;
+        container.style.opacity = "1";
+      }, 300);
+    }
+
+    function startGame(fullscreen) {
+      if (fullscreen) {
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          docEl.mozRequestFullScreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) {
+          docEl.msRequestFullscreen();
+        }
+      }
+      closeIntro();
     }
     
     function closeIntro() {
