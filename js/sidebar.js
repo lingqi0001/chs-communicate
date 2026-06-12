@@ -361,7 +361,7 @@ export const SidebarModule = {
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">
                                         ${window.escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
                                     </div>
-                                    <div class="text-xs text-gray-400 truncate flex items-center">${window.escapeHTML(u.email || u.id)}${badge}</div>
+                                    <div class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(u.email || u.id)}${badge}</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 pr-5">
@@ -540,7 +540,7 @@ export const SidebarModule = {
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
                                 <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${window.escapeHTML(u.name || id)}</span>
-                                <span class="text-xs text-gray-400 truncate flex items-center">${window.escapeHTML(u.email || id)}${badge}</span>
+                                <span class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(u.email || id)}${badge}</span>
                             </div>
                         `;
                         subList.appendChild(div);
@@ -715,7 +715,7 @@ export const SidebarModule = {
                         ${avatarHtml}
                         <div class="flex flex-col overflow-hidden">
                             <span class="font-bold ${titleTextSize} text-black dark:text-white truncate flex items-center">${window.escapeHTML(displayName)}</span>
-                            <span class="text-xs text-gray-400 ${subtitleMargin} truncate flex items-center">${window.escapeHTML(displayEmail)}${badge}</span>
+                            <span class="text-xs text-gray-400 ${subtitleMargin} truncate flex items-baseline">${window.escapeHTML(displayEmail)}${badge}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">

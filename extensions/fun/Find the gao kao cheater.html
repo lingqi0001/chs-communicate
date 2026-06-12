@@ -83,41 +83,82 @@
       100% { opacity: 0.85; transform: scale(1) rotate(-12deg); filter: blur(0); }
     }
     .badge-stamp { animation: stamp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+    
+    .blood-circle-clumped {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-image: url('assets/blood-type-key.png');
+      background-size: 470%;
+      background-position: 28.5% 15.5%; /* Crops a clean clumped blood circle without grid lines */
+      border: 2px solid rgba(139, 92, 26, 0.35);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    /* Typewriter Cursor animation */
+    .cursor-active::after {
+      content: '▋';
+      animation: blink 0.8s infinite;
+      color: #8b5a1a;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
   </style>
   <script src="../js/app-bridge.js"></script>
 </head>
-<body class="font-sans text-slate-100 flex flex-col p-4 md:p-6 select-none min-h-screen justify-between">
+<body class="font-sans text-slate-100 flex flex-col p-4 md:p-6 select-none h-screen justify-between overflow-hidden">
 
-  <!-- Cleaned HUD Header (Full Width) -->
-  <header class="w-full mx-auto mb-6 border-b border-amber-955/20 pb-4 z-20 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="h-4 w-4 rounded-full bg-amber-500 shadow-[0_0_14px_#f59e0b] animate-pulse"></div>
-      <h1 class="text-xl font-serif text-slate-200 tracking-wider">GAOKAO CHEATING INVESTIGATION FILE</h1>
+  <!-- Cinematic Prologue Overlay -->
+  <div id="intro-screen" class="fixed inset-0 bg-[#070503] flex items-center justify-center z-50 transition-all duration-700 ease-in-out">
+    <!-- Spotlight Effect -->
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(254,243,199,0.08)_0%,rgba(0,0,0,0.95)_70%)] pointer-events-none"></div>
+    
+    <!-- Case Manila Folder -->
+    <div class="aged-paper max-w-2xl w-11/12 p-8 md:p-10 rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.95)] border border-amber-955/20 relative rotate-[-0.5deg] scale-95 opacity-0 transition-all duration-700 ease-out flex flex-col justify-between min-h-[460px]" id="intro-folder">
+      <!-- Stamp watermark -->
+      <div class="absolute top-6 right-8 opacity-10 border-4 border-red-800 rounded px-3 py-1 text-red-800 font-bold text-xs rotate-12 select-none tracking-widest">TOP SECRET</div>
+      
+      <!-- Content -->
+      <div class="space-y-4 flex-grow flex flex-col justify-center">
+        <div class="font-mono text-[10px] text-amber-900/60 uppercase tracking-widest border-b border-amber-900/10 pb-2 mb-2">
+          Forensic Database Command Briefing // Node #9038
+        </div>
+        <div id="typewriter-target" class="font-serif text-slate-800 text-sm md:text-base leading-relaxed space-y-3 whitespace-pre-wrap"></div>
+      </div>
+      
+      <!-- Action -->
+      <div class="mt-6 border-t border-amber-900/10 pt-4 flex justify-end shrink-0">
+        <button id="intro-btn" onclick="closeIntro()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-mono text-xs font-bold px-8 py-3.5 rounded-xl shadow-md opacity-0 transition-opacity duration-500 uppercase tracking-widest select-none active:translate-y-0.5" style="outline: none;">
+          Open Case File
+        </button>
+      </div>
     </div>
-    <button onclick="toggleDiagKey()" class="text-amber-800 hover:text-amber-600 font-mono text-sm font-bold">[SHOW ANSWERS]</button>
-  </header>
+  </div>
 
   <!-- Full Screen Desktop Workspace Layout -->
-  <main id="desk-surface" class="flex-grow w-full flex flex-col lg:flex-row gap-6 relative z-10 py-2 items-stretch min-h-[580px]">
+  <main id="desk-surface" class="flex-1 w-full flex flex-col lg:flex-row gap-6 relative z-10 py-1 items-stretch overflow-hidden">
     
     <!-- LEFT SIDEBAR: Vertical Tab Indexes -->
-    <div class="w-full lg:w-[280px] shrink-0 flex flex-col gap-4 bg-black/45 border border-amber-955/25 p-6 rounded-3xl">
-      <span class="text-xs md:text-sm font-mono tracking-widest text-amber-600 font-bold border-b border-amber-950/20 pb-3 mb-3 block uppercase text-center">INDEXED DOSSIERS</span>
-      <div id="dossier-nav-tabs" class="flex flex-col gap-3">
+    <div class="w-full lg:w-[280px] shrink-0 flex flex-col gap-4 bg-black/45 border border-amber-955/25 p-5 rounded-3xl overflow-y-auto">
+      <span class="text-xs md:text-sm font-mono tracking-widest text-amber-600 font-bold border-b border-amber-950/20 pb-2 mb-2 block uppercase text-center">INDEXED DOSSIERS</span>
+      <div id="dossier-nav-tabs" class="flex flex-col gap-2.5">
         <!-- Rendered vertically by JS -->
       </div>
     </div>
 
     <!-- MAIN INTERACTIVE WORKSPACE -->
-    <div id="main-scene-panel" class="flex-grow flex flex-col justify-between aged-paper rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-y-auto">
-      <div id="active-viewport" class="w-full h-full flex-grow flex flex-col justify-between"></div>
+    <div id="main-scene-panel" class="flex-grow flex flex-col justify-between aged-paper rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden h-full">
+      <div id="active-viewport" class="w-full h-full flex-grow flex flex-col justify-between overflow-hidden"></div>
     </div>
 
   </main>
 
-  <footer class="w-full mx-auto mt-6 border-t border-amber-955/20 pt-4 text-center text-xs text-amber-900/40 font-mono flex items-center justify-between">
+  <footer class="w-full mx-auto mt-4 text-center text-xs text-amber-900/40 font-mono flex items-center justify-between shrink-0">
     <span>SYSTEM: FORENSIC_DESK // AUDITOR_LEVEL_1</span>
-    <span>TOP SECRET INTEL</span>
+    <button onclick="toggleDiagKey()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold" style="outline: none;">[SHOW ANSWERS]</button>
   </footer>
 
   <!-- Diagnostic Key Box -->
@@ -130,9 +171,9 @@
       <p>1) Cafeteria Log: "20"</p>
       <p>2) Padlock Door: Click lock digits to form "8125" then click ENT</p>
       <p>3) Blood Lab: "20"</p>
-      <p>4) Microscope: "6" (Option C)</p>
+      <p>4) Microscope: "-1.3048" (Option F)</p>
       <p>5) Outbreak P(1): "881"</p>
-      <p>6) Rona Locker combo sum: "3292"</p>
+      <p>6) Rona Locker combo sum: "213"</p>
       <p>7) USB Decrypt Code: Adjust dials to "16" then click OPEN</p>
       <p>8) Abort System wipe: Enter Euler output "4" (or 2, or 0.5)</p>
     </div>
@@ -147,6 +188,12 @@
     let keypadDigits = "";
     let safeDial1 = 0;
     let safeDial2 = 0;
+    let exhibitCollapsed = false;
+
+    function toggleExhibit() {
+      exhibitCollapsed = !exhibitCollapsed;
+      renderActiveSpread();
+    }
 
     const dialogueStates = {
       1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0
@@ -157,19 +204,19 @@
       1: "20",
       2: "8125",
       3: "20",
-      4: "6",
+      4: "-1.3048",
       5: "881",
-      6: "3292",
+      6: "213",
       7: "16",
       8: "4"
     };
 
     const suspects = [
-      { name: "Bryan", id: "9083", blood: "AB", pets: "Cat" },
-      { name: "Matthew", id: "5145", blood: "O", pets: "Dog" },
-      { name: "Lakshith", id: "8791", blood: "A", pets: "Cat" },
-      { name: "Moss", id: "4329", blood: "A", pets: "Pig" },
-      { name: "Rona", id: "3193", blood: "AB", pets: "None" }
+      { name: "Bryan", id: "7996", classes: ["Economics", "Physics", "Chemistry", "Calc"], pets: "Cat", blood: "AB" },
+      { name: "Matthew", id: "5145", classes: ["Physics", "Biology", "English", "Calc", "Band"], pets: "Dog", blood: "O" },
+      { name: "Lakshith", id: "7153", classes: ["Biology", "English", "History", "Computer Science"], pets: "Cat", blood: "A" },
+      { name: "Moss", id: "5473", classes: ["Economics", "Calc", "Computer Science", "English"], pets: "Pig", blood: "A" },
+      { name: "Rona", id: "3193", classes: ["Calc", "Precalc", "Biology", "Chemistry"], pets: "None", blood: "AB" }
     ];
 
     const dialogs = {
@@ -253,8 +300,7 @@
         </div>
       `;
     }
-
-    // Step-by-Step Content Generators (All non-dialogue font sizes drastically increased)
+     // Step-by-Step Content Generators (All non-dialogue layouts optimized to avoid nested scrollbars)
     const stepContents = {
       1: function(isDialogueActive, dState, dTotal, d, isAlreadySolved) {
         if (isDialogueActive) {
@@ -262,46 +308,161 @@
         }
 
         return `
-          <div class="w-full h-full flex flex-col justify-between">
-            <div class="space-y-6">
-              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_A: CAFETERIA RECORD DATABASE</span>
+          <div class="w-full h-full flex flex-col justify-between overflow-hidden">
+            <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
-              <div class="bg-amber-900/5 p-6 rounded-xl border border-amber-900/10 font-mono text-lg md:text-xl leading-10 text-slate-850">
-                <div class="grid grid-cols-3 font-bold border-b-2 border-slate-350 pb-3 mb-4 text-amber-900">
-                  <span>STUDENT ID</span>
-                  <span>PRODUCT</span>
-                  <span>TIME</span>
-                </div>
-                <div class="space-y-3">
-                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>5145 (Matthew)</span><span>Roujiamo</span><span>10:00 AM</span></div>
-                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>3193 (Rona)</span><span>Roujiamo</span><span>10:00 AM</span></div>
-                  <div class="grid grid-cols-3 text-slate-400"><span>8791 (Lakshith)</span><span>Liangpi</span><span>10:00 AM</span></div>
-                  <div class="grid grid-cols-3 text-slate-400"><span>0413 (Guest)</span><span>Baozi</span><span>12:00 PM</span></div>
-                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>4329 (Moss)</span><span>Roujiamo</span><span>12:00 PM</span></div>
-                  <div class="grid grid-cols-3 text-slate-400"><span>2908 (Guest)</span><span>Baozi</span><span>12:30 PM</span></div>
-                  <div class="grid grid-cols-3 font-bold text-amber-955"><span>9083 (Bryan)</span><span>Roujiamo</span><span>12:30 PM</span></div>
-                  <div class="grid grid-cols-3 text-slate-400"><span>0983 (Guest)</span><span>Liangpi</span><span>12:30 PM</span></div>
-                </div>
+              <!-- Left Column: Log table only -->
+              <div class="flex-1 bg-amber-900/5 p-4 rounded-xl border border-amber-900/10 font-mono text-xs leading-relaxed text-slate-850 overflow-y-auto min-w-0">
+                <span class="text-xs font-mono text-slate-600 block font-bold border-b border-slate-300 pb-1 mb-2">EXHIBIT_A: CAFETERIA RECORD LOG</span>
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b-2 border-slate-350 text-amber-900 font-bold text-xs">
+                      <th class="py-1 px-2 w-[60%]">STUDENT ID</th>
+                      <th class="py-1 px-2">Purchase</th>
+                      <th class="py-1 px-2">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-amber-900/10 text-xs">
+                    <!-- Row 1 -->
+                    <tr>
+                      <td class="py-2 px-2">
+                        $$\\int_{2}^{12} \\frac{1000x - 250}{x^3 + x} \\, dx + 4791.522$$
+                      </td>
+                      <td class="py-2 px-2">Roujiamo</td>
+                      <td class="py-2 px-2">10:00</td>
+                    </tr>
+                    <!-- Row 2 -->
+                    <tr>
+                      <td class="py-2 px-2">
+                        A polar curve is defined by the equation
+                        $$r = 3 \\cos 3\\theta$$
+                      </td>
+                      <td class="py-2 px-2">Roujiamo</td>
+                      <td class="py-2 px-2">10:00</td>
+                    </tr>
+                    <!-- Row 3 -->
+                    <tr>
+                      <td class="py-2 px-2 text-xs text-slate-650">
+                        Find the answer to the equation
+                        $$228 \\cdot \\text{floor}(\\text{"Area of polar curve"}) + 1$$
+                        Where floor outputs the largest integer lower than the value. For example floor(54.23) = 54.
+                      </td>
+                      <td class="py-2 px-2"></td>
+                      <td class="py-2 px-2"></td>
+                    </tr>
+                    <!-- Row 4 -->
+                    <tr>
+                      <td class="py-2 px-2 text-xs text-slate-650">
+                        A particle moves along a line with velocity:
+                        $$v(t) = 8t^2 + 40t + 120 + 24\\sin(\\pi t/6)$$
+                        If the particle’s position at $t = 0$ is 3,479, find its position at $t = 8$
+                      </td>
+                      <td class="py-2 px-2">Liangpi</td>
+                      <td class="py-2 px-2">10:00</td>
+                    </tr>
+                    <!-- Row 5 -->
+                    <tr>
+                      <td class="py-2 px-2 font-bold text-amber-955">0413</td>
+                      <td class="py-2 px-2">Baozi</td>
+                      <td class="py-2 px-2">12:00</td>
+                    </tr>
+                    <!-- Row 6 -->
+                    <tr>
+                      <td class="py-2 px-2">
+                        $$288 * \\left(15 + \\int_0^2 x^3 \\, dx\\right) + 1$$
+                      </td>
+                      <td class="py-2 px-2">Roujiamo</td>
+                      <td class="py-2 px-2">12:00</td>
+                    </tr>
+                    <!-- Row 7 -->
+                    <tr>
+                      <td class="py-2 px-2">
+                        $$228 \\cdot \\left( \\left.\\frac{d}{dx}(x^3)\\right|_{x = 2} + 1 \\right)$$
+                      </td>
+                      <td class="py-2 px-2">Baozi</td>
+                      <td class="py-2 px-2">12:30</td>
+                    </tr>
+                    <!-- Row 8 -->
+                    <tr>
+                      <td class="py-2 px-2 text-xs text-slate-650">
+                        The rate at which water enters a tank is (in gallons per hour):
+                        $$R(t) = 180 + 30t + 4t^2 + 15e^{-t}$$
+                        If the tank initially contains 4,174 gallons, how much water is in the tank after 9 hours.
+                      </td>
+                      <td class="py-2 px-2">Roujiamo</td>
+                      <td class="py-2 px-2">12:30</td>
+                    </tr>
+                    <!-- Row 9 -->
+                    <tr>
+                      <td class="py-2 px-2 font-bold text-amber-955">0983</td>
+                      <td class="py-2 px-2">Liangpi</td>
+                      <td class="py-2 px-2">12:30</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </div>
 
-            ${!isAlreadySolved ? `
-              <div class="mt-8 pt-6 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
-                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of the letters in the names of all students who bought Roujiamo yesterday.</p>
-                <div class="flex items-center gap-4 mt-2">
-                  <input type="text" id="active-input" placeholder="Enter code sum..." 
-                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-8 py-4 rounded-xl text-sm transition-all uppercase tracking-wide">
-                    LOG EVIDENCE
-                  </button>
+              <!-- Right Column: Suspect sheet & Input area -->
+              <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-4 bg-white/20 p-4 rounded-2xl border border-amber-900/10 overflow-y-auto">
+                <!-- Suspect List -->
+                <div class="bg-amber-900/10 p-3 rounded-xl border border-amber-900/20 font-mono text-xs text-slate-800">
+                  <span class="font-bold text-amber-955 text-xs block mb-2 uppercase tracking-wide border-b border-amber-900/10 pb-1">SUSPECTS REFERENCE SHEET:</span>
+                  <div class="flex flex-col gap-2">
+                    <div class="bg-white/60 p-2 rounded-lg border border-amber-900/5">
+                      <strong class="text-amber-900 block text-xs">Bryan (7996)</strong>
+                      <div class="text-[10px] text-slate-600 mt-0.5 leading-tight">
+                        Pets: Cat | Blood: AB
+                      </div>
+                    </div>
+                    <div class="bg-white/60 p-2 rounded-lg border border-amber-900/5">
+                      <strong class="text-amber-900 block text-xs">Matthew (5145)</strong>
+                      <div class="text-[10px] text-slate-600 mt-0.5 leading-tight">
+                        Pets: Dog | Blood: O
+                      </div>
+                    </div>
+                    <div class="bg-white/60 p-2 rounded-lg border border-amber-900/5">
+                      <strong class="text-amber-900 block text-xs">Lakshith (7153)</strong>
+                      <div class="text-[10px] text-slate-600 mt-0.5 leading-tight">
+                        Pets: Cat | Blood: A
+                      </div>
+                    </div>
+                    <div class="bg-white/60 p-2 rounded-lg border border-amber-900/5">
+                      <strong class="text-amber-900 block text-xs">Moss (5473)</strong>
+                      <div class="text-[10px] text-slate-600 mt-0.5 leading-tight">
+                        Pets: Pig | Blood: A
+                      </div>
+                    </div>
+                    <div class="bg-white/60 p-2 rounded-lg border border-amber-900/5 bg-red-900/5 border-red-900/10">
+                      <strong class="text-red-900 block text-xs">Rona (3193)</strong>
+                      <div class="text-[10px] text-slate-655 mt-0.5 leading-tight">
+                        Pets: None | Blood: AB
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="border-t border-amber-900/10 pt-3">
+                  ${!isAlreadySolved ? `
+                    <div class="flex flex-col gap-3 font-mono text-sm text-slate-800">
+                      <p class="font-bold text-amber-900 text-xs">TASK: Calculate the sum of the letters in the names of all suspects who bought Roujiamo yesterday.</p>
+                      <div class="flex flex-col gap-3 mt-1">
+                        <input type="text" id="active-input" placeholder="Enter sum..." 
+                               class="bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-2 py-1 focus:outline-none focus:border-amber-900 text-lg"
+                               onkeydown="if(event.key==='Enter') submitAnswer()">
+                        <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-4 py-3 rounded-xl text-xs transition-all uppercase tracking-wide">
+                          LOG EVIDENCE
+                        </button>
+                      </div>
+                    </div>
+                  ` : `
+                    <div class="text-base font-mono text-emerald-850 font-bold text-center py-4">
+                      ✔ VERIFIED EVIDENCE: Roujiamo Buyers Letter Sum = ${solvedAnswers[1]}
+                    </div>
+                  `}
                 </div>
               </div>
-            ` : `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
-                ✔ VERIFIED EVIDENCE: Roujiamo Buyers Letter Sum = ${solvedAnswers[1]}
-              </div>
-            `}
+
+            </div>
           </div>
         `;
       },
@@ -314,7 +475,7 @@
           <div class="w-full h-full flex flex-col md:flex-row items-center justify-around gap-8">
             <!-- Left Side: Sticky Note -->
             <div class="bg-yellow-100 text-yellow-955 p-8 rounded-2xl shadow-xl border border-yellow-250 rotate-[-1deg] font-serif text-lg md:text-xl max-w-xl flex-1 leading-relaxed">
-              <span class="font-mono font-bold block border-b border-yellow-350 pb-2 mb-4 text-amber-900">STICKY NOTE EXAM:</span>
+              <span class="font-mono font-bold block border-b border-yellow-355 pb-2 mb-4 text-amber-900">STICKY NOTE EXAM:</span>
               <p class="mb-4">Compute the escape code integral to unlock keypad:</p>
               <div class="font-sans font-bold text-center text-xl md:text-2xl py-6 bg-yellow-50/70 rounded-2xl my-4 text-amber-955">
                 PIN = $$\\int_{0}^{5} (4x^5 + 4x^3 + 2x^2) \\, dx - 3000$$
@@ -350,44 +511,126 @@
         }
 
         return `
-          <div class="w-full h-full flex flex-col justify-between">
-            <div class="space-y-6">
-              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_B: AGGLUTINATION ANALYSIS</span>
+          <div class="w-full h-full flex flex-col justify-between overflow-hidden">
+            <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
-              <div class="flex flex-col items-center gap-3 border border-amber-900/15 p-4 rounded-xl bg-white/40 max-w-md mx-auto shadow">
-                <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-64 object-contain rounded-lg border border-amber-900/10">
-                <span class="text-xs font-mono text-slate-500">File link: assets/blood-type-key.png</span>
-              </div>
-
-              <div class="p-6 bg-[#f0e8d9] border border-amber-900/10 rounded-xl space-y-5 text-base md:text-lg font-mono text-slate-808 w-full">
-                <div>
-                  <span class="font-serif font-bold text-slate-905 text-lg">Bryan (AB):</span>
-                  <p class="font-sans text-lg md:text-xl my-1 font-bold text-amber-950">$$\\lim_{x \\to 2} \\frac{x^3 - 8}{x - 2}$$</p>
+              <!-- Exhibit Column -->
+              ${!exhibitCollapsed ? `
+                <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
+                  <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
+                    <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_B: ANALYSIS CARD</span>
+                    <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
+                  </div>
+                  
+                  <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                    <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-36 object-contain rounded-lg">
+                    <span class="text-[9px] font-mono text-slate-500 mt-1">Agglutination Reference Sheet</span>
+                  </div>
+                  
+                  <div class="flex flex-col border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                    <span class="block font-sans font-bold text-slate-800 text-[10px] mb-1.5 text-center">Test Card #SC-9038 Results</span>
+                    <table class="w-full text-center font-mono border-collapse border border-amber-900/20 bg-white/80 rounded-lg overflow-hidden">
+                      <thead>
+                        <tr class="bg-amber-900/5 text-amber-900 font-bold border-b border-amber-900/20 text-[10px]">
+                          <th class="py-1 border-r border-amber-900/20">Anti-A</th>
+                          <th class="py-1">Anti-B</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td class="py-2 border-r border-amber-900/20">
+                            <div class="mx-auto blood-circle-clumped scale-75"></div>
+                          </td>
+                          <td class="py-2">
+                            <div class="mx-auto blood-circle-clumped scale-75"></div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div class="border-t border-amber-900/5 pt-3">
-                  <span class="font-serif font-bold text-slate-905 text-lg">Rona (AB):</span>
-                  <p class="font-sans text-lg md:text-xl my-1 font-bold text-amber-955">$$\\int_{0}^{2} (6x^2 - 4x) \\, dx$$</p>
-                </div>
-              </div>
-            </div>
-
-            ${!isAlreadySolved ? `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
-                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of the solutions to the suspects' equations.</p>
-                <div class="flex items-center gap-4 mt-2">
-                  <input type="text" id="active-input" placeholder="Enter sum..." 
-                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                    SUBMIT
+              ` : `
+                <div class="shrink-0 flex items-start">
+                  <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
+                    📂 SHOW EXHIBIT B
                   </button>
                 </div>
+              `}
+
+              <!-- Questions Column -->
+              <div class="flex-1 flex flex-col justify-between overflow-hidden min-w-0">
+                <div class="flex-grow flex flex-col overflow-hidden">
+                  <span class="text-base font-mono text-slate-700 block font-bold border-b border-slate-300 pb-2 mb-3 shrink-0">SUSPECT BLOOD TYPE EQUATIONS</span>
+                  
+                  <div class="flex-grow overflow-y-auto pr-2 space-y-4 bg-yellow-50/20 border border-amber-900/5 p-4 rounded-xl">
+                    <!-- Bryan -->
+                    <div>
+                      <span class="font-serif font-bold text-slate-905 text-base">Bryan (AB):</span>
+                      <p class="font-sans text-sm my-1 text-amber-955 leading-relaxed">
+                        Given the differential equation:
+                        $$\\frac{dy}{dx} = 3xy$$
+                        and that $y(0)= 1$, find floor $(y(\\sqrt{2}))$
+                      </p>
+                    </div>
+                    <!-- Matthew -->
+                    <div class="border-t border-amber-900/10 pt-3">
+                      <span class="font-serif font-bold text-slate-905 text-base">Matthew (O):</span>
+                      <p class="font-sans text-sm my-1 text-slate-600 leading-relaxed">
+                        Given the differential equation:
+                        $$\\frac{dy}{dx} = 3xy$$
+                        and that $y(0)= 1$, find floor $(y(2)) + 2$
+                      </p>
+                    </div>
+                    <!-- Lakshith -->
+                    <div class="border-t border-amber-900/10 pt-3">
+                      <span class="font-serif font-bold text-slate-905 text-base">Lakshith (A):</span>
+                      <p class="font-sans text-sm my-1 text-slate-600 leading-relaxed">
+                        Given the differential equation:
+                        $$\\frac{dy}{dx} = 3xy$$
+                        and that $y(0)= 1$, find floor $(y(5.4)) - 2.65$
+                      </p>
+                    </div>
+                    <!-- Moss -->
+                    <div class="border-t border-amber-900/10 pt-3">
+                      <span class="font-serif font-bold text-slate-905 text-base">Moss (A):</span>
+                      <p class="font-sans text-sm my-1 text-slate-600 leading-relaxed">
+                        Given the differential equation:
+                        $$\\frac{dy}{dx} = 3xy$$
+                        and that $y(0)= 1$, find floor $(y(3))$
+                      </p>
+                    </div>
+                    <!-- Rona -->
+                    <div class="border-t border-amber-900/10 pt-3">
+                      <span class="font-serif font-bold text-slate-905 text-base">Rona (AB):</span>
+                      <p class="font-sans text-sm my-1 text-amber-955 leading-relaxed">
+                        Given the differential equation:
+                        $$\\frac{dy}{dx} = 3xy$$
+                        and that $y(0)= 1$, find $y(1) - 4.48$
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                ${!isAlreadySolved ? `
+                  <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
+                    <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Type the sum of the solutions to the equations of the implicated suspects (AB blood type).</p>
+                    <div class="flex items-center gap-4">
+                      <input type="text" id="active-input" placeholder="Enter sum..." 
+                             class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                             onkeydown="if(event.key==='Enter') submitAnswer()">
+                      <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                        SUBMIT
+                      </button>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
+                    ✔ VERIFIED EVIDENCE: Implicated Equations Sum = ${solvedAnswers[3]}
+                  </div>
+                `}
               </div>
-            ` : `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
-                ✔ VERIFIED EVIDENCE: Equations Sum = ${solvedAnswers[3]}
-              </div>
-            `}
+
+            </div>
           </div>
         `;
       },
@@ -397,40 +640,90 @@
         }
 
         return `
-          <div class="w-full h-full flex flex-col justify-between">
-            <div class="space-y-6">
-              <span class="text-base font-mono text-slate-600 block font-bold border-b border-slate-300 pb-2">EXHIBIT_C: EYEPIECE SLIDE PREVIEW</span>
+          <div class="w-full h-full flex flex-col justify-between overflow-hidden">
+            <div class="flex-grow flex flex-col lg:flex-row gap-4 overflow-hidden items-stretch">
               
-              <div class="flex flex-col items-center gap-3 border border-amber-900/15 p-4 rounded-xl bg-white/40 max-w-md mx-auto shadow">
-                <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg border border-amber-900/10">
-                <span class="text-xs font-mono text-slate-500">File link: assets/animal-hair-key.png</span>
-              </div>
-
-              <div class="p-6 bg-yellow-50 border border-yellow-250 rounded-xl text-base md:text-lg font-mono text-slate-800 w-full">
-                <span class="font-bold text-amber-900 text-lg block mb-1">Option C (Canine Match Clue):</span>
-                <p class="font-sans text-xl font-bold my-2 text-amber-955">
-                  $$\\int_{1}^{4} \\frac{3}{\\sqrt{x}} \\, dx$$
-                </p>
-              </div>
-            </div>
-
-            ${!isAlreadySolved ? `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
-                <p class="font-bold text-amber-900 text-lg">TASK: Input the answer to Option C.</p>
-                <div class="flex items-center gap-4 mt-2">
-                  <input type="text" id="active-input" placeholder="Option C output..." 
-                         class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
-                         onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
-                    SUBMIT
+              <!-- Exhibit Column -->
+              ${!exhibitCollapsed ? `
+                <div class="w-full lg:w-[320px] shrink-0 border border-amber-900/15 p-4 rounded-2xl bg-white/40 shadow flex flex-col gap-3 overflow-y-auto">
+                  <div class="flex items-center justify-between border-b border-amber-900/15 pb-2 mb-1 shrink-0">
+                    <span class="text-xs font-mono text-slate-655 font-bold uppercase tracking-wider">EXHIBIT_C: microscope slide</span>
+                    <button onclick="toggleExhibit()" class="text-amber-800 hover:text-amber-600 font-mono text-xs font-bold">[MINIMIZE ◀]</button>
+                  </div>
+                  
+                  <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
+                    <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg">
+                    <span class="text-[9px] font-mono text-slate-500 mt-1">File link: assets/animal-hair-key.png</span>
+                  </div>
+                </div>
+              ` : `
+                <div class="shrink-0 flex items-start">
+                  <button onclick="toggleExhibit()" class="bg-amber-900 hover:bg-amber-850 text-amber-50 font-mono text-xs font-bold px-4 py-3 rounded-xl shadow-md flex items-center gap-2">
+                    📂 SHOW EXHIBIT C
                   </button>
                 </div>
+              `}
+
+              <!-- Questions Column -->
+              <div class="flex-1 flex flex-col justify-between overflow-hidden min-w-0">
+                <div class="flex-grow flex flex-col overflow-hidden">
+                  <span class="text-base font-mono text-slate-700 block font-bold border-b border-slate-300 pb-2 mb-3 shrink-0">MICROSCOPE ANALYSIS EQUATIONS</span>
+                  
+                  <div class="flex-grow overflow-y-auto pr-2 space-y-3 bg-yellow-50/20 border border-yellow-250/20 p-4 rounded-xl">
+                    <span class="font-bold text-amber-900 text-sm block border-b border-amber-900/10 pb-1 mb-2">Solve the corresponding equation to match the hair:</span>
+                    <div><strong>A:</strong> $3x+1 = 202$</div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>B:</strong>
+                      $$\\int_{0}^{3} 6 \\cos 3x \\, dx$$
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>C:</strong>
+                      $$\\int_{0}^{3} \\frac{3}{x^2 + 4x + 4} \\, dx$$
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2"><strong>D:</strong> $2+2$</div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>E:</strong> Find the acceleration vector at $t=4$ for:
+                      $$s(t) = t^3+6t^2+9t+4$$
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>F:</strong> Approximate a solution to $4x^3+3x^2+2x+5=0$. Start with an initial guess of $x=1$. Iterate 3 times using Newton's method.
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>G:</strong>
+                      $$\\int_{0}^{3} 3x^2 \\, dx$$
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>H:</strong> Find the acceleration vector at $t=1$ for the functions:
+                      $$x(t) = \\ln(\\cos(x^2))$$
+                      $$y(t) = 5x^4+3x^2+3$$
+                    </div>
+                    <div class="border-t border-slate-200/40 pt-2">
+                      <strong>I:</strong>
+                      $$\\lim_{x \\to 0} \\frac{e^{3x}-1-3x}{x^2}$$
+                    </div>
+                  </div>
+                </div>
+
+                ${!isAlreadySolved ? `
+                  <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800 shrink-0">
+                    <p class="font-bold text-amber-900 text-sm">TASK: Who does this implicate? Submit your answer by solving the corresponding equation for the matching hair.</p>
+                    <div class="flex items-center gap-4">
+                      <input type="text" id="active-input" placeholder="Enter answer..." 
+                             class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
+                             onkeydown="if(event.key==='Enter') submitAnswer()">
+                      <button onclick="submitAnswer()" class="bg-amber-900 hover:bg-amber-855 text-amber-50 font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
+                        SUBMIT
+                      </button>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
+                    ✔ VERIFIED EVIDENCE: Correct Hair Equation Output = ${solvedAnswers[4]}
+                  </div>
+                `}
               </div>
-            ` : `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
-                ✔ VERIFIED EVIDENCE: Option C Output = ${solvedAnswers[4]}
-              </div>
-            `}
+
+            </div>
           </div>
         `;
       },
@@ -440,32 +733,32 @@
         }
 
         return `
-          <div class="w-full h-full flex flex-col justify-between relative">
+          <div class="w-full h-full flex flex-col justify-between overflow-hidden relative">
             <div class="absolute inset-0 bg-red-600/5 pointer-events-none animate-pulse"></div>
             
-            <div class="space-y-6">
-              <div class="flex items-center gap-3 text-red-650 border-b border-red-900/20 pb-3">
-                <div class="w-6 h-6 bg-red-600 rounded-full animate-pulse shadow-[0_0_10px_#dc2626]"></div>
+            <div class="flex-grow overflow-y-auto space-y-4">
+              <div class="flex items-center gap-3 text-red-650 border-b border-red-900/20 pb-2 shrink-0">
+                <div class="w-5 h-5 bg-red-600 rounded-full animate-pulse shadow-[0_0_10px_#dc2626]"></div>
                 <span class="text-base font-mono font-bold tracking-widest uppercase">VENTILATION SHUTDOWN TIMEOUT</span>
               </div>
 
-              <p class="font-serif text-lg text-slate-800 leading-relaxed">
+              <p class="font-serif text-base text-slate-800 leading-relaxed">
                 The automatic containment gates require override calculations based on the bacterial growth projection:
               </p>
 
-              <div class="p-8 bg-slate-900 text-red-400 rounded-2xl border border-slate-950 text-center font-mono">
-                <p class="text-base text-slate-400 mb-2 font-bold">Bacteria Logistic Differential Rate:</p>
-                <p class="font-sans text-xl md:text-2xl font-bold my-4">
+              <div class="p-6 bg-slate-900 text-red-400 rounded-2xl border border-slate-950 text-center font-mono">
+                <p class="text-sm text-slate-400 mb-1 font-bold">Bacteria Logistic Differential Rate:</p>
+                <p class="font-sans text-lg md:text-xl font-bold my-2">
                   $$\\frac{dP}{dt} = 0.002 P(1000 - P), \\quad P(0) = 500$$
                 </p>
-                <p class="text-sm text-slate-400 mt-2">Find P(1) rounded to the nearest integer.</p>
+                <p class="text-xs text-slate-400 mt-1">Find P(1) rounded to the nearest integer.</p>
               </div>
             </div>
 
             ${!isAlreadySolved ? `
-              <div class="mt-8 pt-4 border-t border-red-900/20 flex flex-col gap-3 font-mono text-sm text-slate-850">
-                <p class="font-bold text-red-950 text-lg">TASK: Calculate the bacteria counts P(1) at t=1.</p>
-                <div class="flex items-center gap-4 mt-2">
+              <div class="mt-4 pt-4 border-t border-red-900/20 flex flex-col gap-3 font-mono text-sm text-slate-855 shrink-0">
+                <p class="font-bold text-red-955 text-sm">TASK: Calculate the bacteria counts P(1) at t=1.</p>
+                <div class="flex items-center gap-4">
                   <input type="text" id="active-input" placeholder="Vent override code..." 
                          class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none focus:border-red-900 text-xl"
                          onkeydown="if(event.key==='Enter') submitAnswer()">
@@ -475,7 +768,7 @@
                 </div>
               </div>
             ` : `
-              <div class="mt-8 pt-4 border-t border-red-900/20 text-lg font-mono text-emerald-850 font-bold text-center">
+              <div class="mt-4 pt-4 border-t border-red-900/20 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
                 ✔ NEUTRALIZED: Override code verified = ${solvedAnswers[5]}
               </div>
             `}
@@ -488,40 +781,132 @@
         }
 
         return `
-          <div class="w-full h-full flex flex-col justify-between relative">
-            <div class="space-y-6">
-              <div class="flex items-center justify-between border-b border-slate-350 pb-3 mb-4">
+          <div class="w-full h-full flex flex-col justify-between overflow-hidden">
+            <div class="flex-grow flex flex-col overflow-hidden">
+              <div class="flex items-center justify-between border-b border-slate-350 pb-2 mb-3 shrink-0">
                 <span class="text-base font-mono text-slate-600 block font-bold">OFFICIAL LOCKER REGISTER DIRECTORY</span>
                 <input type="text" id="locker-filter" oninput="filterLockerTable()" placeholder="Search suspects..." 
-                       class="bg-amber-900/5 border border-amber-900/30 rounded-xl px-4 py-2.5 text-base text-amber-955 font-mono focus:outline-none w-56">
+                       class="bg-amber-900/5 border border-amber-900/30 rounded-xl px-3 py-1.5 text-sm text-amber-955 font-mono focus:outline-none w-48">
               </div>
 
-              <div class="overflow-x-auto rounded-xl border border-slate-350 bg-white/45 text-base md:text-lg font-mono">
-                <table class="w-full text-left text-slate-850">
-                  <thead class="bg-amber-900/5 text-amber-955 border-b border-slate-300 font-bold">
+              <div class="flex-grow overflow-y-auto border border-slate-350 rounded-xl bg-white/45 text-xs md:text-sm font-mono">
+                <table class="w-full text-left text-slate-855 border-collapse">
+                  <thead class="bg-amber-900/5 text-amber-955 border-b border-slate-300 font-bold sticky top-0 bg-white/90">
                     <tr>
-                      <th class="px-5 py-4">Name</th>
-                      <th class="px-5 py-4">Locker No.</th>
-                      <th class="px-5 py-4">Dial 1</th>
-                      <th class="px-5 py-4">Dial 2</th>
-                      <th class="px-5 py-4">Dial 3</th>
+                      <th class="px-3 py-2">Name</th>
+                      <th class="px-3 py-2 w-[30%]">Locker No.</th>
+                      <th class="px-3 py-2">Dial 1</th>
+                      <th class="px-3 py-2">Dial 2</th>
+                      <th class="px-3 py-2">Dial 3</th>
                     </tr>
                   </thead>
                   <tbody id="locker-table-body" class="divide-y divide-slate-200">
-                    <tr><td class="px-5 py-4">Bryan</td><td class="px-5 py-4">341</td><td class="px-5 py-4">23</td><td class="px-5 py-4">54</td><td class="px-5 py-4">12</td></tr>
-                    <tr><td class="px-5 py-4">Matthew</td><td class="px-5 py-4">218</td><td class="px-5 py-4">12</td><td class="px-5 py-4">31</td><td class="px-5 py-4">95</td></tr>
-                    <tr><td class="px-5 py-4">Lakshith</td><td class="px-5 py-4">315</td><td class="px-5 py-4">42</td><td class="px-5 py-4">53</td><td class="px-5 py-4">77</td></tr>
-                    <tr><td class="px-5 py-4">Moss</td><td class="px-5 py-4">625</td><td class="px-5 py-4">40</td><td class="px-5 py-4">18</td><td class="px-5 py-4">62</td></tr>
-                    <tr class="bg-amber-900/10 font-bold"><td class="px-5 py-4 text-amber-900">Rona</td><td class="px-5 py-4">3193</td><td class="px-5 py-4">45</td><td class="px-5 py-4">34</td><td class="px-5 py-4 text-red-808">20</td></tr>
+                    <!-- Bryan -->
+                    <tr>
+                      <td class="px-3 py-2 font-bold text-amber-900">Bryan</td>
+                      <td class="px-3 py-2">
+                        Solve for total population after 20 years:
+                        $$P(t) = \\frac{500}{1 + 25.5e^{-0.2t}}$$
+                      </td>
+                      <td class="px-3 py-2">
+                        $$\\int_{6}^{7} 2x\\sqrt{2x-3} \\, dx$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Find dy/dx at t=2:
+                        $$x = t^2, \\quad y = 23t^2$$
+                      </td>
+                      <td class="px-3 py-2">
+                        $$\\int_{6}^{7} 3x\\sqrt{2x-3} \\, dx$$
+                      </td>
+                    </tr>
+                    <!-- Matthew -->
+                    <tr>
+                      <td class="px-3 py-2 font-bold text-amber-900">Matthew</td>
+                      <td class="px-3 py-2">
+                        Area of the polar graph:
+                        $$r = 5 \\cos 7\\theta$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Evaluate the limit:
+                        $$\\lim_{x\\to0} \\frac{\\ln(1+24x) - \\sin(12x)}{x^2}$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Area of the polar graph:
+                        $$r = 5 \\cos 9\\theta$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Find the sum of the series:
+                        $$\\sum_{n=0}^{\\infty} \\frac{31}{3} \\left(\\frac{2}{3}\\right)^n$$
+                      </td>
+                    </tr>
+                    <!-- Lakshith -->
+                    <tr>
+                      <td class="px-3 py-2 font-bold text-amber-900">Lakshith</td>
+                      <td class="px-3 py-2">
+                        Evaluate the integral:
+                        $$\\int_1^{\\infty} \\frac{315}{x^2} \\, dx$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Evaluate the limit as x approaches zero of:
+                        $$\\frac{3x^2 - 2x}{4x}$$
+                      </td>
+                      <td class="px-3 py-2">
+                        $$v(x) = 11x^2 + 1, \\quad v(y) = 3y^3 + 4$$
+                        Find the speed of the particle at time $t=2$
+                      </td>
+                      <td class="px-3 py-2">
+                        Evaluate the limit as x approaches infinity of:
+                        $$\\frac{6x^8}{3x(x^7 + 10x)}$$
+                      </td>
+                    </tr>
+                    <!-- Moss -->
+                    <tr>
+                      <td class="px-3 py-2 font-bold text-amber-900">Moss</td>
+                      <td class="px-3 py-2">
+                        $$g(x) = 5\\int_0^{x^4} \\frac{1}{4} \\, dt$$
+                        Find $g'(5)$
+                      </td>
+                      <td class="px-3 py-2">
+                        $$\\sum_{n=1}^{\\infty} \\frac{(-1)^n(x-7)^n}{n \\cdot 20^n}$$
+                      </td>
+                      <td class="px-3 py-2">
+                        Evaluate the derivative of
+                        $$3 \\cos x(x^2+3)$$
+                        at x=1
+                      </td>
+                      <td class="px-3 py-2">
+                        Evaluate the derivative of
+                        $$3 \\tan(2x)(3x + e)$$
+                        at x=3
+                      </td>
+                    </tr>
+                    <!-- Rona -->
+                    <tr class="bg-amber-900/10 font-bold">
+                      <td class="px-3 py-2 text-red-900">Rona (Cheater)</td>
+                      <td class="px-3 py-2 text-amber-955">
+                        $$\\int_0^2 (2^{3x} + 16x^4) \\, dx - 0.6965$$
+                      </td>
+                      <td class="px-3 py-2 text-amber-955">
+                        Find the total area enclosed by the polar curve:
+                        $$r = 3\\sqrt{5\\theta} \\text{ at } 0 \\le \\theta \\le 2$$
+                      </td>
+                      <td class="px-3 py-2 text-amber-955">
+                        $$\\int_0^2 (3x^2 + 10x + 3) \\, dx$$
+                      </td>
+                      <td class="px-3 py-2 text-red-808">
+                        $$f(x) = -10e^{x(4\\sin x - 2)}$$
+                        Find $f'(2)$
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
             ${!isAlreadySolved ? `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-800">
-                <p class="font-bold text-amber-900 text-lg">TASK: Calculate the sum of all 4 numbers in Rona's locker row (Locker No. + Dials).</p>
-                <div class="flex items-center gap-4 mt-2">
+              <div class="mt-4 pt-3 border-t border-slate-900/10 flex flex-col gap-2 font-mono text-sm text-slate-800 shrink-0">
+                <p class="font-bold text-amber-900 text-sm">TASK: Calculate the sum of all 4 numbers in Rona's locker row (Locker No. + Dials).</p>
+                <div class="flex items-center gap-4">
                   <input type="text" id="active-input" placeholder="Sum value..." 
                          class="flex-1 bg-transparent border-b-2 border-amber-900/40 text-amber-955 font-bold px-3 py-2 focus:outline-none focus:border-amber-900 text-xl"
                          onkeydown="if(event.key==='Enter') submitAnswer()">
@@ -531,7 +916,7 @@
                 </div>
               </div>
             ` : `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+              <div class="mt-4 pt-3 border-t border-slate-900/10 text-base font-mono text-emerald-850 font-bold text-center shrink-0">
                 ✔ UNLOCKED: Locker code verified = ${solvedAnswers[6]}
               </div>
             `}
@@ -544,43 +929,43 @@
         }
 
         return `
-          <div class="bg-gradient-to-b from-[#181d28] to-[#0c0f17] border border-slate-800 rounded-3xl p-8 flex flex-col justify-between min-h-[500px] w-full shadow-2xl">
-            <div class="w-full border-b border-slate-800 pb-3 flex items-center justify-between text-sm font-mono text-slate-400">
+          <div class="bg-gradient-to-b from-[#181d28] to-[#0c0f17] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between h-full w-full shadow-2xl overflow-hidden">
+            <div class="w-full border-b border-slate-800 pb-2 mb-2 flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
               <span class="text-cyan-400 font-bold">USB DECRYPT SHIELD KEY</span>
               <span>STATE: ${isAlreadySolved ? "DECRYPTED" : "MOUNT_LOCKED"}</span>
             </div>
 
             <!-- safe dials -->
-            <div class="flex items-center justify-center gap-10 my-8">
-              <div class="flex flex-col items-center gap-3">
-                ${!isAlreadySolved ? `<button onclick="changeDial(1, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▲</button>` : ''}
-                <div class="w-24 h-24 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-4xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "1" : safeDial1}</div>
-                ${!isAlreadySolved ? `<button onclick="changeDial(1, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▼</button>` : ''}
-                <span class="text-xs font-mono text-slate-500 tracking-wider">DIAL A</span>
+            <div class="flex items-center justify-center gap-8 my-4 shrink-0">
+              <div class="flex flex-col items-center gap-2">
+                ${!isAlreadySolved ? `<button onclick="changeDial(1, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : ''}
+                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "1" : safeDial1}</div>
+                ${!isAlreadySolved ? `<button onclick="changeDial(1, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : ''}
+                <span class="text-[10px] font-mono text-slate-500 tracking-wider">DIAL A</span>
               </div>
-              <div class="flex flex-col items-center gap-3">
-                ${!isAlreadySolved ? `<button onclick="changeDial(2, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▲</button>` : ''}
-                <div class="w-24 h-24 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-4xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "6" : safeDial2}</div>
-                ${!isAlreadySolved ? `<button onclick="changeDial(2, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-6 py-2 rounded-xl text-lg font-bold">▼</button>` : ''}
-                <span class="text-xs font-mono text-slate-500 tracking-wider">DIAL B</span>
+              <div class="flex flex-col items-center gap-2">
+                ${!isAlreadySolved ? `<button onclick="changeDial(2, 1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▲</button>` : ''}
+                <div class="w-20 h-20 bg-black border-2 border-slate-700 text-cyan-400 font-bold text-3xl font-mono rounded-2xl flex items-center justify-center">${isAlreadySolved ? "6" : safeDial2}</div>
+                ${!isAlreadySolved ? `<button onclick="changeDial(2, -1)" class="text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-base font-bold">▼</button>` : ''}
+                <span class="text-[10px] font-mono text-slate-500 tracking-wider">DIAL B</span>
               </div>
               ${!isAlreadySolved ? `
-                <button onclick="unlockSafe()" class="ml-6 w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-950 flex items-center justify-center font-bold text-base text-slate-200 hover:text-white active:scale-95 transition-all shadow-2xl">
+                <button onclick="unlockSafe()" class="ml-4 w-20 h-20 rounded-full bg-slate-805 border-4 border-slate-950 flex items-center justify-center font-bold text-xs text-slate-200 hover:text-white active:scale-95 transition-all shadow-2xl">
                   OPEN SAFE
                 </button>
               ` : `
-                <span class="ml-6 text-emerald-400 font-bold font-mono text-sm">✔ ACCESS GRANTED</span>
+                <span class="ml-4 text-emerald-400 font-bold font-mono text-sm">✔ ACCESS GRANTED</span>
               `}
             </div>
 
-            <div class="bg-black/60 p-6 rounded-xl border border-slate-800 text-sm font-mono text-slate-400 space-y-4">
+            <div class="flex-grow overflow-y-auto bg-black/60 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-400 space-y-3">
               <div>
-                <span class="text-cyan-500 font-bold text-base">Dial A Code integration:</span>
-                <p class="font-sans text-slate-200 mt-2 text-lg">$$\\int_{0}^{\\infty} 4x e^{-2x} \\, dx$$</p>
+                <span class="text-cyan-500 font-bold text-sm">Dial A Code integration:</span>
+                <p class="font-sans text-slate-200 mt-1 text-base">$$\\int_{0}^{\\infty} 4x e^{-2x} \\, dx$$</p>
               </div>
-              <div class="border-t border-slate-800 pt-3">
-                <span class="text-cyan-500 font-bold text-base">Dial B Series sum:</span>
-                <p class="font-sans text-slate-200 mt-2 text-lg">$$\\sum_{n=0}^{\\infty} 3\\left(\\frac{1}{2}\\right)^n$$</p>
+              <div class="border-t border-slate-800 pt-2">
+                <span class="text-cyan-500 font-bold text-sm">Dial B Series sum:</span>
+                <p class="font-sans text-slate-200 mt-1 text-base">$$\\sum_{n=0}^{\\infty} 3\\left(\\frac{1}{2}\\right)^n$$</p>
               </div>
             </div>
           </div>
@@ -598,30 +983,30 @@
         const renderEulerQuestion = () => {
           if (secondsLeft > 180) {
             return `
-              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed">
-                <span class="font-bold text-emerald-800 block text-sm uppercase">EULER NODE LEVEL A (T > 3 MIN)</span>
-                <p class="my-3 font-semibold text-lg">Calculate V(1) using step size x=0.5:</p>
-                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-emerald-400 rounded-xl font-bold">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed">
+                <span class="font-bold text-emerald-800 block text-xs uppercase">EULER NODE LEVEL A (T > 3 MIN)</span>
+                <p class="my-2 font-semibold text-base">Calculate V(1) using step size x=0.5:</p>
+                <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-emerald-400 rounded-xl font-bold">
                   $$\\frac{dv}{dx} = 2V, \\quad V(0) = 1, \\quad \\Delta x = 0.5$$
                 </div>
               </div>
             `;
           } else if (secondsLeft > 60) {
             return `
-              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed">
-                <span class="font-bold text-yellow-800 block text-sm uppercase">EULER NODE LEVEL B (1 MIN &lt; T &le; 3 MIN)</span>
-                <p class="my-3 font-semibold text-lg">Calculate V(2) using step size x=1.0:</p>
-                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-yellow-400 rounded-xl font-bold">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed">
+                <span class="font-bold text-yellow-800 block text-xs uppercase">EULER NODE LEVEL B (1 MIN &lt; T &le; 3 MIN)</span>
+                <p class="my-2 font-semibold text-base">Calculate V(2) using step size x=1.0:</p>
+                <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-yellow-400 rounded-xl font-bold">
                   $$\\frac{dv}{dx} = -0.5V, \\quad V(0) = 8, \\quad \\Delta x = 1.0$$
                 </div>
               </div>
             `;
           } else {
             return `
-              <div class="bg-white/80 p-6 rounded-xl border border-slate-355 text-slate-805 font-mono text-base leading-relaxed animate-pulse-fast">
-                <span class="font-bold text-red-800 block text-sm uppercase">EULER NODE LEVEL C (T &le; 1 MIN)</span>
-                <p class="my-3 font-semibold text-lg">Calculate V(0.5) using step size x=0.5:</p>
-                <div class="font-sans text-center text-lg md:text-xl py-3.5 bg-slate-900 text-red-400 rounded-xl font-bold">
+              <div class="bg-white/80 p-4 rounded-xl border border-slate-355 text-slate-805 font-mono text-sm leading-relaxed animate-pulse-fast">
+                <span class="font-bold text-red-800 block text-xs uppercase">EULER NODE LEVEL C (T &le; 1 MIN)</span>
+                <p class="my-2 font-semibold text-base">Calculate V(0.5) using step size x=0.5:</p>
+                <div class="font-sans text-center text-base md:text-lg py-2.5 bg-slate-900 text-red-400 rounded-xl font-bold">
                   $$\\frac{dv}{dx} = -x - V, \\quad V(0) = 1, \\quad \\Delta x = 0.5$$
                 </div>
               </div>
@@ -630,32 +1015,32 @@
         };
 
         return `
-          <div id="active-object" class="w-full h-full flex flex-col justify-between relative">
+          <div id="active-object" class="w-full h-full flex flex-col justify-between overflow-hidden relative">
             <div class="absolute inset-0 bg-red-600/5 pointer-events-none animate-pulse"></div>
             
-            <div class="space-y-6">
-              <div class="border border-red-800 bg-black text-red-600 p-6 rounded-2xl flex items-center justify-between shadow-lg mb-3">
-                <span class="text-sm font-mono uppercase font-bold tracking-wider">SECURE FILE WIPE TIMER</span>
-                <div id="deletion-countdown" class="font-mono text-4xl md:text-5xl font-bold tracking-widest text-red-500 animate-pulse">05:00</div>
+            <div class="flex-grow overflow-y-auto space-y-4">
+              <div class="border border-red-800 bg-black text-red-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shrink-0">
+                <span class="text-xs font-mono uppercase font-bold tracking-wider">SECURE FILE WIPE TIMER</span>
+                <div id="deletion-countdown" class="font-mono text-3xl md:text-4xl font-bold tracking-widest text-red-500 animate-pulse">05:00</div>
               </div>
               
               ${renderEulerQuestion()}
             </div>
 
             ${!isAlreadySolved ? `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-850">
-                <p class="font-bold text-red-950 text-lg">TASK: Calculate the Euler outcome key to stop deletion.</p>
-                <div class="flex items-center gap-4 mt-2">
+              <div class="mt-4 pt-4 border-t border-slate-900/10 flex flex-col gap-3 font-mono text-sm text-slate-850 shrink-0">
+                <p class="font-bold text-red-955 text-sm">TASK: Calculate the Euler outcome key to stop deletion.</p>
+                <div class="flex items-center gap-4">
                   <input type="text" id="active-input" placeholder="Override key..." 
                          class="flex-1 bg-transparent border-b-2 border-red-900/40 text-red-955 font-bold px-3 py-2 focus:outline-none text-xl font-mono"
                          onkeydown="if(event.key==='Enter') submitAnswer()">
-                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-8 py-3.5 rounded-xl text-sm transition-all uppercase">
+                  <button onclick="submitAnswer()" class="bg-red-800 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all uppercase">
                     ABORT WIPE
                   </button>
                 </div>
               </div>
             ` : `
-              <div class="mt-8 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center">
+              <div class="mt-4 pt-4 border-t border-slate-900/10 text-lg font-mono text-emerald-850 font-bold text-center shrink-0">
                 ✔ COMPLETED: Override secured = ${solvedAnswers[8]}
               </div>
             `}
@@ -762,13 +1147,13 @@
           if (rawAns === "20") isCorrect = true;
           break;
         case 4:
-          if (rawAns === "6") isCorrect = true;
+          if (rawAns === "-1.3048") isCorrect = true;
           break;
         case 5:
           if (rawAns === "881") isCorrect = true;
           break;
         case 6:
-          if (rawAns === "3292") isCorrect = true;
+          if (rawAns === "213") isCorrect = true;
           break;
         case 8:
           if (secondsLeft > 180) {
@@ -822,6 +1207,18 @@
         const isLocked = step > currentStep;
         const isActive = step == viewStep;
         
+        const lockIcon = `
+          <svg class="h-5 w-5 text-amber-955/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        `;
+        
+        const folderIcon = `
+          <svg class="h-5 w-5 shrink-0 ${isActive ? 'text-amber-400' : 'text-amber-600/70'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+        `;
+        
         return `
           <button onclick="${isLocked ? '' : `navigateStep(${step})`}" 
                   class="font-mono text-sm md:text-base tracking-wider uppercase px-5 py-4 border rounded-2xl transition-all duration-150 w-full text-left flex items-center justify-between
@@ -829,7 +1226,7 @@
                            isActive ? 'border-amber-500 bg-amber-950/70 text-amber-400 font-bold scale-105 shadow-md' : 
                                       'border-amber-900/40 text-amber-655/80 hover:border-amber-700/60 bg-black/40 hover:scale-102'}" style="outline: none;">
             <span>${tabNames[step]}</span>
-            <span>${isLocked ? '🔒' : '🗂️'}</span>
+            ${isLocked ? lockIcon : folderIcon}
           </button>
         `;
       }).join("");
@@ -907,9 +1304,56 @@
       `;
     }
 
+    function initIntro() {
+      const folder = document.getElementById("intro-folder");
+      const textTarget = document.getElementById("typewriter-target");
+      const btn = document.getElementById("intro-btn");
+      
+      setTimeout(() => {
+        folder.classList.remove("opacity-0", "scale-95");
+        startTypewriter();
+      }, 300);
+      
+      const briefText = `CASE DOSSIER: #9038
+SUBJECT: GAOKAO EXAM SABOTAGE
+INVESTIGATOR: FORENSIC LEAD
+
+An anonymous envelope was slipped under your office door yesterday evening. A whistleblower claims a student has compromised the integrity of this year's Gaokao exam booklets.
+
+Five suspects have been flagged:
+Bryan, Matthew, Lakshith, Moss, and Rona.
+
+We have compiled 8 core dossiers. Analyze the evidence, solve the security lock integrations, and unmask the cheater before the system wipes the records.
+
+Good luck, Supervisor. The integrity of the state exam lies in your hands.`;
+
+      let charIndex = 0;
+      function startTypewriter() {
+        textTarget.classList.add("cursor-active");
+        function type() {
+          if (charIndex < briefText.length) {
+            textTarget.textContent += briefText.charAt(charIndex);
+            charIndex++;
+            setTimeout(type, 12 + Math.random() * 18);
+          } else {
+            textTarget.classList.remove("cursor-active");
+            btn.classList.remove("opacity-0");
+            btn.classList.add("animate-pulse-slow");
+          }
+        }
+        type();
+      }
+    }
+    
+    function closeIntro() {
+      const screen = document.getElementById("intro-screen");
+      screen.classList.add("opacity-0", "scale-105", "pointer-events-none");
+    }
+
     window.addEventListener("load", () => {
       updateTabs();
       renderActiveSpread();
+      initIntro();
     });
   </script>
 </body>

@@ -3,28 +3,49 @@
 <head>
     <title>Honor Roll - Pro A1 Tool</title>
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-sidebar: #ffffff;
+            --bg-preview: #1e293b;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+            --border-focus: #3b82f6;
+            --success-bg: #f0fdf4;
+            --success-border: #bbf7d0;
+            --success-text: #166534;
+            --info-bg: #f8fafc;
+            --info-border: #e2e8f0;
+            --info-text: #475569;
+            --radius: 8px;
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         /* Base Layout */
         body { 
             display: flex; 
             height: 100vh; 
             margin: 0; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #525659; 
+            background: var(--bg-preview); 
+            color: var(--text-main);
             overflow: hidden;
         }
 
         /* Sidebar Control Panel */
         #sidebar {
-            width: 360px;
-            background: #ffffff;
-            padding: 25px;
-            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            width: 320px;
+            background: var(--bg-sidebar);
+            padding: 24px;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
             z-index: 100;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 20px;
             flex-shrink: 0;
             overflow-y: auto;
+            border-right: 1px solid #e2e8f0;
         }
 
         /* Preview Area */
@@ -43,26 +64,204 @@
             transform-origin: top center;
         }
 
-        #nameInput { 
-            width: 100%; height: 140px; 
-            border: 2px solid #007bff; border-radius: 4px; padding: 10px;
-            background: #fff; overflow-y: auto;
-            box-sizing: border-box; font-size: 13px;
+        h2 { 
+            margin: 0; 
+            color: var(--text-main); 
+            font-size: 20px; 
+            font-weight: 700;
+            letter-spacing: -0.025em;
         }
 
+        /* Guide Card */
         .guide-box {
-            background: #f8f9fa;
-            border-left: 4px solid #28a745;
-            padding: 12px;
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            border-radius: var(--radius);
+            padding: 14px;
             font-size: 13px;
-            color: #333;
-            line-height: 1.5;
+            color: var(--success-text);
+            line-height: 1.6;
         }
 
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        .row-inputs { display: flex; gap: 10px; }
-        .row-inputs > div { flex: 1; }
-        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .guide-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .input-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+        }
+        
+        .row-inputs { 
+            display: flex; 
+            gap: 12px; 
+        }
+        
+        .row-inputs > div { 
+            flex: 1; 
+        }
+
+        label { 
+            font-weight: 600; 
+            color: var(--text-main); 
+            font-size: 13px; 
+        }
+
+        #nameInput { 
+            width: 100%; 
+            height: 130px; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius); 
+            padding: 10px;
+            background: #fff; 
+            overflow-y: auto;
+            box-sizing: border-box; 
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        #nameInput:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        /* Placeholder effect for empty contenteditable */
+        #nameInput:empty::before {
+            content: attr(placeholder);
+            color: #94a3b8;
+        }
+
+        input[type="number"] { 
+            width: 100%; 
+            padding: 8px 12px; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius); 
+            box-sizing: border-box;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        /* Custom Radios Styled as Button Groups (Segmented Control) */
+        .segmented-control {
+            display: flex;
+            background: #f1f5f9;
+            padding: 3px;
+            border-radius: var(--radius);
+            border: 1px solid #e2e8f0;
+        }
+
+        .segmented-control label {
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .segmented-control input[type="radio"] {
+            display: none;
+        }
+
+        .segmented-control span {
+            display: block;
+            padding: 6px 12px;
+            border-radius: calc(var(--radius) - 2px);
+            transition: var(--transition);
+        }
+
+        .segmented-control input[type="radio"]:checked + span {
+            background: #ffffff;
+            color: var(--text-main);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+            font-weight: 600;
+        }
+
+        /* Custom Slider Range */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            outline: none;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+            transition: var(--transition);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: var(--primary-hover);
+        }
+
+        button {
+            padding: 12px 20px; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            border-radius: var(--radius); 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-weight: 600;
+            transition: var(--transition);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+            margin-top: 8px;
+        }
+
+        button:hover { 
+            background: var(--primary-hover); 
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Print Settings Card */
+        .print-box {
+            background: var(--info-bg);
+            border: 1px solid var(--info-border);
+            border-radius: var(--radius);
+            padding: 14px;
+            font-size: 13px;
+            color: var(--info-text);
+            line-height: 1.6;
+        }
+
+        .print-title {
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
 
         /* A1 Dimensions */
         .page {
@@ -74,8 +273,9 @@
             column-gap: 30mm; 
             page-break-after: always;
             box-sizing: border-box;
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
             flex-shrink: 0;
+            border-radius: 4px;
         }
 
         .landscape { width: 841mm; height: 594mm; }
@@ -88,7 +288,6 @@
             width: 100%;
         }
 
-        /* Container to keep row height globally uniform */
         .name-row {
             width: 100%;
             display: flex;
@@ -104,22 +303,37 @@
             display: inline-block;
         }
 
-        button {
-            padding: 15px; background: #007bff; color: white; 
-            border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;
-            margin-top: 5px;
-        }
-        button:hover { background: #0056b3; }
-
-        label { font-weight: bold; color: #000; font-size: 13px; }
-        h2 { margin: 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; font-size: 20px; }
-
         @media print {
-            body { display: block; background: none; overflow: visible; }
-            #sidebar { display: none; }
-            #output-container { padding: 0; display: block; overflow: visible; }
-            #output { zoom: 1; } 
-            .page { margin: 0; box-shadow: none; border: none; page-break-after: always; }
+            html, body { 
+                display: block; 
+                background: none; 
+                overflow: visible !important; 
+                height: auto;
+            }
+            #sidebar { 
+                display: none !important; 
+            }
+            #output-container { 
+                padding: 0 !important; 
+                margin: 0 !important;
+                display: block !important; 
+                overflow: visible !important; 
+            }
+            #output { 
+                zoom: 1 !important; 
+                overflow: visible !important;
+            } 
+            .page { 
+                margin: 0 !important; 
+                box-shadow: none !important; 
+                border: none !important; 
+                page-break-after: always !important; 
+                border-radius: 0 !important;
+                overflow: visible !important;
+            }
+            .column {
+                overflow: visible !important;
+            }
         }
     </style>
 </head>
@@ -129,16 +343,19 @@
     <h2>Layout Control</h2>
     
     <div class="guide-box">
-        <b style="color: #28a745;">📋 Copy Instructions:</b><br>
+        <div class="guide-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            Copy Instructions
+        </div>
         1. In Excel, press <b>Ctrl + A</b> to select all.<br>
         2. Press <b>Ctrl + C</b> to copy.<br>
-        3. Click the blue box and press <b>Ctrl + V</b>.<br>
+        3. Click the box below and press <b>Ctrl + V</b>.<br>
         Structure and bolding will be preserved.
     </div>
 
     <div class="input-group">
         <label>1. Paste Data Box</label>
-        <div id="nameInput" contenteditable="true" placeholder="Paste here..."></div>
+        <div id="nameInput" contenteditable="true" placeholder="Paste data here..."></div>
     </div>
 
     <div class="row-inputs">
@@ -154,9 +371,15 @@
     
     <div class="input-group">
         <label>2. Page Orientation</label>
-        <div style="display: flex; gap: 15px;">
-            <label style="font-weight: normal;"><input type="radio" name="orientation" value="landscape" checked onclick="updateOrientation()"> Landscape</label>
-            <label style="font-weight: normal;"><input type="radio" name="orientation" value="portrait" onclick="updateOrientation()"> Portrait</label>
+        <div class="segmented-control">
+            <label>
+                <input type="radio" name="orientation" value="landscape" checked onclick="updateOrientation()">
+                <span>Landscape</span>
+            </label>
+            <label>
+                <input type="radio" name="orientation" value="portrait" onclick="updateOrientation()">
+                <span>Portrait</span>
+            </label>
         </div>
     </div>
 
@@ -164,21 +387,24 @@
         <label>3. Global Font Size (Auto-fit Result)</label>
         <input type="range" id="fontSize" min="10" max="100" value="34" oninput="manualUpdateFontSize()">
         <div style="display: flex; justify-content: space-between; font-weight: bold;">
-            <span style="color:#999; font-size: 11px;">Small</span>
-            <span id="fsVal" style="color:#007bff;">34pt</span>
-            <span style="color:#999; font-size: 11px;">Large</span>
+            <span style="color:#94a3b8; font-size: 11px;">Small</span>
+            <span id="fsVal" style="color:var(--primary); font-size: 13px;">34pt</span>
+            <span style="color:#94a3b8; font-size: 11px;">Large</span>
         </div>
     </div>
 
-    <button onclick="generateLayout()">4. Generate & Auto-Fit</button>
+    <button onclick="generateLayout()">Generate & Auto-Fit</button>
     
-    <div style="font-size: 12px; color: #d9534f; line-height: 1.4; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px;">
-        <b>🖨️ PRINT SETTINGS:</b><br>
-        - Press <b>Ctrl + P</b> to start printing<br>
-        - Target: <b>Save as PDF</b><br>
-        - Paper: <b>A1</b> | Layout: <b id="printLayoutHint">Landscape</b><br>
-        - Margins: <b>None</b><br>
-        - Pages: <b>Odd pages only</b>
+    <div class="print-box">
+        <div class="print-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Print Settings
+        </div>
+        • Press <b>Ctrl + P</b> to start printing<br>
+        • Target: <b>Save as PDF</b><br>
+        • Paper: <b>A1</b> | Layout: <b id="printLayoutHint">Landscape</b><br>
+        • Margins: <b>None</b><br>
+        • Pages: <b>Odd pages only</b>
     </div>
 </div>
 
@@ -307,7 +533,7 @@ function generateLayout() {
                         <div class="name-row" style="height: ${globalRowHeight}pt;">
                             <div class="name-text" style="font-size:${baseFs}pt; font-weight:${weight}">${item.text}</div>
                         </div>`;
-                });
+                    });
             }
             outputHtml += `</div>`;
         });

@@ -2506,14 +2506,100 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
     }
 
     async function openBatchImport() {
+        window.copyAiPrompt = function() {
+            const promptText = `Please convert the text provided below into a JSON array based on the following formatting rules:
+
+Each item in the array must include three keys: "title", "desc", and "type".
+
+For the "type" key, classify the announcement as either "school" or "club".
+
+You must copy the text exactly as it is. Do not change, modify, summarize, or omit any part of the original wording.
+
+Follow this exact format:
+
+JSON
+[
+  {
+    "title": "Announcement Title",
+    "desc": "Full description text...",
+    "type": "school or club"
+  }
+]
+Here is the original text:
+（Clip Your Annoucements(Email) here)`;
+
+            navigator.clipboard.writeText(promptText).then(() => {
+                const btnText = document.getElementById('copyPromptBtnText');
+                const btnIcon = document.getElementById('copyPromptBtnIcon');
+                if (btnText) btnText.innerText = 'Copied!';
+                if (btnIcon) {
+                    btnIcon.innerHTML = `
+                        <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    `;
+                }
+                setTimeout(() => {
+                    if (btnText) btnText.innerText = 'Copy Prompt';
+                    if (btnIcon) {
+                        btnIcon.innerHTML = `
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                            </svg>
+                        `;
+                    }
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy prompt: ', err);
+            });
+        };
+
         const html = `
             <div class="space-y-4 text-left">
-                <p class="text-sm text-gray-500 leading-relaxed">Paste your AI-generated JSON array below. It should include <b>title</b>, <b>desc</b>, and <b>type</b> (school or club).</p>
-                <textarea id="batchJsonInput" rows="10" placeholder='[{"title": "Morning Meeting", "desc": "Join us...", "type": "school"}]'
-                    class="w-full bg-gray-100 dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border border-gray-200 dark:border-gray-800 focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
+                <!-- AI Prompt Header & Box -->
+                <div class="p-3.5 bg-blue-500/5 dark:bg-blue-500/10 rounded-2xl border border-blue-500/15 flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between border-b border-blue-500/10 pb-2">
+                        <span class="text-xs font-bold text-black dark:text-white uppercase tracking-wider">AI Prompt</span>
+                        <button onclick="window.copyAiPrompt()" class="flex items-center gap-1.5 text-xs font-bold text-[#007AFF] hover:opacity-80 active:scale-95 transition-all cursor-pointer whitespace-nowrap flex-shrink-0 bg-blue-500/10 hover:bg-blue-500/20 px-2.5 py-1 rounded-lg">
+                            <span id="copyPromptBtnIcon" class="flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                                </svg>
+                            </span>
+                            <span id="copyPromptBtnText">Copy Prompt</span>
+                        </button>
+                    </div>
+                    <div class="text-[11px] text-gray-500 dark:text-gray-400 font-mono bg-white/50 dark:bg-black/30 p-2.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all">Please convert the text provided below into a JSON array based on the following formatting rules:
+
+Each item in the array must include three keys: "title", "desc", and "type".
+
+For the "type" key, classify the announcement as either "school" or "club".
+
+You must copy the text exactly as it is. Do not change, modify, summarize, or omit any part of the original wording.
+
+Follow this exact format:
+
+JSON
+[
+  {
+    "title": "Announcement Title",
+    "desc": "Full description text...",
+    "type": "school or club"
+  }
+]
+Here is the original text:
+（Clip Your Annoucements(Email) here)</div>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Paste your AI generated array below</p>
+                    <textarea id="batchJsonInput" rows="6" placeholder='[{"title": "Morning Meeting", "desc": "Join us...", "type": "school"}]'
+                        class="w-full bg-gray-100 dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border border-gray-200 dark:border-gray-800 focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
+                </div>
             </div>
         `;
-        const result = await showCustom('Batch Import', html, [
+        const result = await showCustom('AI Import (Batch Import Announcement-JSON)', html, [
             { text: 'Import & Publish', value: 'import', primary: true },
             { text: 'Cancel', value: 'cancel', primary: false }
         ]);

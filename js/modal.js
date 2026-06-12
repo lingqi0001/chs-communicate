@@ -109,6 +109,9 @@ export const ModalModule = {
         inner.classList.remove('scale-100');
         inner.classList.add('scale-90');
 
+        // Restore default modal width
+        inner.style.maxWidth = '';
+
         // 清除旧定时器
         if (this._timer) clearTimeout(this._timer);
         if (this._failsafeTimer) clearTimeout(this._failsafeTimer);
@@ -167,12 +170,13 @@ export const ModalModule = {
 
         modal.classList.remove('hidden');
 
-        setTimeout(() => {
-            modal.classList.add('opacity-100');
-            modal.classList.remove('opacity-0');
-            inner.classList.add('scale-100');
-            inner.classList.remove('scale-90');
-        }, 10);
+        // Force a browser reflow/repaint to ensure the starting animation state (scale-90, opacity-0) is registered
+        void modal.offsetHeight;
+
+        modal.classList.add('opacity-100');
+        modal.classList.remove('opacity-0');
+        inner.classList.add('scale-100');
+        inner.classList.remove('scale-90');
     },
 
     // --- Public API ---
@@ -266,12 +270,20 @@ export const ModalModule = {
             els.title.innerText = title;
             els.body.innerHTML = html;
 
-            // 隐藏所有默认按钮，由代码动态控制显�?            
+            // Dynamically adjust width for complex/import custom dialogs
+            if (title.includes('AI Import') || html.includes('AI Prompt Template') || html.includes('batchJsonInput')) {
+                els.inner.style.maxWidth = '420px';
+            } else {
+                els.inner.style.maxWidth = '';
+            }
+
+            // 隐藏所有默认按钮，由代码动态控制显示
             els.cancel.classList.add('hidden');
             els.alt.classList.add('hidden');
             els.confirm.classList.add('hidden');
 
-            // 这里的逻辑比较特殊：如果有 3 个按钮，我们需要特殊的布局�?            // 目前支持最�?2 个按钮的快速映射，或�?1 �?            
+            // 这里的逻辑比较特殊：如果有 3 个按钮，我们需要特殊的布局
+            // 目前支持最多 2 个按钮的快速映射，或者 1 个
             if (buttons.length >= 1) {
                 els.confirm.classList.remove('hidden');
                 els.confirm.innerText = buttons[0].text;

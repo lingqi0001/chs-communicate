@@ -58,16 +58,35 @@ export const SettingsModule = {
         const annPreview = document.getElementById('currentAnnColorPreview');
         if (annPreview) {
             if (annColor === 'orange') {
+                annPreview.style.background = '';
                 annPreview.style.backgroundColor = '#F97316';
+                annPreview.style.backgroundClip = '';
+                annPreview.style.webkitBackgroundClip = '';
+                annPreview.style.borderColor = '';
             } else if (annColor === 'blue') {
+                annPreview.style.background = '';
                 annPreview.style.backgroundColor = '#007AFF';
+                annPreview.style.backgroundClip = '';
+                annPreview.style.webkitBackgroundClip = '';
+                annPreview.style.borderColor = '';
             } else if (annColor === 'green') {
+                annPreview.style.background = '';
                 annPreview.style.backgroundColor = '#95FF14';
+                annPreview.style.backgroundClip = '';
+                annPreview.style.webkitBackgroundClip = '';
+                annPreview.style.borderColor = '';
             } else if (annColor === 'purple') {
+                annPreview.style.background = '';
                 annPreview.style.backgroundColor = '#A724FF';
+                annPreview.style.backgroundClip = '';
+                annPreview.style.webkitBackgroundClip = '';
+                annPreview.style.borderColor = '';
             } else if (annColor === 'custom') {
-                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
-                annPreview.style.backgroundColor = isDark ? customAnnDarkHex : customAnnLightHex;
+                annPreview.style.background = `linear-gradient(90deg, ${customAnnLightHex} 50%, ${customAnnDarkHex} 50%)`;
+                annPreview.style.backgroundColor = 'transparent';
+                annPreview.style.backgroundClip = 'padding-box';
+                annPreview.style.webkitBackgroundClip = 'padding-box';
+                annPreview.style.borderColor = 'rgba(120, 120, 128, 0.4)';
             }
         }
 
@@ -105,16 +124,35 @@ export const SettingsModule = {
         const msgPreview = document.getElementById('currentMsgColorPreview');
         if (msgPreview) {
             if (msgColor === 'orange') {
+                msgPreview.style.background = '';
                 msgPreview.style.backgroundColor = '#F97316';
+                msgPreview.style.backgroundClip = '';
+                msgPreview.style.webkitBackgroundClip = '';
+                msgPreview.style.borderColor = '';
             } else if (msgColor === 'blue') {
+                msgPreview.style.background = '';
                 msgPreview.style.backgroundColor = '#007AFF';
+                msgPreview.style.backgroundClip = '';
+                msgPreview.style.webkitBackgroundClip = '';
+                msgPreview.style.borderColor = '';
             } else if (msgColor === 'green') {
+                msgPreview.style.background = '';
                 msgPreview.style.backgroundColor = '#95FF14';
+                msgPreview.style.backgroundClip = '';
+                msgPreview.style.webkitBackgroundClip = '';
+                msgPreview.style.borderColor = '';
             } else if (msgColor === 'purple') {
+                msgPreview.style.background = '';
                 msgPreview.style.backgroundColor = '#A724FF';
+                msgPreview.style.backgroundClip = '';
+                msgPreview.style.webkitBackgroundClip = '';
+                msgPreview.style.borderColor = '';
             } else if (msgColor === 'custom') {
-                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
-                msgPreview.style.backgroundColor = isDark ? customMsgDarkHex : customMsgLightHex;
+                msgPreview.style.background = `linear-gradient(90deg, ${customMsgLightHex} 50%, ${customMsgDarkHex} 50%)`;
+                msgPreview.style.backgroundColor = 'transparent';
+                msgPreview.style.backgroundClip = 'padding-box';
+                msgPreview.style.webkitBackgroundClip = 'padding-box';
+                msgPreview.style.borderColor = 'rgba(120, 120, 128, 0.4)';
             }
         }
 
@@ -152,16 +190,35 @@ export const SettingsModule = {
         const chatPreview = document.getElementById('currentChatColorPreview');
         if (chatPreview) {
             if (chatColor === 'orange') {
+                chatPreview.style.background = '';
                 chatPreview.style.backgroundColor = '#F97316';
+                chatPreview.style.backgroundClip = '';
+                chatPreview.style.webkitBackgroundClip = '';
+                chatPreview.style.borderColor = '';
             } else if (chatColor === 'blue') {
+                chatPreview.style.background = '';
                 chatPreview.style.backgroundColor = '#007AFF';
+                chatPreview.style.backgroundClip = '';
+                chatPreview.style.webkitBackgroundClip = '';
+                chatPreview.style.borderColor = '';
             } else if (chatColor === 'green') {
+                chatPreview.style.background = '';
                 chatPreview.style.backgroundColor = '#95FF14';
+                chatPreview.style.backgroundClip = '';
+                chatPreview.style.webkitBackgroundClip = '';
+                chatPreview.style.borderColor = '';
             } else if (chatColor === 'purple') {
+                chatPreview.style.background = '';
                 chatPreview.style.backgroundColor = '#A724FF';
+                chatPreview.style.backgroundClip = '';
+                chatPreview.style.webkitBackgroundClip = '';
+                chatPreview.style.borderColor = '';
             } else if (chatColor === 'custom') {
-                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
-                chatPreview.style.backgroundColor = isDark ? customChatDarkHex : customChatLightHex;
+                chatPreview.style.background = `linear-gradient(90deg, ${customChatLightHex} 50%, ${customChatDarkHex} 50%)`;
+                chatPreview.style.backgroundColor = 'transparent';
+                chatPreview.style.backgroundClip = 'padding-box';
+                chatPreview.style.webkitBackgroundClip = 'padding-box';
+                chatPreview.style.borderColor = 'rgba(120, 120, 128, 0.4)';
             }
         }
 
@@ -198,18 +255,41 @@ export const SettingsModule = {
         const otherMsgPreview = document.getElementById('currentOtherMsgColorPreview');
         if (otherMsgPreview) {
             if (otherMsgColor === 'gray') {
+                otherMsgPreview.style.background = '';
                 otherMsgPreview.style.backgroundColor = '#8E8E93';
+                otherMsgPreview.style.backgroundClip = '';
+                otherMsgPreview.style.webkitBackgroundClip = '';
+                otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'orange') {
+                otherMsgPreview.style.background = '';
                 otherMsgPreview.style.backgroundColor = '#F97316';
+                otherMsgPreview.style.backgroundClip = '';
+                otherMsgPreview.style.webkitBackgroundClip = '';
+                otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'blue') {
+                otherMsgPreview.style.background = '';
                 otherMsgPreview.style.backgroundColor = '#007AFF';
+                otherMsgPreview.style.backgroundClip = '';
+                otherMsgPreview.style.webkitBackgroundClip = '';
+                otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'green') {
+                otherMsgPreview.style.background = '';
                 otherMsgPreview.style.backgroundColor = '#95FF14';
+                otherMsgPreview.style.backgroundClip = '';
+                otherMsgPreview.style.webkitBackgroundClip = '';
+                otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'purple') {
+                otherMsgPreview.style.background = '';
                 otherMsgPreview.style.backgroundColor = '#A724FF';
+                otherMsgPreview.style.backgroundClip = '';
+                otherMsgPreview.style.webkitBackgroundClip = '';
+                otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'custom') {
-                const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
-                otherMsgPreview.style.backgroundColor = isDark ? customOtherMsgDarkHex : customOtherMsgLightHex;
+                otherMsgPreview.style.background = `linear-gradient(90deg, ${customOtherMsgLightHex} 50%, ${customOtherMsgDarkHex} 50%)`;
+                otherMsgPreview.style.backgroundColor = 'transparent';
+                otherMsgPreview.style.backgroundClip = 'padding-box';
+                otherMsgPreview.style.webkitBackgroundClip = 'padding-box';
+                otherMsgPreview.style.borderColor = 'rgba(120, 120, 128, 0.4)';
             }
         }
 
@@ -341,6 +421,22 @@ export const SettingsModule = {
                                         </div>
                                     </button>
                                 </div>
+                                <div id="annCustomPickersContainer" class="hidden px-3.5 pb-3.5 grid grid-cols-2 gap-3">
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerLight').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="annCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="annColorPickerLight" oninput="handleAnnColorPickerLightInput(this.value, event)" onchange="handleAnnColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerDark').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="annCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="annColorPickerDark" oninput="handleAnnColorPickerDarkInput(this.value, event)" onchange="handleAnnColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Panel Accent -->
@@ -389,6 +485,22 @@ export const SettingsModule = {
                                         </div>
                                     </button>
                                 </div>
+                                <div id="msgCustomPickersContainer" class="hidden px-3.5 pb-3.5 grid grid-cols-2 gap-3">
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerLight').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="msgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="msgColorPickerLight" oninput="handleMsgColorPickerLightInput(this.value, event)" onchange="handleMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerDark').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="msgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="msgColorPickerDark" oninput="handleMsgColorPickerDarkInput(this.value, event)" onchange="handleMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Messages Accent -->
@@ -436,6 +548,22 @@ export const SettingsModule = {
                                             <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
                                         </div>
                                     </button>
+                                </div>
+                                <div id="chatCustomPickersContainer" class="hidden px-3.5 pb-3.5 grid grid-cols-2 gap-3">
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerLight').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="chatCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="chatColorPickerLight" oninput="handleChatColorPickerLightInput(this.value, event)" onchange="handleChatColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerDark').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="chatCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="chatColorPickerDark" oninput="handleChatColorPickerDarkInput(this.value, event)" onchange="handleChatColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -490,78 +618,25 @@ export const SettingsModule = {
                                         </div>
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Custom color pickers containers outside grouped container -->
-                        <div id="annCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerLight').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="annCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="annColorPickerLight" oninput="handleAnnColorPickerLightInput(this.value, event)" onchange="handleAnnColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('annColorPickerDark').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="annCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="annColorPickerDark" oninput="handleAnnColorPickerDarkInput(this.value, event)" onchange="handleAnnColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="msgCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerLight').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="msgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="msgColorPickerLight" oninput="handleMsgColorPickerLightInput(this.value, event)" onchange="handleMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('msgColorPickerDark').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="msgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="msgColorPickerDark" oninput="handleMsgColorPickerDarkInput(this.value, event)" onchange="handleMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                <div id="otherMsgCustomPickersContainer" class="hidden px-3.5 pb-3.5 grid grid-cols-2 gap-3">
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerLight').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="otherMsgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="otherMsgColorPickerLight" oninput="handleOtherMsgColorPickerLightInput(this.value, event)" onchange="handleOtherMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
+                                    <div class="bg-white dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerDark').click();">
+                                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
+                                        <div class="flex items-center gap-2">
+                                            <div id="otherMsgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
+                                            <input type="color" id="otherMsgColorPickerDark" oninput="handleOtherMsgColorPickerDarkInput(this.value, event)" onchange="handleOtherMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        <div id="chatCustomPickersContainer" class="hidden mt-3 mb-3 grid grid-cols-2 gap-3">
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerLight').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="chatCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="chatColorPickerLight" oninput="handleChatColorPickerLightInput(this.value, event)" onchange="handleChatColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('chatColorPickerDark').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="chatCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="chatColorPickerDark" oninput="handleChatColorPickerDarkInput(this.value, event)" onchange="handleChatColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="otherMsgCustomPickersContainer" class="hidden mt-3 grid grid-cols-2 gap-3">
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerLight').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="otherMsgCustomColorLightPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="otherMsgColorPickerLight" oninput="handleOtherMsgColorPickerLightInput(this.value, event)" onchange="handleOtherMsgColorPickerLightChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                            <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5 flex flex-col items-center justify-center relative cursor-pointer" onclick="document.getElementById('otherMsgColorPickerDark').click();">
-                                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Mode</label>
-                                <div class="flex items-center gap-2">
-                                    <div id="otherMsgCustomColorDarkPreview" style="width:20px;height:20px;" class="rounded-full border-2 border-gray-200 dark:border-white/20"></div>
-                                    <input type="color" id="otherMsgColorPickerDark" oninput="handleOtherMsgColorPickerDarkInput(this.value, event)" onchange="handleOtherMsgColorPickerDarkChange(this.value, event)" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
-                                </div>
-                            </div>
-                        </div>
-                    </div></div>
+                    </div>
 
                     <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
                         <label class="font-medium">Sound Effects</label>
