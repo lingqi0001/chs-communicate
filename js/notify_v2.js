@@ -32,6 +32,9 @@ export const NotifyModule = {
      */
     init(ctx) {
         this.context = { ...this.context, ...ctx };
+        if ('Notification' in window) {
+            this._lastPermissionState = Notification.permission;
+        }
         this._initFocusListeners();
     },
 
@@ -56,6 +59,7 @@ export const NotifyModule = {
             if (window.activeTargetId) {
                 this.markAsRead(window.activeTargetId);
             }
+            this.syncPermissionState();
         };
 
         window.addEventListener('focus', onBack);
@@ -63,6 +67,30 @@ export const NotifyModule = {
             if (document.visibilityState === 'visible') onBack();
         });
         document.addEventListener('mousedown', onBack); // 只要点了页面任何地方也算回来
+    },
+
+    async syncPermissionState() {
+        if (!('Notification' in window)) return;
+        const currentPermission = Notification.permission;
+        
+        // If permission was granted, and app setting is NOT explicitly disabled ('false'), auto-enable it
+        if (currentPermission === 'granted') {
+            if (localStorage.getItem('pushNotificationsEnabled') !== 'false' && localStorage.getItem('pushNotificationsEnabled') !== 'true') {
+                localStorage.setItem('pushNotificationsEnabled', 'true');
+                console.log('[Notify] Notification permission granted by OS. Auto-enabling push settings.');
+            }
+        }
+        
+        // If permission state has changed, sync it
+        if (this._lastPermissionState !== currentPermission) {
+            console.log(`[Notify] Permission state changed from ${this._lastPermissionState} to ${currentPermission}. Syncing...`);
+            this._lastPermissionState = currentPermission;
+            if (currentPermission === 'granted') {
+                await this.registerFCMToken();
+            } else {
+                await this.syncDeviceState();
+            }
+        }
     },
 
     /**
@@ -470,7 +498,7 @@ export const NotifyModule = {
         // If already denied, guide them to browser/system settings when manually requested
         if (Notification.permission === 'denied') {
             if (isManual) {
-                window.AppModules.Modal.alert("Blocked by Browser", "Notifications are blocked by your browser or system settings. Please go to your device settings to allow notifications for this website.");
+                window.AppModules.Modal.alert("Blocked by System", "Settings notification has been disabled. Notifications are blocked by your device settings. Please go to: <br><b class='text-[#007AFF]'>Settings ➔ Apps ➔ CHSchat ➔ Allow Notifications</b> to enable them.");
             }
             return false;
         }
@@ -483,8 +511,12 @@ export const NotifyModule = {
         // Trigger the native browser permission dialog directly
         const permission = await Notification.requestPermission();
         const granted = permission === 'granted';
-        if (!granted && !isManual) {
-            localStorage.setItem('notification_prompt_dismissed', 'true');
+        if (!granted) {
+            if (!isManual) {
+                localStorage.setItem('notification_prompt_dismissed', 'true');
+            } else if (permission === 'denied') {
+                window.AppModules.Modal.alert("Blocked by System", "Settings notification has been disabled. Notifications are blocked by your device settings. Please go to: <br><b class='text-[#007AFF]'>Settings ➔ Apps ➔ CHSchat ➔ Allow Notifications</b> to enable them.");
+            }
         }
         return granted;
     },

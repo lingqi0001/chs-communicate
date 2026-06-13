@@ -29,6 +29,17 @@ export const SettingsModule = {
                     window.fOnValue(window.fRef(db, `users/${uid}/devices`), (snapshot) => {
                         const devices = snapshot.val() || {};
                         window.currentUserDevices = devices;
+                        
+                        // Sync pushNotificationsEnabled state from DB for the current device
+                        const currentDeviceId = localStorage.getItem('deviceId');
+                        if (currentDeviceId && devices[currentDeviceId]) {
+                            const dbPushEnabled = devices[currentDeviceId].webPushEnabled ? 'true' : 'false';
+                            if (localStorage.getItem('pushNotificationsEnabled') !== dbPushEnabled) {
+                                localStorage.setItem('pushNotificationsEnabled', dbPushEnabled);
+                                console.log(`[Settings] Synced pushNotificationsEnabled from DB to local: ${dbPushEnabled}`);
+                            }
+                        }
+
                         if (typeof window.renderDevicesUI === 'function') {
                             window.renderDevicesUI(devices);
                         }
