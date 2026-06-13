@@ -647,21 +647,13 @@ export const SettingsModule = {
                     <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden mb-4">
                         <div class="flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700">
                             <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
-                            <label class="ios-switch-container">
-                                <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)" class="ios-switch-input">
-                                <div class="ios-switch-track">
-                                    <div class="ios-switch-thumb"></div>
-                                </div>
-                            </label>
+                            <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
+                                class="w-6 h-6 accent-blue-500 cursor-pointer rounded-md">
                         </div>
                         <div class="flex items-center justify-between p-3.5">
                             <label class="font-medium text-sm text-black dark:text-white">Web Push Notification</label>
-                            <label class="ios-switch-container">
-                                <input type="checkbox" id="pushNotificationToggle" onchange="togglePushNotification(this.checked)" class="ios-switch-input">
-                                <div class="ios-switch-track">
-                                    <div class="ios-switch-thumb"></div>
-                                </div>
-                            </label>
+                            <input type="checkbox" id="pushNotificationToggle" onchange="togglePushNotification(this.checked)"
+                                class="w-6 h-6 accent-blue-500 cursor-pointer rounded-md">
                         </div>
                     </div>
 
