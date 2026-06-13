@@ -385,11 +385,9 @@
         CoreModule.watchAuth(
             (user) => {
                 if (user && !localStorage.getItem('deviceId')) {
-                    console.log('App: Legacy session detected without device ID. Force logging out...');
-                    if (window.handleSignOut) {
-                        window.handleSignOut();
-                    }
-                    return;
+                    console.log('App: No device ID found for logged in user. Generating device ID...');
+                    const devId = 'device_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+                    localStorage.setItem('deviceId', devId);
                 }
                 window.isLoggedIn = true;
                 return AuthModule.setupUser(user);
