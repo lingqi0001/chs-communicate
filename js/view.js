@@ -1316,10 +1316,22 @@ export const ViewModule = {
         if (!modal || !sv || !dv || !title) return;
 
         if (modal.classList.contains('hidden')) {
+            const card = document.getElementById('settingsModalCard');
+            const body = document.getElementById('settingsModalBody');
+
             if (view === 'settings') {
                 sv.classList.remove('hidden');
                 dv.classList.add('hidden');
                 title.innerText = "Settings";
+                
+                if (card) {
+                    card.classList.add('h-full');
+                }
+                if (body) {
+                    body.classList.remove('max-h-[70vh]');
+                    body.classList.add('flex-1');
+                }
+
                 if (currentUser && currentUser.name) {
                     const parts = currentUser.name.split(' ');
                     const firstNameEl = document.getElementById('firstNameInput');
@@ -1331,6 +1343,15 @@ export const ViewModule = {
                 sv.classList.add('hidden');
                 dv.classList.remove('hidden');
                 title.innerText = "Support Development";
+                
+                if (card) {
+                    card.classList.remove('h-full');
+                }
+                if (body) {
+                    body.classList.remove('flex-1');
+                    body.classList.add('max-h-[70vh]');
+                }
+
                 // Reset QR view to show buttons
                 const qrContainer = document.getElementById('donationQRContainer');
                 const donationButtons = document.getElementById('donationButtons');

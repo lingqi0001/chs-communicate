@@ -6,7 +6,7 @@
  * ==================================================================================
  */
 
-import { onValue, ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { onValue, ref, update, query, orderByKey, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 import { db, auth, CloudDB, PATHS } from './db.js';
 
@@ -195,7 +195,8 @@ export const NotifyModule = {
             path = `messages/${chatId}`;
         }
 
-        onValue(ref(db, path), (snapshot) => {
+        const q = query(ref(db, path), orderByKey(), limitToLast(1));
+        onValue(q, (snapshot) => {
             const messages = snapshot.val() || {};
             const messageKeys = Object.keys(messages);
             if (messageKeys.length === 0) return;
@@ -227,7 +228,16 @@ export const NotifyModule = {
             this.setSound(SETTINGS.soundUrl);
         }
 
-        if (this.audio) {
+        const webPushEnabled = (localStorage.getItem('pushNotificationsEnabled') === 'true') && 
+                               ('Notification' in window) && (Notification.permission === 'granted');
+        const isActivelyOnSite = document.visibilityState === 'visible' && document.hasFocus();
+        
+        let playSound = true;
+        if (webPushEnabled && !isActivelyOnSite) {
+            playSound = false;
+        }
+
+        if (this.audio && playSound) {
             this.audio.play().catch(e => console.warn('[Notify] Audio play failed:', e));
         }
 
@@ -286,7 +296,7 @@ export const NotifyModule = {
     },
 
     updateUI() {
-        const originalTitle = "CHS Communicate";
+        const originalTitle = "CHS Chat & Tools";
         if (this.unreadCount > 0) {
             document.title = `(${this.unreadCount}) ${originalTitle}`;
             this._setFaviconDot(true);

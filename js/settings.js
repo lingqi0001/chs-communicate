@@ -75,6 +75,11 @@ export const SettingsModule = {
         if (document.getElementById('currentThemeLabel')) {
             document.getElementById('currentThemeLabel').innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
         }
+        const transitionAnimation = localStorage.getItem('transitionAnimation') || 'fadeSlide';
+        if (document.getElementById('currentTransitionAnimationLabel')) {
+            document.getElementById('currentTransitionAnimationLabel').innerText = 
+                transitionAnimation === 'micro' ? 'Micro-Spring' : 'Full-Slide & Fade';
+        }
         // Announcement Color UI Update
         const annColor = localStorage.getItem('annAccentColor') || 'orange';
         const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
@@ -349,13 +354,13 @@ export const SettingsModule = {
         document.body.insertAdjacentHTML('beforeend', `
     <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
         class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
+        <div id="settingsModalCard" class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
             <div
                 class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0">
                 <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
                 <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>
-            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
+            <div id="settingsModalBody" class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
 
                 <div id="settingsView" class="space-y-6">
                     <div class="relative">
@@ -401,6 +406,29 @@ export const SettingsModule = {
                                         class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Light</button>
                                     <button onclick="selectTheme('dark', event)"
                                         class="w-full text-left px-4 py-3 text-sm">Dark</button>
+                                </div>
+                            </div>
+
+                            <!-- Transition Animation Row -->
+                            <div class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('transitionAnimationDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Transitions</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentTransitionAnimationLabel" class="mr-2 text-xs">Full-Slide & Fade</span>
+                                        <svg id="transitionAnimationDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="transitionAnimationDropdown"
+                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-44 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    <button onclick="selectTransitionAnimation('fadeSlide', event)"
+                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Full-Slide & Fade</button>
+                                    <button onclick="selectTransitionAnimation('micro', event)"
+                                        class="w-full text-left px-4 py-3 text-sm">Micro-Spring</button>
                                 </div>
                             </div>
 
@@ -676,7 +704,7 @@ export const SettingsModule = {
                                     <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
                                         class="rounded-checkbox">
                                 </div>
-                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">Plays a notification sound when you have CHSchat open.</p>
+                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">Plays a notification sound when you have CHSchat open. If offline notification is also enabled for this device, sounds will only play when you are actively on the site.</p>
                             </div>
                             <div onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer hover:bg-gray-200/50 dark:hover:bg-white/5 transition-colors">
                                 <div class="flex items-center justify-between">
@@ -925,6 +953,13 @@ window.selectTheme = (val, e) => {
     window.applyTheme(val);
     SettingsModule.updateSettingsLabels();
     window.toggleDropdown('themeDropdown', e);
+};
+
+window.selectTransitionAnimation = (val, e) => {
+    if (e) e.stopPropagation();
+    localStorage.setItem('transitionAnimation', val);
+    SettingsModule.updateSettingsLabels();
+    window.toggleDropdown('transitionAnimationDropdown', e);
 };
 
 window.selectAnnColor = (val, e) => {
@@ -1276,9 +1311,57 @@ window.renderDevicesUI = (devices) => {
                 const div = document.createElement('div');
                 div.className = "flex items-center justify-between py-1.5 border-b border-gray-100/10 dark:border-gray-800/50 last:border-0";
                 
+                // Parse os, deviceType, browser, isStandalone
+                let os = device.os;
+                let deviceType = device.deviceType;
+                let browser = device.browser;
+                let isStandalone = device.isStandalone || false;
+                
+                if (!os || !deviceType || !browser) {
+                    const name = device.deviceName || "";
+                    const match = name.match(/^(.*?)\s*\((.*?)\)$/);
+                    if (match) {
+                        const firstPart = match[1].trim();
+                        browser = match[2].trim();
+                        
+                        const parts = firstPart.split(' ');
+                        if (parts.length >= 2) {
+                            os = parts[0];
+                            deviceType = parts.slice(1).join(' ');
+                        } else {
+                            os = firstPart;
+                            deviceType = "";
+                        }
+                    } else {
+                        os = name;
+                        deviceType = "";
+                        browser = "";
+                    }
+                }
+                
+                if (device.deviceName && device.deviceName.includes("Added to Home Screen")) {
+                    isStandalone = true;
+                }
+                
+                const deviceText = deviceType ? `${os} ${deviceType}` : os;
+                let nameHtml = '';
+                if (isStandalone) {
+                    const browserText = browser ? `${browser}-Added to Home Screen` : "Added to Home Screen";
+                    nameHtml = `
+                        <span class="font-medium text-xs text-black dark:text-white">${deviceText}</span>
+                        <span class="font-medium text-xs text-black dark:text-white">${browserText}</span>
+                    `;
+                } else {
+                    const browserText = browser ? `(${browser})` : "";
+                    const fullText = browserText ? `${deviceText} ${browserText}` : deviceText;
+                    nameHtml = `
+                        <span class="font-medium text-xs text-black dark:text-white">${fullText}</span>
+                    `;
+                }
+                
                 div.innerHTML = `
                     <div class="flex flex-col">
-                        <span class="font-medium text-xs text-black dark:text-white">${device.deviceName || 'Unknown Device'}</span>
+                        ${nameHtml}
                         <span class="text-[9px] text-gray-400">${isCurrent ? 'Current Device' : 'Other Device'}</span>
                     </div>
                     <input type="checkbox" ${device.webPushEnabled ? 'checked' : ''} 

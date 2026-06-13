@@ -167,5 +167,5 @@ export const CoreModule = {
 };
 
 // Re-export Firebase Database and Storage API functions for index.html use
-export { ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+export { ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 export { ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";

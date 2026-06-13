@@ -174,7 +174,7 @@
     </script>
 
     <script type="module">
-        import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, sRef, uploadString, getDownloadURL, deleteObject } from './js/core.js';
+        import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore, sRef, uploadString, getDownloadURL, deleteObject } from './js/core.js';
 
 
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
@@ -249,7 +249,7 @@
                 if (typeof window.globalDataSync === 'function') {
                     window.globalDataSync();
                 } else if (AppModules.Sync && typeof AppModules.Sync.globalDataSync === 'function') {
-                    AppModules.Sync.globalDataSync(db);
+                    AppModules.Sync.globalDataSync(db, window.AppModules?.User?.current || auth.currentUser);
                 }
             }
         });
@@ -257,7 +257,7 @@
         // Compatibility bridge: keep legacy callers working after modular sync refactor.
         window.globalDataSync = () => {
             if (AppModules.Sync && typeof AppModules.Sync.globalDataSync === 'function') {
-                AppModules.Sync.globalDataSync(db);
+                AppModules.Sync.globalDataSync(db, window.AppModules?.User?.current || auth.currentUser);
             }
         };
 
@@ -654,7 +654,7 @@
             });
 
 
-            AppModules.Sync.globalDataSync(db);
+            AppModules.Sync.globalDataSync(db, currentUser);
 
             AppModules.Extension.syncExtensions();
 
@@ -838,7 +838,7 @@
         };
 
         const chatEngine = initChatEngine({
-            db, ref, push, set, get, update, query, orderByKey, startAfter, limitToLast, onChildAdded, onValue, serverTimestamp,
+            db, ref, push, set, get, update, query, orderByKey, startAfter, limitToLast, onChildAdded, onValue, serverTimestamp, endBefore,
             UIComponents, AppModules, getChatId, getLocalMessages, saveMessageLocal, escapeHTML,
             getCurrentUser: () => currentUser,
             getActiveTargetId: () => activeTargetId,
@@ -1501,9 +1501,19 @@
 
             const publishContent = async () => {
                 let finalImageUrl = null;
-                if (currentPostBase64) {
-                    // Show a temporary hint in the alert/form if possible
-                    finalImageUrl = await uploadImageToStorage(currentPostBase64, isPostingNews ? 'announcements' : 'modules');
+                try {
+                    if (currentPostBase64) {
+                        // Show a temporary hint in the alert/form if possible
+                        finalImageUrl = await uploadImageToStorage(currentPostBase64, isPostingNews ? 'announcements' : 'modules');
+                    }
+                } catch (err) {
+                    console.error("Post image upload failed:", err);
+                    if (err.message === "SystemUploadError") {
+                        AppModules.Modal.alert("Upload Error", "There is an issue with our system. Please try again later.");
+                    } else {
+                        AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
+                    }
+                    return;
                 }
 
                 const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
@@ -2763,7 +2773,7 @@
         <div id="sidePanel"
             class="flex lg:flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
             <!-- Header synchronized with News panel -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-10">
+            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-30">
                 <div class="flex justify-between items-center h-9">
                     <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
                     <div class="flex items-center gap-3 mb-1">

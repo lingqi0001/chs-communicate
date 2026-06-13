@@ -159,6 +159,18 @@ export async function getLocalMessages(chatId) {
     });
 }
 
+export async function isMessagesCacheEmpty() {
+    const db = await dbReady;
+    if (!db) return true;
+    return new Promise((resolve) => {
+        const transaction = db.transaction(["messages"], "readonly");
+        const store = transaction.objectStore("messages");
+        const request = store.count();
+        request.onsuccess = () => resolve(request.result === 0);
+        request.onerror = () => resolve(true);
+    });
+}
+
 export async function saveNewsItemLocal(tabType, key, data) {
     const db = await dbReady;
     if (!db) return;
@@ -242,6 +254,7 @@ export const DBModule = {
         getLastKey,
         saveMessage: saveMessageLocal,
         getMessages: getLocalMessages,
+        isMessagesCacheEmpty,
         saveNews: saveNewsItemLocal,
         deleteNews: deleteNewsItemLocal,
         getNews: getLocalNews,

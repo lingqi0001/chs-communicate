@@ -1962,11 +1962,11 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             if (alert) {
                 alert(
                     'User Not Joined',
-                    `${memberName} has not joined CHS Chat yet. Invite them to join! `,
-                    'Invite'
+                    `${memberName} has not joined CHS Chat & Tools yet. Invite them to join! `,
+                    'Got it!'
                 );
             } else {
-                window.alert(`${memberName} has not joined CHS Chat yet. Invite them to join! 🎉`);
+                window.alert(`${memberName} has not joined CHS Chat & Tools yet. Invite them to join! 🎉`);
             }
         }
     }

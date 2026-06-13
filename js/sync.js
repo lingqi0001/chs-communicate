@@ -78,8 +78,9 @@ export const SyncModule = {
      * Global Database Sync Engine
      * Compares cloud databases with IndexedDB and mounts real-time listeners
      * @param {Object} db - Firebase database instance
+     * @param {Object} currentUser - Current authenticated user
      */
-    async globalDataSync(db) {
+    async globalDataSync(db, currentUser = null) {
         console.log('Sync: Starting background globalDataSync...');
         const syncHint = document.getElementById('newsSyncHint');
         if (syncHint) syncHint.classList.add('opacity-100');
@@ -155,6 +156,34 @@ export const SyncModule = {
             } catch (err) {
                 console.warn(`Sync: Failed for module/${name}:`, err);
             }
+        }
+
+        // 6. Pre-fetch unread messages if IndexedDB cache is empty
+        try {
+            const isCacheEmpty = await DBModule.Local.isMessagesCacheEmpty();
+            if (isCacheEmpty && currentUser) {
+                const uid = (currentUser.id || currentUser.uid || '').toLowerCase();
+                if (uid) {
+                    const notifySnap = await get(ref(db, `user_notifications/${uid}`));
+                    const notifyData = notifySnap.val() || {};
+                    const unreadChatIds = Object.keys(notifyData).filter(key => notifyData[key] === true);
+                    
+                    console.log(`Sync: Pre-fetching ${unreadChatIds.length} unread chats...`);
+                    for (const chatId of unreadChatIds) {
+                        try {
+                            const msgSnap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50)));
+                            const msgs = msgSnap.val() || {};
+                            for (const msgKey in msgs) {
+                                await DBModule.Local.saveMessage(chatId, msgKey, msgs[msgKey]);
+                            }
+                        } catch (e) {
+                            console.error(`Sync: Failed to pre-fetch unread messages for ${chatId}`, e);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Sync: Failed to pre-fetch unread messages:', err);
         }
 
         // Hide synchronization indicator

@@ -139,57 +139,104 @@ export const SidebarModule = {
 
         this._isRenderingFlag = true;
         try {
-            if (window.sidebarMode === 'class' && window.currentClassId) {
-                await this.renderClassLevel2(container, isTabSwitch);
-                return;
-            }
-
-            if (window.sidebarMode === 'recent_joined') {
-                await this.renderRecentlyJoinedLevel2(container, isTabSwitch);
-                return;
-            }
-
-            if (!container.querySelector('.sidebar-tabs')) {
+            // Ensure containers exist
+            if (!container.querySelector('#sidebarLevel1Container')) {
                 container.innerHTML = `
-                    <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 flex-shrink-0">
-                        <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
-                            Recent
-                            <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
-                        </button>
-                        <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">Contacts</button>
-                        <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                        <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
-                            Class
-                        </button>
-                    </div>
-                    <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
+                    <div id="sidebarLevel1Container" class="flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1C1C1E] relative z-10"></div>
+                    <div id="sidebarLevel2Container" class="hidden"></div>
                 `;
-            } else {
-                const btns = container.querySelectorAll('.sidebar-tabs button');
-                btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
-                btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
-                btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
             }
-            const tabButtons = container.querySelectorAll('.sidebar-tabs [data-sidebar-mode]');
-            tabButtons.forEach(btn => {
-                btn.onclick = event => this.switchSidebarTab(btn.dataset.sidebarMode, event);
-            });
-            const subList = document.getElementById('sidebarSubList');
-            if (isTabSwitch || window._isPopNav) subList?.classList.remove('sidebar-pop', 'sidebar-push');
+            const level1Container = container.querySelector('#sidebarLevel1Container');
+            const level2Container = container.querySelector('#sidebarLevel2Container');
 
-            if (window.sidebarMode === 'class') await this.renderClassLevel1(subList);
-            else await this.renderUserSidebarItems(subList);
+            // Establish stacking context on Level 1 so Level 2 (z-index 20) naturally overlays Level 1 scrollbar (z-index 50)
+            if (level1Container) {
+                level1Container.classList.add('z-10');
+            }
 
-            if (isTabSwitch || window._isPopNav) {
-                void subList.offsetWidth;
+            const animType = localStorage.getItem('transitionAnimation') || 'fadeSlide';
+
+            // If we are in Level 2 mode
+            const isLevel2 = (window.sidebarMode === 'class' && window.currentClassId) || (window.sidebarMode === 'recent_joined');
+
+            if (isLevel2) {
+                // Scroll Level 1 to top immediately so its scrollbar is pre-positioned at top when returning
+                const subList1 = level1Container?.querySelector('#sidebarSubList');
+                if (subList1) {
+                    subList1._isProgrammaticScroll = true;
+                    subList1.scrollTop = 0;
+                    requestAnimationFrame(() => {
+                        subList1._isProgrammaticScroll = false;
+                    });
+                }
+                // First ensure Level 1 is populated (so it is visible underneath)
+                if (!level1Container.querySelector('.sidebar-tabs')) {
+                    const origMode = window.sidebarMode;
+                    window.sidebarMode = 'recent'; 
+                    await this._renderLevel1(level1Container, false, animType);
+                    window.sidebarMode = origMode;
+                }
+
+                // Show Level 2 container and start animation immediately
+                level2Container.classList.remove('hidden', 'sidebar-full-slide-out', 'sidebar-full-slide-in', 'sidebar-push');
+                if (!isTabSwitch) {
+                    if (animType === 'micro') {
+                        level2Container.classList.add('sidebar-push');
+                        level1Container.classList.add('hidden'); // Hide level 1 in micro mode to keep clean look
+                    } else {
+                        level2Container.classList.add('sidebar-full-slide-in');
+                        level1Container.classList.remove('hidden'); // Ensure level 1 is visible underneath
+                    }
+                }
+                void level2Container.offsetWidth; // reflow
+
+                if (window.sidebarMode === 'class' && window.currentClassId) {
+                    await this.renderClassLevel2(level2Container, isTabSwitch);
+                } else if (window.sidebarMode === 'recent_joined') {
+                    await this.renderRecentlyJoinedLevel2(level2Container, isTabSwitch);
+                }
+                const subList2 = level2Container.querySelector('#sidebarSubList');
+                if (subList2 && window.setupCustomScrollbar) {
+                    window.setupCustomScrollbar(subList2);
+                }
+                return;
+            }
+
+            // If we are in Level 1 mode
+            level1Container.classList.remove('hidden');
+            
+            // Handle slide out of Level 2
+            if (level2Container && !level2Container.classList.contains('hidden')) {
+                if (animType === 'fadeSlide' && window._isPopNav) {
+                    level2Container.classList.add('sidebar-full-slide-out');
+                    const handleAnimEnd = () => {
+                        level2Container.classList.add('hidden');
+                        level2Container.classList.remove('sidebar-full-slide-out');
+                        level2Container.innerHTML = '';
+                        level2Container.removeEventListener('animationend', handleAnimEnd);
+                    };
+                    level2Container.addEventListener('animationend', handleAnimEnd);
+                } else {
+                    level2Container.classList.add('hidden');
+                    level2Container.innerHTML = '';
+                }
+            }
+
+            await this._renderLevel1(level1Container, isTabSwitch, animType);
+
+            const subList1 = level1Container.querySelector('#sidebarSubList');
+            if (isTabSwitch && subList1) {
+                subList1._isProgrammaticScroll = true;
+                subList1.scrollTop = 0;
                 requestAnimationFrame(() => {
-                    subList.classList.add('sidebar-pop');
-                    window._isPopNav = false;
+                    subList1._isProgrammaticScroll = false;
                 });
             }
 
-            if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
+            if (subList1 && window.setupCustomScrollbar) {
+                window.setupCustomScrollbar(subList1);
+            }
+
         } catch (err) {
             console.error('renderSidebar error:', err);
             if (typeof this._legacyRawRender === 'function') {
@@ -198,6 +245,81 @@ export const SidebarModule = {
         } finally {
             this._isRenderingFlag = false;
         }
+    },
+
+    async _renderLevel1(level1Container, isTabSwitch, animType) {
+        if (!level1Container.querySelector('.sidebar-tabs')) {
+            level1Container.innerHTML = `
+                <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 flex-shrink-0">
+                    <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
+                        Recent
+                        <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
+                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
+                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'recent' ? 'active' : ''}"></span>
+                        </div>
+                    </button>
+                    <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
+                    <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
+                        Contacts
+                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
+                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'all' ? 'active' : ''}"></span>
+                        </div>
+                    </button>
+                    <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
+                    <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
+                        Class
+                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
+                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'class' ? 'active' : ''}"></span>
+                        </div>
+                    </button>
+                </div>
+                <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
+            `;
+        } else {
+            const btns = level1Container.querySelectorAll('.sidebar-tabs button');
+            btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
+            btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
+            btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
+
+            const indicatorRecent = btns[0].querySelector('.sidebar-tab-indicator');
+            const indicatorAll = btns[1].querySelector('.sidebar-tab-indicator');
+            const indicatorClass = btns[2].querySelector('.sidebar-tab-indicator');
+
+            if (indicatorRecent) indicatorRecent.classList.toggle('active', window.sidebarMode === 'recent');
+            if (indicatorAll) indicatorAll.classList.toggle('active', window.sidebarMode === 'all');
+            if (indicatorClass) indicatorClass.classList.toggle('active', window.sidebarMode === 'class');
+        }
+
+        const tabButtons = level1Container.querySelectorAll('.sidebar-tabs [data-sidebar-mode]');
+        tabButtons.forEach(btn => {
+            btn.onclick = event => this.switchSidebarTab(btn.dataset.sidebarMode, event);
+        });
+
+        const subList = level1Container.querySelector('#sidebarSubList');
+        if (isTabSwitch || window._isPopNav) {
+            subList?.classList.remove('sidebar-pop', 'sidebar-push', 'tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
+        }
+
+        if (window.sidebarMode === 'class') await this.renderClassLevel1(subList);
+        else await this.renderUserSidebarItems(subList);
+
+        if (isTabSwitch || window._isPopNav) {
+            void subList.offsetWidth;
+            requestAnimationFrame(() => {
+                if (animType === 'micro') {
+                    subList.classList.add('sidebar-pop');
+                } else {
+                    if (window._isPopNav) {
+                        // In fadeSlide, Level 1 stays stationary when popping, so we do not animate it
+                    } else {
+                        subList.classList.add('tab-fade-up');
+                    }
+                }
+                window._isPopNav = false;
+            });
+        }
+
+        if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
     },
 
     renderClassLevel2(container, isTabSwitch = false) {
@@ -212,7 +334,7 @@ export const SidebarModule = {
                 if (!isAlreadyInLevel2) {
                     const cachedName = window.cnCache[window.currentClassId] || 'Class';
                     container.innerHTML = `
-                        <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
+                        <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
                                 <button data-sidebar-back="class" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
                                     <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
@@ -262,7 +384,7 @@ export const SidebarModule = {
                 const c = snap.val();
                 if (!c) { window.currentClassId = null; AppModules.Sidebar.renderSidebar(); return; }
 
-                const titleEl = document.getElementById('sidebarLevel2Title');
+                const titleEl = container.querySelector('#sidebarLevel2Title');
                 if (titleEl) titleEl.innerText = c.name;
 
                 if (window.AppModules.User.isAdmin() || c.teacherId === currentUser.id) {
@@ -280,7 +402,7 @@ export const SidebarModule = {
                     }
                 }
 
-                const subList = document.getElementById('sidebarSubList');
+                const subList = container.querySelector('#sidebarSubList');
                 const teacher = await window.fetchUser(c.teacherId);
                 const students = c.students ? Object.keys(c.students) : [];
 
@@ -465,7 +587,7 @@ export const SidebarModule = {
 
                 if (!isAlreadyInRecentJoined) {
                     container.innerHTML = `
-                        <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E] ${isTabSwitch ? '' : 'sidebar-push'}">
+                        <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
                                 <button data-sidebar-back="recent" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
                                     <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
@@ -515,7 +637,7 @@ export const SidebarModule = {
                     };
                 }
 
-                const subList = document.getElementById('sidebarSubList');
+                const subList = container.querySelector('#sidebarSubList');
                 const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
@@ -986,3 +1108,129 @@ export const SidebarModule = {
         return undefined;
     }
 };
+
+window.setupCustomScrollbar = function(element) {
+    if (!element) return;
+    const parent = element.parentElement;
+    if (!parent) return;
+
+    let scrollbarTrack = parent.querySelector('.custom-scrollbar-track');
+    if (!scrollbarTrack) {
+        if (window.getComputedStyle(parent).position === 'static') {
+            parent.style.position = 'relative';
+        }
+        scrollbarTrack = document.createElement('div');
+        scrollbarTrack.className = 'custom-scrollbar-track absolute right-0 w-1 pointer-events-auto z-50';
+        scrollbarTrack.innerHTML = '<div class="custom-scrollbar-thumb bg-[#787880]/10 dark:bg-white/5 rounded-full w-[4px] absolute right-[0px] opacity-0 transition-all duration-300 ease-out cursor-default pointer-events-auto" style="height: 0px; top: 0px;"></div>';
+        parent.appendChild(scrollbarTrack);
+    }
+
+    const thumb = scrollbarTrack.querySelector('.custom-scrollbar-thumb');
+
+    const update = (disableTransition = false) => {
+        const clientHeight = element.clientHeight;
+        const scrollHeight = element.scrollHeight;
+        const scrollTop = element.scrollTop;
+
+        // Position track to match element's offsetTop and clientHeight
+        scrollbarTrack.style.top = `${element.offsetTop}px`;
+        scrollbarTrack.style.height = `${clientHeight}px`;
+
+        if (scrollHeight <= clientHeight) {
+            thumb.style.height = '0px';
+            thumb.style.opacity = '0';
+            return;
+        }
+
+        const thumbHeight = Math.max(15, (clientHeight / scrollHeight) * clientHeight);
+        const maxScrollTop = scrollHeight - clientHeight;
+        const maxThumbTop = clientHeight - thumbHeight;
+        const thumbTop = (scrollTop / maxScrollTop) * maxThumbTop;
+
+        if (disableTransition) {
+            thumb.style.transition = 'none';
+        } else {
+            thumb.style.transition = 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-out';
+        }
+
+        thumb.style.height = `${thumbHeight}px`;
+        thumb.style.top = `${thumbTop}px`;
+        thumb.style.opacity = '1';
+
+        if (disableTransition) {
+            void thumb.offsetHeight;
+        }
+    };
+
+    // Make thumb draggable to allow mouse drag scrolling
+    let isDragging = false;
+    let startY = 0;
+    let startScrollTop = 0;
+
+    thumb.onmousedown = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDragging = true;
+        startY = e.clientY;
+        startScrollTop = element.scrollTop;
+
+        document.body.style.userSelect = 'none';
+
+        const onMouseMove = (moveEvent) => {
+            if (!isDragging) return;
+            const deltaY = moveEvent.clientY - startY;
+            const clientHeight = element.clientHeight;
+            const scrollHeight = element.scrollHeight;
+            const thumbHeight = Math.max(15, (clientHeight / scrollHeight) * clientHeight);
+
+            const maxScrollTop = scrollHeight - clientHeight;
+            const maxThumbTop = clientHeight - thumbHeight;
+
+            if (maxThumbTop > 0) {
+                const scrollDelta = (deltaY / maxThumbTop) * maxScrollTop;
+                element.scrollTop = startScrollTop + scrollDelta;
+            }
+        };
+
+        const onMouseUp = () => {
+            isDragging = false;
+            document.body.style.userSelect = '';
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    };
+
+    element.removeEventListener('scroll', element._customScrollHandler);
+    element._customScrollHandler = () => {
+        if (element._isProgrammaticScroll) {
+            update(false);
+        } else {
+            update(true);
+        }
+    };
+    element.addEventListener('scroll', element._customScrollHandler);
+
+    if (element._customObserver) {
+        element._customObserver.disconnect();
+    }
+    element._customObserver = new MutationObserver(() => {
+        update(false);
+    });
+    element._customObserver.observe(element, { childList: true, subtree: true, characterData: true });
+
+    if (window.ResizeObserver) {
+        if (element._customResizeObserver) {
+            element._customResizeObserver.disconnect();
+        }
+        element._customResizeObserver = new ResizeObserver(() => {
+            update(false);
+        });
+        element._customResizeObserver.observe(element);
+    }
+
+    update(false);
+};
+

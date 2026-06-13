@@ -171,8 +171,7 @@ export const ImageUtils = {
             return downloadURL;
         } catch (error) {
             console.error('Storage: Upload failed', error);
-            window.AppModules.Modal.alert("Upload Error", "Failed to save image to cloud. Using temporary local data instead.");
-            return base64Data;
+            throw new Error("SystemUploadError");
         }
     },
 
@@ -211,7 +210,11 @@ export const ImageUtils = {
             }
         } catch (err) {
             console.error("Image sending error:", err);
-            await window.AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
+            if (err.message === "SystemUploadError") {
+                await window.AppModules.Modal.alert("Upload Error", "There is an issue with our system. Please try again later.");
+            } else {
+                await window.AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
+            }
         } finally {
             if (input) {
                 input.disabled = false;
