@@ -81,7 +81,30 @@ export const NotifyModule = {
 
         const uid = (user.id || user.email.split('@')[0].replace(/\./g, '_')).toLowerCase();
 
+        // Remote logout check
+        if (!window.getOrCreateDeviceId) {
+            window.getOrCreateDeviceId = () => {
+                let deviceId = localStorage.getItem('deviceId');
+                if (!deviceId) {
+                    deviceId = 'device_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+                    localStorage.setItem('deviceId', deviceId);
+                }
+                return deviceId;
+            };
+        }
+
         this.registerFCMToken();
+
+        const deviceId = window.getOrCreateDeviceId();
+        onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {
+            const data = snapshot.val();
+            if (window.deviceRegistered && !data) {
+                console.log('[Notify] Current device removed from DB. Logging out...');
+                if (window.handleSignOut) {
+                    window.handleSignOut();
+                }
+            }
+        });
 
         onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
@@ -305,8 +328,134 @@ export const NotifyModule = {
         img.src = url;
     },
 
-    async requestPermission() {
-        if (!('Notification' in window)) return;
+    _isShowingPrompt: false,
+
+    showIosInstallGuideModal() {
+        if (this._isShowingPrompt) return Promise.resolve(false);
+        this._isShowingPrompt = true;
+
+        return new Promise((resolve) => {
+            const existing = document.getElementById('iosInstallGuideModal');
+            if (existing) {
+                existing.remove();
+            }
+
+            const hostName = window.location.hostname || 'chs-communicate.com';
+            const modalHtml = `
+                <div id="iosInstallGuideModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-black/60 backdrop-blur-md px-6 opacity-0 transition-opacity duration-300 pointer-events-none">
+                    <div class="bg-zinc-900/95 text-white w-full max-w-[340px] rounded-[24px] p-6 shadow-2xl scale-95 transition-transform duration-300 border border-white/10 relative">
+                        <!-- Close Button -->
+                        <button id="iosObClose" class="absolute top-4 right-4 text-white/40 hover:text-white text-2xl outline-none focus:outline-none transition-colors">&times;</button>
+                        
+                        <!-- Title -->
+                        <h3 class="text-base font-bold text-white/90 mb-4 text-left">Install the app</h3>
+                        
+                        <!-- App Card -->
+                        <div class="bg-zinc-800/80 rounded-2xl p-4 flex items-center gap-3.5 mb-5 border border-white/5">
+                            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center p-2.5 shadow-md shrink-0">
+                                ${this.EAGLE_SVG || '<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><polygon fill="white" points="12.6,121.7 75.6,96.1..." /></svg>'}
+                            </div>
+                            <div class="overflow-hidden">
+                                <h4 class="font-bold text-white text-sm truncate">CHS Communicate</h4>
+                                <p class="text-[11px] text-white/40 truncate">${hostName}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Steps for iOS installation -->
+                        <div class="space-y-4 mb-6 text-sm text-left">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-[#007AFF] font-bold text-sm shrink-0">1.</span>
+                                <p class="flex-1 text-xs text-white/80 leading-snug">
+                                    Press <span class="inline-flex items-center justify-center bg-zinc-800 border border-white/10 w-6 h-6 rounded-full align-middle mx-1"><svg class="w-3.5 h-3.5 text-white/80" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span> to open the browser menu
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-[#007AFF] font-bold text-sm shrink-0">2.</span>
+                                <p class="flex-1 text-xs text-white/80 leading-snug">
+                                    Tap <span class="inline-flex items-center gap-1 bg-zinc-800 border border-white/10 px-2 py-0.5 rounded-md text-[10px] align-middle mx-1 text-white/90 font-medium"><svg class="w-3 h-3 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>Share</span> and then <span class="inline-flex items-center gap-1 bg-zinc-800 border border-white/10 px-2 py-0.5 rounded-md text-[10px] align-middle mx-1 text-white/90 font-medium"><svg class="w-3 h-3 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 9l-7 7-7-7"/></svg>View more</span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-[#007AFF] font-bold text-sm shrink-0">3.</span>
+                                <p class="flex-1 text-xs text-white/80 leading-snug">
+                                    Select <span class="inline-flex items-center gap-1 bg-zinc-800 border border-white/10 px-2 py-0.5 rounded-md text-[10px] align-middle mx-1 text-white/90 font-medium"><svg class="w-3 h-3 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Add to Home Screen</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Button -->
+                        <div>
+                            <button id="iosObDone" class="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[0.98] transition-all font-semibold text-xs text-white/90">Got it</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            const modal = document.getElementById('iosInstallGuideModal');
+            const inner = modal.querySelector('div');
+            const closeBtn = document.getElementById('iosObClose');
+            const doneBtn = document.getElementById('iosObDone');
+
+            // Force reflow and show
+            void modal.offsetHeight;
+            modal.classList.remove('pointer-events-none');
+            modal.classList.add('opacity-100');
+            inner.classList.remove('scale-95');
+            inner.classList.add('scale-100');
+
+            const closeModal = () => {
+                modal.classList.remove('opacity-100');
+                modal.classList.add('opacity-0');
+                inner.classList.remove('scale-100');
+                inner.classList.add('scale-95');
+                modal.classList.add('pointer-events-none');
+                
+                setTimeout(() => {
+                    modal.remove();
+                    this._isShowingPrompt = false;
+                    resolve(false);
+                }, 300);
+            };
+
+            closeBtn.onclick = closeModal;
+            doneBtn.onclick = closeModal;
+        });
+    },
+
+    async requestPermission(isManual = false) {
+        // iOS detection
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+        // Force simulation for test account moss932888
+        const currentUser = this.context.currentUser;
+        const currentUserId = currentUser?.id ? String(currentUser.id).toLowerCase() : '';
+        const authUser = auth?.currentUser;
+        const authUserId = authUser ? authUser.email.split('@')[0].replace(/\./g, '_').toLowerCase() : '';
+        const isTestUser = currentUserId === 'moss932888' || authUserId === 'moss932888';
+
+        if (((isIOS || isTestUser) && !isStandalone)) {
+            // If user previously dismissed, don't auto-prompt (unless it's the test user moss932888)
+            if (!isTestUser && !isManual && localStorage.getItem('notification_prompt_dismissed') === 'true') {
+                return false;
+            }
+            await this.showIosInstallGuideModal();
+            if (!isManual && !isTestUser) {
+                localStorage.setItem('notification_prompt_dismissed', 'true');
+            }
+            return false;
+        }
+
+        if (!('Notification' in window)) return false;
+
+        // If already granted, return true
+        if (Notification.permission === 'granted') return true;
+
+        // If already denied, browser won't show the prompt anyway
+        if (Notification.permission === 'denied') return false;
+
+        // Trigger the native browser permission dialog directly for non-iOS or iOS standalone
         const permission = await Notification.requestPermission();
         return permission === 'granted';
     },
@@ -314,6 +463,7 @@ export const NotifyModule = {
     async registerFCMToken() {
         if (!this.engine) {
             console.log('[Notify] FCM engine not initialized yet.');
+            await this.syncDeviceState();
             return;
         }
         
@@ -321,14 +471,21 @@ export const NotifyModule = {
         const pushEnabled = localStorage.getItem('pushNotificationsEnabled') !== 'false';
         if (!pushEnabled) {
             console.log('[Notify] Web push notifications are disabled in local settings.');
+            await this.syncDeviceState();
             return;
         }
 
         try {
+            if (!('Notification' in window)) {
+                console.log('[Notify] Notifications not supported in this environment.');
+                await this.syncDeviceState();
+                return;
+            }
             if (Notification.permission !== 'granted') {
                 const granted = await this.requestPermission();
                 if (!granted) {
                     console.log('[Notify] Notification permission not granted.');
+                    await this.syncDeviceState();
                     return;
                 }
             }
@@ -336,16 +493,14 @@ export const NotifyModule = {
             const token = await this.getCurrentToken();
             if (token) {
                 console.log('[Notify] Got FCM Token:', token);
-                if (this.context.currentUser) {
-                    const uid = String(this.context.currentUser.id || '').toLowerCase();
-                    await update(ref(db, `users/${uid}/fcm_tokens`), { [token]: true });
-                    console.log('[Notify] Saved FCM Token to database.');
-                }
+                await this.syncDeviceState(token);
             } else {
                 console.warn('[Notify] No FCM token received.');
+                await this.syncDeviceState();
             }
         } catch (error) {
             console.error('[Notify] Error registering FCM Token:', error);
+            await this.syncDeviceState();
         }
     },
 
@@ -367,6 +522,85 @@ export const NotifyModule = {
         } catch (e) {
             console.warn('[Notify] Error getting current token:', e);
             return null;
+        }
+    },
+
+    async syncDeviceState(fcmToken = null) {
+        if (!this.context.currentUser) return;
+        const uid = String(this.context.currentUser.id || '').toLowerCase();
+        
+        const deviceId = window.getOrCreateDeviceId();
+        
+        // Detect OS, Device Type, and Browser
+        const ua = navigator.userAgent;
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const currentWidth = window.screen.width;
+        
+        let deviceType = "Computer";
+        let os = "Unknown OS";
+        
+        if (ua.indexOf("iPhone") !== -1) {
+            os = "iOS";
+            deviceType = "iPhone";
+        } else if (ua.indexOf("iPad") !== -1) {
+            os = "iPadOS";
+            deviceType = "iPad";
+        } else if (ua.indexOf("Android") !== -1) {
+            os = "Android";
+            deviceType = currentWidth >= 800 ? "Tablet" : "Phone";
+        } else if (ua.indexOf("Win") !== -1) {
+            os = "Windows";
+            deviceType = "Computer";
+        } else if (ua.indexOf("Mac") !== -1) {
+            if (isTouch) {
+                os = "iPadOS";
+                deviceType = "iPad";
+            } else {
+                os = "macOS";
+                deviceType = "Computer";
+            }
+        } else if (ua.indexOf("Linux") !== -1) {
+            os = "Linux";
+            deviceType = "Computer";
+        }
+        
+        let browser = "Unknown Browser";
+        if (ua.indexOf("MicroMessenger") !== -1) browser = "WeChat";
+        else if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+        else if (ua.indexOf("SamsungBrowser") !== -1) browser = "Samsung Browser";
+        else if (ua.indexOf("Opera") !== -1 || ua.indexOf("OPR") !== -1) browser = "Opera";
+        else if (ua.indexOf("Edge") !== -1 || ua.indexOf("Edg") !== -1) browser = "Edge";
+        else if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+        else if (ua.indexOf("Safari") !== -1) browser = "Safari";
+        
+        const deviceName = `${os} ${deviceType} (${browser})`;
+        const hasPermission = ('Notification' in window) && Notification.permission === 'granted';
+        const webPushEnabled = (localStorage.getItem('pushNotificationsEnabled') === 'true') && hasPermission;
+        
+        const updates = {};
+        updates[`users/${uid}/devices/${deviceId}`] = {
+            deviceId: deviceId,
+            deviceName: deviceName,
+            hasPermission: hasPermission,
+            webPushEnabled: webPushEnabled,
+            fcmToken: fcmToken || localStorage.getItem('fcmToken') || null,
+            lastActive: Date.now()
+        };
+        
+        const tokenToUse = fcmToken || localStorage.getItem('fcmToken');
+        if (tokenToUse) {
+            localStorage.setItem('fcmToken', tokenToUse);
+            if (webPushEnabled && hasPermission) {
+                updates[`users/${uid}/fcm_tokens/${tokenToUse}`] = true;
+            } else {
+                updates[`users/${uid}/fcm_tokens/${tokenToUse}`] = null;
+            }
+        }
+        
+        if (db) {
+            await update(ref(db), updates);
+            console.log('[Notify] Device state synchronized to DB.');
+            window.deviceRegistered = true;
         }
     }
 };

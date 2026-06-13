@@ -18,11 +18,24 @@ export const SettingsModule = {
             soundToggle.checked = SETTINGS.soundEnabled;
         }
 
-        const pushNotificationToggle = document.getElementById('pushNotificationToggle');
-        if (pushNotificationToggle) {
-            pushNotificationToggle.checked = localStorage.getItem('pushNotificationsEnabled') !== 'false';
-        }
         this.updateSettingsLabels();
+        
+        const uid = String(window.AppModules.User.current?.id || '').toLowerCase();
+        if (uid) {
+            const db = window.firebaseDb;
+            if (db && window.fOnValue && window.fRef) {
+                if (!window._devicesListenerBound) {
+                    window._devicesListenerBound = true;
+                    window.fOnValue(window.fRef(db, `users/${uid}/devices`), (snapshot) => {
+                        const devices = snapshot.val() || {};
+                        window.currentUserDevices = devices;
+                        if (typeof window.renderDevicesUI === 'function') {
+                            window.renderDevicesUI(devices);
+                        }
+                    });
+                }
+            }
+        }
         
         const soundDropdown = document.getElementById('soundDropdown');
         if (soundDropdown) {
@@ -335,7 +348,7 @@ export const SettingsModule = {
 
                 <div id="settingsView" class="space-y-6">
                     <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Profile</label>
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Profile</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
                                 <input type="text" id="firstNameInput" placeholder="First Name"
@@ -353,7 +366,7 @@ export const SettingsModule = {
                     </div>
 
                     <div id="themeDropdownContainer">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl">
                             <!-- Theme Row -->
                             <div class="relative border-b border-gray-200 dark:border-gray-700">
@@ -643,22 +656,39 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Notification</label>
-                    <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden mb-4">
-                        <div class="flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700">
-                            <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
-                            <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                                class="rounded-checkbox">
+                    <div class="relative">
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Notification</label>
+                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
+                            <div class="p-3.5 border-b border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between">
+                                    <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
+                                    <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
+                                        class="rounded-checkbox">
+                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">Plays a notification sound when you have CHSchat open.</p>
+                            </div>
+                            <div onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer hover:bg-gray-200/50 dark:hover:bg-white/5 transition-colors">
+                                <div class="flex items-center justify-between">
+                                    <label class="font-medium text-sm text-black dark:text-white cursor-pointer">Offline Notifications</label>
+                                    <svg id="offlineNotificationsChevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">Receive notifications on your device even when you close CHSchat.</p>
+                            </div>
+                            <div id="offlineNotificationsExpandContainer" class="hidden border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-black/10 px-3.5 py-2 space-y-2">
+                            </div>
                         </div>
-                        <div class="flex items-center justify-between p-3.5">
-                            <label class="font-medium text-sm text-black dark:text-white">Web Push Notification</label>
-                            <input type="checkbox" id="pushNotificationToggle" onchange="togglePushNotification(this.checked)"
-                                class="rounded-checkbox">
+                    </div>
+
+                    <div class="relative mb-4">
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Device Management</label>
+                        <div id="deviceManagementList" class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
                         </div>
                     </div>
 
                     <div class="relative">
-                        <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Legal</label>
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Legal</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <button onclick="showTos(false)"
                                 class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
@@ -688,7 +718,7 @@ export const SettingsModule = {
                             Sign Out
                         </button>
                         <button onclick="clearAllLocalData()"
-                            class="w-full text-gray-400 text-xs font-medium py-2 hover:text-red-500 transition-colors">
+                            class="w-full text-gray-500 dark:text-gray-400 text-xs font-medium py-2 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                             Trouble? Clear Local Cache
                         </button>
                     </div>
@@ -1106,3 +1136,180 @@ window.toggleDropdown = (id, e) => {
 // Expose settings helper functions to window for backward compatibility or direct calls
 window.initSettingsUI = () => SettingsModule.initSettingsUI();
 window.updateSettingsLabels = () => SettingsModule.updateSettingsLabels();
+
+window.toggleOfflineNotificationsExpand = (event) => {
+    if (event) event.stopPropagation();
+    const container = document.getElementById('offlineNotificationsExpandContainer');
+    const chevron = document.getElementById('offlineNotificationsChevron');
+    if (container && chevron) {
+        const isHidden = container.classList.contains('hidden');
+        if (isHidden) {
+            container.classList.remove('hidden');
+            chevron.classList.add('rotate-90');
+        } else {
+            container.classList.add('hidden');
+            chevron.classList.remove('rotate-90');
+        }
+    }
+};
+
+window.toggleDevicePushNotification = async (deviceId, checked, event) => {
+    if (event) event.preventDefault();
+    
+    const currentDeviceId = localStorage.getItem('deviceId');
+    const uid = String(window.AppModules.User.current?.id || '').toLowerCase();
+    if (!uid) return;
+    
+    const db = window.firebaseDb;
+    const deviceSnap = await window.fGet(window.fRef(db, `users/${uid}/devices/${deviceId}`));
+    const device = deviceSnap.val();
+    if (!device) return;
+
+    if (deviceId === currentDeviceId) {
+        if (checked) {
+            const hasNotificationSupport = 'Notification' in window;
+            if (!hasNotificationSupport) {
+                window.AppModules.Modal.alert("Not Supported", "Notifications are not supported in this browser or environment (HTTPS is typically required).");
+                if (window.currentUserDevices) window.renderDevicesUI(window.currentUserDevices);
+                return;
+            }
+            const permission = Notification.permission;
+            if (permission !== 'granted') {
+                const granted = await window.AppModules.Notify.requestPermission(true);
+                if (!granted) {
+                    window.AppModules.Modal.alert("Permission Denied", "Notification permission was not granted.");
+                    if (window.currentUserDevices) window.renderDevicesUI(window.currentUserDevices);
+                    return;
+                }
+            }
+            
+            const token = await window.AppModules.Notify.getCurrentToken();
+            if (token) {
+                localStorage.setItem('pushNotificationsEnabled', 'true');
+                await window.AppModules.Notify.syncDeviceState(token);
+            } else {
+                window.AppModules.Modal.alert("Error", "Could not retrieve Push Notification token.");
+            }
+        } else {
+            localStorage.setItem('pushNotificationsEnabled', 'false');
+            const token = device.fcmToken || localStorage.getItem('fcmToken');
+            if (token) {
+                await window.fUpdate(window.fRef(db, `users/${uid}/fcm_tokens`), { [token]: null });
+            }
+            await window.AppModules.Notify.syncDeviceState(token);
+        }
+    } else {
+        if (checked) {
+            if (!device.hasPermission) {
+                window.AppModules.Modal.alert("Permission Required", "This device has not granted notification permissions. Please operate directly on that device to enable notifications.");
+                if (window.currentUserDevices) window.renderDevicesUI(window.currentUserDevices);
+                return;
+            }
+            await window.fUpdate(window.fRef(db, `users/${uid}/devices/${deviceId}`), { webPushEnabled: true });
+            if (device.fcmToken) {
+                await window.fUpdate(window.fRef(db, `users/${uid}/fcm_tokens`), { [device.fcmToken]: true });
+            }
+        } else {
+            await window.fUpdate(window.fRef(db, `users/${uid}/devices/${deviceId}`), { webPushEnabled: false });
+            if (device.fcmToken) {
+                await window.fUpdate(window.fRef(db, `users/${uid}/fcm_tokens`), { [device.fcmToken]: null });
+            }
+        }
+    }
+};
+
+window.logoutDevice = async (deviceId) => {
+    const currentDeviceId = localStorage.getItem('deviceId');
+    if (deviceId === currentDeviceId) {
+        if (window.handleSignOut) {
+            window.handleSignOut();
+        }
+    } else {
+        const uid = String(window.AppModules.User.current?.id || '').toLowerCase();
+        if (!uid) return;
+        
+        const db = window.firebaseDb;
+        const deviceSnap = await window.fGet(window.fRef(db, `users/${uid}/devices/${deviceId}`));
+        const device = deviceSnap.val();
+        
+        if (device && device.fcmToken) {
+            await window.fUpdate(window.fRef(db, `users/${uid}/fcm_tokens`), { [device.fcmToken]: null });
+        }
+        await window.fSet(window.fRef(db, `users/${uid}/devices/${deviceId}`), null);
+    }
+};
+
+window.renderDevicesUI = (devices) => {
+    const currentDeviceId = localStorage.getItem('deviceId');
+    
+    // 1. Render expanded notifications device list
+    const expandContainer = document.getElementById('offlineNotificationsExpandContainer');
+    if (expandContainer) {
+        expandContainer.innerHTML = '';
+        const deviceIds = Object.keys(devices);
+        if (deviceIds.length === 0) {
+            expandContainer.innerHTML = `<div class="text-xs text-gray-400 text-center py-2">No registered devices</div>`;
+        } else {
+            deviceIds.forEach(deviceId => {
+                const device = devices[deviceId];
+                const isCurrent = deviceId === currentDeviceId;
+                
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between py-1.5 border-b border-gray-100/10 dark:border-gray-800/50 last:border-0";
+                
+                div.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="font-medium text-xs text-black dark:text-white">${device.deviceName || 'Unknown Device'}</span>
+                        <span class="text-[9px] text-gray-400">${isCurrent ? 'Current Device' : 'Other Device'}</span>
+                    </div>
+                    <input type="checkbox" ${device.webPushEnabled ? 'checked' : ''} 
+                        class="rounded-checkbox cursor-pointer"
+                        onclick="window.toggleDevicePushNotification('${deviceId}', this.checked, event)">
+                `;
+                expandContainer.appendChild(div);
+            });
+        }
+    }
+    
+    // 2. Render Device Management list
+    const manageList = document.getElementById('deviceManagementList');
+    if (manageList) {
+        manageList.innerHTML = '';
+        const deviceIds = Object.keys(devices);
+        if (deviceIds.length === 0) {
+            manageList.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">No registered devices</div>`;
+        } else {
+            deviceIds.forEach(deviceId => {
+                const device = devices[deviceId];
+                const isCurrent = deviceId === currentDeviceId;
+                
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-3.5";
+                
+                let relativeTime = 'Active now';
+                if (!isCurrent && device.lastActive) {
+                    const diff = Date.now() - device.lastActive;
+                    const mins = Math.floor(diff / 60000);
+                    if (mins < 1) relativeTime = 'Active just now';
+                    else if (mins < 60) relativeTime = `Active ${mins}m ago`;
+                    else {
+                        const hours = Math.floor(mins / 60);
+                        if (hours < 24) relativeTime = `Active ${hours}h ago`;
+                        else relativeTime = `Active ${Math.floor(hours / 24)}d ago`;
+                    }
+                }
+                
+                div.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="font-medium text-sm text-black dark:text-white">${device.deviceName || 'Unknown Device'}</span>
+                        <span class="text-[11px] text-gray-400">${isCurrent ? 'Current Device • ' : ''}${relativeTime}</span>
+                    </div>
+                    <button onclick="window.logoutDevice('${deviceId}')" class="text-red-500 hover:text-red-600 font-semibold text-xs py-1 px-2.5 rounded bg-red-50 dark:bg-red-500/10 active:scale-95 transition-all">
+                        Log Out
+                    </button>
+                `;
+                manageList.appendChild(div);
+            });
+        }
+    }
+};

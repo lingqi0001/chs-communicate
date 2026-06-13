@@ -1,8 +1,8 @@
 /**
- * [文字资源库] content.js
- * 存放应用中所有超长文本（服务条款、更新日志等�? */
+ * [æ–‡å­—èµ„æº�åº“] content.js
+ * å­˜æ”¾åº”ç”¨ä¸­æ‰€æœ‰è¶…é•¿æ–‡æœ¬ï¼ˆæœ�åŠ¡æ�¡æ¬¾ã€�æ›´æ–°æ—¥å¿—ç­‰ï¼? */
 
-// 1. 服务条款 (Terms of Service)
+// 1. æœ�åŠ¡æ�¡æ¬¾ (Terms of Service)
 export const TOS_CONTENT = `
     <h1 class="text-2xl font-black text-black dark:text-white">Terms of Service for CHS-Communicate (CHSchat)</h1>
     <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Last Updated: May 2, 2026</p>
@@ -30,7 +30,7 @@ export const TOS_CONTENT = `
         <p>The Service relies on third-party infrastructure to function:</p>
         <p><strong>Hosting:</strong> The Service is hosted via Vercel.</p>
         <p><strong>Database and Authentication:</strong> Data storage and user authentication are managed through Google Firebase.</p>
-        <p><strong>Limitation of Third-Party Liability:</strong> You acknowledge that the developer has no control over the uptime or security practices of Vercel or Firebase. Any service interruptions or data loss caused by these third-party providers are outside the developer’s liability.</p>
+        <p><strong>Limitation of Third-Party Liability:</strong> You acknowledge that the developer has no control over the uptime or security practices of Vercel or Firebase. Any service interruptions or data loss caused by these third-party providers are outside the developerâ€™s liability.</p>
     </section>
 
     <section class="space-y-2">
@@ -40,7 +40,7 @@ export const TOS_CONTENT = `
             <li><strong>Harassment:</strong> Engage in bullying, stalking, or sending threatening/insulting messages to other users.</li>
             <li><strong>Impersonation:</strong> Use a name other than your own or attempt to impersonate school officials, teachers, or other students.</li>
             <li><strong>Illegal Activity:</strong> Post content that violates U.S. federal law, Maryland state law, or HCPSS Board of Education policies.</li>
-            <li><strong>Malicious Use:</strong> Attempt to interfere with the Service’s operation, including but not limited to "spamming," "DDoS attacks," or unauthorized data scraping.</li>
+            <li><strong>Malicious Use:</strong> Attempt to interfere with the Serviceâ€™s operation, including but not limited to "spamming," "DDoS attacks," or unauthorized data scraping.</li>
         </ul>
     </section>
 
@@ -82,7 +82,7 @@ export const TOS_CONTENT = `
     </section>
 `;
 
-// 2. 工程日志 (Engineering Log / Changelog)
+// 2. å·¥ç¨‹æ—¥å¿— (Engineering Log / Changelog)
 export const CHANGELOG_CONTENT = `
     <div class="space-y-10">
         <!-- v5.0 -->
@@ -227,7 +227,7 @@ export const CHANGELOG_CONTENT = `
                 <div>
                     <h4 class="text-[11px] font-bold text-blue-500 uppercase mb-2">Improvements</h4>
                     <ul class="list-disc ml-4 space-y-1 text-[13px] text-gray-600 dark:text-gray-400">
-                        <li>Brand refresh to "CHS Chat & Social"</li>
+                        <li>Brand refresh to "CHS Chat & Tools"</li>
                         <li>Pixel-perfect UI element alignment</li>
                         <li>Unified search bar height standards</li>
                         <li>Baseline alignment for announcement cards</li>

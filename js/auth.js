@@ -21,6 +21,8 @@ let callbacks = {
     onHideLoading: () => {}
 };
 
+let activePopup = null;
+
 export const AuthModule = {
     /**
      * Initializes Auth Module with Firebase services and lifecycle callbacks
@@ -47,6 +49,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Google popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
+        const troubleLink = document.getElementById('loginTroubleLink');
+        if (troubleLink) troubleLink.classList.remove('hidden');
+
+        const originalOpen = window.open;
+        window.open = function (...args) {
+            activePopup = originalOpen.apply(window, args);
+            return activePopup;
+        };
+
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
@@ -59,11 +70,15 @@ export const AuthModule = {
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+                if (troubleLink) troubleLink.classList.add('hidden');
             } else {
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+                if (troubleLink) troubleLink.classList.add('hidden');
             }
+        } finally {
+            window.open = originalOpen;
         }
     },
 
@@ -78,6 +93,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Microsoft popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
+        const troubleLink = document.getElementById('loginTroubleLink');
+        if (troubleLink) troubleLink.classList.remove('hidden');
+
+        const originalOpen = window.open;
+        window.open = function (...args) {
+            activePopup = originalOpen.apply(window, args);
+            return activePopup;
+        };
+
         try {
             await signInWithPopup(auth, microsoftProvider);
         } catch (error) {
@@ -87,7 +111,24 @@ export const AuthModule = {
             btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
             hint.innerText = originalHint;
             hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+            if (troubleLink) troubleLink.classList.add('hidden');
+        } finally {
+            window.open = originalOpen;
         }
+    },
+
+    /**
+     * Closes the active popup window if it exists and is open, then reloads the page.
+     */
+    handleTroubleRefresh() {
+        if (activePopup && !activePopup.closed) {
+            try {
+                activePopup.close();
+            } catch (e) {
+                console.error("Failed to close popup:", e);
+            }
+        }
+        location.reload();
     },
 
     /**
@@ -252,6 +293,7 @@ if (window) {
     window.AppModules.Auth = AuthModule;
     window.loginWithGoogle = AuthModule.loginWithGoogle;
     window.loginWithMicrosoft = AuthModule.loginWithMicrosoft;
+    window.handleTroubleRefresh = AuthModule.handleTroubleRefresh;
     window.showTos = AuthModule.showTos;
     window.closeTos = AuthModule.closeTos;
     window.acceptTerms = AuthModule.acceptTerms;

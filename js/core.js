@@ -63,7 +63,25 @@ export const CoreModule = {
         window.updateGlobalUnreadStatus = () => window.AppModules.Notify.updateUI();
         window.requestNotificationPermission = () => window.AppModules.Notify.requestPermission();
         window.initGlobalNotificationMonitor = () => window.AppModules.Notify.initMonitor();
-        window.handleSignOut = () => signOut(auth).then(() => location.reload());
+        window.handleSignOut = async () => {
+            try {
+                const uid = auth.currentUser ? auth.currentUser.email.split('@')[0].replace(/\./g, '_').toLowerCase() : null;
+                const deviceId = localStorage.getItem('deviceId');
+                if (uid && deviceId) {
+                    const deviceSnap = await get(ref(db, `users/${uid}/devices/${deviceId}`));
+                    const device = deviceSnap.val();
+                    const updates = {};
+                    updates[`users/${uid}/devices/${deviceId}`] = null;
+                    if (device && device.fcmToken) {
+                        updates[`users/${uid}/fcm_tokens/${device.fcmToken}`] = null;
+                    }
+                    await update(ref(db), updates);
+                }
+            } catch (e) {
+                console.error('[Core] Error clearing device on sign out:', e);
+            }
+            signOut(auth).then(() => location.reload());
+        };
 
         // 5. Inject DB Cloud References
         window.AppModules.DB.initCloudRefs({ db, auth, storage });

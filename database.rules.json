@@ -70,7 +70,7 @@
     },
 
     "users": {
-      ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+      ".read": "auth != null",
       "$userId": {
         ".read": "auth != null",
         ".write": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
