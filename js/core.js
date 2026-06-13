@@ -131,6 +131,7 @@ export const CoreModule = {
                         globalListeners: globalListeners,
                         appStartTime: APP_START_TIME
                     });
+                    window.AppModules.Notify.initMonitor();
                 } catch (e) {
                     console.error('App: Messaging initialization failed:', e);
                 }
