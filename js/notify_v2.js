@@ -79,6 +79,9 @@ export const NotifyModule = {
         const user = this.context.currentUser;
         if (!user) return;
 
+        // Reset device registration flag on startup to prevent infinite logout loops during authentication redirects
+        window.deviceRegistered = false;
+
         const uid = (user.id || user.email.split('@')[0].replace(/\./g, '_')).toLowerCase();
 
         // Remote logout check

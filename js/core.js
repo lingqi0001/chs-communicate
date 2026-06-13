@@ -64,6 +64,7 @@ export const CoreModule = {
         window.requestNotificationPermission = () => window.AppModules.Notify.requestPermission();
         window.initGlobalNotificationMonitor = () => window.AppModules.Notify.initMonitor();
         window.handleSignOut = async () => {
+            window.deviceRegistered = false;
             try {
                 const uid = auth.currentUser ? auth.currentUser.email.split('@')[0].replace(/\./g, '_').toLowerCase() : null;
                 const deviceId = localStorage.getItem('deviceId');
