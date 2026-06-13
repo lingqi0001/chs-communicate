@@ -23,3 +23,28 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
+
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+
+    // Dynamically get the origin to support both localhost dev and production (chschat.xyz)
+    const urlToOpen = self.location.origin + '/'; 
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(function(clientList) {
+                // Try to find an existing tab with our website and focus it
+                for (var i = 0; i < clientList.length; i++) {
+                    var client = clientList[i];
+                    if (client.url.startsWith(urlToOpen) && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                // If no tab is open, open a new window
+                if (clients.openWindow) {
+                    return clients.openWindow(urlToOpen);
+                }
+            })
+    );
+});
+
