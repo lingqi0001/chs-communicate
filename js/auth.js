@@ -40,7 +40,7 @@ export const AuthModule = {
     /**
      * Google OAuth login handler
      */
-    async loginWithGoogle() {
+    loginWithGoogle() {
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -52,13 +52,11 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        try {
-            await signInWithPopup(auth, googleProvider);
-        } catch (error) {
+        signInWithPopup(auth, googleProvider).catch((error) => {
             console.error("Auth Error:", error);
             if (error.code === 'auth/popup-blocked') {
                 hint.innerText = "Popup blocked. Redirecting...";
-                await signInWithRedirect(auth, googleProvider);
+                signInWithRedirect(auth, googleProvider).catch(err => console.error(err));
             } else if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
@@ -71,13 +69,13 @@ export const AuthModule = {
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 if (troubleLink) troubleLink.classList.add('hidden');
             }
-        }
+        });
     },
 
     /**
      * Microsoft OAuth login handler
      */
-    async loginWithMicrosoft() {
+    loginWithMicrosoft() {
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -88,9 +86,7 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        try {
-            await signInWithPopup(auth, microsoftProvider);
-        } catch (error) {
+        signInWithPopup(auth, microsoftProvider).catch((error) => {
             if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
             }
@@ -98,7 +94,7 @@ export const AuthModule = {
             hint.innerText = originalHint;
             hint.classList.replace('text-[#007AFF]', 'text-gray-400');
             if (troubleLink) troubleLink.classList.add('hidden');
-        }
+        });
     },
 
     /**
