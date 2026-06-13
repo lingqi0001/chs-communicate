@@ -18,8 +18,9 @@ messaging.onBackgroundMessage((payload) => {
   const title = payload.data.title || 'Notification';
   const options = {
     body: payload.data.body,
-    icon: payload.data.icon || '/icon-192.png',
-    data: { url: payload.data.url }
+  icon: payload.data.icon || '/resources/favicon.svg',
+  badge: payload.data.badge || '/badge.png',
+  data: { url: payload.data.url }
   };
   self.registration.showNotification(title, options);
 });
