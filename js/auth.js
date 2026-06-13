@@ -47,11 +47,29 @@ export const AuthModule = {
         const originalHint = hint.innerText;
         btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
-        hint.innerText = "Please check the Google popup window...";
-        hint.classList.replace('text-gray-400', 'text-[#007AFF]');
-
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
+
+        // Detect if running as iOS PWA standalone
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isStandalone && isIOS) {
+            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Google) 防止页面崩溃');
+            hint.innerText = "Redirecting securely...";
+            hint.classList.replace('text-gray-400', 'text-[#007AFF]');
+            signInWithRedirect(auth, googleProvider).catch(err => {
+                console.error('[失败] 重定向报错:', err.code, err.message);
+                window.AppModules.Modal.alert("Redirect Error", err.message);
+                btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                hint.innerText = originalHint;
+                hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+            });
+            return;
+        }
+
+        hint.innerText = "Please check the Google popup window...";
+        hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
         console.log('[执行] 准备触发同步 signInWithPopup(Google)');
         signInWithPopup(auth, googleProvider).then((result) => {
@@ -87,11 +105,30 @@ export const AuthModule = {
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
         btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
-        hint.innerText = "Please check the Microsoft popup window...";
-        hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
+
+        // Detect if running as iOS PWA standalone
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isStandalone && isIOS) {
+            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Microsoft) 防止页面崩溃');
+            hint.innerText = "Redirecting securely...";
+            hint.classList.replace('text-gray-400', 'text-[#007AFF]');
+            signInWithRedirect(auth, microsoftProvider).catch(err => {
+                console.error('[失败] 重定向报错:', err.code, err.message);
+                window.AppModules.Modal.alert("Redirect Error", err.message);
+                btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                hint.innerText = originalHint;
+                hint.classList.replace('text-[#007AFF]', 'text-gray-400');
+            });
+            return;
+        }
+
+        hint.innerText = "Please check the Microsoft popup window...";
+        hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
         console.log('[执行] 准备触发同步 signInWithPopup(Microsoft)');
         signInWithPopup(auth, microsoftProvider).then((result) => {

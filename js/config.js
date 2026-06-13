@@ -21,7 +21,7 @@
 // 不能涉及到任何跟module相关的变量，因为后续module需要进行剥�?
 export const firebaseConfig = {
     apiKey: "AIzaSyCJX0prT18UJDn-hPsUWxVkXMdWAVrjgeM",
-    authDomain: "chscommunication.firebaseapp.com",
+    authDomain: "chschat.xyz",
     databaseURL: "https://chscommunication-default-rtdb.firebaseio.com",
     projectId: "chscommunication",
     storageBucket: "chscommunication.firebasestorage.app",
