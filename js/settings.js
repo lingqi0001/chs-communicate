@@ -648,12 +648,12 @@ export const SettingsModule = {
                         <div class="flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700">
                             <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
                             <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)"
-                                class="w-6 h-6 accent-blue-500 cursor-pointer rounded-md">
+                                class="rounded-checkbox">
                         </div>
                         <div class="flex items-center justify-between p-3.5">
                             <label class="font-medium text-sm text-black dark:text-white">Web Push Notification</label>
                             <input type="checkbox" id="pushNotificationToggle" onchange="togglePushNotification(this.checked)"
-                                class="w-6 h-6 accent-blue-500 cursor-pointer rounded-md">
+                                class="rounded-checkbox">
                         </div>
                     </div>
 
