@@ -317,6 +317,13 @@ export const NotifyModule = {
             return;
         }
         
+        // Check if user has disabled notifications in settings
+        const pushEnabled = localStorage.getItem('pushNotificationsEnabled') !== 'false';
+        if (!pushEnabled) {
+            console.log('[Notify] Web push notifications are disabled in local settings.');
+            return;
+        }
+
         try {
             if (Notification.permission !== 'granted') {
                 const granted = await this.requestPermission();
@@ -326,21 +333,7 @@ export const NotifyModule = {
                 }
             }
 
-            const vapidKey = 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w';
-            
-            // Get the specific service worker registration for FCM
-            let registration = window.fcmRegistration;
-            if (!registration && 'serviceWorker' in navigator) {
-                registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-                if (!registration) {
-                    registration = await navigator.serviceWorker.ready;
-                }
-            }
-            
-            const token = await getToken(this.engine, { 
-                vapidKey: vapidKey,
-                serviceWorkerRegistration: registration
-            });
+            const token = await this.getCurrentToken();
             if (token) {
                 console.log('[Notify] Got FCM Token:', token);
                 if (this.context.currentUser) {
@@ -353,6 +346,27 @@ export const NotifyModule = {
             }
         } catch (error) {
             console.error('[Notify] Error registering FCM Token:', error);
+        }
+    },
+
+    async getCurrentToken() {
+        if (!this.engine) return null;
+        try {
+            const vapidKey = 'BBqn6yGqPA7P7vF0sgj5Bu1gcdPR092y4OD4ifLBWiBXe2D3G82PV907LKub__wQf245fw8yKZTxqRMN5V5Yn5w';
+            let registration = window.fcmRegistration;
+            if (!registration && 'serviceWorker' in navigator) {
+                registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+                if (!registration) {
+                    registration = await navigator.serviceWorker.ready;
+                }
+            }
+            return await getToken(this.engine, { 
+                vapidKey: vapidKey,
+                serviceWorkerRegistration: registration
+            });
+        } catch (e) {
+            console.warn('[Notify] Error getting current token:', e);
+            return null;
         }
     }
 };

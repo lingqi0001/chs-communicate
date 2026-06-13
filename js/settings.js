@@ -17,6 +17,11 @@ export const SettingsModule = {
         if (soundToggle) {
             soundToggle.checked = SETTINGS.soundEnabled;
         }
+
+        const pushNotificationToggle = document.getElementById('pushNotificationToggle');
+        if (pushNotificationToggle) {
+            pushNotificationToggle.checked = localStorage.getItem('pushNotificationsEnabled') !== 'false';
+        }
         this.updateSettingsLabels();
         
         const soundDropdown = document.getElementById('soundDropdown');
@@ -638,14 +643,26 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between p-3.5 bg-gray-100 dark:bg-white/10 rounded-xl">
-                        <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
-                        <label class="ios-switch-container">
-                            <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)" class="ios-switch-input">
-                            <div class="ios-switch-track">
-                                <div class="ios-switch-thumb"></div>
-                            </div>
-                        </label>
+                    <label class="text-xs text-gray-400 uppercase font-medium mb-2 block">Notification</label>
+                    <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden mb-4">
+                        <div class="flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700">
+                            <label class="font-medium text-sm text-black dark:text-white">Sound Effects</label>
+                            <label class="ios-switch-container">
+                                <input type="checkbox" id="soundToggle" onchange="toggleSound(this.checked)" class="ios-switch-input">
+                                <div class="ios-switch-track">
+                                    <div class="ios-switch-thumb"></div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between p-3.5">
+                            <label class="font-medium text-sm text-black dark:text-white">Web Push Notification</label>
+                            <label class="ios-switch-container">
+                                <input type="checkbox" id="pushNotificationToggle" onchange="togglePushNotification(this.checked)" class="ios-switch-input">
+                                <div class="ios-switch-track">
+                                    <div class="ios-switch-thumb"></div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="relative">
@@ -801,6 +818,38 @@ window.toggleSound = (enabled) => {
     const SETTINGS = window.SETTINGS || {};
     SETTINGS.soundEnabled = enabled;
     localStorage.setItem('soundEnabled', enabled);
+};
+
+window.togglePushNotification = async (enabled) => {
+    const SETTINGS = window.SETTINGS || {};
+    SETTINGS.pushNotificationsEnabled = enabled;
+    localStorage.setItem('pushNotificationsEnabled', enabled);
+
+    const Notify = window.AppModules.Notify;
+    if (Notify) {
+        if (enabled) {
+            console.log('[Settings] Enabling push notifications...');
+            await Notify.registerFCMToken();
+        } else {
+            console.log('[Settings] Disabling push notifications...');
+            try {
+                const token = await Notify.getCurrentToken();
+                if (token && Notify.context.currentUser) {
+                    const uid = String(Notify.context.currentUser.id || '').toLowerCase();
+                    const db = window.firebaseDb;
+                    const fRef = window.fRef;
+                    const fUpdate = window.fUpdate;
+                    
+                    if (db && fRef && fUpdate) {
+                        await fUpdate(fRef(db, `users/${uid}/fcm_tokens`), { [token]: null });
+                        console.log('[Settings] FCM Token successfully deleted from database.');
+                    }
+                }
+            } catch (err) {
+                console.error('[Settings] Error removing FCM Token:', err);
+            }
+        }
+    }
 };
 
 window.showChangelog = () => {
