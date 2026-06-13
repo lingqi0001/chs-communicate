@@ -15,34 +15,30 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon || '/icon-192.png'
+  const title = payload.data.title || 'Notification';
+  const options = {
+    body: payload.data.body,
+    icon: payload.data.icon || '/icon-192.png',
+    data: { url: payload.data.url }
   };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(title, options);
 });
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
-
-    // Dynamically get the origin to support both localhost dev and production (chschat.xyz)
-    const urlToOpen = self.location.origin + '/'; 
-
+    // Use URL from notification data if provided, otherwise fallback to origin root
+    const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : (self.location.origin + '/');
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(function(clientList) {
-                // Try to find an existing tab with our website and focus it
                 for (var i = 0; i < clientList.length; i++) {
                     var client = clientList[i];
-                    if (client.url.startsWith(urlToOpen) && 'focus' in client) {
+                    if (client.url === targetUrl && 'focus' in client) {
                         return client.focus();
                     }
                 }
-                // If no tab is open, open a new window
                 if (clients.openWindow) {
-                    return clients.openWindow(urlToOpen);
+                    return clients.openWindow(targetUrl);
                 }
             })
     );

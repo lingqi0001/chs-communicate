@@ -84,13 +84,12 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
             if (tokens.length === 0) return;
 
             const payload = {
-                notification: {
+                data: {
                     title: senderName,
                     body: notificationBody,
-                },
-                data: {
                     chatId: chatId,
                     senderId: senderId,
+                    url: 'https://chschat.xyz/'
                 }
             };
 
@@ -98,7 +97,6 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
                 // Send to tokens
                 const response = await admin.messaging().sendEachForMulticast({
                     tokens: tokens,
-                    notification: payload.notification,
                     data: payload.data,
                     android: {
                         notification: {
