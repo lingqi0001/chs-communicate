@@ -183,8 +183,8 @@ export const NotifyModule = {
         const mainDot = document.getElementById('mainUnreadDot');
         if (mainDot) mainDot.classList.remove('hidden');
         
-        // Trigger Browser Desktop/System Notification
-        if ('Notification' in window && Notification.permission === 'granted') {
+        // Trigger Browser Desktop/System Notification (only if the tab is currently visible/active, to avoid double-notifying with FCM Service Worker)
+        if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'hidden') {
             try {
                 let notificationBody = msg.text || '';
                 if (msg.type === 'image_group') {
