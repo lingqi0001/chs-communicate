@@ -652,6 +652,7 @@ export const NotifyModule = {
         else if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
         else if (ua.indexOf("Safari") !== -1) browser = "Safari";
         
+        const isStandalone = !!(window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
         const deviceName = `${os} ${deviceType} (${browser})`;
         const hasPermission = ('Notification' in window) && Notification.permission === 'granted';
         const webPushEnabled = (localStorage.getItem('pushNotificationsEnabled') === 'true') && hasPermission;
@@ -660,6 +661,10 @@ export const NotifyModule = {
         updates[`users/${uid}/devices/${deviceId}`] = {
             deviceId: deviceId,
             deviceName: deviceName,
+            os: os,
+            deviceType: deviceType,
+            browser: browser,
+            isStandalone: isStandalone,
             hasPermission: hasPermission,
             webPushEnabled: webPushEnabled,
             fcmToken: fcmToken || localStorage.getItem('fcmToken') || null,

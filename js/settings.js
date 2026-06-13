@@ -349,13 +349,13 @@ export const SettingsModule = {
         document.body.insertAdjacentHTML('beforeend', `
     <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
         class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-2xl shadow-2xl slide-up overflow-visible">
+        <div class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
             <div
-                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E]">
+                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0">
                 <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
                 <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>
-            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl max-h-[70vh] overflow-y-auto">
+            <div class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
 
                 <div id="settingsView" class="space-y-6">
                     <div class="relative">
@@ -1318,9 +1318,57 @@ window.renderDevicesUI = (devices) => {
                     }
                 }
                 
+                // Parse os, deviceType, browser, isStandalone
+                let os = device.os;
+                let deviceType = device.deviceType;
+                let browser = device.browser;
+                let isStandalone = device.isStandalone || false;
+                
+                if (!os || !deviceType || !browser) {
+                    const name = device.deviceName || "";
+                    const match = name.match(/^(.*?)\s*\((.*?)\)$/);
+                    if (match) {
+                        const firstPart = match[1].trim();
+                        browser = match[2].trim();
+                        
+                        const parts = firstPart.split(' ');
+                        if (parts.length >= 2) {
+                            os = parts[0];
+                            deviceType = parts.slice(1).join(' ');
+                        } else {
+                            os = firstPart;
+                            deviceType = "";
+                        }
+                    } else {
+                        os = name;
+                        deviceType = "";
+                        browser = "";
+                    }
+                }
+                
+                if (device.deviceName && device.deviceName.includes("Added to Home Screen")) {
+                    isStandalone = true;
+                }
+                
+                const deviceText = deviceType ? `${os} ${deviceType}` : os;
+                let nameHtml = '';
+                if (isStandalone) {
+                    const browserText = browser ? `${browser}-Added to Home Screen` : "Added to Home Screen";
+                    nameHtml = `
+                        <span class="font-medium text-sm text-black dark:text-white">${deviceText}</span>
+                        <span class="font-medium text-sm text-black dark:text-white">${browserText}</span>
+                    `;
+                } else {
+                    const browserText = browser ? `(${browser})` : "";
+                    const fullText = browserText ? `${deviceText} ${browserText}` : deviceText;
+                    nameHtml = `
+                        <span class="font-medium text-sm text-black dark:text-white">${fullText}</span>
+                    `;
+                }
+                
                 div.innerHTML = `
                     <div class="flex flex-col">
-                        <span class="font-medium text-sm text-black dark:text-white">${device.deviceName || 'Unknown Device'}</span>
+                        ${nameHtml}
                         <span class="text-[11px] text-gray-400">${isCurrent ? 'Current Device • ' : ''}${relativeTime}</span>
                     </div>
                     <button onclick="window.logoutDevice('${deviceId}')" class="text-red-500 hover:text-red-600 font-semibold text-xs py-1 px-2.5 rounded bg-red-50 dark:bg-red-500/10 active:scale-95 transition-all">
