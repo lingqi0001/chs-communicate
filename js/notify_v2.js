@@ -492,6 +492,24 @@ export const NotifyModule = {
             await this.syncDeviceState();
             return;
         }
+
+        const hasPermission = ('Notification' in window) && Notification.permission === 'granted';
+        const isPermissionDenied = ('Notification' in window) && Notification.permission === 'denied';
+
+        // Flow 2: If system allowed (granted), and app setting not explicitly disabled ('false'),
+        // then auto-enable app setting (hook it up).
+        if (hasPermission && localStorage.getItem('pushNotificationsEnabled') !== 'false') {
+            localStorage.setItem('pushNotificationsEnabled', 'true');
+        }
+
+        // Flow 1: If app setting enabled ('true') but system blocked (denied),
+        // alert the user to guide them to Settings.
+        if (localStorage.getItem('pushNotificationsEnabled') === 'true' && isPermissionDenied) {
+            if (!sessionStorage.getItem('blocked_alert_shown')) {
+                sessionStorage.setItem('blocked_alert_shown', 'true');
+                window.AppModules.Modal.alert("Blocked by System", "Settings notification has been disabled. Notifications are blocked by your device settings. Please go to: <br><b class='text-[#007AFF]'>Settings ➔ Apps ➔ CHSchat ➔ Allow Notifications</b> to enable them.");
+            }
+        }
         
         // Check if user has disabled notifications in settings
         const pushEnabled = localStorage.getItem('pushNotificationsEnabled') !== 'false';
