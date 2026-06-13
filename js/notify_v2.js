@@ -464,12 +464,16 @@ export const NotifyModule = {
         // If already granted, return true
         if (Notification.permission === 'granted') return true;
 
-        // If already denied, browser won't show the prompt anyway
-        if (Notification.permission === 'denied') return false;
+        // If already denied, guide them to browser/system settings when manually requested
+        if (Notification.permission === 'denied') {
+            if (isManual) {
+                window.AppModules.Modal.alert("Blocked by Browser", "Notifications are blocked by your browser or system settings. Please go to your device settings to allow notifications for this website.");
+            }
+            return false;
+        }
 
         // If they previously dismissed the notification prompt, do not auto-prompt.
-        // But if they are running in standalone mode (just installed), we override the dismissal check and prompt them.
-        if (!isStandalone && !isManual && localStorage.getItem('notification_prompt_dismissed') === 'true') {
+        if (!isManual && localStorage.getItem('notification_prompt_dismissed') === 'true') {
             return false;
         }
 

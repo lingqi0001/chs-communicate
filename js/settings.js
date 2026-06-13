@@ -1167,6 +1167,15 @@ window.toggleDevicePushNotification = async (deviceId, checked, event) => {
 
     if (deviceId === currentDeviceId) {
         if (checked) {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+            if (isIOS && !isStandalone) {
+                await window.AppModules.Notify.requestPermission(true);
+                if (window.currentUserDevices) window.renderDevicesUI(window.currentUserDevices);
+                return;
+            }
+
             const hasNotificationSupport = 'Notification' in window;
             if (!hasNotificationSupport) {
                 window.AppModules.Modal.alert("Not Supported", "Notifications are not supported in this browser or environment (HTTPS is typically required).");
@@ -1177,7 +1186,6 @@ window.toggleDevicePushNotification = async (deviceId, checked, event) => {
             if (permission !== 'granted') {
                 const granted = await window.AppModules.Notify.requestPermission(true);
                 if (!granted) {
-                    window.AppModules.Modal.alert("Permission Denied", "Notification permission was not granted.");
                     if (window.currentUserDevices) window.renderDevicesUI(window.currentUserDevices);
                     return;
                 }
