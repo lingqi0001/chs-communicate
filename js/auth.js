@@ -52,12 +52,6 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        const originalOpen = window.open;
-        window.open = function (...args) {
-            activePopup = originalOpen.apply(window, args);
-            return activePopup;
-        };
-
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
@@ -77,8 +71,6 @@ export const AuthModule = {
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 if (troubleLink) troubleLink.classList.add('hidden');
             }
-        } finally {
-            window.open = originalOpen;
         }
     },
 
@@ -96,12 +88,6 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        const originalOpen = window.open;
-        window.open = function (...args) {
-            activePopup = originalOpen.apply(window, args);
-            return activePopup;
-        };
-
         try {
             await signInWithPopup(auth, microsoftProvider);
         } catch (error) {
@@ -112,8 +98,6 @@ export const AuthModule = {
             hint.innerText = originalHint;
             hint.classList.replace('text-[#007AFF]', 'text-gray-400');
             if (troubleLink) troubleLink.classList.add('hidden');
-        } finally {
-            window.open = originalOpen;
         }
     },
 
