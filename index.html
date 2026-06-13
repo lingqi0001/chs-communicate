@@ -19,6 +19,82 @@
                 document.documentElement.classList.remove('dark');
             }
         })();
+
+        // ON-SCREEN CONSOLE INJECTOR FOR iOS PWA DEBUGGING
+        (function() {
+            const consoleDiv = document.createElement('div');
+            consoleDiv.style.cssText = 'position:fixed;top:env(safe-area-inset-top, 20px);left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.85);color:#0f0;font-family:monospace;font-size:12px;z-index:99999;overflow-y:auto;padding:10px;pointer-events:none;word-break:break-all;';
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.innerText = 'Copy Logs';
+            copyBtn.style.cssText = 'position:fixed;bottom:30px;right:20px;background:#007AFF;color:white;border:none;padding:12px 20px;font-size:16px;font-weight:bold;border-radius:12px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);z-index:999999;pointer-events:auto;cursor:pointer;';
+            
+            let allLogs = [];
+            copyBtn.onclick = function() {
+                const logText = allLogs.join('\n');
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(logText).then(() => {
+                        copyBtn.innerText = 'Copied!';
+                        setTimeout(() => copyBtn.innerText = 'Copy Logs', 2000);
+                    });
+                } else {
+                    alert("Clipboard API not supported, please select manually.");
+                }
+            };
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.appendChild(consoleDiv);
+                document.body.appendChild(copyBtn);
+            });
+
+            const _log = console.log;
+            const _error = console.error;
+            const _warn = console.warn;
+            
+            function printLog(type, args) {
+                const msg = Array.from(args).map(a => {
+                    if (a && typeof a === 'object') {
+                        try { return JSON.stringify(a); } catch(e) { return String(a); }
+                    }
+                    return String(a);
+                }).join(' ');
+                
+                allLogs.push(`[${type.toUpperCase()}] ${msg}`);
+                
+                const line = document.createElement('div');
+                line.style.color = type === 'error' ? '#f55' : (type === 'warn' ? '#fd0' : '#0f0');
+                line.style.borderBottom = '1px solid #333';
+                line.style.padding = '2px 0';
+                line.textContent = `[${type.toUpperCase()}] ${msg}`;
+                
+                const append = () => {
+                    consoleDiv.appendChild(line);
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                };
+                if (document.body) append();
+                else document.addEventListener('DOMContentLoaded', append);
+            }
+
+            console.log = function() { printLog('log', arguments); _log.apply(console, arguments); };
+            console.error = function() { printLog('error', arguments); _error.apply(console, arguments); };
+            console.warn = function() { printLog('warn', arguments); _warn.apply(console, arguments); };
+
+            // 1. Version Check
+            console.log("[系统初始化] 当前代码版本: V-0613-02");
+
+            // 2. Environment & Permissions
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            console.log("[环境检测] 是否 PWA 独立模式 (standalone):", isStandalone);
+            console.log("[环境检测] Service Worker:", navigator.serviceWorker ? (navigator.serviceWorker.controller ? "存活" : "无 controller") : "不支持");
+            
+            try {
+                sessionStorage.setItem('_itp_test', 'test_value');
+                const val = sessionStorage.getItem('_itp_test');
+                console.log("[权限检测] sessionStorage 读写测试:", val === 'test_value' ? "成功" : "失败");
+                sessionStorage.removeItem('_itp_test');
+            } catch (err) {
+                console.error("[权限检测] sessionStorage 读写异常 - 可能被 ITP 锁死:", err.message);
+            }
+        })();
     </script>
     <link rel="icon" type="image/svg+xml" href="resources/favicon.svg">
     <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">

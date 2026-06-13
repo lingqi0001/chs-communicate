@@ -41,6 +41,7 @@ export const AuthModule = {
      * Google OAuth login handler
      */
     loginWithGoogle() {
+        console.log('[用户动作] Google登录按钮被点击');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -52,11 +53,15 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        signInWithPopup(auth, googleProvider).catch((error) => {
-            console.error("Auth Error:", error);
+        console.log('[执行] 准备触发同步 signInWithPopup(Google)');
+        signInWithPopup(auth, googleProvider).then((result) => {
+            console.log('[成功] Popup 返回凭证:', result.user.email);
+        }).catch((error) => {
+            console.error("[失败] 弹窗报错:", error.code, error.message);
             if (error.code === 'auth/popup-blocked') {
+                console.warn('[警告] 触发 signInWithRedirect 备用逻辑 (弹窗被系统拦截)');
                 hint.innerText = "Popup blocked. Redirecting...";
-                signInWithRedirect(auth, googleProvider).catch(err => console.error(err));
+                signInWithRedirect(auth, googleProvider).catch(err => console.error('[失败] 重定向也报错:', err.code, err.message));
             } else if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
@@ -64,6 +69,7 @@ export const AuthModule = {
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 if (troubleLink) troubleLink.classList.add('hidden');
             } else {
+                console.log('[中断] 用户主动关闭了弹窗');
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -76,6 +82,7 @@ export const AuthModule = {
      * Microsoft OAuth login handler
      */
     loginWithMicrosoft() {
+        console.log('[用户动作] Microsoft登录按钮被点击');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -86,9 +93,15 @@ export const AuthModule = {
         const troubleLink = document.getElementById('loginTroubleLink');
         if (troubleLink) troubleLink.classList.remove('hidden');
 
-        signInWithPopup(auth, microsoftProvider).catch((error) => {
+        console.log('[执行] 准备触发同步 signInWithPopup(Microsoft)');
+        signInWithPopup(auth, microsoftProvider).then((result) => {
+            console.log('[成功] Popup 返回凭证:', result.user.email);
+        }).catch((error) => {
+            console.error("[失败] 弹窗报错:", error.code, error.message);
             if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
+            } else {
+                console.log('[中断] 用户主动关闭了弹窗');
             }
             btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
             hint.innerText = originalHint;

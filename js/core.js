@@ -88,10 +88,15 @@ export const CoreModule = {
         window.AppModules.DB.initCloudRefs({ db, auth, storage });
 
         // 6. Handle Redirect Results
+        console.log('[状态机监控] 正在调用 getRedirectResult()...');
         getRedirectResult(auth).then((result) => {
-            if (result) console.log('App: Sign-in redirect result handled.', result.user.email);
+            if (result) {
+                console.log('[状态机监控] getRedirectResult 成功拿到数据。User:', result.user.email);
+            } else {
+                console.log('[状态机监控] getRedirectResult 返回 null (无重定向数据)');
+            }
         }).catch((error) => {
-            console.error('App: Sign-in redirect error:', error);
+            console.error('[状态机监控] getRedirectResult 报错:', error.code, error.message);
             if (error.code === 'auth/internal-error' || error.code === 'auth/network-request-failed') {
                 window.AppModules.Modal.alert("Connection Error", "Connection error during login. Please try again.");
             } else if (error.code !== 'auth/no-auth-event') {
@@ -145,7 +150,7 @@ export const CoreModule = {
      */
     watchAuth: function(onUserAuthenticated, onNoUserFound) {
         onAuthStateChanged(this.services.auth, async (user) => {
-            console.log('App: Auth state changed. User:', user ? user.email : 'null');
+            console.log('[状态机监控] onAuthStateChanged 触发。User:', user ? '有数据 (' + user.email + ')' : 'null');
             try {
                 if (user) {
                     await onUserAuthenticated(user);
@@ -153,7 +158,7 @@ export const CoreModule = {
                     onNoUserFound();
                 }
             } catch (err) {
-                console.error('App: Critical error during initialization:', err);
+                console.error('[状态机监控] 初始化崩溃:', err.message);
                 if (window.showError) window.showError(err);
                 if (window.hideLoading) window.hideLoading();
             }
