@@ -29,7 +29,16 @@
             copyBtn.innerText = 'Copy Logs';
             copyBtn.style.cssText = 'position:fixed;bottom:30px;right:20px;background:#007AFF;color:white;border:none;padding:12px 20px;font-size:16px;font-weight:bold;border-radius:12px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);z-index:999999;pointer-events:auto;cursor:pointer;';
             
+            const clearBtn = document.createElement('button');
+            clearBtn.innerText = 'Clear';
+            clearBtn.style.cssText = 'position:fixed;bottom:30px;right:140px;background:#ff3b30;color:white;border:none;padding:12px 20px;font-size:16px;font-weight:bold;border-radius:12px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);z-index:999999;pointer-events:auto;cursor:pointer;';
+
             let allLogs = [];
+            try {
+                const saved = localStorage.getItem('_debug_logs');
+                if (saved) allLogs = JSON.parse(saved);
+            } catch(e) {}
+
             copyBtn.onclick = function() {
                 const logText = allLogs.join('\n');
                 if (navigator.clipboard) {
@@ -41,9 +50,28 @@
                     alert("Clipboard API not supported, please select manually.");
                 }
             };
+            
+            clearBtn.onclick = function() {
+                allLogs = [];
+                localStorage.removeItem('_debug_logs');
+                consoleDiv.innerHTML = '';
+            };
+
+            function renderLine(msgStr, type) {
+                const line = document.createElement('div');
+                line.style.color = type === 'error' ? '#f55' : (type === 'warn' ? '#fd0' : '#0f0');
+                line.style.borderBottom = '1px solid #333';
+                line.style.padding = '2px 0';
+                line.textContent = msgStr;
+                consoleDiv.appendChild(line);
+            }
+
             document.addEventListener('DOMContentLoaded', () => {
                 document.body.appendChild(consoleDiv);
                 document.body.appendChild(copyBtn);
+                document.body.appendChild(clearBtn);
+                allLogs.forEach(log => renderLine(log, log.includes('[ERROR]') ? 'error' : (log.includes('[WARN]') ? 'warn' : 'log')));
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
             });
 
             const _log = console.log;
@@ -58,28 +86,25 @@
                     return String(a);
                 }).join(' ');
                 
-                allLogs.push(`[${type.toUpperCase()}] ${msg}`);
+                const finalStr = `[${type.toUpperCase()}] ${msg}`;
+                allLogs.push(finalStr);
                 
-                const line = document.createElement('div');
-                line.style.color = type === 'error' ? '#f55' : (type === 'warn' ? '#fd0' : '#0f0');
-                line.style.borderBottom = '1px solid #333';
-                line.style.padding = '2px 0';
-                line.textContent = `[${type.toUpperCase()}] ${msg}`;
+                // Keep only last 200 logs to prevent storage limit
+                if (allLogs.length > 200) allLogs = allLogs.slice(-200);
+                try { localStorage.setItem('_debug_logs', JSON.stringify(allLogs)); } catch(e) {}
                 
-                const append = () => {
-                    consoleDiv.appendChild(line);
+                if (document.body && consoleDiv.parentNode) {
+                    renderLine(finalStr, type);
                     consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                };
-                if (document.body) append();
-                else document.addEventListener('DOMContentLoaded', append);
+                }
             }
 
             console.log = function() { printLog('log', arguments); _log.apply(console, arguments); };
             console.error = function() { printLog('error', arguments); _error.apply(console, arguments); };
             console.warn = function() { printLog('warn', arguments); _warn.apply(console, arguments); };
 
-            // 1. Version Check
-            console.log("[系统初始化] 当前代码版本: V-0613-02");
+            console.log("=== NEW SESSION START ===");
+            console.log("[系统初始化] 当前代码版本: V-0613-03 (Persistent)");
 
             // 2. Environment & Permissions
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
