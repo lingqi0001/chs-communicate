@@ -295,7 +295,11 @@ export const ViewModule = {
      * 判断当前是否处于移动端布局 (<= 850px)
      */
     isMobile: function () {
-        return window.innerWidth <= 850;
+        if (window.innerWidth < 800) return true;
+        if (window.innerWidth < 1024 && (this.state.currentPanel === 'news' || this.state.currentPanel === 'tools')) {
+            return true;
+        }
+        return false;
     },
 
     /**
@@ -558,6 +562,13 @@ export const ViewModule = {
             }
             document.querySelectorAll('.active-chat-item').forEach(div => {
                 div.classList.remove('active-chat-item');
+                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                if (!div.classList.contains('hover:bg-black/5')) {
+                    div.classList.add('hover:bg-black/5');
+                }
+                if (!div.classList.contains('dark:hover:bg-white/5')) {
+                    div.classList.add('dark:hover:bg-white/5');
+                }
             });
         }
 
@@ -934,7 +945,20 @@ export const ViewModule = {
         if (!newsSec || !sidePanel || !chatSec) return;
 
         this.state.currentPanel = panelId;
-        const isMobile = window.innerWidth <= 850;
+        const isMobile = this.isMobile();
+
+        // Toggle body layout classes dynamically based on layout mode
+        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+            if (panelId === 'news' || panelId === 'tools') {
+                document.body.classList.add('mobile-layout-active');
+                document.body.classList.remove('desktop-messages-layout-active');
+            } else {
+                document.body.classList.add('desktop-messages-layout-active');
+                document.body.classList.remove('mobile-layout-active');
+            }
+        } else {
+            document.body.classList.remove('mobile-layout-active', 'desktop-messages-layout-active');
+        }
 
         // Toggle mobile bottom gradient overlay
         if (gradientShim) {
@@ -950,7 +974,28 @@ export const ViewModule = {
             newsSec.classList.replace('hidden', 'flex');
             sidePanel.classList.replace('hidden', 'flex');
             chatSec.classList.replace('hidden', 'flex');
-            if (bottomNav) bottomNav.classList.add('hidden');
+            // Only hide bottomNav on true full desktop (>= 1024). In 800-1024 range keep it visible.
+            if (bottomNav) {
+                if (window.innerWidth >= 1024) {
+                    bottomNav.classList.add('hidden');
+                } else {
+                    bottomNav.classList.remove('hidden');
+                }
+            }
+            return;
+        }
+
+        // For the 800-1024px range where isMobile() is true (Hub/Tool active):
+        // Don't use slide animations — the CSS body classes handle panel visibility via !important.
+        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+            // Ensure all panels are set to flex so CSS !important can override per body class
+            newsSec.classList.remove('hidden');
+            newsSec.classList.add('flex');
+            sidePanel.classList.remove('hidden');
+            sidePanel.classList.add('flex');
+            chatSec.classList.remove('hidden');
+            chatSec.classList.add('flex');
+            if (bottomNav) bottomNav.classList.remove('hidden');
             return;
         }
 
@@ -1019,6 +1064,22 @@ export const ViewModule = {
     },
 
     switchTab: function (tab, immediate = false) {
+        // In 800-1024px range: Hub/Tool should activate mobile-layout-active, Messages restores two-panel layout
+        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+            if (tab === 'news' || tab === 'tools') {
+                this.state.currentPanel = tab;
+                this.showPanel(tab);
+                // Also switch the internal sub-tab so Hub vs Tool content is correct
+                this.switchLeftTab(tab);
+                this.refreshBottomNav(tab);
+            } else if (tab === 'messages') {
+                this.state.currentPanel = 'messages';
+                this.showPanel('messages');
+                this.refreshBottomNav('messages');
+            }
+            return;
+        }
+        // Full desktop: no bottom nav needed
         if (window.innerWidth >= 1024) return;
         if (this.state.isAnimating) return;
 
@@ -1191,7 +1252,7 @@ export const ViewModule = {
 
         // 修正：内部切换不应触�?showPanel，否则会把容器自身隐藏掉
         // 只有当明确需要切换到独立的消息面板时（桌面端逻辑）才处理
-        if (window.innerWidth >= 1024) {
+        if (window.innerWidth >= 800) {
             if (tab === 'more') this.showPanel('messages');
             else this.showPanel('news');
         } else {

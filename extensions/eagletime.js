@@ -238,7 +238,12 @@ export function initEagleTimeFeature(ctx) {
 
     window.deleteEagleSession = async (id) => {
         if (!await AppModules.Modal.confirm("Delete Session", "Delete this session and all its registrations?", "Delete")) return;
-        await set(ref(db, `eagle_time/sessions/${id}`), null);
+        try {
+            await set(ref(db, `eagle_time/sessions/${id}`), null);
+        } catch (e) {
+            console.error('Failed to delete session:', e);
+            AppModules.Modal.alert("Error", "Failed to delete session: " + e.message);
+        }
     };
 
     window.addEventListener('resize', () => {

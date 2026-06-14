@@ -13,7 +13,7 @@ export const ClubModule = {
      * @returns {boolean} True if the user has management permissions for the club.
      */
     isClubManager(user, club) {
-        if (window._simulateClubAdmin) return true;
+        if (window._simulateClubAdmin && location.hostname === 'localhost') return true;
         if (!user || !club) return false;
 
         // 1. Platform Admins have global permission for all clubs

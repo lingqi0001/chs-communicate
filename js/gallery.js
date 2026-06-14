@@ -54,8 +54,11 @@ export const GalleryModule = {
         // 2. Keyboard Events
         window.addEventListener('keydown', (e) => {
             if (modal.classList.contains('hidden')) return;
-            if (e.key === 'ArrowLeft') this.prev();
-            if (e.key === 'ArrowRight') this.next();
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (e.key === 'ArrowLeft') this.prev();
+                if (e.key === 'ArrowRight') this.next();
+            }
             if (e.key === 'Escape') this.close();
         });
 
@@ -194,6 +197,9 @@ export const GalleryModule = {
         modal.style.opacity = '0';
         img.style.transform = 'scale(0.95)';
         img.style.opacity = '0';
+        this.state.scale = 1;
+        this.state.rotate = 0;
+        this.state.preloadedUrls.clear();
 
         if (window.AppModules?.View?.lockScroll) {
             window.AppModules.View.lockScroll(false);
@@ -218,8 +224,10 @@ export const GalleryModule = {
         link.href = url;
         link.download = `CHS_Gallery_${Date.now()}.jpg`;
         document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        requestAnimationFrame(() => {
+            link.click();
+            setTimeout(() => document.body.removeChild(link), 100);
+        });
     },
 
     prev() {
@@ -428,7 +436,9 @@ export const GalleryModule = {
         const { img } = this.els;
         if (!img) return;
 
-        const touchEndX = e.changedTouches[0].clientX;
+        const touch = e.changedTouches?.[0];
+        if (!touch) return;
+        const touchEndX = touch.clientX;
         const deltaX = touchEndX - this.state.touchStartX;
         const swipeThreshold = 60; // minimum distance to trigger image shift
 

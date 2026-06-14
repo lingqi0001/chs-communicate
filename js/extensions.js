@@ -218,12 +218,6 @@ export const ExtensionModule = {
             category: 'Staff Tools',
             description: 'Made for Miss. Cipriano and Miss. Dow'
         },
-        'portfolio': {
-            eid: 'portfolio',
-            url: 'portfolio/',
-            title: 'Portfolio',
-            category: 'Learning Tools'
-        }
     },
 
     init(cbs) {

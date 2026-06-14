@@ -50,7 +50,7 @@ export const UIComponents = {
         } else if (rawTs && typeof rawTs === 'object') {
             if (typeof rawTs.toMillis === 'function') {
                 tsMs = rawTs.toMillis();
-            } else if (rawTs.seconds === 'number') {
+            } else if (typeof rawTs.seconds === 'number') {
                 tsMs = rawTs.seconds * 1000;
             }
         }

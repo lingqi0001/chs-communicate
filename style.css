@@ -217,14 +217,12 @@ body {
 #sidebarSubList::-webkit-scrollbar,
 #sidebarList::-webkit-scrollbar,
 #chatBox::-webkit-scrollbar,
-.overflow-y-auto::-webkit-scrollbar,
-#searchResultList::-webkit-scrollbar {
+.overflow-y-auto::-webkit-scrollbar {
     width: 4px;
 }
 
 #sidebarSubList::-webkit-scrollbar-track,
-.overflow-y-auto::-webkit-scrollbar-track,
-#searchResultList::-webkit-scrollbar-track {
+.overflow-y-auto::-webkit-scrollbar-track {
     background: transparent;
 }
 
@@ -249,11 +247,6 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
-#searchResultList::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-}
-
 /* 视觉补丁 */
 #sidebarSubList>div,
 #sidebarSubList>button {
@@ -264,6 +257,18 @@ body {
 #sidebarSubList {
     overflow-x: hidden !important;
 }
+
+/* 彻底隐藏搜索结果框的滚动条，确保有无滚动条时都完美贴边 */
+#searchResultList {
+    scrollbar-width: none !important; /* Firefox */
+}
+#searchResultList::-webkit-scrollbar {
+    display: none !important; /* Safari and Chrome */
+    width: 0 !important;
+    height: 0 !important;
+}
+
+
 
 /* Compensate right-side scrollbar gutter so News cards align with top header pill width */
 #newsAnnouncementsScrollArea {
@@ -351,6 +356,7 @@ body {
     }
 
     to {
+        transform: translateX(0);
         opacity: 1;
     }
 }
@@ -1061,17 +1067,6 @@ body {
 
 #bottomNav button {
     border: 1px solid transparent !important;
-}
-
-/* Bottom gradient overlay to hide scrolling content under floating nav bar on mobile */
-.bottom-gradient-shim {
-    display: none !important;
-}
-
-@media (min-width: 1024px) {
-    .bottom-gradient-shim {
-        display: none !important;
-    }
 }
 
 /* iOS-style Slide-In and Slide-Out Animations for Mobile Chat View */
@@ -1952,7 +1947,89 @@ body {
     animation: placeholderFadeIn 0.2s ease-out 0.5s both;
 }
 
+/* Disable text selection globally to prevent accidental selection on mobile/fast clicks */
+body {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
 
+/* Allow text selection in chat section, news/announcement section, and all inputs/textareas */
+#chatSection,
+#newsSection,
+#chatBox,
+#newsAnnouncementsScrollArea,
+input,
+textarea,
+[contenteditable="true"] {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
 
+/* Custom class for chat back button visibility */
+.chat-back-btn {
+    display: flex;
+}
+@media (min-width: 800px) {
+    .chat-back-btn {
+        display: none !important;
+    }
+}
+
+@media (min-width: 800px) and (max-width: 1023px) {
+    /* When Messages/Chat is active (desktop-like two-panel layout) */
+    body.desktop-messages-layout-active #newsSection {
+        display: none !important;
+    }
+    body.desktop-messages-layout-active #sidePanel {
+        width: 320px !important;
+        min-width: 320px !important;
+        max-width: 320px !important;
+        flex: 0 0 320px !important;
+        display: flex !important;
+    }
+    body.desktop-messages-layout-active #chatSection {
+        display: flex !important;
+        flex: 1 1 auto !important;
+    }
+    body.desktop-messages-layout-active #bottomNavContainer {
+        display: flex !important;
+        left: 160px !important;
+        transform: translateX(-50%) !important;
+        width: 290px !important;
+        bottom: 12px !important;
+        z-index: 50 !important;
+    }
+
+    /* When Hub/Tools is active (mobile-like single-panel layout) */
+    body.mobile-layout-active #newsSection {
+        display: flex !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+    }
+    body.mobile-layout-active #sidePanel {
+        display: none !important;
+    }
+    body.mobile-layout-active #chatSection {
+        display: none !important;
+    }
+    body.mobile-layout-active #bottomNavContainer {
+        display: flex !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 32px) !important;
+        max-width: 380px !important;
+        bottom: 24px !important;
+        z-index: 50 !important;
+    }
+}
+
+/* In 800-1024px two-panel messages layout: hide search button (it's accessible from the messages panel).
+   In mobile-layout-active (Hub/Tool full screen), keep the search button visible like true mobile. */
+@media (min-width: 800px) and (max-width: 1023px) {
+    body.desktop-messages-layout-active #tabBtn-search {
+        display: none !important;
+    }
+}
 
 

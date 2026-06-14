@@ -170,6 +170,7 @@ export const AuthModule = {
         console.log('App: Entering setupUser for', user.email);
 
         const profile = await window.AppModules.User.init(user);
+        if (!window.ALL_USERS) window.ALL_USERS = {};
         window.ALL_USERS[profile.id] = profile;
 
         console.log('App: Fetching global data...');
@@ -287,6 +288,7 @@ export const AuthModule = {
         try {
             await update(ref(db, `users/${window.currentUser.id}`), { name: newName });
             window.currentUser.name = newName;
+            await update(ref(db, `user_search/${window.currentUser.id}`), { name: newName });
 
             try {
                 const adminId = 'moss104088';

@@ -822,6 +822,8 @@
     </div>
 
     <script>
+        function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+        function escJS(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\r/g,'\\r');}
         var STAGES = [
             { name: "Building Community", defaultTasks: ["What do you Meme?", "Canvas Scavenger Hunt", "Intro. Survey", "Me in a minute!", "Intro Research Task", "Internet Searches Activity", "Researcher Reflection", "Reading Report #1", "Reading Report #2", "What's Your IQ?"] },
             { name: "Inquiry & Hypothesis", defaultTasks: ["Hypothesis Practice", "Research Q Chart", "Hypothesis (Part 1)", "Peer Edit: Q & H", "Hypothesis (Part 2)", "Finding HR", "Business Email (Draft)", "Email Netiquette", "Presentation Review", "Reflection Quiz"] },
@@ -882,13 +884,13 @@
                     container.innerHTML += `
                         <div class="item-row" style="margin-bottom:0; flex-direction:column; align-items:flex-start; gap:8px;">
                             <div style="display:flex; justify-content:space-between; width:100%;">
-                                <b style="font-size:12px;">${data.name || 'Student'}</b>
+                                <b style="font-size:12px;">${escH(data.name) || 'Student'}</b>
                                 <span style="color:var(--accent); font-weight:900;">${p}%</span>
                             </div>
                             <div style="width:100%; height:4px; background:#333; border-radius:10px; overflow:hidden;">
                                 <div style="width:${p}%; height:100%; background:var(--accent); transition:0.5s;"></div>
                             </div>
-                            <div style="font-size:9px; color:var(--muted);">STAGE ${data.stage || 0}: ${STAGES[data.stage||0].name}</div>
+                            <div style="font-size:9px; color:var(--muted);">STAGE ${data.stage || 0}: ${STAGES[data.stage||0]?.name || 'Unknown Stage'}</div>
                         </div>
                     `;
                 });
@@ -952,7 +954,7 @@
                                             <span style="font-size:11px; color:var(--muted); font-weight:normal;">${email}</span>
                                         </div>
                                         <div class="split-btn-group">
-                                            <button onclick="event.stopPropagation(); openTaskFeedback('${fbKey}', '${uid}', '${displayName}', '${encodeURIComponent(link)}')" class="split-btn-left">REVIEW</button>
+                                            <button onclick="event.stopPropagation(); openTaskFeedback('${fbKey}', '${uid}', '${escJS(displayName)}', '${encodeURIComponent(link)}')" class="split-btn-left">REVIEW</button>
                                             <div class="split-btn-divider"></div>
                                             <a href="${formatUrl(link)}" target="_blank" class="split-btn-left">VIEW SOURCE</a>
                                             <div class="split-btn-divider"></div>
@@ -1033,7 +1035,7 @@
                         </div>
                         <div style="display:flex; gap:12px; align-items:center;">
                             ${isT ? `<i data-lucide="trash-2" class="del-btn" style="opacity:0.6" size="18" onclick="deleteTask(${i})"></i>` : ''}
-                            <button class="btn-mini ${link?'btn-accent':''}" onclick="event.stopPropagation(); ${isT ? 'openSubs('+i+',\''+t.text+'\')':'openModal(\'link\',{idx:'+i+'})'}"
+                            <button class="btn-mini ${link?'btn-accent':''}" onclick="event.stopPropagation(); ${isT ? 'openSubs('+i+',\''+encodeURIComponent(t.text)+'\')':'openModal(\'link\',{idx:'+i+'})'}"
                                 >
                                 <i data-lucide="${isT ? 'users' : (link?'paperclip':'plus')}" size="16"></i>
                             </button>
@@ -1082,11 +1084,11 @@
             sub.style.display = 'flex';
             if (type === 'addTask') {
                 body.innerHTML = `<div class="field"><label>Task Name</label><input id="m-in" autocomplete="off"></div><div class="field"><label>Due Date</label><input type="date" id="m-date"></div>`;
-                sub.onclick = () => { const v = document.getElementById('m-in').value, d = document.getElementById('m-date').value; if(v) { sub.innerText = "SAVING..."; b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), [...currentTasks, { text: v, date: d }]).then(closeModal); } };
+                sub.onclick = () => { const v = document.getElementById('m-in').value, d = document.getElementById('m-date').value; if(v) { sub.innerText = "SAVING..."; b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), [...currentTasks, { text: v, date: d }]).then(closeModal).catch(e => console.error('Firebase write failed:', e)); } };
             }
             if (type === 'broadcast') {
                 body.innerHTML = `<div class="field"><label>Announcement</label><textarea id="m-msg" rows="4"></textarea></div>`;
-                sub.onclick = () => { const v = document.getElementById('m-msg').value; b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/broadcast`), { text: v }).then(closeModal); };
+                sub.onclick = () => { const v = document.getElementById('m-msg').value; b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/broadcast`), { text: v }).then(closeModal).catch(e => console.error('Firebase write failed:', e)); };
             }
             if (type === 'link') {
                 body.innerHTML = `<div class="field"><label>Artifact URL</label><input id="m-url" value="${myLinks[currentIdx]?.[data.idx]||''}"></div>`;
@@ -1098,7 +1100,7 @@
                             email: currentUser.email || ''
                         });
                         closeModal();
-                    });
+                    }).catch(e => console.error('Firebase write failed:', e));
                 };
             }
             if (type === 'help') {
@@ -1128,9 +1130,9 @@
         window.toggleCheck = (idx) => {
             const b = getBridge(); if(!b) return;
             const cur = myProgress[currentIdx]?.[idx] || false;
-            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${currentUser.id}/${currentIdx}`), { [idx]: !cur });
+            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/progress/${currentUser.id}/${currentIdx}`), { [idx]: !cur }).catch(e => console.error('Firebase write failed:', e));
             const total = Object.values(myProgress).reduce((a,v) => a + Object.values(v).filter(x=>x).length, 0);
-            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, email: currentUser.email || '', percent: Math.round((total/50)*100), stage: currentIdx });
+            b.fUpdate(b.fRef(b.firebaseDb, `user_image_index/ir_v7/meta/${currentUser.id}`), { name: currentUser.name, email: currentUser.email || '', percent: Math.round((total/50)*100), stage: currentIdx }).catch(e => console.error('Firebase write failed:', e));
         };
 
         async function deleteTask(idx) {
@@ -1139,13 +1141,13 @@
             if (!ok) return;
             const updated = [...currentTasks];
             updated.splice(idx, 1);
-            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), updated);
+            b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/tasks/${currentIdx}`), updated).catch(e => console.error('Firebase write failed:', e));
         }
         window.deleteBroadcast = async () => {
             const b = getBridge(); if (!b) return;
             const ok = await AppBridge.confirm("Clear Broadcast", "Clear this broadcast for all students?");
             if (ok) {
-                b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/broadcast`), { text: '' });
+                b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/broadcast`), { text: '' }).catch(e => console.error('Firebase write failed:', e));
             }
         };
         window.closeModal = () => { 
@@ -1305,7 +1307,7 @@
             const fb = taskFeedback[fbKey] || { rating: 0, notes: [] };
             const starHtml = [1,2,3,4,5].map(s => {
                 if (isAdmin) {
-                    return `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" onclick="setTaskRating('${fbKey}', ${s}, '${uid}', '${encodedLink}', '${encodeURIComponent(displayName)}')" style="font-size:24px; cursor:pointer;">★</span>`;
+                    return `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" onclick="setTaskRating('${fbKey}', ${s}, '${uid}', '${encodedLink}', '${escJS(encodeURIComponent(displayName))}')" style="font-size:24px; cursor:pointer;">★</span>`;
                 } else {
                     return `<span class="star-icon ${s <= (fb.rating||0) ? 'active' : ''}" style="font-size:24px; cursor:default; pointer-events:none;">★</span>`;
                 }
@@ -1325,7 +1327,7 @@
                             ${repliesHtml}
                             <div style="display:flex; gap:6px; margin-top:6px;">
                                 <input id="task-reply-${ni}" style="flex:1; background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.15); padding:6px 10px; border-radius:8px; font-size:11px; color:#000;" placeholder="Reply...">
-                                <button onclick="addTaskReply('${fbKey}', ${ni}, '${uid}', '${encodeURIComponent(displayName)}', '${encodedLink}')" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
+                                <button onclick="addTaskReply('${fbKey}', ${ni}, '${uid}', '${escJS(encodeURIComponent(displayName))}', '${encodedLink}')" style="background:#1c1917; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">SEND</button>
                             </div>
                         </div>
                     </div>`;

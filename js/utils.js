@@ -124,13 +124,47 @@ export const ImageUtils = {
     /**
      * Equal-ratio Canvas Image Compression (Jpeg, Quality=0.6)
      */
+    _webpSupported: null,
+    _checkWebP() {
+        if (this._webpSupported !== null) return this._webpSupported;
+        try {
+            const c = document.createElement('canvas');
+            this._webpSupported = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        } catch (e) {
+            this._webpSupported = false;
+        }
+        return this._webpSupported;
+    },
+
     compress: function (file, maxSize = 800, quality = 0.6) {
         return new Promise((resolve, reject) => {
+            const MAX_SIZE = 10 * 1024 * 1024;
+            if (file.size > MAX_SIZE) {
+                reject(new Error("File exceeds 10MB limit"));
+                return;
+            }
+
+            const webpSupported = ImageUtils._checkWebP();
+            if (!webpSupported) {
+                reject(new Error("WebP not supported"));
+                return;
+            }
+
+            if (file.size < 50 * 1024 && file.type === 'image/webp') {
+                resolve(file);
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (event) => {
                 const img = new Image();
                 img.onerror = () => reject(new Error("Image failed to load"));
                 img.onload = () => {
+                    if (img.width <= maxSize && img.height <= maxSize && file.size < 100 * 1024) {
+                        file.arrayBuffer().then(buf => resolve(new Blob([buf], { type: file.type || 'image/webp' })));
+                        return;
+                    }
+
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     let width = img.width;
@@ -145,10 +179,11 @@ export const ImageUtils = {
                     canvas.width = width;
                     canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
+                    canvas.toBlob((blob) => resolve(blob), 'image/webp', quality);
                 };
                 img.src = event.target.result;
             };
+            reader.onerror = () => reject(new Error("Failed to read file"));
             reader.readAsDataURL(file);
         });
     },
@@ -156,16 +191,16 @@ export const ImageUtils = {
     /**
      * Base64 to Firebase Cloud Storage Upload
      */
-    uploadToStorage: async function (base64Data, sRefFn, uploadString, getDownloadURL, auth, folder = 'uploads') {
-        if (!base64Data || !base64Data.startsWith('data:image')) return null;
+    uploadToStorage: async function (blob, sRefFn, uploadBytes, getDownloadURL, auth, folder = 'uploads') {
+        if (!blob) return null;
         try {
-            const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+            const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
             let path = `${folder}/${filename}`;
             if (folder === 'chats' && auth.currentUser) {
                 path = `chats/${auth.currentUser.uid}/${filename}`;
             }
             const storageRef = sRefFn(path);
-            const snapshot = await uploadString(storageRef, base64Data, 'data_url');
+            const snapshot = await uploadBytes(storageRef, blob);
             console.log('Storage: Upload successful', snapshot.metadata.fullPath);
             const downloadURL = await getDownloadURL(storageRef);
             return downloadURL;
@@ -212,6 +247,10 @@ export const ImageUtils = {
             console.error("Image sending error:", err);
             if (err.message === "SystemUploadError") {
                 await window.AppModules.Modal.alert("Upload Error", "There is an issue with our system. Please try again later.");
+            } else if (err.message.includes("10MB")) {
+                await window.AppModules.Modal.alert("File Too Large", "Image must be under 10MB.");
+            } else if (err.message === "WebP not supported") {
+                await window.AppModules.Modal.alert("Unsupported Browser", "Your browser does not support image compression. Please update your browser.");
             } else {
                 await window.AppModules.Modal.alert("Upload Error", "Upload failed. Check your network.");
             }

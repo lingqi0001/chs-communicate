@@ -630,7 +630,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Render the vertical icons list with animations (desktop only)
         iconsBar.innerHTML = joinedClubs.map((club, idx) => {
             const isActive = selectedClubId === club.id;
-            const safeName = club.name.replace(/'/g, "\\'");
+            const safeName = club.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
             return `
                 <div id="btn-club-${club.id}" onclick="AppModules.News.selectClub('${club.id}')"
                     onmouseenter="AppModules.News.showTooltip(event, '${safeName}')"
@@ -704,6 +704,15 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             .replace(/>/g, '&gt;');
     }
 
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function formatEventMetaParts(clubName, time, room) {
         const parts = [];
         if (clubName) parts.push(clubName);
@@ -715,7 +724,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
     function formatEventDateDisplay(dateValue) {
         if (!dateValue) return '';
         try {
-            const d = new Date(`${dateValue}T00:00:00`);
+            const d = new Date(`${dateValue}T00:00:00Z`);
             return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         } catch (e) {
             return dateValue;
@@ -763,7 +772,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const club = dummyClubs.find(c => c.id === clubId);
         if (!club) return false;
 
-        if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+        if (window.innerWidth < 800 && typeof window.switchTab === 'function') {
             window.switchTab('news');
         }
         if (typeof window.switchLeftTab === 'function') {
@@ -826,7 +835,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             // Get admin/executive board members
             const admins = club.members.filter(m => m.isAdmin).map(m => m.name);
             const adminCards = admins.slice(0, 3).map(name => {
-                const escapedName = name.replace(/'/g, "\\'");
+                const escapedName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
                 return `
                     <div onclick="AppModules.News.handleMemberClick('${escapedName}')" class="bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-xl text-xs font-bold text-black dark:text-white flex-1 text-center cursor-pointer hover:bg-gray-200 transition-colors">${name}</div>
                 `;
@@ -955,10 +964,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             }
 
             // Filter to show only future events
-            const now = new Date();
+            const today = new Date(); today.setHours(0,0,0,0);
             const futureEvents = events.filter(evt => {
-                const eventDate = new Date(evt.date);
-                return eventDate >= now;
+                const eventDate = new Date(evt.date + 'T00:00:00Z');
+                return eventDate >= today;
             });
 
             if (futureEvents.length === 0) {
@@ -982,10 +991,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h6 class="text-sm font-bold text-black dark:text-white">${nextEvent.title || 'Untitled Event'}</h6>
+                            <h6 class="text-sm font-bold text-black dark:text-white">${esc(nextEvent.title) || 'Untitled Event'}</h6>
                             <p class="text-[11px] text-gray-400 mt-0.5">${dateLabel}${eventTime ? ' at ' + eventTime : ''}</p>
-                            ${nextEvent.room ? `<p class="text-[11px] text-gray-400">Room ${nextEvent.room}</p>` : ''}
-                            ${nextEvent.desc ? `<p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">${nextEvent.desc}</p>` : ''}
+                            ${nextEvent.room ? `<p class="text-[11px] text-gray-400">Room ${esc(nextEvent.room)}</p>` : ''}
+                            ${nextEvent.desc ? `<p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">${esc(nextEvent.desc)}</p>` : ''}
                         </div>
                     </div>
                 `;
@@ -1006,6 +1015,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shortDesc = document.getElementById(`discoverShortDesc-${clubId}`);
         const btnText = document.getElementById(`discoverBtnText-${clubId}`);
         const btnIcon = document.getElementById(`discoverBtnIcon-${clubId}`);
+
+        if (!expandArea || !shortDesc || !btnText || !btnIcon) return;
 
         if (!expandArea.classList.contains('expanded')) {
             expandArea.classList.add('expanded');
@@ -1043,7 +1054,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('discoverClubSearchShell');
         const input = document.getElementById('discoverClubSearchInput');
         const iconBtn = document.getElementById('discoverClubSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -1057,7 +1068,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('discoverClubSearchShell');
         const input = document.getElementById('discoverClubSearchInput');
         const iconBtn = document.getElementById('discoverClubSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
         if (input) input.classList.add('hidden');
         if (iconBtn) iconBtn.classList.remove('hidden');
     }
@@ -1070,7 +1081,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Clubs Directory</h3>
-                    <div id="discoverClubSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="discoverClubSearchShell" class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="discoverClubSearchIconBtn" onclick="AppModules.News.toggleDiscoverClubSearch()" class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1104,15 +1115,17 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         renderDiscoverClubsList();
     }
     async function joinClub(clubId, e) {
+        if (window._joinClubLock) return;
+        window._joinClubLock = true;
         if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         
         const club = dummyClubs.find(c => c.id === clubId);
-        if (!club) return;
+        if (!club) { window._joinClubLock = false; return; }
 
         // Add to joined IDs
         joinedClubIds.add(clubId);
         localStorage.setItem('joinedClubIds', JSON.stringify(Array.from(joinedClubIds)));
-        console.log(`[joinClub] Added club ${clubId} to localStorage. Current joined clubs:`, Array.from(joinedClubIds));
+
 
         // Add current user to club members list if not already there
         const currentUser = getCurrentUser();
@@ -1123,7 +1136,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     name: currentUser.name,
                     isAdmin: false
                 });
-                console.log(`[joinClub] Added ${currentUser.name} to dummyClubs members`);
+
             }
 
             // Sync to Firebase - save member to database
@@ -1138,23 +1151,14 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     isAdmin: false
                 };
                 
-                console.log(`[joinClub] Attempting to sync to Firebase at path: modules/club_members/${club.id}/${memberUid}`);
-                console.log(`[joinClub] Current user info:`, {
-                    id: currentUser.id,
-                    uid: currentUser.uid,
-                    name: currentUser.name,
-                    email: currentUser.email,
-                    role: currentUser.role
-                });
-                console.log(`[joinClub] Member data to write:`, memberData);
-                
+
+
                 await set(memberRef, memberData);
-                console.log(`[joinClub] ✅ Successfully synced member ${currentUser.name} (UID: ${memberUid}) to Firebase for club ${club.id}`);
-                
+
+
                 // Verify the write by reading it back
                 const verifySnap = await get(memberRef);
                 if (verifySnap.exists()) {
-                    console.log(`[joinClub] ✅ Verified: Data exists in Firebase:`, verifySnap.val());
                 } else {
                     console.error(`[joinClub] ❌ ERROR: Data was written but cannot be read back!`);
                 }
@@ -1177,7 +1181,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         // Re-render Club News to show this club's announcements
         if (window.AppModules && window.AppModules.News && typeof window.AppModules.News.renderLocalNews === 'function') {
-            console.log(`[joinClub] Triggering Club News refresh for newly joined club: ${club.id}`);
             // Use getLocalNews from db module to re-fetch and re-filter
             if (window.AppModules.DB && typeof window.AppModules.DB.Local.getNews === 'function') {
                 window.AppModules.News.renderLocalNews(window.AppModules.DB.Local.getNews).catch(err => {
@@ -1191,6 +1194,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         }
 
         alert('Joined Club', `You are now a member of ${club.name}!`);
+        window._joinClubLock = false;
     }
 
     function toggleSimulateAdmin() {
@@ -1256,16 +1260,18 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
     }
 
     async function leaveClub() {
+        if (window._leaveClubLock) return;
+        window._leaveClubLock = true;
         const club = dummyClubs.find(c => c.id === selectedClubId);
-        if (!club) return;
+        if (!club) { window._leaveClubLock = false; return; }
         
         const ok = await confirm('Leave Club', `Are you sure you want to leave ${club.name}?`, 'Leave');
-        if (!ok) return;
+        if (!ok) { window._leaveClubLock = false; return; }
 
         // Remove from joined list FIRST (before any re-renders)
         joinedClubIds.delete(selectedClubId);
         localStorage.setItem('joinedClubIds', JSON.stringify(Array.from(joinedClubIds)));
-        console.log(`[leaveClub] Removed club ${selectedClubId} from localStorage. Remaining clubs:`, Array.from(joinedClubIds));
+
 
         // Remove current user from club members list
         const currentUser = getCurrentUser();
@@ -1280,7 +1286,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 const memberUid = currentUser.uid || currentUser.id;
                 const memberRef = ref(db, `modules/club_members/${club.id}/${memberUid}`);
                 await remove(memberRef);
-                console.log(`[leaveClub] ✅ Successfully removed member ${currentUser.name} (UID: ${memberUid}) from Firebase for club ${club.id}`);
+
             } catch (err) {
                 console.error('[leaveClub]  Failed to remove member from Firebase:', err);
             }
@@ -1301,6 +1307,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 window.globalDataSync();
             }
         }
+        window._leaveClubLock = false;
     }
 
     async function openAddClubAnnouncementForm() {
@@ -1358,7 +1365,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     isClubMemberPost: true
                 });
                 
-                console.log(`[openAddClubAnnouncementForm] Posted announcement to both My Joint and Club News for club ${club.id}`);
+
                 
                 // Re-select/re-render the club to fetch updated announcements from database
                 selectClub(selectedClubId, true);
@@ -1401,7 +1408,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             newsItem.timestamp && 
                             Math.abs(newsItem.timestamp - annData.timestamp) < 2000) {
                             await remove(ref(db, `news/club/${newsKey}`));
-                            console.log(`[deleteClubAnnouncement] Deleted matching post from Club News: ${newsKey}`);
+
                             break;
                         }
                     }
@@ -1556,7 +1563,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const getDateHeader = (dateValue) => {
             if (!dateValue) return 'DATE TBD';
             try {
-                const d = new Date(`${dateValue}T00:00:00`);
+                const d = new Date(`${dateValue}T00:00:00Z`);
                 return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'long' }).toUpperCase();
             } catch (e) {
                 return String(dateValue).toUpperCase();
@@ -1602,10 +1609,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                                 <span class="club-card-icon">${hostClub.icon}</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-sm font-bold text-black dark:text-white truncate">${evt.title || 'Untitled Event'}</h4>
-                                <p class="text-[11px] text-gray-400 truncate mt-0.5">${hostClub.name}</p>
+                                <h4 class="text-sm font-bold text-black dark:text-white truncate">${esc(evt.title) || 'Untitled Event'}</h4>
+                                <p class="text-[11px] text-gray-400 truncate mt-0.5">${esc(hostClub.name)}</p>
                                 <p class="text-[11px] text-gray-400 truncate mt-0.5">${metaParts.join(' | ')}</p>
-                                ${safeDesc ? `<p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5">${safeDesc}</p>` : ''}
+                                ${safeDesc ? `<p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5">${esc(safeDesc)}</p>` : ''}
                             </div>
                         </div>
                     </div>
@@ -1644,7 +1651,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('eventSearchShell');
         const input = document.getElementById('eventSearchInput');
         const iconBtn = document.getElementById('eventSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -1658,7 +1665,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('eventSearchShell');
         const input = document.getElementById('eventSearchInput');
         const iconBtn = document.getElementById('eventSearchIconBtn');
-        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
         if (input) input.classList.add('hidden');
         if (iconBtn) iconBtn.classList.remove('hidden');
     }
@@ -1671,7 +1678,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Club Events</h3>
-                    <div id="eventSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="eventSearchShell" class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="eventSearchIconBtn" onclick="AppModules.News.toggleEventSearch()" class="${isEventSearchExpanded || eventSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1717,6 +1724,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 });
             }
             cachedGlobalEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const today = new Date(); today.setHours(0,0,0,0);
+            cachedGlobalEvents = cachedGlobalEvents.filter(evt => new Date(evt.date + 'T00:00:00Z') >= today);
             renderGlobalEventsList();
         }).catch(err => {
             console.error("Failed to load global events:", err);
@@ -1726,7 +1735,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
     }
 
     function navigateToClubEventFromSearch(eventId, clubId) {
-        if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+        if (window.innerWidth < 800 && typeof window.switchTab === 'function') {
             window.switchTab('news');
         }
         if (typeof window.switchLeftTab === 'function') {
@@ -1787,7 +1796,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         menu.style.left = `${left}px`;
         menu.style.top = `${top}px`;
 
-        const escName = memberName.replace(/'/g, "\\'");
+        const escName = memberName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
         
         let toggleAdminOption = '';
         if (member.isAdmin) {
@@ -1921,29 +1930,23 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
     }
 
     function handleMemberClick(memberName) {
-        console.log('handleMemberClick called with:', memberName);
-        
         // Get current user to check if this is the current user themselves
         const currentUser = getCurrentUser();
-        console.log('Current user:', currentUser);
         if (!currentUser || !memberName) return;
 
         // Don't allow clicking on yourself
         if (memberName.toLowerCase() === currentUser.name.toLowerCase()) {
-            console.log('Cannot click on yourself');
             return;
         }
 
         // Find the user ID for this member name by searching in ALL_USERS
         let targetUserId = null;
-        console.log('ALL_USERS keys count:', window.ALL_USERS ? Object.keys(window.ALL_USERS).length : 0);
         
         if (window.ALL_USERS) {
             // Try exact match only (no partial matching to avoid false positives like "Moss Moss" matching "Admin Moss")
             for (const [userId, userData] of Object.entries(window.ALL_USERS)) {
                 if (userData.name && userData.name.toLowerCase() === memberName.toLowerCase()) {
                     targetUserId = userId;
-                    console.log('Found exact matching user:', userId, userData.name);
                     break;
                 }
             }
@@ -1951,7 +1954,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         // If we found a matching user, switch to chat with them
         if (targetUserId && window.switchChat) {
-            console.log('Switching to chat with:', targetUserId);
             window.switchChat(targetUserId);
         } else {
             console.warn(`Could not find user ID for member: ${memberName}`);
@@ -1965,8 +1967,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     `${memberName} has not joined CHS Chat & Tools yet. Invite them to join! `,
                     'Got it!'
                 );
-            } else {
-                window.alert(`${memberName} has not joined CHS Chat & Tools yet. Invite them to join! 🎉`);
+            } else if (window.AppModules && window.AppModules.Modal && window.AppModules.Modal.alert) {
+                window.AppModules.Modal.alert('User Not Joined', `${memberName} has not joined CHS Chat & Tools yet. Invite them to join!`, 'Got it!');
             }
         }
     }
@@ -1987,9 +1989,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Also update Firebase if this is a real user with UID
         if (member.uid) {
             const memberRef = ref(db, `modules/club_members/${club.id}/${member.uid}`);
-            update(memberRef, { isAdmin: isAdmin }).then(() => {
-                console.log(`[toggleMemberAdminStatus] ✅ Updated ${memberName} admin status to ${isAdmin} in Firebase`);
-            }).catch(err => {
+            update(memberRef, { isAdmin: isAdmin }).catch(err => {
                 console.error('[toggleMemberAdminStatus] Failed to update Firebase:', err);
             });
         }
@@ -2018,7 +2018,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             try {
                 const memberRef = ref(db, `modules/club_members/${club.id}/${member.uid}`);
                 await remove(memberRef);
-                console.log(`[removeMemberFromClub] ✅ Removed ${memberName} (UID: ${member.uid}) from Firebase for club ${club.id}`);
             } catch (err) {
                 console.error('[removeMemberFromClub] Failed to remove from Firebase:', err);
             }
@@ -2026,7 +2025,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
         // If the removed member is the current user, update their joined list
         const currentUser = getCurrentUser();
-        if (currentUser && memberName.toLowerCase() === currentUser.name.toLowerCase()) {
+        if (currentUser && memberName.toLowerCase() === (currentUser.name || '').toLowerCase()) {
             joinedClubIds.delete(club.id);
             localStorage.setItem('joinedClubIds', JSON.stringify(Array.from(joinedClubIds)));
             
@@ -2170,8 +2169,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
 
                         return `
                             <div class="relative p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
-                                <h4 class="font-bold text-base text-black dark:text-white mb-1 pr-6">${ann.title}</h4>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">${ann.desc}</p>
+                                <h4 class="font-bold text-base text-black dark:text-white mb-1 pr-6">${esc(ann.title)}</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">${esc(ann.desc)}</p>
                                 ${deleteBtn}
                             </div>
                         `;
@@ -2236,10 +2235,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                         return `
                             <div class="group relative bg-gray-50 dark:bg-white/5 hover:bg-gray-100/50 dark:hover:bg-white/10 border border-gray-100 dark:border-white/5 rounded-2xl p-3 transition-all duration-200">
                                 <div class="pr-8">
-                                    <h4 class="text-sm font-bold text-black dark:text-white truncate">${evt.title || 'Untitled Event'}</h4>
-                                    <p class="text-[11px] text-gray-400 truncate mt-0.5">${club.name}</p>
+                                    <h4 class="text-sm font-bold text-black dark:text-white truncate">${esc(evt.title) || 'Untitled Event'}</h4>
+                                    <p class="text-[11px] text-gray-400 truncate mt-0.5">${esc(club.name)}</p>
                                     <p class="text-[11px] text-gray-400 truncate mt-0.5">${metaParts.join(' | ')}</p>
-                                    ${safeDesc ? `<p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5">${safeDesc}</p>` : ''}
+                                    ${safeDesc ? `<p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5">${esc(safeDesc)}</p>` : ''}
                                 </div>
                                 ${deleteBtn}
                             </div>
@@ -2266,8 +2265,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             `;
 
             // Try to load from Firebase
-            console.log(`[renderMembers] Loading members from Firebase at path: modules/club_members/${club.id}`);
-            
             get(ref(db, `modules/club_members/${club.id}`)).then(snap => {
                 let dbMembers = [];
                 if (snap.exists()) {
@@ -2277,9 +2274,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                         ...val[key],
                         isRealUser: true  // Mark as real user from Firebase
                     }));
-                    console.log(`[renderMembers] ✅ Loaded ${dbMembers.length} real members from Firebase for club ${club.id}:`, dbMembers.map(m => m.name));
                 } else {
-                    console.log(`[renderMembers] ️ No members found in Firebase for club ${club.id}. Will use dummyClubs data.`);
                 }
 
                 // Merge Firebase members with dummyClubs members
@@ -2305,8 +2300,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                         });
                     }
                 });
-                
-                console.log(`[renderMembers]  Merged members: ${dbMembers.length} real + ${allMembers.length - dbMembers.length} virtual = ${allMembers.length} total`);
 
                 // Make sure the current user is in the member list if they joined
                 const currentUser = getCurrentUser();
@@ -2360,7 +2353,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             </svg>
                         </div>
                     ` : '';
-                    const escapedName = memberName.replace(/'/g, "\\'");
+                    const escapedName = memberName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
                     return `
                         <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
@@ -2379,7 +2372,6 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 // Sync merged members back to club.members so context menu can find them
                 // This ensures both Firebase members and dummyClubs members are available for right-click menu
                 club.members = allMembers;
-                console.log(`[renderMembers]  Synced ${allMembers.length} total members back to club.members for context menu support`);
             }).catch(err => {
                 console.error("Failed to load club members from database:", err);
                 // Fallback to dummyClubs members on error
@@ -2435,7 +2427,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     </svg>
                 </div>
             ` : '';
-            const escapedName = m.name.replace(/'/g, "\\'");
+            const escapedName = m.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
             return `
                 <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                     <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
@@ -2489,7 +2481,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 const type = (item?.type === 'club' || item?.type === 'club_news') ? 'club' : 'school';
                 return set(push(ref(db, `news/${type}`)), {
                     title: item?.title || 'Untitled',
-                    desc: item?.desc || '',
+                    desc: item?.desc || item?.description || '',
                     image: null,
                     authorId: currentUser.id,
                     authorName: currentUser.name,
@@ -2627,36 +2619,10 @@ Here is the original text:
         await Promise.all(newsTabs.map(async (tab) => {
             let posts = await getLocalNews(tab);
             
-            console.log(`\n========== [DEBUG renderLocalNews] ========== `);
-            console.log(`Tab: ${tab}`);
-            console.log(`Total posts from IndexedDB: ${posts.length}`);
-            
             // Filter Club News by membership - only show club member posts to users who joined that club
             if (tab === 'club') {
                 const currentUser = getCurrentUser();
                 const userJoinedClubs = new Set(JSON.parse(localStorage.getItem('joinedClubIds') || '[]'));
-                
-                console.log(`Current user: ${currentUser?.name || 'None'}`);
-                console.log(`User joined clubs (from localStorage):`, Array.from(userJoinedClubs));
-                console.log(`localStorage raw value:`, localStorage.getItem('joinedClubIds'));
-                
-                console.log('\n--- Filtering Club News posts ---');
-                posts.forEach((post, idx) => {
-                    console.log(`Post ${idx + 1}:`);
-                    console.log(`  - Key: ${post.key}`);
-                    console.log(`  - Title: "${post.title}"`);
-                    console.log(`  - clubName: "${post.clubName || 'undefined'}"`);
-                    console.log(`  - clubId: "${post.clubId || 'undefined'}"`);
-                    console.log(`  - has clubId: ${!!post.clubId}`);
-                    
-                    if (post.clubId) {
-                        const isMember = userJoinedClubs.has(post.clubId);
-                        console.log(`  - User is member of this club: ${isMember}`);
-                        console.log(`  - Will show: ${isMember ? 'YES ✓' : 'NO ✗'}`);
-                    } else {
-                        console.log(`  - No clubId (global post): Will show YES ✓`);
-                    }
-                });
                 
                 const beforeCount = posts.length;
                 posts = posts.filter(post => {
@@ -2667,37 +2633,20 @@ Here is the original text:
                     // Otherwise show all posts (teacher/admin posts without clubId)
                     return true;
                 });
-                
-                console.log(`\n--- After filtering ---`);
-                console.log(`Before: ${beforeCount} posts`);
-                console.log(`After: ${posts.length} posts`);
-                console.log(`Filtered out: ${beforeCount - posts.length} posts`);
-                
-                if (posts.length > 0) {
-                    console.log('\nPosts that will be displayed:');
-                    posts.forEach((post, idx) => {
-                        console.log(`  ${idx + 1}. "${post.title}" (clubId: ${post.clubId || 'none'})`);
-                    });
-                } else {
-                    console.log('\n⚠️ NO POSTS WILL BE DISPLAYED');
-                }
             }
-            
-            console.log('=========================================\n');
-            
             const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
             renderNewsContentFromData(posts, containerId, tab);
             
             // For Club News, also store the filtered posts so sync.js can use them
             if (tab === 'club') {
                 window._filteredClubNewsPosts = posts;
-                console.log('[DEBUG] Stored filtered posts in window._filteredClubNewsPosts:', posts.length);
             }
         }));
     }
 
     // Global listener to close context menu
-    if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && !window._clubMenuClickGuard) {
+        window._clubMenuClickGuard = true;
         document.addEventListener('click', () => {
             const menu = document.getElementById('clubMemberContextMenu');
             if (menu) menu.remove();

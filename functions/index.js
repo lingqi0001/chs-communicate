@@ -70,6 +70,14 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
             return null;
         }
 
+        // Write to user_notifications so the client-side listener picks it up
+        const notifUpdates = {};
+        recipients.forEach(uid => {
+            notifUpdates[`user_notifications/${uid}/${chatId}`] = true;
+        });
+        await admin.database().ref().update(notifUpdates);
+        console.log(`Wrote user_notifications for ${recipients.length} recipients.`);
+
         // Send to each recipient's registered FCM tokens
         const sendPromises = recipients.map(async (uid) => {
             const tokensSnap = await admin.database().ref(`users/${uid}/fcm_tokens`).once('value');

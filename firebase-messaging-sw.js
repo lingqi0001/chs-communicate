@@ -3,7 +3,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 
 firebase.initializeApp({
     apiKey: "AIzaSyCJX0prT18UJDn-hPsUWxVkXMdWAVrjgeM",
-    authDomain: "chscommunication.firebaseapp.com",
+    authDomain: "chschat.xyz",
     databaseURL: "https://chscommunication-default-rtdb.firebaseio.com",
     projectId: "chscommunication",
     storageBucket: "chscommunication.firebasestorage.app",
@@ -15,12 +15,13 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  const title = payload.data.title || 'Notification';
+  const data = payload.data || payload.notification || {};
+  const title = data.title || 'Notification';
   const options = {
-    body: payload.data.body,
-  icon: payload.data.icon || '/resources/favicon.svg',
-  badge: payload.data.badge || '/badge.png',
-  data: { url: payload.data.url }
+    body: data.body,
+    icon: data.icon || '/resources/favicon.svg',
+    badge: data.badge || '/badge.png',
+    data: { url: data.url }
   };
   self.registration.showNotification(title, options);
 });
@@ -28,7 +29,7 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     // Use URL from notification data if provided, otherwise fallback to origin root
-    const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : (self.location.origin + '/');
+    const targetUrl = (event.notification.data && event.notification.data.url) || (self.location.origin + '/');
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(function(clientList) {

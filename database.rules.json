@@ -77,6 +77,15 @@
       }
     },
 
+    "user_search": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+      }
+    },
+
+
+
     "messages": {
       "$chatId": {
         ".read": "auth != null && ((($chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists() || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.uid || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))) || ((!$chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && ($chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))))",

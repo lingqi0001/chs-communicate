@@ -1,6 +1,7 @@
 // =====================================================================
 //  VISUAL RESEARCH CANVAS ENGINE
 // =====================================================================
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 let canvasNodes = {};  // { nodeId: { type, title, desc, url, longText, imageUrl, tagColor, x, y } }
 let canvasEdges = [];  // [ { from, to, relation, label } ]
 let canvasFrames = []; // [ { id, title, nodeIds, x, y, w, h } ]
@@ -304,9 +305,9 @@ function renderCanvasFromState() {
             <button class="node-del-btn" style="right:28px" onclick="editCanvasNode('${id}')" title="Edit Card"><i data-lucide="pencil" style="width:11px; height:11px;"></i></button>
             <button class="node-del-btn danger-btn" onclick="deleteCanvasNode('${id}')" title="Delete Card"><i data-lucide="trash-2" style="width:11px; height:11px;"></i></button>
             <div style="font-size:9px; font-weight:900; color:var(--muted); text-transform:uppercase;">${typeLabel}</div>
-            <div class="canvas-node-title">${node.title}</div>
-            ${node.desc ? `<div class="canvas-node-desc">${node.desc}</div>` : ''}
-            ${node.longText ? `<div class="canvas-node-desc" style="opacity:0.9; max-height:34px; overflow:hidden;">${node.longText}</div>` : ''}
+            <div class="canvas-node-title">${escH(node.title)}</div>
+            ${node.desc ? `<div class="canvas-node-desc">${escH(node.desc)}</div>` : ''}
+            ${node.longText ? `<div class="canvas-node-desc" style="opacity:0.9; max-height:34px; overflow:hidden;">${escH(node.longText)}</div>` : ''}
             ${node.imageUrl ? `<div style="font-size:10px; color:var(--muted);">IMG: ${node.imageUrl}</div>` : ''}
             ${domain ? `<div style="font-size:10px; color:#3B82F6; cursor:pointer;" onclick="window.open('${formatUrl(node.url)}','_blank')">LINK ${domain}</div>` : ''}
             <div class="node-socket left-socket" data-id="${id}" title="Drop connection here"></div>
@@ -1004,7 +1005,7 @@ function autoCheckMilestoneFromConnection(sourceId, themeId) {
 
 function saveCanvasState() {
     const b = getBridge(); if (!b) return;
-    b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), { nodes: canvasNodes, edges: canvasEdges, frames: canvasFrames });
+    b.fSet(b.fRef(b.firebaseDb, `user_image_index/ir_v7/canvas/${currentUser.id}`), { nodes: canvasNodes, edges: canvasEdges, frames: canvasFrames }).catch(e => console.error('Canvas save failed:', e));
 }
 
 function loadCanvasState() {
@@ -1129,7 +1130,7 @@ function addReply(nodeId, noteIdx) {
     const input = document.getElementById('reply-' + noteIdx);
     if (!input || !input.value.trim()) return;
     const replyText = input.value.trim();
-    
+    if (!nodeComments[nodeId]) nodeComments[nodeId] = {notes: []};
     if (!nodeComments[nodeId].notes[noteIdx].replies) {
         nodeComments[nodeId].notes[noteIdx].replies = [];
     }

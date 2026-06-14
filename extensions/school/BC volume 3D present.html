@@ -342,6 +342,7 @@
     function getFn(str) {
         try {
             const p = smartParse(str);
+            if (!/^[x\d\s\+\-\*\/\.\(\)e,Math.sincoabtrlgexpqsqrtcbPIE**]+$/.test(p)) return null;
             const fn = new Function('x', 'root', `return ${p};`);
             fn(1, root); return (v) => fn(v, root);
         } catch (e) { return null; }

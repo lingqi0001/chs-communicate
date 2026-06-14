@@ -189,9 +189,14 @@ export function initCafeteriaFeature(deps) {
             return;
         }
 
-        const newRef = push(ref(db, 'cafeteria/pool'));
-        await set(newRef, { name: name, timestamp: serverTimestamp() });
-        input.value = '';
+        try {
+            const newRef = push(ref(db, 'cafeteria/pool'));
+            await set(newRef, { name: name, timestamp: serverTimestamp() });
+            input.value = '';
+        } catch (e) {
+            console.error('Failed to add food:', e);
+            AppModules.Modal.alert('Error', 'Failed to add food: ' + e.message);
+        }
     };
 
     window.deleteFoodFromPool = async (id, event) => {

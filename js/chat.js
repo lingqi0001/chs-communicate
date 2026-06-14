@@ -34,8 +34,9 @@ export function initChatEngine(deps) {
             }
         }
     });
-    let wasDesktopWidth = window.innerWidth >= 1024;
-    let wasMobileLayout = window.innerWidth <= 850;
+    let wasDesktopWidth = window.innerWidth >= 800;
+    let wasMobileLayout = window.innerWidth < 800;
+    let wasFullDesktop = window.innerWidth >= 1024;
     let currentLocalMsgs = [];
     let currentDisplayMsgs = [];
     let currentOldestLoadedKey = null;
@@ -110,7 +111,7 @@ export function initChatEngine(deps) {
         }
 
         // Force reload on mobile when re-opening the same chat
-        const isMobile = window.innerWidth <= 850;
+        const isMobile = window.innerWidth < 800;
         let loadingTimer = null;
         let isLoaded = false;
         if (forceReload || lastChatId !== chatId || isMobile) {
@@ -476,8 +477,10 @@ export function initChatEngine(deps) {
         if (!msgInput) return;
         const sendBtn = msgInput.nextElementSibling;
         const cameraBtn = document.getElementById('chatCameraBtn');
+        const inputPill = document.getElementById('chatInputPill');
 
         msgInput.disabled = !!disabled;
+        msgInput.rows = 1;
         if (placeholder) msgInput.placeholder = placeholder;
 
         if (sendBtn) {
@@ -490,6 +493,17 @@ export function initChatEngine(deps) {
             cameraBtn.style.pointerEvents = hideCamera ? 'none' : 'auto';
             if (!hideCamera) cameraBtn.style.display = safeGetIsPhotoDisabled() ? 'none' : 'block';
         }
+        if (inputPill) {
+            if (disabled) {
+                inputPill.style.width = '100%';
+                inputPill.style.flex = 'none';
+                setTimeout(updateComposerPadding, 50);
+            } else {
+                inputPill.style.width = '';
+                inputPill.style.flex = '';
+                setTimeout(updateComposerPadding, 50);
+            }
+        }
     }
 
     async function switchChat(targetId) {
@@ -498,7 +512,7 @@ export function initChatEngine(deps) {
         if (!targetId || targetId === currentUser.id) return;
         
         // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
-        const isMobile = window.innerWidth <= 850;
+        const isMobile = window.innerWidth < 800;
         if (targetId === activeTargetId && !isMobile) return;
         
         if (safeIsExtensionTargetId(targetId)) {
@@ -621,10 +635,16 @@ export function initChatEngine(deps) {
             const divId = div.id.replace('item-', '');
             if (divId === targetId) {
                 div.classList.add('active-chat-item');
-                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'dark:hover:bg-white/5');
+                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'hover:bg-black/5', 'dark:hover:bg-white/5');
             } else {
                 div.classList.remove('active-chat-item');
-                div.classList.add(divId.startsWith('group_') ? 'hover:bg-gray-50/50' : 'hover:bg-gray-50/5', 'dark:hover:bg-white/5');
+                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                if (!div.classList.contains('hover:bg-black/5')) {
+                    div.classList.add('hover:bg-black/5');
+                }
+                if (!div.classList.contains('dark:hover:bg-white/5')) {
+                    div.classList.add('dark:hover:bg-white/5');
+                }
             }
         });
     }
@@ -833,26 +853,64 @@ export function initChatEngine(deps) {
             if (typeof initGlobalNotificationMonitor === 'function') initGlobalNotificationMonitor();
             AppModules.Bridge.initIRNavigatorNotificationBridge();
 
-            if (window.innerWidth >= 1024) {
+            if (window.innerWidth >= 800) {
                 pickFirstRegularChat(chatMap);
             }
         });
 
         window.addEventListener('resize', () => {
-            const isDesktopWidth = window.innerWidth >= 1024;
-            const isMobileLayout = window.innerWidth <= 850;
+            const isDesktopWidth = window.innerWidth >= 800;
+            const isMobileLayout = window.innerWidth < 800;
+            const isFullDesktop = window.innerWidth >= 1024;
+            const isMidRange = window.innerWidth >= 800 && window.innerWidth < 1024;
 
-            // When shrinking into mobile layout, default back to message list panel.
+            // When shrinking into mobile layout (<800), default back to message list panel.
             if (!wasMobileLayout && isMobileLayout) {
                 window.AppModules?.View?.showPanel?.('messages');
+                // Clear the visual selection highlight from all sidebar items.
+                // The user is back at the list — nothing should appear "opened".
+                document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
+                    div.classList.remove('active-chat-item');
+                    div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                    if (!div.classList.contains('hover:bg-black/5')) {
+                        div.classList.add('hover:bg-black/5');
+                    }
+                    if (!div.classList.contains('dark:hover:bg-white/5')) {
+                        div.classList.add('dark:hover:bg-white/5');
+                    }
+                });
             }
 
+            // When entering the 800-1024px mid-range from full desktop (≥1024),
+            // initialize the two-panel layout by calling showPanel('messages').
+            // Without this, no CSS body class is set and all 3 panels stay visible.
+            if (wasFullDesktop && isMidRange) {
+                const View = window.AppModules?.View;
+                if (View) {
+                    View.state.currentPanel = 'messages';
+                    View.showPanel('messages');
+                    View.refreshBottomNav('messages');
+                }
+            }
+
+            // When expanding back to desktop width from mobile, reset the panel state
+            // so isMobile() no longer returns true due to stale mobile panel (e.g. 'news'/'tools').
             if (!wasDesktopWidth && isDesktopWidth) {
+                const View = window.AppModules?.View;
+                if (View) {
+                    // Reset currentPanel to 'messages' first so isMobile() evaluates correctly
+                    View.state.currentPanel = 'messages';
+                    // Now re-render desktop layout (showPanel will see isMobile()=false and show all panels)
+                    View.showPanel('messages');
+                    // Sync the bottom nav active indicator to Messages
+                    View.refreshBottomNav('messages');
+                }
                 pickFirstRegularChat(lastKnownChatMap);
             }
 
             wasMobileLayout = isMobileLayout;
             wasDesktopWidth = isDesktopWidth;
+            wasFullDesktop = isFullDesktop;
         });
     }
 
@@ -961,6 +1019,16 @@ export function initChatEngine(deps) {
         await MessageEngine.sendText(customVal);
     }
 
+    function updateComposerPadding() {
+        const chatBox = document.getElementById('chatBox');
+        const composer = document.getElementById('chatComposerWrap');
+        if (!chatBox || !composer) return;
+        const composerH = composer.getBoundingClientRect().height;
+        const basePadding = window.innerWidth < 768 ? 80 : 96;
+        const needed = Math.max(basePadding, composerH + 20);
+        chatBox.style.paddingBottom = `${needed}px`;
+    }
+
     function setupChatInput() {
         const input = document.getElementById('u-msg');
         if (!input) return;
@@ -971,12 +1039,14 @@ export function initChatEngine(deps) {
         const adjustHeight = () => {
             if (!input.value) {
                 input.style.height = '';
+                updateComposerPadding();
                 return;
             }
             input.style.height = 'auto';
             const computedMaxHeight = parseInt(window.getComputedStyle(input).maxHeight, 10);
             const newHeight = Math.min(input.scrollHeight, computedMaxHeight || 128);
             input.style.height = `${newHeight}px`;
+            updateComposerPadding();
         };
 
         const updatePlaceholder = () => {

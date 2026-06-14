@@ -33,6 +33,7 @@ export const SyncModule = {
     },
     _heartbeatInterval: null,
     _groupSyncInterval: null,
+    _activeUnsubscribers: [],
 
     /**
      * Initializes UI render callbacks
@@ -40,6 +41,11 @@ export const SyncModule = {
      */
     init(cbs) {
         this.callbacks = { ...this.callbacks, ...cbs };
+    },
+
+    cleanupListeners() {
+        this._activeUnsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
+        this._activeUnsubscribers = [];
     },
 
     /**
@@ -81,6 +87,7 @@ export const SyncModule = {
      * @param {Object} currentUser - Current authenticated user
      */
     async globalDataSync(db, currentUser = null) {
+        this.cleanupListeners();
         console.log('Sync: Starting background globalDataSync...');
         const syncHint = document.getElementById('newsSyncHint');
         if (syncHint) syncHint.classList.add('opacity-100');
@@ -108,7 +115,7 @@ export const SyncModule = {
                 // 4. Incremental Real-time Sync for future updates
                 const lastKey = remoteKeys.sort().pop();
                 const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), orderByKey(), limitToLast(1));
-                onChildAdded(q, async (snap) => {
+                const unsubNewsAdded = onChildAdded(q, async (snap) => {
                     console.log(`Sync: New item received for news/${tab}`);
                     await DBModule.Local.saveNews(tab, snap.key, snap.val());
                     const updatedLocal = await DBModule.Local.getNews(tab);
@@ -116,9 +123,10 @@ export const SyncModule = {
                         this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
                     }
                 });
+                this._activeUnsubscribers.push(unsubNewsAdded);
 
                 // Listen for announcement deletions to update UI and IndexedDB in real-time
-                onChildRemoved(ref(db, `news/${tab}`), async (snap) => {
+                const unsubNewsRemoved = onChildRemoved(ref(db, `news/${tab}`), async (snap) => {
                     console.log(`Sync: Item removed from news/${tab}: ${snap.key}`);
                     if (DBModule.Local.deleteNews) {
                         await DBModule.Local.deleteNews(tab, snap.key);
@@ -128,6 +136,7 @@ export const SyncModule = {
                         this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
                     }
                 });
+                this._activeUnsubscribers.push(unsubNewsRemoved);
             } catch (err) {
                 console.error(`Sync: Failed for news/${tab}:`, err);
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
@@ -145,7 +154,7 @@ export const SyncModule = {
             try {
                 const lastKey = await DBModule.Local.getLastKey('modules', 'moduleName', name);
                 const q = lastKey ? query(ref(db, `modules/${name}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `modules/${name}`), orderByKey(), limitToLast(50));
-                onChildAdded(q, async (snap) => {
+                const unsubModule = onChildAdded(q, async (snap) => {
                     try {
                         const post = { id: snap.key, ...snap.val() };
                         await DBModule.Local.saveModulePost(name, snap.key, post);
@@ -153,12 +162,13 @@ export const SyncModule = {
                         document.dispatchEvent(new CustomEvent('sync:module-post', { detail: { moduleName: name, post } }));
                     } catch (e) { console.error('Sync: Module child error:', e); }
                 });
+                this._activeUnsubscribers.push(unsubModule);
             } catch (err) {
                 console.warn(`Sync: Failed for module/${name}:`, err);
             }
         }
 
-        // 6. Pre-fetch unread messages if IndexedDB cache is empty
+        // 6. Pre-fetch unread messages if IndexedDB cache is empty (limit to 5 most recent)
         try {
             const isCacheEmpty = await DBModule.Local.isMessagesCacheEmpty();
             if (isCacheEmpty && currentUser) {
@@ -166,7 +176,7 @@ export const SyncModule = {
                 if (uid) {
                     const notifySnap = await get(ref(db, `user_notifications/${uid}`));
                     const notifyData = notifySnap.val() || {};
-                    const unreadChatIds = Object.keys(notifyData).filter(key => notifyData[key] === true);
+                    const unreadChatIds = Object.keys(notifyData).filter(key => notifyData[key] === true).slice(0, 5);
                     
                     console.log(`Sync: Pre-fetching ${unreadChatIds.length} unread chats...`);
                     for (const chatId of unreadChatIds) {
@@ -240,7 +250,7 @@ export const SyncModule = {
     async syncGroupChats(db, currentUser) {
         if (!currentUser || !currentUser.id) return;
         try {
-            const snap = await get(ref(db, 'classes'));
+            const snap = await get(query(ref(db, 'classes'), orderByKey(), limitToLast(200)));
             const classes = snap.val() || {};
             
             this.existingClassIds = {};
@@ -272,7 +282,7 @@ export const SyncModule = {
                             localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
                             if (this.callbacks.renderSidebar) this.callbacks.renderSidebar();
                         }
-                    });
+                    }).catch(() => {});
                 }
 
                 const classData = classes[cid];

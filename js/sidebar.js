@@ -376,13 +376,13 @@ export const SidebarModule = {
                         ev.stopPropagation();
                         window.currentClassId = null;
                         window._isPopNav = true;
-                        AppModules.Sidebar.renderSidebar(true);
+                        this.renderSidebar(true);
                     };
                 }
 
                 const snap = await rt.get(rt.ref(rt.db, `classes/${window.currentClassId}`));
                 const c = snap.val();
-                if (!c) { window.currentClassId = null; AppModules.Sidebar.renderSidebar(); return; }
+                if (!c) { window.currentClassId = null; this.renderSidebar(); return; }
 
                 const titleEl = container.querySelector('#sidebarLevel2Title');
                 if (titleEl) titleEl.innerText = c.name;
@@ -550,7 +550,7 @@ export const SidebarModule = {
                         item.onclick = () => {
                             window.currentClassId = c.id;
                             AppModules.Sidebar.renderSidebar();
-                            if (window.innerWidth >= 1024) window.switchChat('group_' + c.id);
+                            if (window.innerWidth >= 800) window.switchChat('group_' + c.id);
                         };
                         item.innerHTML = `
                             <div class="flex items-center gap-4">

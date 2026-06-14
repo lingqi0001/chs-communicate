@@ -135,6 +135,15 @@ export const UserModule = {
             });
         }
 
+
+
+        // Sync lightweight search index (one-time per user)
+        await CloudDB.set(`user_search/${idPrefix}`, {
+            name: profile.name,
+            email: email,
+            avatar: profile.avatar || null
+        });
+
         this.current = profile;
         return profile;
     },

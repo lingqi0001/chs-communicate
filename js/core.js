@@ -9,7 +9,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, push, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { getMessaging, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
 export const CoreModule = {
@@ -49,7 +49,7 @@ export const CoreModule = {
         window.firebaseStorage = storage;
         window.firebaseAuth = auth;
         window.fRef = ref; window.fSet = set; window.fUpdate = update; window.fPush = push; window.fGet = get; window.fOnValue = onValue;
-        window.sRef = sRef; window.sUpload = uploadString; window.sGetUrl = getDownloadURL;
+        window.sRef = sRef; window.sUpload = uploadBytes; window.sGetUrl = getDownloadURL;
         window.firebaseOnAuth = onAuthStateChanged;
 
         // 3. Setup Core State Proxy (currentUser)
@@ -66,7 +66,8 @@ export const CoreModule = {
         window.handleSignOut = async () => {
             window.deviceRegistered = false;
             try {
-                const uid = auth.currentUser ? auth.currentUser.email.split('@')[0].replace(/\./g, '_').toLowerCase() : null;
+                const user = auth.currentUser;
+                const uid = user && user.email ? user.email.split('@')[0].replace(/\./g, '_').toLowerCase() : null;
                 const deviceId = localStorage.getItem('deviceId');
                 if (uid && deviceId) {
                     const deviceSnap = await get(ref(db, `users/${uid}/devices/${deviceId}`));
@@ -168,4 +169,4 @@ export const CoreModule = {
 
 // Re-export Firebase Database and Storage API functions for index.html use
 export { ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-export { ref as sRef, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+export { ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";

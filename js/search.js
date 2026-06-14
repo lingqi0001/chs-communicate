@@ -6,8 +6,8 @@
  * ==================================================================================
  */
 
-import { get, query, ref, orderByKey, limitToFirst } from './core.js';
-import { localDB, dbReady } from './db.js';
+import { get, query, ref, orderByKey, limitToFirst, limitToLast } from './core.js';
+import { localDB, dbReady, saveMessageLocal } from './db.js';
 
 const HISTORY_KEY = 'chs_search_history';
 const MAX_HISTORY_LEN = 8;
@@ -57,7 +57,7 @@ export const SearchModule = {
         if (!host) return;
         host.insertAdjacentHTML('beforeend', `
                     <div id="globalSearchResults"
-                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[420px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
+                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[520px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
                         <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
                         <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
                             <button onclick="setSearchCategory('messages')" id="searchCat-messages"
@@ -73,10 +73,13 @@ export const SearchModule = {
                             <button onclick="setSearchCategory('club')" id="searchCat-club"
                                 class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Club</button>
                         </div>
-                        <!-- Scrollable Results Area -->
-                        <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
+                    <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
                     </div>
         `);
+        const resultList = document.getElementById('searchResultList');
+        if (resultList && typeof window.setupCustomScrollbar === 'function') {
+            window.setupCustomScrollbar(resultList);
+        }
     },
 
     /**
@@ -214,61 +217,174 @@ export const SearchModule = {
     /**
      * Dimension 3: Search messages (Messages) from IndexedDB
      */
-    async searchMessages(term, currentUser, localDB, sidebarClasses, cnCache) {
+    async searchMessages(term, currentUser, localDB, sidebarClasses, cnCache, db) {
         const termLower = term.toLowerCase().trim();
-        if (!termLower || !localDB) return [];
+        console.log('[SEARCH:MSG] ▶ searchMessages called, term:', termLower);
+        if (!termLower) return { localResults: [], hasMore: false };
 
-        try {
-            const tx = localDB.transaction("messages", "readonly");
-            const store = tx.objectStore("messages");
-            const allMsgs = await new Promise((resolve, reject) => {
-                const req = store.getAll();
-                req.onsuccess = () => resolve(req.result || []);
-                req.onerror = () => reject(req.error);
-            });
+        let localResults = [];
 
-            const currentUserIdLower = currentUser.id.toLowerCase();
+        // 1. Search IndexedDB
+        if (localDB) {
+            try {
+                console.log('[SEARCH:MSG] → Searching IndexedDB...');
+                const tx = localDB.transaction("messages", "readonly");
+                const store = tx.objectStore("messages");
+                const allMsgs = await new Promise((resolve, reject) => {
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                console.log('[SEARCH:MSG] → IndexedDB total messages:', allMsgs.length);
 
-            return allMsgs.filter(m => {
-                if (!m.text || !m.chatId) return false;
-                // Exclude base64 image strings
-                if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
+                const currentUserIdLower = currentUser.id.toLowerCase();
 
-                // Group/Private permission gating
-                if (m.chatId.startsWith('group_')) {
-                    const classId = m.chatId.replace('group_', '');
-                    if (!sidebarClasses || !sidebarClasses[classId]) return false;
-                } else {
-                    const otherParticipantId = getOtherParticipantId(m.chatId, currentUserIdLower);
-                    if (!otherParticipantId) return false;
-                }
-                return m.text.toLowerCase().includes(termLower);
-            }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15).map(m => {
-                let chatName = "Chat";
-                let jumpId = m.chatId;
-                if (m.chatId.startsWith('group_')) {
-                    const classId = m.chatId.replace('group_', '');
-                    chatName = (cnCache && cnCache[classId]) ? cnCache[classId] : "Class Chat";
-                } else {
-                    const otherId = getOtherParticipantId(m.chatId, currentUser.id);
-                    if (otherId) {
-                        chatName = otherId; // Resolved in UI using ALL_USERS mapping
-                        jumpId = otherId;
+                localResults = allMsgs.filter(m => {
+                    if (!m.text || !m.chatId) return false;
+                    if (m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) return false;
+                    if (m.chatId.startsWith('group_')) {
+                        const classId = m.chatId.replace('group_', '');
+                        if (!sidebarClasses || !sidebarClasses[classId]) return false;
+                    } else {
+                        const otherParticipantId = getOtherParticipantId(m.chatId, currentUserIdLower);
+                        if (!otherParticipantId) return false;
+                    }
+                    return m.text.toLowerCase().includes(termLower);
+                }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(m => {
+                    let chatName = "Chat";
+                    let jumpId = m.chatId;
+                    if (m.chatId.startsWith('group_')) {
+                        const classId = m.chatId.replace('group_', '');
+                        chatName = (cnCache && cnCache[classId]) ? cnCache[classId] : "Class Chat";
+                    } else {
+                        const otherId = getOtherParticipantId(m.chatId, currentUser.id);
+                        if (otherId) {
+                            chatName = otherId;
+                            jumpId = otherId;
+                        }
+                    }
+                    return {
+                        chatId: m.chatId,
+                        chatName,
+                        text: m.text,
+                        timestamp: m.timestamp,
+                        key: m.key || (m.compositeId ? m.compositeId.substring(m.chatId.length + 1) : ''),
+                        jumpId
+                    };
+                });
+                console.log('[SEARCH:MSG] → IndexedDB filtered results:', localResults.length);
+            } catch (e) {
+                console.error('[SEARCH:MSG] ✗ IndexedDB search failed:', e);
+            }
+        } else {
+            console.log('[SEARCH:MSG] → localDB is null, skipping IndexedDB');
+        }
+
+        // 2. Prepare Firebase search state
+        let hasMore = false;
+        if (db) {
+            try {
+                const uid = currentUser.id.toLowerCase();
+                console.log('[SEARCH:MSG] → Fetching user_chats for uid:', uid);
+                const chatSnap = await get(ref(db, `user_chats/${uid}`));
+                const chatMap = chatSnap.val() || {};
+                const allChatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
+                console.log('[SEARCH:MSG] → Total chats:', allChatIds.length);
+                
+                const prevState = this._firebaseSearchState;
+                const alreadySearchedAll = prevState && prevState.term === termLower && prevState.searchedIndex >= prevState.allChatIds.length;
+
+                this._firebaseSearchState = {
+                    term: termLower,
+                    allChatIds,
+                    searchedIndex: alreadySearchedAll ? allChatIds.length : 0,
+                    resultChats: new Set(localResults.map(r => r.chatId)),
+                    displayedKeys: new Set(localResults.map(r => r.key).filter(Boolean)),
+                    currentUser,
+                    cnCache,
+                    db
+                };
+                hasMore = !alreadySearchedAll && allChatIds.length > 0;
+            } catch (e) {
+                console.error('[SEARCH:MSG] ✗ Failed to init Firebase search state:', e);
+            }
+        } else {
+            console.log('[SEARCH:MSG] → db is null, skipping Firebase state init');
+        }
+
+        console.log('[SEARCH:MSG] ✓ Returning localResults:', localResults.length, 'hasMore:', hasMore);
+        return { localResults, hasMore };
+    },
+
+    async loadMoreFirebaseMessages() {
+        const state = this._firebaseSearchState;
+        if (!state || state.searchedIndex >= state.allChatIds.length) {
+            console.log('[SEARCH:FIRE] ▶ loadMoreFirebaseMessages: no state or all searched');
+            return { results: [], hasMore: false };
+        }
+
+        const results = [];
+        const { term, allChatIds, currentUser, cnCache, db } = state;
+        const TARGET_CHATS = 10;
+
+        const startIdx = state.searchedIndex;
+        console.log('[SEARCH:FIRE] ▶ Searching from index', startIdx, 'of', allChatIds.length, 'target:', TARGET_CHATS, 'chats with results');
+
+        for (let i = startIdx; i < allChatIds.length; i++) {
+            const targetId = allChatIds[i];
+            const chatId = targetId.startsWith('group_') ? targetId : [currentUser.id, targetId].sort().join('_');
+            try {
+                const msgSnap = await get(ref(db, `messages/${chatId}`));
+                const msgs = msgSnap.val() || {};
+                const msgCount = Object.keys(msgs).length;
+                let found = 0;
+                for (const key in msgs) {
+                    const m = msgs[key];
+                    try { await saveMessageLocal(chatId, key, m); } catch (e) {}
+                    if (!m.text || m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) continue;
+                    if (m.text.toLowerCase().includes(term)) {
+                        if (state.displayedKeys.has(key)) continue;
+                        if (!state.resultChats.has(targetId)) {
+                            state.resultChats.add(targetId);
+                        }
+                        state.displayedKeys.add(key);
+                        let chatName = "Chat";
+                        let jumpId = targetId;
+                        if (targetId.startsWith('group_')) {
+                            const classId = targetId.replace('group_', '');
+                            chatName = (cnCache && cnCache[classId]) ? cnCache[classId] : "Class Chat";
+                        } else {
+                            chatName = targetId;
+                        }
+                        results.push({
+                            chatId: targetId,
+                            chatName,
+                            text: m.text,
+                            timestamp: m.timestamp || 0,
+                            key,
+                            jumpId
+                        });
+                        found++;
                     }
                 }
-                return {
-                    chatId: m.chatId,
-                    chatName,
-                    text: m.text,
-                    timestamp: m.timestamp,
-                    key: m.key || (m.compositeId ? m.compositeId.substring(m.chatId.length + 1) : ''),
-                    jumpId
-                };
-            });
-        } catch (e) {
-            console.warn("IndexedDB messages search failed:", e);
-            return [];
+                if (found > 0) console.log('[SEARCH:FIRE]   ✓ chat', targetId, ':', msgCount, 'msgs,', found, 'matches');
+                else if (i < startIdx + 3) console.log('[SEARCH:FIRE]   - chat', targetId, ':', msgCount, 'msgs, 0 matches');
+            } catch (e) {
+                console.error('[SEARCH:FIRE] ✗ chat', targetId, 'failed:', e.message);
+            }
+
+            if (state.resultChats.size >= TARGET_CHATS) {
+                console.log('[SEARCH:FIRE] → Reached', TARGET_CHATS, 'chats with results, stopping');
+                break;
+            }
         }
+
+        state.searchedIndex = allChatIds.length;
+        const allDone = state.searchedIndex >= allChatIds.length;
+        const hitLimit = state.resultChats.size >= TARGET_CHATS;
+
+        console.log('[SEARCH:FIRE] ✓ Done. total results:', results.length, 'chats with results:', state.resultChats.size, 'allDone:', allDone);
+        return { results, hasMore: false };
     },
 
     /**
@@ -412,12 +528,15 @@ export const SearchModule = {
         };
 
         // Click outside search container to close results
-        document.addEventListener('click', (e) => {
-            const searchContainer = document.getElementById('globalSearchInput')?.parentElement?.parentElement;
-            if (searchContainer && !searchContainer.contains(e.target)) {
-                window.clearGlobalSearch();
-            }
-        });
+        if (!this._clickOutsideRegistered) {
+            document.addEventListener('click', (e) => {
+                const searchContainer = document.getElementById('globalSearchInput')?.parentElement?.parentElement;
+                if (searchContainer && !searchContainer.contains(e.target)) {
+                    window.clearGlobalSearch();
+                }
+            });
+            this._clickOutsideRegistered = true;
+        }
 
         window.triggerAddHistory = (term) => {
             this.addHistory(term);
@@ -427,6 +546,10 @@ export const SearchModule = {
             const input = document.getElementById('globalSearchInput');
             if (input) {
                 input.value = term;
+                const resultList = document.getElementById('searchResultList');
+                if (resultList) {
+                    resultList.innerHTML = '<div id="searchLoading" class="px-4 py-6 text-center"><div class="inline-flex items-center gap-2 text-xs text-gray-400"><svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Searching...</div></div>';
+                }
                 window.handleGlobalSearch({ target: input });
             }
         };
@@ -446,6 +569,67 @@ export const SearchModule = {
             const input = document.getElementById('globalSearchInput');
             if (input) {
                 window.handleGlobalSearch({ target: input });
+            }
+        };
+
+        window.loadMoreSearchResults = async () => {
+            const state = this._firebaseSearchState;
+            console.log('[SEARCH:MORE] ▶ loadMoreSearchResults called, state:', !!state, 'searchedIndex:', state?.searchedIndex, 'total:', state?.allChatIds?.length);
+            if (!state || state.searchedIndex >= state.allChatIds.length) return;
+
+            const moreBtn = document.getElementById('firebaseSearchMore');
+            if (moreBtn) {
+                moreBtn.innerHTML = '<span class="text-xs text-gray-400">Searching...</span>';
+            }
+
+            try {
+                const { results, hasMore } = await this.loadMoreFirebaseMessages();
+                console.log('[SEARCH:MORE] → Got results:', results.length, 'hasMore:', hasMore);
+
+        const resultList = document.getElementById('searchResultList');
+        if (resultList && typeof window.setupCustomScrollbar === 'function') {
+            window.setupCustomScrollbar(resultList);
+        }
+                if (!resultList) { console.log('[SEARCH:MORE] ✗ resultList not found'); return; }
+
+                const marker = document.getElementById('firebaseSearchMore');
+
+                if (results.length > 0) {
+                    const frag = document.createDocumentFragment();
+                    results.forEach(m => {
+                        let resolvedChatName = m.chatName;
+                        if (!m.chatId.startsWith('group_')) {
+                            resolvedChatName = window.ALL_USERS[m.chatName]?.name || m.chatName;
+                        }
+                        const escapedJumpId = escapeForInlineHandler(m.jumpId);
+                        const escapedText = escapeForInlineHandler(m.text);
+                        const escapedKey = escapeForInlineHandler(m.key || '');
+                        const escapedTerm2 = escapeForInlineHandler(state.term);
+
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors';
+                        div.setAttribute('onclick', `switchChat('${escapedJumpId}'); triggerAddHistory('${escapedTerm2}'); setTimeout(() => jumpToMessage('${escapedText}', '${escapedTerm2}', '${escapedKey}'), 500); clearGlobalSearch();`);
+                        div.innerHTML = `<div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${window.escapeHTML(resolvedChatName)}</div><div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${window.escapeHTML(m.text)}</div>`;
+                        frag.appendChild(div);
+                    });
+                    if (marker) {
+                        resultList.insertBefore(frag, marker);
+                    } else {
+                        resultList.appendChild(frag);
+                    }
+                    console.log('[SEARCH:MORE] → Inserted', results.length, 'results into DOM');
+                }
+
+                if (moreBtn) {
+                    if (hasMore) {
+                        moreBtn.innerHTML = '<button onclick="event.stopPropagation(); window.loadMoreSearchResults()" class="text-xs text-[#007AFF] font-semibold hover:underline">Search more in database</button>';
+                    } else {
+                        moreBtn.innerHTML = '<span class="text-xs text-gray-400">Search complete</span>';
+                    }
+                }
+            } catch (e) {
+                console.error('Load more search failed:', e);
+                if (moreBtn) moreBtn.innerHTML = '<span class="text-xs text-gray-400">Search complete</span>';
             }
         };
 
@@ -493,9 +677,11 @@ export const SearchModule = {
         window.handleGlobalSearch = (e) => {
             clearTimeout(searchTimeout);
             const term = e.target.value.trim();
+            console.log('[SEARCH] handleGlobalSearch triggered, term:', JSON.stringify(term), 'eventType:', e.type);
             const results = document.getElementById('globalSearchResults');
             const resultList = document.getElementById('searchResultList');
             const clearBtn = document.getElementById('globalSearchClear');
+            console.log('[SEARCH] results:', !!results, 'resultList:', !!resultList, 'clearBtn:', !!clearBtn);
 
             if (!term) {
                 if (clearBtn) clearBtn.classList.add('hidden');
@@ -543,192 +729,235 @@ export const SearchModule = {
             }
 
             searchTimeout = setTimeout(async () => {
-                let html = '';
+                console.log('[SEARCH] ▶ searchTimeout fired, term:', term);
                 const cat = window.currentSearchCategory;
                 const currentUser = getCurrentUser();
                 const escapedTerm = escapeForInlineHandler(term);
- 
-                // --- 维度 1：人名与用户检索 (People Search) ---
+                console.log('[SEARCH] cat:', cat, 'currentUser:', currentUser?.id, 'localDB:', !!localDB, 'db:', !!db);
+
+                if (!resultList) return;
+                resultList.innerHTML = '<div id="searchLoading" class="px-4 py-6 text-center"><div class="inline-flex items-center gap-2 text-xs text-gray-400"><svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Searching...</div></div>';
+                window.showGlobalSearchResults();
+
+                let totalResults = 0;
+                const appendHtml = (newHtml) => {
+                    const loader = document.getElementById('searchLoading');
+                    if (loader) loader.remove();
+                    resultList.insertAdjacentHTML('beforeend', newHtml);
+                    totalResults++;
+                };
+
+                const searchPromises = [];
+
                 if (cat === 'all' || cat === 'messages' || cat === 'people') {
-                    try {
-                        const now = Date.now();
-                        if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(window.ALL_USERS).length < 10) {
-                            const allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
-                            if (allSnap.exists()) {
-                                Object.assign(window.ALL_USERS, allSnap.val());
-                                window._lastUserFetch = now;
+                    searchPromises.push((async () => {
+                        console.log('[SEARCH] → People search starting...');
+                        try {
+                            const now = Date.now();
+                            if (!window._lastUserFetch || (now - window._lastUserFetch > 300000) || Object.keys(window.ALL_USERS).length < 10) {
+                                console.log('[SEARCH] → Fetching user_search from Firebase...');
+                                let allSnap = await get(query(ref(db, 'user_search'), orderByKey(), limitToFirst(5000)));
+                                console.log('[SEARCH] → user_search exists:', allSnap.exists(), 'count:', allSnap.exists() ? Object.keys(allSnap.val() || {}).length : 0);
+                                if (!allSnap.exists() || Object.keys(allSnap.val() || {}).length < 10) {
+                                    console.log('[SEARCH] → Falling back to users node...');
+                                    allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
+                                    console.log('[SEARCH] → users exists:', allSnap.exists(), 'count:', allSnap.exists() ? Object.keys(allSnap.val() || {}).length : 0);
+                                }
+                                if (allSnap.exists()) {
+                                    Object.assign(window.ALL_USERS, allSnap.val());
+                                    window._lastUserFetch = now;
+                                    console.log('[SEARCH] → ALL_USERS total:', Object.keys(window.ALL_USERS).length);
+                                }
+                            } else {
+                                console.log('[SEARCH] → Using cached ALL_USERS:', Object.keys(window.ALL_USERS).length);
                             }
-                        }
 
-                        const peopleResults = this.searchPeople(term, currentUser, window.ALL_USERS);
-                        if (peopleResults.length > 0) {
-                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
-                            peopleResults.forEach(u => {
-                                let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
-                                if (u.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
-
-                                const escapedId = escapeForInlineHandler(u.id);
-                                html += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
-                                    <div><div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${window.escapeHTML(u.email)}</div></div>
-                                </div>`;
-                            });
-                        }
-                    } catch (err) { console.warn('Aggressive search failed:', err); }
+                            const peopleResults = this.searchPeople(term, currentUser, window.ALL_USERS);
+                            console.log('[SEARCH] → People results:', peopleResults.length);
+                            if (peopleResults.length > 0) {
+                                let chunk = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">People</div>`;
+                                peopleResults.forEach(u => {
+                                    let avatar = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`;
+                                    if (u.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) avatar = window.CONSTANTS.SUSHI_AVATAR;
+                                    const escapedId = escapeForInlineHandler(u.id);
+                                    chunk += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
+                                        <div><div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${window.escapeHTML(u.email)}</div></div>
+                                    </div>`;
+                                });
+                                appendHtml(chunk);
+                            }
+                        } catch (err) { console.error('[SEARCH] ✗ People search FAILED:', err); }
+                    })());
                 }
 
-                // --- 维度 2：工具与内置扩展程序搜索 (Tools Search) ---
                 if (cat === 'all' || cat === 'tools') {
-                    const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
-                    const toolsResults = this.searchTools(term, registry);
-
-                    if (toolsResults.length > 0) {
-                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
-                        toolsResults.forEach(t => {
-                            const escapedToolId = escapeForInlineHandler(t.id);
-                            const onClick = t.type === 'module' ? `openModule('${escapedToolId}')` : `openExtension('${escapedToolId}')`;
-                            html += `
-                                <div onclick="${onClick}; triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(t.name)}</div>
-                                        <div class="text-xs text-gray-400">${window.escapeHTML(t.desc)}</div>
-                                    </div>
-                                </div>`;
-                        });
-                    }
-                }
-
-                // --- 维度 3：聊天消息检索 (Messages Search) ---
-                if (cat === 'all' || cat === 'messages') {
-                    if (!localDB) {
-                        await dbReady;
-                    }
-                    const sidebarClasses = getSidebarClasses();
-                    const cnCache = getCnCache();
-                    const messageResults = await this.searchMessages(term, currentUser, localDB, sidebarClasses, cnCache);
- 
-                    if (messageResults.length > 0) {
-                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
-                        messageResults.forEach(m => {
-                            let resolvedChatName = m.chatName;
-                            if (!m.chatId.startsWith('group_')) {
-                                resolvedChatName = window.ALL_USERS[m.chatName]?.name || m.chatName;
+                    searchPromises.push((async () => {
+                        console.log('[SEARCH] → Tools search starting...');
+                        try {
+                            const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
+                            const toolsResults = this.searchTools(term, registry);
+                            console.log('[SEARCH] → Tools results:', toolsResults.length);
+                            if (toolsResults.length > 0) {
+                                let chunk = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tools</div>`;
+                                toolsResults.forEach(t => {
+                                    const escapedToolId = escapeForInlineHandler(t.id);
+                                    const onClick = t.type === 'module' ? `openModule('${escapedToolId}')` : `openExtension('${escapedToolId}')`;
+                                    chunk += `<div onclick="${onClick}; triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(t.name)}</div>
+                                            <div class="text-xs text-gray-400">${window.escapeHTML(t.desc)}</div>
+                                        </div>
+                                    </div>`;
+                                });
+                                appendHtml(chunk);
                             }
-                            const escapedJumpId = escapeForInlineHandler(m.jumpId);
-                            const escapedText = escapeForInlineHandler(m.text);
-                            const escapedKey = escapeForInlineHandler(m.key || '');
- 
-                            html += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${escapedTerm}'); setTimeout(() => jumpToMessage('${escapedText}', '${escapedTerm}', '${escapedKey}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${window.escapeHTML(resolvedChatName)}</div>
-                                <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${window.escapeHTML(m.text)}</div>
-                            </div>`;
-                        });
-                    }
+                        } catch (err) { console.error('[SEARCH] ✗ Tools search FAILED:', err); }
+                    })());
                 }
- 
-                // --- 维度 4：新闻公告与社区动态搜索 (News & Modules Search) ---
+
+                if (cat === 'all' || cat === 'messages') {
+                    searchPromises.push((async () => {
+                        console.log('[SEARCH] → Messages search starting...');
+                        try {
+                            if (!localDB) { await dbReady; }
+                            const sidebarClasses = getSidebarClasses();
+                            const cnCache = getCnCache();
+                            const { localResults, hasMore } = await this.searchMessages(term, currentUser, localDB, sidebarClasses, cnCache, db);
+                            console.log('[SEARCH] → Messages localResults:', localResults.length, 'hasMore:', hasMore);
+
+                            if (localResults.length > 0) {
+                                let chunk = `<div data-messages-header class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Messages</div>`;
+                                localResults.forEach(m => {
+                                    let resolvedChatName = m.chatName;
+                                    if (!m.chatId.startsWith('group_')) {
+                                        resolvedChatName = window.ALL_USERS[m.chatName]?.name || m.chatName;
+                                    }
+                                    const escapedJumpId = escapeForInlineHandler(m.jumpId);
+                                    const escapedText = escapeForInlineHandler(m.text);
+                                    const escapedKey = escapeForInlineHandler(m.key || '');
+                                    chunk += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${escapedTerm}'); setTimeout(() => jumpToMessage('${escapedText}', '${escapedTerm}', '${escapedKey}'), 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="text-xs font-bold text-[#007AFF] mb-0.5">in ${window.escapeHTML(resolvedChatName)}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-snug">${window.escapeHTML(m.text)}</div>
+                                    </div>`;
+                                });
+                                appendHtml(chunk);
+                            }
+
+                            if (hasMore) {
+                                appendHtml(`<div id="firebaseSearchMore" class="px-4 py-3 text-center">
+                                    <button onclick="event.stopPropagation(); window.loadMoreSearchResults()" class="text-xs text-[#007AFF] font-semibold hover:underline">Search more in database</button>
+                                </div>`);
+                            }
+                        } catch (err) { console.error('[SEARCH] ✗ Messages search FAILED:', err); }
+                    })());
+                }
+
                 if (cat === 'all' || cat === 'news' || cat === 'community') {
-                    if (!localDB) {
-                        await dbReady;
-                    }
-                    if (localDB) {
-                        const newsResults = await this.searchNewsAndModules(term, localDB, cat);
- 
-                        let newsHtml = '';
-                        if (newsResults.news.length > 0) {
-                            newsResults.news.forEach(item => {
-                                const escapedStoreName = escapeForInlineHandler(item.storeName);
-                                const escapedItemKey = escapeForInlineHandler(item.key);
-                                const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
-                                newsHtml += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
-                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
-                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
-                                </div>`;
-                            });
+                    searchPromises.push((async () => {
+                        if (!localDB) { await dbReady; }
+                        if (localDB) {
+                            const newsResults = await this.searchNewsAndModules(term, localDB, cat);
+                            let chunk = '';
+                            if (newsResults.news.length > 0) {
+                                chunk += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Announcements</div>`;
+                                newsResults.news.forEach(item => {
+                                    const escapedStoreName = escapeForInlineHandler(item.storeName);
+                                    const escapedItemKey = escapeForInlineHandler(item.key);
+                                    const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
+                                    chunk += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
+                                        <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
+                                        <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
+                                    </div>`;
+                                });
+                            }
+                            if (newsResults.community.length > 0) {
+                                chunk += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Community</div>`;
+                                newsResults.community.forEach(item => {
+                                    const escapedStoreName = escapeForInlineHandler(item.storeName);
+                                    const escapedItemKey = escapeForInlineHandler(item.key);
+                                    const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
+                                    chunk += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Community</div>
+                                        <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
+                                        <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
+                                    </div>`;
+                                });
+                            }
+                            if (chunk) appendHtml(chunk);
                         }
- 
-                        let communityHtml = '';
-                        if (newsResults.community.length > 0) {
-                            newsResults.community.forEach(item => {
-                                const escapedStoreName = escapeForInlineHandler(item.storeName);
-                                const escapedItemKey = escapeForInlineHandler(item.key);
-                                const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
-                                communityHtml += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Community</div>
-                                    <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
-                                    <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
-                                </div>`;
-                            });
-                        }
- 
-                        if (newsHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Announcements</div>` + newsHtml;
-                        if (communityHtml) html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Community</div>` + communityHtml;
-                    }
+                    })());
                 }
 
-                // --- Club Search ---
                 if (cat === 'all' || cat === 'club') {
-                    const newsModule = window.AppModules && window.AppModules.News;
-                    if (newsModule && typeof newsModule.getClubsForSearch === 'function') {
-                        const clubResults = newsModule.getClubsForSearch(term).slice(0, 20);
-                        if (clubResults.length > 0) {
-                            html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club</div>`;
-                            clubResults.forEach((clubItem) => {
-                                const escapedClubId = escapeForInlineHandler(clubItem.id);
-                                const locationLabel = clubItem.isJoined ? 'My Joint' : 'Discover';
-                                const badgeClass = clubItem.isJoined
-                                    ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300';
-                                html += `<div onclick="navigateToClubSearch('${escapedClubId}', '${escapedTerm}')" class="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                    <div class="min-w-0">
-                                        <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(clubItem.name)}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(clubItem.desc || clubItem.sponsor || 'Club')}</div>
+                    searchPromises.push((async () => {
+                        const newsModule = window.AppModules && window.AppModules.News;
+                        let chunk = '';
+                        if (newsModule && typeof newsModule.getClubsForSearch === 'function') {
+                            const clubResults = newsModule.getClubsForSearch(term).slice(0, 20);
+                            if (clubResults.length > 0) {
+                                chunk += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club</div>`;
+                                clubResults.forEach((clubItem) => {
+                                    const escapedClubId = escapeForInlineHandler(clubItem.id);
+                                    const locationLabel = clubItem.isJoined ? 'My Joint' : 'Discover';
+                                    const badgeClass = clubItem.isJoined
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300'
+                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300';
+                                    chunk += `<div onclick="navigateToClubSearch('${escapedClubId}', '${escapedTerm}')" class="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="min-w-0">
+                                            <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(clubItem.name)}</div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(clubItem.desc || clubItem.sponsor || 'Club')}</div>
+                                        </div>
+                                        <div class="shrink-0 px-2 py-1 rounded-full text-[10px] font-bold ${badgeClass}">${locationLabel}</div>
+                                    </div>`;
+                                });
+                            }
+                        }
+
+                        const eventResults = await this.searchClubEvents(term, db);
+                        if (eventResults.length > 0) {
+                            chunk += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club Events</div>`;
+                            eventResults.forEach((evt) => {
+                                const escapedEventId = escapeForInlineHandler(evt.id);
+                                const escapedClubId = escapeForInlineHandler(evt.clubId);
+                                const meta = [evt.clubName, evt.date, evt.time, evt.room ? (String(evt.room).toLowerCase().startsWith('room') ? evt.room : `Room ${evt.room}`) : '']
+                                    .filter(Boolean)
+                                    .join(' | ');
+                                chunk += `<div onclick="navigateToClubEventSearch('${escapedEventId}', '${escapedClubId}', '${escapedTerm}')" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                    <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                     </div>
-                                    <div class="shrink-0 px-2 py-1 rounded-full text-[10px] font-bold ${badgeClass}">${locationLabel}</div>
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(evt.title)}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(meta || evt.clubName)}</div>
+                                    </div>
                                 </div>`;
                             });
                         }
-                    }
-
-                    const eventResults = await this.searchClubEvents(term, db);
-                    if (eventResults.length > 0) {
-                        html += `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Club Events</div>`;
-                        eventResults.forEach((evt) => {
-                            const escapedEventId = escapeForInlineHandler(evt.id);
-                            const escapedClubId = escapeForInlineHandler(evt.clubId);
-                            const meta = [evt.clubName, evt.date, evt.time, evt.room ? (String(evt.room).toLowerCase().startsWith('room') ? evt.room : `Room ${evt.room}`) : '']
-                                .filter(Boolean)
-                                .join(' | ');
-                            html += `<div onclick="navigateToClubEventSearch('${escapedEventId}', '${escapedClubId}', '${escapedTerm}')" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300 flex items-center justify-center shrink-0">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="font-semibold text-sm text-black dark:text-white line-clamp-1">${window.escapeHTML(evt.title)}</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">${window.escapeHTML(meta || evt.clubName)}</div>
-                                </div>
-                            </div>`;
-                        });
-                    }
+                        if (chunk) appendHtml(chunk);
+                    })());
                 }
 
-                // Final render
-                if (html === '') {
-                    if (resultList) resultList.innerHTML = '<div class="px-4 py-10 text-center text-gray-400 text-xs">No results found.</div>';
-                } else {
-                    if (resultList) resultList.innerHTML = html;
+                await Promise.allSettled(searchPromises);
+
+                const loader = document.getElementById('searchLoading');
+                if (loader) loader.remove();
+
+                if (totalResults === 0) {
+                    resultList.innerHTML = '<div class="px-4 py-10 text-center text-gray-400 text-xs">No results found.</div>';
                 }
                 window.showGlobalSearchResults();
+                console.log('[SEARCH] ✓ Search complete');
             }, 300);
         };
 
         window.handlePostJump = (storeName, itemId, typeOrModule) => {
             if (storeName === 'news') {
-                if (window.innerWidth < 1024) window.switchTab('news');
+                if (window.innerWidth < 800) window.switchTab('news');
                 window.switchLeftTab('news');
                 const schoolContent = document.getElementById('schoolNewsContent');
                 const clubContent = document.getElementById('clubNewsContent');
@@ -756,7 +985,7 @@ export const SearchModule = {
                     }
                 }, isAlreadyOnTargetTab ? 120 : 500);
             } else if (storeName === 'modules') {
-                if (window.innerWidth < 1024 && typeof window.switchTab === 'function') {
+                if (window.innerWidth < 800 && typeof window.switchTab === 'function') {
                     window.switchTab('tools');
                 } else {
                     window.switchLeftTab('tools');

@@ -399,7 +399,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="themeDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-40 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectTheme('system', event)"
                                         class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">System</button>
                                     <button onclick="selectTheme('light', event)"
@@ -424,7 +424,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="transitionAnimationDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-44 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-44 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectTransitionAnimation('fadeSlide', event)"
                                         class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Full-Slide & Fade</button>
                                     <button onclick="selectTransitionAnimation('micro', event)"
@@ -448,7 +448,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="annColorDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectAnnColor('orange', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Orange</span>
@@ -512,7 +512,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="msgColorDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectMsgColor('orange', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Orange</span>
@@ -576,7 +576,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="chatColorDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectChatColor('orange', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Orange</span>
@@ -640,7 +640,7 @@ export const SettingsModule = {
                                     </div>
                                 </div>
                                 <div id="otherMsgColorDropdown"
-                                    class="custom-dropdown hidden absolute top-[calc(100%+4px)] right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
                                     <button onclick="selectOtherMsgColor('gray', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Gray</span>
@@ -706,7 +706,7 @@ export const SettingsModule = {
                                 </div>
                                 <p class="text-[11px] text-gray-400 mt-1 leading-normal">Plays a notification sound when you have CHSchat open. If offline notification is also enabled for this device, sounds will only play when you are actively on the site.</p>
                             </div>
-                            <div onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer hover:bg-gray-200/50 dark:hover:bg-white/5 transition-colors">
+                            <div onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer active:bg-gray-200 dark:active:bg-white/20 transition-colors">
                                 <div class="flex items-center justify-between">
                                     <label class="font-medium text-sm text-black dark:text-white cursor-pointer">Offline Notifications</label>
                                     <svg id="offlineNotificationsChevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -751,15 +751,64 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="pt-2 space-y-2">
-                        <button onclick="handleSignOut()"
-                            class="w-full bg-red-50 dark:bg-red-500/10 text-red-500 py-3 rounded-xl font-semibold text-base hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">
-                            Sign Out
-                        </button>
-                        <button onclick="clearAllLocalData()"
-                            class="w-full text-gray-500 dark:text-gray-400 text-xs font-medium py-2 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                            Trouble? Clear Local Cache
-                        </button>
+                    <div class="relative">
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Data</label>
+                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
+                            <button onclick="handleSignOut()"
+                                class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <span class="font-medium text-sm text-red-500">Sign Out</span>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                            </button>
+                            <div onclick="window.toggleDataExpand(event)" class="p-3.5 cursor-pointer border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <div class="flex items-center justify-between">
+                                    <label class="font-medium text-sm text-black dark:text-white cursor-pointer">Clear Local Data <span class="text-[10px] text-gray-400 font-normal">(Do not recommend)</span></label>
+                                    <svg id="dataExpandChevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">Manage cached data, search history, and more.</p>
+                            </div>
+                            <div id="dataExpandContainer" class="hidden border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-black/10">
+                                <button onclick="handleClearChatCache()" class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                    <div class="text-left">
+                                        <div class="font-medium text-sm text-black dark:text-white">Clear Chat Cache</div>
+                                        <div class="text-[11px] text-gray-400">Remove locally cached messages only</div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                                <button onclick="handleClearSearchHistory()" class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                    <div class="text-left">
+                                        <div class="font-medium text-sm text-black dark:text-white">Clear Search History</div>
+                                        <div class="text-[11px] text-gray-400">Remove recent search terms</div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                                <button onclick="handleClearAllLocalData()" class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                    <div class="text-left">
+                                        <div class="font-medium text-sm text-red-500">Clear All Local Data</div>
+                                        <div class="text-[11px] text-gray-400">Remove all cached data and search history</div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <button onclick="handleForceRefresh()" class="w-full flex items-center justify-between p-3.5 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <div class="text-left">
+                                    <div class="font-medium text-sm text-black dark:text-white">Force Refresh <span class="text-[10px] text-gray-400 font-normal">(Recommend)</span></div>
+                                    <div class="text-[11px] text-gray-400">Press <span class="font-semibold text-gray-500 dark:text-gray-300">Ctrl+F5</span> (or <span class="font-semibold text-gray-500 dark:text-gray-300">Ctrl+Fn+F5</span>) for a better refresh</div>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="pt-4 pb-2 text-center">
@@ -930,9 +979,10 @@ window.showChangelog = () => {
     };
     
     const header = document.querySelector('#settingsModal .rounded-t-2xl');
+    if (!header) return;
     const doneBtn = header.querySelector('button');
-    doneBtn.classList.add('hidden');
-    header.insertBefore(backBtn, doneBtn);
+    if (doneBtn) doneBtn.classList.add('hidden');
+    if (doneBtn) header.insertBefore(backBtn, doneBtn);
     
     window._restoreSettingsHeader = () => {
         backBtn.remove();
@@ -1197,6 +1247,90 @@ window.toggleOfflineNotificationsExpand = (event) => {
             chevron.classList.remove('rotate-90');
         }
     }
+};
+
+window.toggleDataExpand = (event) => {
+    if (event) event.stopPropagation();
+    const container = document.getElementById('dataExpandContainer');
+    const chevron = document.getElementById('dataExpandChevron');
+    if (container && chevron) {
+        const isHidden = container.classList.contains('hidden');
+        if (isHidden) {
+            container.classList.remove('hidden');
+            chevron.classList.add('rotate-90');
+        } else {
+            container.classList.add('hidden');
+            chevron.classList.remove('rotate-90');
+        }
+    }
+};
+
+window.handleClearChatCache = async () => {
+    const Modal = window.AppModules?.Modal;
+    const confirmed = Modal
+        ? await Modal.confirm("Clear Chat Cache", "This will remove all locally cached messages. They will not remove these data in our database and will be re-download when you open each chat. Continue?", "Clear")
+        : window.confirm("Clear all locally cached messages?");
+    if (!confirmed) return;
+
+    const secondConfirm = Modal
+        ? await Modal.confirm("Are You Sure?", "This action cannot be undone. Cached messages will need to be re-downloaded.", "Yes, Clear")
+        : window.confirm("Are you sure? This cannot be undone.");
+    if (!secondConfirm) return;
+
+    try {
+        if (localDB) localDB.close();
+        setTimeout(() => {
+            indexedDB.deleteDatabase("CHSChatCache");
+            location.reload();
+        }, 100);
+    } catch (e) {
+        location.reload();
+    }
+};
+
+window.handleClearSearchHistory = async () => {
+    const Modal = window.AppModules?.Modal;
+    const confirmed = Modal
+        ? await Modal.confirm("Clear Search History", "This will remove all your recent search histories. Continue?", "Clear")
+        : window.confirm("Clear all search history?");
+    if (!confirmed) return;
+
+    try {
+        localStorage.removeItem('chs_search_history');
+        if (Modal) {
+            Modal.alert("Done", "Search history has been cleared.");
+        }
+    } catch (e) {
+        console.error('Failed to clear search history:', e);
+    }
+};
+
+window.handleClearAllLocalData = async () => {
+    const Modal = window.AppModules?.Modal;
+    const confirmed = Modal
+        ? await Modal.confirm("Clear All Local Data", "This will wipe all locally cached messages, search history, and reset the app. It will not remove these data in our database and will be re-download when you open each chat. Continue?", "Reset")
+        : window.confirm("Clear all local data and reload?");
+    if (!confirmed) return;
+
+    const secondConfirm = Modal
+        ? await Modal.confirm("Final Warning", "This will delete ALL local data permanently. The app will reload. Continue?", "Yes, Reset Everything")
+        : window.confirm("Are you sure? ALL local data will be deleted.");
+    if (!secondConfirm) return;
+
+    try {
+        if (localDB) localDB.close();
+        setTimeout(() => {
+            indexedDB.deleteDatabase("CHSChatCache");
+            localStorage.removeItem('chs_search_history');
+            location.reload();
+        }, 100);
+    } catch (e) {
+        location.reload();
+    }
+};
+
+window.handleForceRefresh = () => {
+    location.reload();
 };
 
 window.toggleDevicePushNotification = async (deviceId, checked, event) => {
