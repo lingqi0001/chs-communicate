@@ -6,7 +6,7 @@
  * ==================================================================================
  */
 
-import { ref, get, set, update, sRef, deleteObject } from './core.js';
+import { ref, get, set, update, sRef, deleteObject, query, orderByKey, limitToFirst, startAfter } from './core.js';
 import { db, storage } from './db.js';
 
 let adminAllUsers = {};
@@ -233,7 +233,7 @@ export const AdminModule = {
             const chats = chatsSnap.val() || {};
 
             // 3. Cascade delete: iterate all people this user chatted with
-            const otherUserIds = Object.keys(chats);
+            const otherUserIds = Object.keys(chats).filter(id => !id.startsWith('group_'));
             for (const otherId of otherUserIds) {
                 // Remove current user from other person's list
                 await set(ref(db, `user_chats/${otherId.toLowerCase()}/${userId.toLowerCase()}`), null);
@@ -244,6 +244,11 @@ export const AdminModule = {
 
             // Delete the user's own chat index
             await set(userChatsRef, null);
+
+            // 4. Delete search index and image quota
+            await set(ref(db, `user_search/${userId}`), null);
+            await set(ref(db, `user_image_index/${userId.toLowerCase()}`), null);
+            await set(ref(db, `user_notifications/${userId.toLowerCase()}`), null);
 
             // Success
             delete adminAllUsers[userId];
@@ -281,25 +286,39 @@ export const AdminModule = {
             let dbCount = 0;
             let storageCount = 0;
 
-            // 1. Scan Messages (ONLY non-group chats)
-            const msgsSnap = await get(ref(db, 'messages'));
-            const allMsgs = msgsSnap.val() || {};
-            for (const chatId in allMsgs) {
-                // Skip Group Chats!
-                if (chatId.startsWith('group_')) continue;
+            // 1. Scan Messages (ONLY non-group chats) - paginated to avoid memory crash
+            const BATCH_SIZE = 50;
+            let lastKey = null;
+            let hasMore = true;
 
-                for (const msgKey in allMsgs[chatId]) {
-                    const m = allMsgs[chatId][msgKey];
-                    if (m.image || m.type === 'image_group') {
-                        if (m.image) { await helperDeleteStorage(m.image); storageCount++; }
-                        if (m.type === 'image_group' && m.text) {
-                            try {
-                                const urls = JSON.parse(m.text);
-                                for (const u of urls) { await helperDeleteStorage(u); storageCount++; }
-                            } catch (e) { }
+            while (hasMore) {
+                let q = query(ref(db, 'messages'), orderByKey(), limitToFirst(BATCH_SIZE));
+                if (lastKey) q = query(ref(db, 'messages'), orderByKey(), startAfter(lastKey), limitToFirst(BATCH_SIZE));
+                const batchSnap = await get(q);
+                const batchData = batchSnap.val() || {};
+                const batchKeys = Object.keys(batchData);
+
+                if (batchKeys.length === 0) { hasMore = false; break; }
+                lastKey = batchKeys[batchKeys.length - 1];
+                if (batchKeys.length < BATCH_SIZE) hasMore = false;
+
+                for (const chatId of batchKeys) {
+                    if (chatId.startsWith('group_')) continue;
+                    const chatMsgs = batchData[chatId] || {};
+
+                    for (const msgKey in chatMsgs) {
+                        const m = chatMsgs[msgKey];
+                        if (m.image || m.type === 'image_group') {
+                            if (m.image) { await helperDeleteStorage(m.image); storageCount++; }
+                            if (m.type === 'image_group' && m.text) {
+                                try {
+                                    const urls = JSON.parse(m.text);
+                                    for (const u of urls) { await helperDeleteStorage(u); storageCount++; }
+                                } catch (e) { }
+                            }
+                            await update(ref(db, `messages/${chatId}/${msgKey}`), { text: "Image Expired", type: "text", isExpired: true, image: null });
+                            dbCount++;
                         }
-                        await update(ref(db, `messages/${chatId}/${msgKey}`), { text: "Image Expired", type: "text", isExpired: true, image: null });
-                        dbCount++;
                     }
                 }
             }

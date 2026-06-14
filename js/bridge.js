@@ -79,15 +79,19 @@ export const BridgeModule = {
         }
     },
 
+    _lastBridgeUid: null,
+
     initIRNavigatorNotificationBridge() {
         try {
             const currentUser = window.currentUser || window.AppModules?.User?.current;
             if (!currentUser || !currentUser.id) return;
+            const uid = currentUser.id.toLowerCase();
+            if (_irNotificationBridgeUnsub && this._lastBridgeUid === uid) return;
             if (_irNotificationBridgeUnsub) {
                 _irNotificationBridgeUnsub();
                 _irNotificationBridgeUnsub = null;
             }
-            const uid = currentUser.id.toLowerCase();
+            this._lastBridgeUid = uid;
             const notifRef = ref(db, `user_image_index/ir_v7/notifications/${uid}`);
             _irNotificationBridgeUnsub = onValue(notifRef, (snap) => {
                 const raw = snap.val();

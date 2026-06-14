@@ -42,9 +42,13 @@ export const GalleryModule = {
     /**
      * Initializes gestures and listeners
      */
+    _initialized: false,
+
     init() {
         const { modal, img, prevBtn, nextBtn, zoomInBtn, zoomOutBtn, rotateBtn, saveBtn, doneBtn } = this.els;
         if (!modal || !img) return;
+        if (this._initialized) return;
+        this._initialized = true;
 
         // 1. Gesture Events
         img.addEventListener('touchstart', (e) => this._onTouchStart(e), { passive: true });

@@ -141,8 +141,11 @@ export const ViewModule = {
     popLayer: function () {
         if (this.state.layerStack.length > 0) {
             const top = this.state.layerStack[this.state.layerStack.length - 1];
-            // 执行该层的关闭逻辑，并告知它是来自“返回动作?            
-            top.closeFn({ isBackAction: true });
+            if (typeof top.closeFn === 'function') {
+                top.closeFn({ isBackAction: true });
+            } else {
+                this.unregisterLayer(top.id, { isBackAction: true });
+            }
             return true;
         }
         return false;
@@ -1124,6 +1127,8 @@ export const ViewModule = {
         }
 
         this.state.isAnimating = true;
+        if (this._animLockTimer) clearTimeout(this._animLockTimer);
+        this._animLockTimer = setTimeout(() => { this.state.isAnimating = false; }, 500);
         this.refreshBottomNav(tab);
 
         // 如果切到 News 面板，同时触发内部的二级标签切换

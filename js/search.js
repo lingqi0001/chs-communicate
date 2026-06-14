@@ -340,7 +340,7 @@ export const SearchModule = {
                 let found = 0;
                 for (const key in msgs) {
                     const m = msgs[key];
-                    try { await saveMessageLocal(chatId, key, m); } catch (e) {}
+                    try { await saveMessageLocal(chatId, key, m); } catch (e) { console.warn('[SEARCH] Failed to cache message locally:', key, e); }
                     if (!m.text || m.type === 'image' || m.type === 'image_group' || m.text.startsWith('data:image')) continue;
                     if (m.text.toLowerCase().includes(term)) {
                         if (state.displayedKeys.has(key)) continue;

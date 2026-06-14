@@ -169,42 +169,48 @@ export const AuthModule = {
         isAppInitialized = true;
         console.log('App: Entering setupUser for', user.email);
 
-        const profile = await window.AppModules.User.init(user);
-        if (!window.ALL_USERS) window.ALL_USERS = {};
-        window.ALL_USERS[profile.id] = profile;
-
-        console.log('App: Fetching global data...');
-        let dataFetchResult;
         try {
-            dataFetchResult = await Promise.all([
-                get(ref(db, `user_private/${user.uid}`))
-            ]);
+            const profile = await window.AppModules.User.init(user);
+            if (!window.ALL_USERS) window.ALL_USERS = {};
+            window.ALL_USERS[profile.id] = profile;
+
+            console.log('App: Fetching global data...');
+            let dataFetchResult;
+            try {
+                dataFetchResult = await Promise.all([
+                    get(ref(db, `user_private/${user.uid}`))
+                ]);
+            } catch (err) {
+                console.error('App: Global data fetch failed:', err);
+                dataFetchResult = [null];
+            }
+            const [privateSnap] = dataFetchResult;
+
+            const userData = privateSnap?.val() || {};
+            const isAlwaysNewUser = user && user.email && user.email.toLowerCase().includes('moss932888');
+            window._isNewUserFlag = userData.isNew || isAlwaysNewUser;
+
+            if (isAlwaysNewUser) {
+                window.currentUser.hasAcceptedTerms = false;
+            }
+
+            if (userData.isNew && !isAlwaysNewUser) {
+                update(ref(db, `user_private/${user.uid}`), { isNew: null }).catch(e => console.warn('Flag clear fail:', e));
+            }
+
+            console.log('App: setupUser finalizing. hasAcceptedTerms:', window.currentUser.hasAcceptedTerms);
+
+            if (window.currentUser.hasAcceptedTerms) {
+                console.log('App: User accepted ToS. Entering App...');
+                callbacks.onEnterApp();
+            } else {
+                console.log('App: User must accept ToS.');
+                AuthModule.showTos(true);
+                callbacks.onHideLoading();
+            }
         } catch (err) {
-            console.error('App: Global data fetch failed:', err);
-            dataFetchResult = [null];
-        }
-        const [privateSnap] = dataFetchResult;
-
-        const userData = privateSnap?.val() || {};
-        const isAlwaysNewUser = user && user.email && user.email.toLowerCase().includes('moss932888');
-        window._isNewUserFlag = userData.isNew || isAlwaysNewUser;
-
-        if (isAlwaysNewUser) {
-            window.currentUser.hasAcceptedTerms = false;
-        }
-
-        if (userData.isNew && !isAlwaysNewUser) {
-            update(ref(db, `user_private/${user.uid}`), { isNew: null }).catch(e => console.warn('Flag clear fail:', e));
-        }
-
-        console.log('App: setupUser finalizing. hasAcceptedTerms:', window.currentUser.hasAcceptedTerms);
-
-        if (window.currentUser.hasAcceptedTerms) {
-            console.log('App: User accepted ToS. Entering App...');
-            callbacks.onEnterApp();
-        } else {
-            console.log('App: User must accept ToS.');
-            AuthModule.showTos(true);
+            console.error('App: setupUser failed, resetting initialization flag:', err);
+            isAppInitialized = false;
             callbacks.onHideLoading();
         }
     },

@@ -835,9 +835,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             // Get admin/executive board members
             const admins = club.members.filter(m => m.isAdmin).map(m => m.name);
             const adminCards = admins.slice(0, 3).map(name => {
-                const escapedName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const escapedName = escapeAttr(name);
+                const safeDisplayName = (window.escapeHTML || esc)(name);
                 return `
-                    <div onclick="AppModules.News.handleMemberClick('${escapedName}')" class="bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-xl text-xs font-bold text-black dark:text-white flex-1 text-center cursor-pointer hover:bg-gray-200 transition-colors">${name}</div>
+                    <div onclick="AppModules.News.handleMemberClick('${escapedName}')" class="bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-xl text-xs font-bold text-black dark:text-white flex-1 text-center cursor-pointer hover:bg-gray-200 transition-colors">${safeDisplayName}</div>
                 `;
             }).join('');
 
@@ -1130,10 +1131,12 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Add current user to club members list if not already there
         const currentUser = getCurrentUser();
         if (currentUser) {
-            const exists = club.members.some(m => m.name.toLowerCase() === currentUser.name.toLowerCase());
+            const memberUid = currentUser.uid || currentUser.id;
+            const exists = club.members.some(m => (m.uid && m.uid === memberUid) || m.name.toLowerCase() === currentUser.name.toLowerCase());
             if (!exists) {
                 club.members.push({
                     name: currentUser.name,
+                    uid: memberUid,
                     isAdmin: false
                 });
 
@@ -1276,7 +1279,8 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Remove current user from club members list
         const currentUser = getCurrentUser();
         if (currentUser) {
-            const idx = club.members.findIndex(m => m.name.toLowerCase() === currentUser.name.toLowerCase());
+            const memberUid = currentUser.uid || currentUser.id;
+            const idx = club.members.findIndex(m => (m.uid && m.uid === memberUid) || m.name.toLowerCase() === currentUser.name.toLowerCase());
             if (idx !== -1) {
                 club.members.splice(idx, 1);
             }
@@ -1977,7 +1981,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const club = dummyClubs.find(c => c.id === selectedClubId);
         if (!club) return;
 
-        const member = club.members.find(m => m.name === memberName);
+        const member = club.members.find(m => m.name === memberName || (m.name && m.name.toLowerCase() === memberName.toLowerCase()));
         if (!member) return;
 
         // Update local state
@@ -2353,9 +2357,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                             </svg>
                         </div>
                     ` : '';
-                    const escapedName = memberName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+                    const escapedName = escapeAttr(memberName);
+                    const safeOnclickName = memberName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
                     return `
-                        <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                        <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${safeOnclickName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
                             ${adminDot}
                         </div>
@@ -2384,10 +2389,12 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         // Make sure the current user is in the member list if they joined
         const currentUser = getCurrentUser();
         if (currentUser && joinedClubIds.has(club.id)) {
-            const exists = club.members.some(m => m.name.toLowerCase() === currentUser.name.toLowerCase());
+            const memberUid = currentUser.uid || currentUser.id;
+            const exists = club.members.some(m => (m.uid && m.uid === memberUid) || m.name.toLowerCase() === currentUser.name.toLowerCase());
             if (!exists) {
                 club.members.push({
                     name: currentUser.name,
+                    uid: memberUid,
                     isAdmin: false
                 });
             }
@@ -2427,9 +2434,10 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                     </svg>
                 </div>
             ` : '';
-            const escapedName = m.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+            const escapedName = escapeAttr(m.name);
+            const safeOnclickName = m.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
             return `
-                <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${escapedName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
+                <div data-member-card data-member-name="${escapedName}" onclick="AppModules.News.handleMemberClick('${safeOnclickName}')" class="relative p-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition duration-200 cursor-pointer select-none ${colSpanClass}">
                     <span class="font-bold text-sm text-black dark:text-white truncate">${esc(formattedName)}</span>
                     ${adminDot}
                 </div>

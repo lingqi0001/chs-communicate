@@ -689,6 +689,7 @@
 
             try {
                 await update(ref(db, `users/${currentUser.id}`), { name: newName });
+                await update(ref(db, `user_search/${currentUser.id}`), { name: newName });
                 currentUser.name = newName;
                 btn.innerText = "Saved!";
                 setTimeout(() => { btn.innerText = originalText; btn.disabled = false; }, 2000);

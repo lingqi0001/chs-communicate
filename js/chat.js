@@ -97,12 +97,15 @@ export function initChatEngine(deps) {
         placeholders.forEach(el => el.remove());
     }
 
+    let chatGeneration = 0;
+
     async function loadChatThread(chatId, forceReload = false) {
         const now = Date.now();
         if (chatLoadingLock === chatId && (now - lastLoadTime < 1500)) return;
 
         chatLoadingLock = chatId;
         lastLoadTime = now;
+        const thisGeneration = ++chatGeneration;
 
         const chatBox = document.getElementById('chatBox');
         if (chatBox && chatBox._scrollListener) {
@@ -285,6 +288,7 @@ export function initChatEngine(deps) {
         setStopCurrentChatListener(() => stop());
 
         setTimeout(() => {
+            if (chatGeneration !== thisGeneration) return;
             isSyncing = false;
             if (syncBuffer.length > 0) {
                 clearChatPlaceholders(chatBox);
@@ -298,9 +302,11 @@ export function initChatEngine(deps) {
             }
 
             requestAnimationFrame(() => {
+                if (chatGeneration !== thisGeneration) return;
                 chatBox.scrollTop = chatBox.scrollHeight;
                 chatBox.style.opacity = '1';
                 setTimeout(() => {
+                    if (chatGeneration !== thisGeneration) return;
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }, 50);
             });
@@ -656,19 +662,15 @@ export function initChatEngine(deps) {
         if (!await AppModules.Modal.confirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
 
         const currentUser = getCurrentUser();
-        const originalTarget = targetId.trim();
-        const lowerTarget = originalTarget.toLowerCase();
-        const originalUser = currentUser.id.trim();
-        const lowerUser = originalUser.toLowerCase();
+        const lowerTarget = targetId.toLowerCase();
+        const lowerUser = currentUser.id.toLowerCase();
 
         try {
-            const paths = [
-                `user_chats/${originalUser}/${originalTarget}`,
-                `user_chats/${lowerUser}/${lowerTarget}`,
-                `user_chats/${lowerUser}/${originalTarget}`,
-                `user_chats/${originalUser}/${lowerTarget}`
-            ];
-            await Promise.all(paths.map(path => set(ref(db, path), null)));
+            const updates = {};
+            updates[`user_chats/${lowerUser}/${lowerTarget}`] = null;
+            if (lowerTarget !== targetId) updates[`user_chats/${lowerUser}/${targetId}`] = null;
+            if (lowerUser !== currentUser.id) updates[`user_chats/${currentUser.id}/${lowerTarget}`] = null;
+            await update(ref(db), updates);
             document.getElementById(`item-${targetId}`)?.remove();
             setTimeout(() => AppModules.Sidebar.renderSidebar(), 500);
         } catch (err) {
@@ -858,7 +860,10 @@ export function initChatEngine(deps) {
             }
         });
 
-        window.addEventListener('resize', () => {
+        if (window._chatListResizeHandler) {
+            window.removeEventListener('resize', window._chatListResizeHandler);
+        }
+        window._chatListResizeHandler = () => {
             const isDesktopWidth = window.innerWidth >= 800;
             const isMobileLayout = window.innerWidth < 800;
             const isFullDesktop = window.innerWidth >= 1024;
@@ -867,8 +872,6 @@ export function initChatEngine(deps) {
             // When shrinking into mobile layout (<800), default back to message list panel.
             if (!wasMobileLayout && isMobileLayout) {
                 window.AppModules?.View?.showPanel?.('messages');
-                // Clear the visual selection highlight from all sidebar items.
-                // The user is back at the list — nothing should appear "opened".
                 document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
                     div.classList.remove('active-chat-item');
                     div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
@@ -881,9 +884,6 @@ export function initChatEngine(deps) {
                 });
             }
 
-            // When entering the 800-1024px mid-range from full desktop (≥1024),
-            // initialize the two-panel layout by calling showPanel('messages').
-            // Without this, no CSS body class is set and all 3 panels stay visible.
             if (wasFullDesktop && isMidRange) {
                 const View = window.AppModules?.View;
                 if (View) {
@@ -893,16 +893,11 @@ export function initChatEngine(deps) {
                 }
             }
 
-            // When expanding back to desktop width from mobile, reset the panel state
-            // so isMobile() no longer returns true due to stale mobile panel (e.g. 'news'/'tools').
             if (!wasDesktopWidth && isDesktopWidth) {
                 const View = window.AppModules?.View;
                 if (View) {
-                    // Reset currentPanel to 'messages' first so isMobile() evaluates correctly
                     View.state.currentPanel = 'messages';
-                    // Now re-render desktop layout (showPanel will see isMobile()=false and show all panels)
                     View.showPanel('messages');
-                    // Sync the bottom nav active indicator to Messages
                     View.refreshBottomNav('messages');
                 }
                 pickFirstRegularChat(lastKnownChatMap);
@@ -911,7 +906,8 @@ export function initChatEngine(deps) {
             wasMobileLayout = isMobileLayout;
             wasDesktopWidth = isDesktopWidth;
             wasFullDesktop = isFullDesktop;
-        });
+        };
+        window.addEventListener('resize', window._chatListResizeHandler);
     }
 
     function appendMsg(msg, key, chatId = null, saveToLocal = true) {

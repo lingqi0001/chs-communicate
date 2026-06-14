@@ -46,6 +46,14 @@ export const SyncModule = {
     cleanupListeners() {
         this._activeUnsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
         this._activeUnsubscribers = [];
+        if (this._visibilityHandler) {
+            document.removeEventListener('visibilitychange', this._visibilityHandler);
+            this._visibilityHandler = null;
+        }
+        if (this._heartbeatInterval) {
+            clearInterval(this._heartbeatInterval);
+            this._heartbeatInterval = null;
+        }
     },
 
     /**
@@ -227,13 +235,17 @@ export const SyncModule = {
         });
 
         // Tab focus monitoring
-        document.addEventListener('visibilitychange', () => {
+        if (this._visibilityHandler) {
+            document.removeEventListener('visibilitychange', this._visibilityHandler);
+        }
+        this._visibilityHandler = () => {
             if (document.visibilityState === 'visible') {
                 set(userStatusRef, "online");
             } else {
                 set(userStatusRef, "away");
             }
-        });
+        };
+        document.addEventListener('visibilitychange', this._visibilityHandler);
 
         // 60s Heartbeat loop (moved from index.html)
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);

@@ -98,6 +98,9 @@ export const NotifyModule = {
     /**
      * [监控器]
      */
+    _deviceUnsub: null,
+    _notificationsUnsub: null,
+
     async initMonitor() {
         if (!this.context.currentUser && auth.currentUser) {
             this.context.currentUser = {
@@ -128,8 +131,12 @@ export const NotifyModule = {
 
         this.registerFCMToken();
 
+        // Clean up previous listeners to prevent accumulation
+        if (this._deviceUnsub) { this._deviceUnsub(); this._deviceUnsub = null; }
+        if (this._notificationsUnsub) { this._notificationsUnsub(); this._notificationsUnsub = null; }
+
         const deviceId = window.getOrCreateDeviceId();
-        onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {
+        this._deviceUnsub = onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {
             const data = snapshot.val();
             if (window.deviceRegistered && !data) {
                 console.log('[Notify] Current device removed from DB. Logging out...');
@@ -139,7 +146,7 @@ export const NotifyModule = {
             }
         });
 
-        onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
+        this._notificationsUnsub = onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
             this.unreadSet.clear();
             for (const key in data) {
@@ -278,7 +285,10 @@ export const NotifyModule = {
         const ctx = canvas.getContext('2d');
 
         const img = new Image();
+        const svgBlob = new Blob([this.EAGLE_SVG], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(svgBlob);
         img.onload = () => {
+            URL.revokeObjectURL(url);
             ctx.clearRect(0, 0, 64, 64);
             ctx.drawImage(img, 4, 4, 56, 56); 
 
@@ -311,10 +321,6 @@ export const NotifyModule = {
 
             favicon.href = canvas.toDataURL('image/png');
         };
-        
-        const svgBlob = new Blob([this.EAGLE_SVG], {type: 'image/svg+xml;charset=utf-8'});
-        const url = URL.createObjectURL(svgBlob);
-        img.onload = () => { URL.revokeObjectURL(url); };
         img.src = url;
     },
 
