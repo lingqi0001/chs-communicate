@@ -2,6 +2,21 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+const AUTO_JOIN_CLASS_ID = '-OrpDpIaMod9eL6Sk4xf';
+
+exports.autoJoinGroupOnRegister = functions.database.ref('/users/{userId}')
+    .onCreate(async (snapshot, context) => {
+        const userId = context.params.userId;
+        console.log(`[AutoJoin] New user created: ${userId}`);
+        try {
+            await admin.database().ref(`classes/${AUTO_JOIN_CLASS_ID}/students/${userId}`).set(true);
+            console.log(`[AutoJoin] Added ${userId} to class ${AUTO_JOIN_CLASS_ID}`);
+        } catch (e) {
+            console.error('[AutoJoin] Failed:', e);
+        }
+        return null;
+    });
+
 exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId}')
     .onCreate(async (snapshot, context) => {
         const message = snapshot.val();

@@ -292,7 +292,6 @@ export const SyncModule = {
                         if (u && u.name) {
                             this.ctCache[cid] = u.name;
                             localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
-                            if (this.callbacks.renderSidebar) this.callbacks.renderSidebar();
                         }
                     }).catch(() => {});
                 }

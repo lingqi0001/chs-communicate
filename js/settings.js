@@ -1204,7 +1204,7 @@ window.openPortfolio = async () => {
             "Cancel"
           )
         : window.confirm("Visit the author portfolio site?");
-    if (confirmed) window.open("https://lingqi-mo-portfolio.vercel.app/", "_blank");
+    if (confirmed) window.open("https://lmo2027.xyz/", "_blank");
 };
 
 window.openDonationQR = (method, fallbackUrl) => {

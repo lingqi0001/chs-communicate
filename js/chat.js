@@ -842,16 +842,20 @@ export function initChatEngine(deps) {
             if (firstUserId) window.switchChat?.(firstUserId);
         };
 
+        let _chatListRenderTimer = null;
         onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
             const chatMap = snapshot.val() || {};
             lastKnownChatMap = chatMap;
             const chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-            chatIds.forEach(id => {
-                safeFetchUser(id).then(() => AppModules.Sidebar.renderSidebar()).catch(e => console.warn(e));
+            const fetchPromises = chatIds.map(id => safeFetchUser(id).catch(e => console.warn(e)));
+            Promise.all(fetchPromises).then(() => {
+                if (_chatListRenderTimer) clearTimeout(_chatListRenderTimer);
+                _chatListRenderTimer = setTimeout(() => {
+                    AppModules.Sidebar.renderSidebar();
+                    _chatListRenderTimer = null;
+                }, 50);
             });
-
-            AppModules.Sidebar.renderSidebar();
             if (typeof initGlobalNotificationMonitor === 'function') initGlobalNotificationMonitor();
             AppModules.Bridge.initIRNavigatorNotificationBridge();
 
