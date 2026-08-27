@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS 18 Plus Menu Fluid Morphing Animation</title>
+    <style>
+        /* CSS RESET & GENERAL STYLES */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Ambient Glow Background */
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(120, 119, 198, 0.06) 0%, rgba(0, 0, 0, 0) 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* PAGE HEADER */
+        .header {
+            position: absolute;
+            top: 40px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            background: linear-gradient(180deg, #ffffff 0%, #a3a3a3 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        /* PLAYGROUND CONTAINER */
+        .playground {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 550px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 80px;
+            z-index: 2;
+        }
+
+        /* 
+           MORPHING MENU WRAPPER 
+           Anchored at bottom-center so height changes grow upwards.
+        */
+        .menu-wrapper {
+            position: relative;
+            width: 280px;
+            height: 68px; /* Initial state height */
+            transform-origin: bottom center;
+            transition: width 0.6s cubic-bezier(0.25, 1, 0.2, 1), 
+                        height 0.6s cubic-bezier(0.25, 1, 0.2, 1);
+        }
+
+        /* 
+           BACKGROUND LAYER (GOOEY LAYER)
+           Apply gooey filter to container, and keep shapes solid inside.
+        */
+        .gooey-container {
+            position: absolute;
+            top: -150px; /* Leave room for stretching upwards */
+            left: -100px;
+            right: -100px;
+            bottom: -50px;
+            filter: url(#goo);
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.98;
+            transition: opacity 0.4s ease;
+        }
+
+        /* The base shape (pill) at the bottom */
+        .goo-base {
+            position: absolute;
+            bottom: 50px; /* Offset to align with wrapper */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1a1a1c;
+            border-radius: 34px;
+            width: 280px;
+            height: 68px;
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.2, 1);
+        }
+
+        /* The morphing bulb that stretches upwards */
+        .goo-bulb {
+            position: absolute;
+            bottom: 92px; /* Protrudes slightly to form the State 1 hump */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1a1a1c;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.2, 1);
+        }
+
+        /* 
+           CRISP GLASS OVERLAY CONTAINER
+           Fades in during State 4 & 5 to provide sharp borders and backdrop blur.
+        */
+        .crisp-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 28, 0.85);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 34px;
+            border: none;
+            opacity: 0;
+            z-index: 2;
+            transition: opacity 0.3s ease, border-radius 0.6s cubic-bezier(0.25, 1, 0.2, 1);
+            pointer-events: none;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden; /* Prevent text spilling out of oval borders during expand */
+        }
+
+        /* 
+           FOREGROUND CONTENT LAYERS
+        */
+        .foreground-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+        }
+
+        /* 
+           STATE 1: TOOLBAR BUTTONS 
+        */
+        .toolbar-content {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 68px;
+            padding: 0 16px;
+            opacity: 1;
+            transition: opacity 0.3s ease, 
+                        transform 0.4s cubic-bezier(0.25, 1, 0.2, 1), 
+                        width 0.4s cubic-bezier(0.25, 1, 0.2, 1);
+        }
+
+        .toolbar-btn {
+            background: none;
+            border: none;
+            color: #a3a3a3;
+            width: 60px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 18px;
+            transition: color 0.2s, 
+                        background-color 0.2s, 
+                        transform 0.4s cubic-bezier(0.25, 1, 0.2, 1), 
+                        opacity 0.3s ease;
+        }
+
+        .toolbar-btn:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .toolbar-btn:active {
+            transform: scale(0.92);
+        }
+
+        .toolbar-btn.active-btn {
+            color: #ffffff;
+        }
+
+        .toolbar-btn svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        /* 
+           STATE 5: MENU CONTENT LIST
+        */
+        .menu-content {
+            opacity: 0;
+            pointer-events: none;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            height: 100%;
+            transition: opacity 0.3s ease;
+            overflow: hidden;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 14px;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: background-color 0.15s, transform 0.1s, opacity 0.4s, translate 0.4s;
+            transform: translateY(10px);
+            opacity: 0;
+        }
+
+        .menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .menu-item:active {
+            transform: scale(0.98);
+        }
+
+        .menu-item svg {
+            width: 22px;
+            height: 22px;
+            color: rgba(255, 255, 255, 0.85);
+            flex-shrink: 0;
+        }
+
+        /* Divider line */
+        .menu-divider {
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.08);
+            margin: 8px 12px;
+            transform: translateY(10px);
+            opacity: 0;
+            transition: opacity 0.4s, translate 0.4s;
+        }
+
+
+        /* ==========================================================================
+           STATE CLASS DEFINITIONS (Triggered by JS)
+           ========================================================================== */
+
+        /* --- STATE 1: IDLE TOOLBAR (Flat capsule) --- */
+        .state-1 {
+            width: 280px;
+            height: 68px;
+        }
+        .state-1 .goo-base {
+            width: 280px;
+            height: 68px;
+        }
+        .state-1 .goo-bulb {
+            width: 48px;
+            height: 48px;
+            bottom: 60px; /* Hidden inside the base pill, no hump */
+            opacity: 0;
+        }
+        .state-1 .toolbar-content {
+            width: 280px;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        /* --- STATE 2: SPROUTING HUMP (Image 1) --- */
+        .state-2 {
+            width: 280px;
+            height: 68px;
+        }
+        .state-2 .goo-base {
+            width: 280px;
+            height: 68px;
+        }
+        .state-2 .goo-bulb {
+            width: 48px;
+            height: 48px;
+            bottom: 92px; /* Protrudes above top edge */
+            opacity: 1;
+        }
+        .state-2 .toolbar-content {
+            width: 280px;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        /* --- STATE 3: STRETCHING DROPLET (Image 2) --- */
+        .state-3 {
+            width: 180px;
+            height: 120px;
+        }
+        .state-3 .goo-base {
+            width: 140px;
+            height: 68px;
+            bottom: 50px;
+        }
+        .state-3 .goo-bulb {
+            width: 76px;
+            height: 76px;
+            bottom: 120px; /* Pulls upward */
+        }
+        .state-3 .toolbar-content {
+            width: 280px; /* Maintain width but center buttons, letting transition shrink them */
+            transform: translateX(-50%) translateY(10px) scale(0.85);
+            pointer-events: none;
+        }
+        /* Fade out left and right buttons immediately during morphing so they never exceed borders */
+        .state-3 #btnChecklist,
+        .state-3 #btnMarkup {
+            opacity: 0;
+            transform: scale(0.5) translateY(20px);
+        }
+        .state-3 #btnPaperclip {
+            opacity: 0.3;
+            transform: scale(0.8);
+        }
+
+        /* --- STATE 4: TALL DROPLET (Image 3) --- */
+        .state-4 {
+            width: 110px;
+            height: 220px;
+        }
+        .state-4 .goo-base {
+            width: 76px;
+            height: 76px;
+            bottom: 50px;
+        }
+        .state-4 .goo-bulb {
+            width: 90px;
+            height: 160px;
+            bottom: 80px; /* Forms a very tall unified capsule */
+            border-radius: 45px;
+        }
+        .state-4 .toolbar-content {
+            opacity: 0;
+            transform: translateX(-50%) translateY(30px) scale(0.7);
+            pointer-events: none;
+        }
+        .state-4 #btnChecklist,
+        .state-4 #btnPaperclip,
+        .state-4 #btnMarkup {
+            opacity: 0;
+            transform: scale(0.4);
+        }
+
+        /* --- STATE 5: OVAL EXPANSION (Image 4) --- */
+        .state-5 {
+            width: 180px;
+            height: 330px;
+        }
+        .state-5 .goo-base {
+            width: 80px;
+            height: 80px;
+            bottom: 50px;
+            opacity: 0; /* Fully faded out */
+        }
+        .state-5 .goo-bulb {
+            width: 180px;
+            height: 330px;
+            bottom: 50px;
+            border-radius: 90px; /* Capsule shape: half of width (180px) */
+        }
+        .state-5 .crisp-overlay {
+            opacity: 1; /* Make background glass overlay visible so menu text has background */
+            border-radius: 90px;
+        }
+        .state-5 .gooey-container {
+            opacity: 0; /* Turn off gooey bg completely in State 5 to prevent filter conflict flickering */
+        }
+        .state-5 .toolbar-content {
+            opacity: 0;
+            display: none;
+        }
+        .state-5 .menu-content {
+            opacity: 0.7; /* Menu list begins to fade in inside the oval capsule */
+            pointer-events: none;
+            padding: 16px 14px; /* Shrunk padding to fit capsule shape */
+        }
+        .state-5 .menu-item {
+            font-size: 13px; /* Slightly smaller text during oval state */
+            padding: 8px 10px;
+            gap: 12px;
+            transform: translateY(10px);
+            opacity: 0.5;
+        }
+        .state-5 .menu-item svg {
+            width: 18px;
+            height: 18px;
+        }
+        .state-5 .menu-divider {
+            transform: translateY(10px);
+            opacity: 0.5;
+            margin: 4px 12px;
+        }
+
+        /* --- STATE 6: MENU FULLY EXPANDED (Image 5) --- */
+        .state-6 {
+            width: 270px;
+            height: 390px;
+        }
+        .state-6 .goo-bulb {
+            width: 270px;
+            height: 390px;
+            bottom: 50px;
+            border-radius: 36px;
+        }
+        .state-6 .gooey-container {
+            opacity: 0; /* Turn off gooey bg completely so overlay is perfectly crisp */
+        }
+        .state-6 .crisp-overlay {
+            opacity: 1;
+            pointer-events: all;
+            border-radius: 36px;
+        }
+        .state-6 .toolbar-content {
+            display: none;
+        }
+        .state-6 .menu-content {
+            opacity: 1;
+            pointer-events: all;
+        }
+        /* Reveal staggered list items */
+        .state-6 .menu-item,
+        .state-6 .menu-divider {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .state-6 .menu-item:nth-child(1) { transition-delay: 0.05s; }
+        .state-6 .menu-item:nth-child(2) { transition-delay: 0.10s; }
+        .state-6 .menu-divider       { transition-delay: 0.15s; }
+        .state-6 .menu-item:nth-child(4) { transition-delay: 0.20s; }
+        .state-6 .menu-item:nth-child(5) { transition-delay: 0.25s; }
+        .state-6 .menu-item:nth-child(6) { transition-delay: 0.30s; }
+        .state-6 .menu-item:nth-child(7) { transition-delay: 0.35s; }
+
+
+        /* ==========================================================================
+           FLOATING CONTROL PANEL
+           ========================================================================== */
+        .control-panel {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 240px;
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 20px;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-panel h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #d4d4d8;
+            letter-spacing: -0.2px;
+            text-transform: uppercase;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .panel-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: #d4d4d8;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        .panel-btn.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .panel-btn.active::after {
+            content: "●";
+            font-size: 8px;
+            color: #007aff;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #30d158;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Click anywhere helper text */
+        .helper-text {
+            position: absolute;
+            bottom: 30px;
+            font-size: 13px;
+            color: #52525b;
+            text-align: center;
+            pointer-events: none;
+            width: 100%;
+        }
+
+        /* Slow Motion Class */
+        .slow-motion * {
+            transition-duration: 2s !important;
+        }
+        .slow-motion .menu-item,
+        .slow-motion .menu-divider {
+            transition-duration: 1.5s !important;
+        }
+        .slow-motion .menu-item:nth-child(1) { transition-delay: 0.2s !important; }
+        .slow-motion .menu-item:nth-child(2) { transition-delay: 0.4s !important; }
+        .slow-motion .menu-divider       { transition-delay: 0.6s !important; }
+        .slow-motion .menu-item:nth-child(4) { transition-delay: 0.8s !important; }
+        .slow-motion .menu-item:nth-child(5) { transition-delay: 1.0s !important; }
+        .slow-motion .menu-item:nth-child(6) { transition-delay: 1.2s !important; }
+        .slow-motion .menu-item:nth-child(7) { transition-delay: 1.4s !important; }
+
+        /* Native transitions will handle the continuous morph automatically */
+    </style>
+</head>
+<body>
+
+
+
+    <div class="header">
+        <h1>iOS 18 Plus Menu Morphing</h1>
+        <p>A fluid fluid-gooey transition demo. Play or toggle states on the panel.</p>
+    </div>
+
+    <div class="playground" id="playground">
+        <div class="menu-wrapper state-1" id="menuWrapper">
+            
+            <!-- GOOEY BACKGROUND LAYER -->
+            <div class="gooey-container" id="gooeyContainer">
+                <div class="goo-base"></div>
+                <div class="goo-bulb"></div>
+            </div>
+
+            <!-- CRISP SHARP GLASS OVERLAY -->
+            <div class="crisp-overlay"></div>
+
+            <!-- FOREGROUND CONTENT LAYER -->
+            <div class="foreground-content">
+                
+                <!-- STATE 1: Toolbar buttons -->
+                <div class="toolbar-content" id="toolbarContent">
+                    <!-- Left Button: Checklist -->
+                    <button class="toolbar-btn" id="btnChecklist">
+                        <svg viewBox="0 0 24 22" fill="none">
+                            <circle cx="6" cy="6" r="4.25" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M4.5 6 L5.5 7 L7.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="13" y1="6" x2="22" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <circle cx="6" cy="16" r="4.25" stroke="currentColor" stroke-width="1.5"/>
+                            <line x1="13" y1="16" x2="22" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+
+                    <!-- Middle Button: Paperclip (Active/Triggers Menu) -->
+                    <button class="toolbar-btn active-btn" id="btnPaperclip">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <!-- Diagonal Paperclip -->
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+
+                    <!-- Right Button: Markup/Draw -->
+                    <button class="toolbar-btn" id="btnMarkup">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5"/>
+                            <!-- Markup Pencil Tip -->
+                            <path d="M12 6.5 L8.5 13.5 L8.5 17.5 L15.5 17.5 L15.5 13.5 Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="8.5" y1="14" x2="15.5" y2="14" stroke="currentColor" stroke-width="1"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- STATE 5: Menu Content List -->
+                <div class="menu-content" id="menuContent">
+                    <div class="menu-item">
+                        <!-- File Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <span>Attach File</span>
+                    </div>
+
+                    <div class="menu-item">
+                        <!-- Waveform Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="9" x2="4" y2="15"/>
+                            <line x1="8" y1="6" x2="8" y2="18"/>
+                            <line x1="12" y1="10" x2="12" y2="14"/>
+                            <line x1="16" y1="4" x2="16" y2="20"/>
+                            <line x1="20" y1="7" x2="20" y2="17"/>
+                        </svg>
+                        <span>Record Audio</span>
+                    </div>
+
+                    <div class="menu-divider"></div>
+
+                    <div class="menu-item">
+                        <!-- Image Playground Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9.25"/>
+                            <!-- Mountain peak inside -->
+                            <path d="M6 16.5l4.5-4.5 4 4 4.5-5.5 2 2"/>
+                            <!-- Tiny Sparkle/Moon -->
+                            <circle cx="15.5" cy="7.5" r="1" fill="currentColor"/>
+                        </svg>
+                        <span>Image Playground</span>
+                    </div>
+
+                    <div class="menu-item">
+                        <!-- Choose Photo Stack Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <!-- Front Photo Card -->
+                            <rect x="5.5" y="5.5" width="13" height="13" rx="2" />
+                            <circle cx="9.5" cy="9.5" r="1.5"/>
+                            <path d="M5.5 14.5l4-3 5 3.5"/>
+                            <!-- Back Photo Card (Offset) -->
+                            <path d="M2.5 15.5V4.5a2 2 0 0 1 2-2h11" stroke-dasharray="0" />
+                        </svg>
+                        <span>Choose Photo</span>
+                    </div>
+
+                    <div class="menu-item">
+                        <!-- Scan Document Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <!-- Scanning Brackets -->
+                            <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
+                            <!-- Document sheet in center -->
+                            <rect x="8" y="8" width="8" height="8" rx="1"/>
+                        </svg>
+                        <span>Scan Documents</span>
+                    </div>
+
+                    <div class="menu-item">
+                        <!-- Scan Text Icon -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
+                            <!-- Text lines in center -->
+                            <line x1="8" y1="9" x2="16" y2="9"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                            <line x1="8" y1="15" x2="13" y2="15"/>
+                        </svg>
+                        <span>Scan Text</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- HELPER HINT -->
+    <div class="helper-text" id="helperText">Click the paperclip button to trigger the morph.</div>
+
+    <!-- CONTROL PANEL -->
+    <div class="control-panel">
+        <h3>Animation Controller</h3>
+        <div class="btn-group">
+            <button class="panel-btn active" data-state="1">State 1: Idle Toolbar</button>
+            <button class="panel-btn" data-state="2">State 2: Sprouting Hump</button>
+            <button class="panel-btn" data-state="3">State 3: Stretch</button>
+            <button class="panel-btn" data-state="4">State 4: Tall Droplet</button>
+            <button class="panel-btn" data-state="5">State 5: Oval Expansion</button>
+            <button class="panel-btn" data-state="6">State 6: Menu List</button>
+        </div>
+        
+        <div class="toggle-container">
+            <span class="toggle-label">Slow Motion (2.0s)</span>
+            <label class="switch">
+                <input type="checkbox" id="slowMotionToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <!-- SVG GOOEY FILTER DEFINITION -->
+    <svg style="position: absolute; width: 0; height: 0;" width="0" height="0" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="goo">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+            </filter>
+        </defs>
+    </svg>
+
+    <script>
+        const wrapper = document.getElementById('menuWrapper');
+        const btnPaperclip = document.getElementById('btnPaperclip');
+        const slowMotionToggle = document.getElementById('slowMotionToggle');
+        const panelButtons = document.querySelectorAll('.panel-btn');
+        const helperText = document.getElementById('helperText');
+
+        let currentState = 1;
+        let isTransitioning = false;
+
+        // Toggle state class helper
+        function setMenuState(stateNumber) {
+            // Remove existing state classes
+            wrapper.classList.remove('state-1', 'state-2', 'state-3', 'state-4', 'state-5', 'state-6');
+            // Add new state class
+            wrapper.classList.add(`state-${stateNumber}`);
+            currentState = stateNumber;
+
+            // Update panel button active indicator
+            panelButtons.forEach(btn => {
+                if (parseInt(btn.getAttribute('data-state')) === stateNumber) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Update helper text
+            if (stateNumber === 1) {
+                helperText.innerText = "Click the paperclip button to trigger the morph.";
+            } else if (stateNumber === 6) {
+                helperText.innerText = "Click anywhere outside or choose a state to close.";
+            } else {
+                const stateNames = ["", "Idle Toolbar", "Sprouting Hump", "Stretch", "Tall Droplet", "Oval Expansion", "Menu List"];
+                helperText.innerText = `Displaying State ${stateNumber}: ${stateNames[stateNumber]}.`;
+            }
+        }
+
+        // Slow motion handler
+        slowMotionToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('slow-motion');
+            } else {
+                document.body.classList.remove('slow-motion');
+            }
+        });
+
+        // Trigger step-by-step state from control panel buttons
+        panelButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetState = parseInt(button.getAttribute('data-state'));
+                if (targetState === 6 && currentState === 1) {
+                    playOpenSequence();
+                } else if (targetState === 1 && currentState === 6) {
+                    playCloseSequence();
+                } else {
+                    setMenuState(targetState);
+                }
+            });
+        });
+
+        // Smooth Auto Transition Sequence (Open)
+        function playOpenSequence() {
+            if (isTransitioning || currentState !== 1) return;
+            isTransitioning = true;
+            
+            // Revert directly to setting state-6, letting CSS transition property animate continuously
+            setMenuState(6);
+            
+            const isSlow = slowMotionToggle.checked;
+            const duration = isSlow ? 2000 : 600; // Synchronized with CSS transition-duration (600ms / 2.0s)
+
+            setTimeout(() => {
+                isTransitioning = false;
+            }, duration);
+        }
+
+        // Smooth Auto Transition Sequence (Close)
+        function playCloseSequence() {
+            if (isTransitioning || currentState !== 6) return;
+            isTransitioning = true;
+
+            // Revert directly to setting state-1, letting CSS transition property animate continuously
+            setMenuState(1);
+            
+            const isSlow = slowMotionToggle.checked;
+            const duration = isSlow ? 2000 : 600; // Synchronized with CSS transition-duration (600ms / 2.0s)
+
+            setTimeout(() => {
+                isTransitioning = false;
+            }, duration);
+        }
+
+        // Interactive triggers
+        btnPaperclip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentState === 1) {
+                playOpenSequence();
+            }
+        });
+
+        // Click outside the menu wrapper to close it (ignoring clicks on the control panel)
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target) && !e.target.closest('.control-panel') && currentState === 6) {
+                playCloseSequence();
+            }
+        });
+    </script>
+</body>
+</html>

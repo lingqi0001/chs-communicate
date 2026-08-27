@@ -641,6 +641,15 @@
                 closeTos();
             }
             hideLoading();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab');
+            if (initialTab && typeof window.switchTab === 'function') {
+                window.switchTab(initialTab);
+                if (typeof window.switchLeftTab === 'function') {
+                    window.switchLeftTab(initialTab);
+                }
+            }
         };
 
 

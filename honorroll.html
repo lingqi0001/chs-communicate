@@ -1,596 +1,107 @@
-<!DOCTYPE html>
-<html>
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>Honor Roll - Pro A1 Tool</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Honor Roll - CHS Tools</title>
+    <script>
+        // Theme Initializer
+        (function () {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="resources/favicon.svg">
+    <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">
+    <meta name="theme-color" content="#007AFF">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            future: {
+                hoverOnlyWhenSupported: true
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css?v=20260612-1741">
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg-sidebar: #ffffff;
-            --bg-preview: #1e293b;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border-color: #cbd5e1;
-            --border-focus: #3b82f6;
-            --success-bg: #f0fdf4;
-            --success-border: #bbf7d0;
-            --success-text: #166534;
-            --info-bg: #f8fafc;
-            --info-border: #e2e8f0;
-            --info-text: #475569;
-            --radius: 8px;
-            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Base Layout */
-        body { 
-            display: flex; 
-            height: 100vh; 
-            margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg-preview); 
-            color: var(--text-main);
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
             overflow: hidden;
-        }
-
-        /* Sidebar Control Panel */
-        #sidebar {
-            width: 320px;
-            background: var(--bg-sidebar);
-            padding: 24px;
-            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            flex-shrink: 0;
-            overflow-y: auto;
-            border-right: 1px solid #e2e8f0;
-        }
-
-        /* Back navigation */
-        .back-nav {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            padding: 7px 12px;
-            border-radius: var(--radius);
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            transition: var(--transition);
-            cursor: pointer;
-            width: fit-content;
-            margin-bottom: -6px;
-        }
-
-        .back-nav:hover {
-            color: var(--primary);
-            background: #e2e8f0;
-            border-color: #cbd5e1;
-        }
-
-        /* Preview Area */
-        #output-container {
-            flex-grow: 1;
-            overflow: auto; 
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* Default 33% Zoom for Preview */
-        #output {
-            zoom: 0.33; 
-            transform-origin: top center;
-        }
-
-        h2 { 
-            margin: 0; 
-            color: var(--text-main); 
-            font-size: 20px; 
-            font-weight: 700;
-            letter-spacing: -0.025em;
-        }
-
-        /* Guide Card */
-        .guide-box {
-            background: var(--success-bg);
-            border: 1px solid var(--success-border);
-            border-radius: var(--radius);
-            padding: 14px;
-            font-size: 13px;
-            color: var(--success-text);
-            line-height: 1.6;
-        }
-
-        .guide-title {
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 6px;
-        }
-
-        .input-group { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 6px; 
-        }
-        
-        .row-inputs { 
-            display: flex; 
-            gap: 12px; 
-        }
-        
-        .row-inputs > div { 
-            flex: 1; 
-        }
-
-        label { 
-            font-weight: 600; 
-            color: var(--text-main); 
-            font-size: 13px; 
-        }
-
-        #nameInput { 
-            width: 100%; 
-            height: 130px; 
-            border: 1px solid var(--border-color); 
-            border-radius: var(--radius); 
-            padding: 10px;
-            background: #fff; 
-            overflow-y: auto;
-            box-sizing: border-box; 
-            font-size: 13px;
-            transition: var(--transition);
-        }
-
-        #nameInput:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-        }
-
-        /* Placeholder effect for empty contenteditable */
-        #nameInput:empty::before {
-            content: attr(placeholder);
-            color: #94a3b8;
-        }
-
-        input[type="number"] { 
-            width: 100%; 
-            padding: 8px 12px; 
-            border: 1px solid var(--border-color); 
-            border-radius: var(--radius); 
-            box-sizing: border-box;
-            transition: var(--transition);
-            font-size: 13px;
-        }
-
-        input[type="number"]:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-        }
-
-        /* Custom Radios Styled as Button Groups (Segmented Control) */
-        .segmented-control {
-            display: flex;
-            background: #f1f5f9;
-            padding: 3px;
-            border-radius: var(--radius);
-            border: 1px solid #e2e8f0;
-        }
-
-        .segmented-control label {
-            flex: 1;
-            text-align: center;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-muted);
-            transition: var(--transition);
-            user-select: none;
-        }
-
-        .segmented-control input[type="radio"] {
-            display: none;
-        }
-
-        .segmented-control span {
-            display: block;
-            padding: 6px 12px;
-            border-radius: calc(var(--radius) - 2px);
-            transition: var(--transition);
-        }
-
-        .segmented-control input[type="radio"]:checked + span {
-            background: #ffffff;
-            color: var(--text-main);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-            font-weight: 600;
-        }
-
-        /* Custom Slider Range */
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 3px;
-            outline: none;
-            margin: 10px 0;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--primary);
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-            transition: var(--transition);
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            background: var(--primary-hover);
-        }
-
-        button {
-            padding: 12px 20px; 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            border-radius: var(--radius); 
-            cursor: pointer; 
-            font-size: 14px; 
-            font-weight: 600;
-            transition: var(--transition);
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
-            margin-top: 8px;
-        }
-
-        button:hover { 
-            background: var(--primary-hover); 
-            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        /* Print Settings Card */
-        .print-box {
-            background: var(--info-bg);
-            border: 1px solid var(--info-border);
-            border-radius: var(--radius);
-            padding: 14px;
-            font-size: 13px;
-            color: var(--info-text);
-            line-height: 1.6;
-        }
-
-        .print-title {
-            font-weight: 600;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 6px;
-        }
-
-        /* A1 Dimensions */
-        .page {
-            background: white;
-            padding: 30mm; 
-            margin-bottom: 80px;
-            display: grid; 
-            grid-template-columns: 1fr 1fr 1fr;
-            column-gap: 30mm; 
-            page-break-after: always;
-            box-sizing: border-box;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-            flex-shrink: 0;
-            border-radius: 4px;
-        }
-
-        .landscape { width: 841mm; height: 594mm; }
-        .portrait { width: 594mm; height: 841mm; }
-
-        .column { 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-            width: 100%;
-        }
-
-        .name-row {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-
-        .name-text { 
-            text-align: center; 
-            white-space: nowrap; 
-            display: inline-block;
-        }
-
-        @media print {
-            html, body { 
-                display: block; 
-                background: none; 
-                overflow: visible !important; 
-                height: auto;
-            }
-            #sidebar { 
-                display: none !important; 
-            }
-            #output-container { 
-                padding: 0 !important; 
-                margin: 0 !important;
-                display: block !important; 
-                overflow: visible !important; 
-            }
-            #output { 
-                zoom: 1 !important; 
-                overflow: visible !important;
-            } 
-            .page { 
-                margin: 0 !important; 
-                box-shadow: none !important; 
-                border: none !important; 
-                page-break-after: always !important; 
-                border-radius: 0 !important;
-                overflow: visible !important;
-            }
-            .column {
-                overflow: visible !important;
-            }
         }
     </style>
 </head>
-<body>
-
-<div id="sidebar">
-    <a href="/" class="back-nav" onclick="handleBack(event)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        <span>Back to CHSchat</span>
-    </a>
-
-    <h2>Layout Control</h2>
-    
-    <div class="guide-box">
-        <div class="guide-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-            Copy Instructions
+<body class="bg-white dark:bg-black flex flex-col h-full w-full">
+    <!-- Extension Header (Identical to CHSchat Extension View) -->
+    <header class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
+        <div class="w-auto z-10">
+            <button onclick="goBack()" class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
+                <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+            </button>
         </div>
-        1. In Excel, press <b>Ctrl + A</b> to select all.<br>
-        2. Press <b>Ctrl + C</b> to copy.<br>
-        3. Click the box below and press <b>Ctrl + V</b>.<br>
-        Structure and bolding will be preserved.
-    </div>
 
-    <div class="input-group">
-        <label>1. Paste Data Box</label>
-        <div id="nameInput" contenteditable="true" placeholder="Paste data here..."></div>
-    </div>
-
-    <div class="row-inputs">
-        <div class="input-group">
-            <label>Walls</label>
-            <input type="number" id="numWalls" value="4" min="1">
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-base text-black dark:text-white truncate max-w-[50%] text-center pointer-events-none">
+            Honor Roll
         </div>
-        <div class="input-group">
-            <label>Pages per Wall</label>
-            <input type="number" id="pagesPerWall" value="3" min="1">
+
+        <div class="w-auto flex justify-end items-center gap-1 z-10">
+            <button onclick="openExternal()" title="Open in New Window" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+            <button onclick="reloadTool()" title="Refresh" class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
         </div>
-    </div>
-    
-    <div class="input-group">
-        <label>2. Page Orientation</label>
-        <div class="segmented-control">
-            <label>
-                <input type="radio" name="orientation" value="landscape" checked onclick="updateOrientation()">
-                <span>Landscape</span>
-            </label>
-            <label>
-                <input type="radio" name="orientation" value="portrait" onclick="updateOrientation()">
-                <span>Portrait</span>
-            </label>
+    </header>
+
+    <!-- Extension Frame Container -->
+    <main class="flex-1 relative bg-white dark:bg-black overflow-hidden">
+        <iframe id="toolFrame" class="w-full h-full border-none" src="extensions/staff/Honor Roll.html" onload="onFrameLoaded()"></iframe>
+        <div id="toolLoading" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#1C1C1E] z-10 transition-opacity duration-200">
+            <div class="flex flex-col items-center gap-3">
+                <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                <div class="text-xs text-gray-400 font-bold uppercase tracking-widest">Launching Tool...</div>
+            </div>
         </div>
-    </div>
+    </main>
 
-    <div class="input-group">
-        <label>3. Global Font Size (Auto-fit Result)</label>
-        <input type="range" id="fontSize" min="10" max="100" value="34" oninput="manualUpdateFontSize()">
-        <div style="display: flex; justify-content: space-between; font-weight: bold;">
-            <span style="color:#94a3b8; font-size: 11px;">Small</span>
-            <span id="fsVal" style="color:var(--primary); font-size: 13px;">34pt</span>
-            <span style="color:#94a3b8; font-size: 11px;">Large</span>
-        </div>
-    </div>
+    <script>
+        function goBack() {
+            window.location.href = '/?tab=tools';
+        }
 
-    <button onclick="generateLayout()">Generate & Auto-Fit</button>
-    
-    <div class="print-box">
-        <div class="print-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            Print Settings
-        </div>
-        • Press <b>Ctrl + P</b> to start printing<br>
-        • Target: <b>Save as PDF</b><br>
-        • Paper: <b>A1</b> | Layout: <b id="printLayoutHint">Landscape</b><br>
-        • Margins: <b>None</b><br>
-        • Pages: <b>Odd pages only</b>
-    </div>
-</div>
+        function openExternal() {
+            window.open('extensions/staff/Honor Roll.html', '_blank');
+        }
 
-<div id="output-container">
-    <div id="output"></div>
-</div>
+        function reloadTool() {
+            const frame = document.getElementById('toolFrame');
+            const loader = document.getElementById('toolLoading');
+            if (loader) loader.style.display = 'flex';
+            if (frame) frame.src = frame.src;
+        }
 
-<script>
-function handleBack(event) {
-    if (window.self !== window.top) {
-        // If embedded in iframe (CHSchat extension overlay)
-        event.preventDefault();
-        window.parent.postMessage({ type: 'CLOSE_EXTENSION' }, '*');
-    } else {
-        // If accessed directly in browser, go to CHSchat home
-        window.location.href = '/';
-    }
-}
-
-function manualUpdateFontSize() {
-    const val = document.getElementById('fontSize').value;
-    document.getElementById('fsVal').innerText = val + 'pt';
-    document.querySelectorAll('.name-text').forEach(n => n.style.fontSize = val + 'pt');
-    adjustWidths(); // Re-check widths after manual change
-}
-
-function updateOrientation() {
-    const orientation = document.querySelector('input[name="orientation"]:checked').value;
-    const hint = document.getElementById('printLayoutHint');
-    hint.innerText = orientation.charAt(0).toUpperCase() + orientation.slice(1);
-}
-
-// 统一调整字号：找到能让所有名字都排下的最小字号并应用到全局
-function adjustWidths() {
-    const texts = document.querySelectorAll('.name-text');
-    if (texts.length === 0) return;
-
-    const baseSize = parseFloat(document.getElementById('fontSize').value);
-    let minSizeFound = baseSize;
-    const buffer = 10; 
-
-    // 第一步：遍历所有名字，找出能够适应列宽的最大可用字号
-    texts.forEach(text => {
-        text.style.fontSize = baseSize + 'pt'; // 先重置
-        const maxWidth = text.closest('.name-row').offsetWidth - buffer;
-        
-        if (text.scrollWidth > maxWidth) {
-            const neededSize = (maxWidth / text.scrollWidth) * baseSize;
-            if (neededSize < minSizeFound) {
-                minSizeFound = neededSize;
+        function onFrameLoaded() {
+            const loader = document.getElementById('toolLoading');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => { loader.style.display = 'none'; }, 200);
             }
         }
-    });
-
-    // 限制最小字号并取整
-    if (minSizeFound < 8) minSizeFound = 8;
-    const finalSize = Math.floor(minSizeFound * 10) / 10;
-
-    // 第二步：将计算出的统一字号应用到所有名字
-    texts.forEach(text => {
-        text.style.fontSize = finalSize + 'pt';
-    });
-
-    // 同步更新 UI 滑块
-    document.getElementById('fontSize').value = finalSize;
-    document.getElementById('fsVal').innerText = finalSize + 'pt';
-}
-
-function generateLayout() {
-    const inputDiv = document.getElementById('nameInput');
-    const orientation = document.querySelector('input[name="orientation"]:checked').value;
-    const numWalls = parseInt(document.getElementById('numWalls').value) || 1;
-    const pagesPerWall = parseInt(document.getElementById('pagesPerWall').value) || 1;
-    
-    let namesData = [];
-    const cells = inputDiv.querySelectorAll('td');
-    
-    if (cells.length > 0) {
-        cells.forEach(cell => {
-            let text = cell.textContent.trim();
-            if (text) {
-                let isBold = cell.querySelector('b, strong') !== null || 
-                             cell.style.fontWeight === 'bold' || 
-                             cell.style.fontWeight === '700' ||
-                             (cell.firstElementChild && (cell.firstElementChild.style.fontWeight === 'bold' || cell.firstElementChild.tagName === 'B'));
-                namesData.push({ text, bold: isBold });
-            }
-        });
-    } else {
-        const lines = inputDiv.innerText.split('\n');
-        lines.forEach(line => { if (line.trim()) namesData.push({ text: line.trim(), bold: false }); });
-    }
-
-    if (namesData.length === 0) return alert("Please paste Excel data first!");
-
-    const totalPapers = numWalls * pagesPerWall;
-    const totalCols = totalPapers * 3;
-    const namesPerCol = Math.ceil(namesData.length / totalCols);
-
-    // Height Calculation
-    const availableHeightMm = (orientation === 'landscape' ? 594 : 841) - 60;
-    const availableHeightPt = availableHeightMm * 2.835;
-    
-    // Determine Global Row Height (Points)
-    const globalRowHeight = Math.floor(availableHeightPt / namesPerCol);
-    // Base font size (slightly smaller than row height for padding)
-    let baseFs = Math.floor(globalRowHeight * 0.85);
-    
-    if (baseFs > 100) baseFs = 100;
-    if (baseFs < 10) baseFs = 10;
-
-    document.getElementById('fontSize').value = baseFs;
-    document.getElementById('fsVal').innerText = baseFs + 'pt';
-
-    let groups = [];
-    for (let i = 0; i < totalCols; i++) {
-        groups.push(namesData.slice(i * namesPerCol, (i + 1) * namesPerCol));
-    }
-
-    let outputHtml = '';
-    for (let p = 0; p < totalPapers; p++) {
-        const wallIdx = Math.floor(p / pagesPerWall);
-        const vIdx = p % pagesPerWall;
-        const colsInOneWall = 3 * pagesPerWall;
-        const c1Idx = (wallIdx * colsInOneWall) + (0 * pagesPerWall) + vIdx;
-        const c2Idx = (wallIdx * colsInOneWall) + (1 * pagesPerWall) + vIdx;
-        const c3Idx = (wallIdx * colsInOneWall) + (2 * pagesPerWall) + vIdx;
-
-        outputHtml += `<div class="page ${orientation}">`;
-        [c1Idx, c2Idx, c3Idx].forEach(idx => {
-            outputHtml += `<div class="column">`;
-            if (groups[idx]) {
-                groups[idx].forEach(item => {
-                    const weight = item.bold ? 'bold' : 'normal';
-                    // Apply globalRowHeight to ensure vertical consistency
-                    outputHtml += `
-                        <div class="name-row" style="height: ${globalRowHeight}pt;">
-                            <div class="name-text" style="font-size:${baseFs}pt; font-weight:${weight}">${item.text}</div>
-                        </div>`;
-                    });
-            }
-            outputHtml += `</div>`;
-        });
-        outputHtml += `</div>`;
-    }
-    
-    document.getElementById('output').innerHTML = outputHtml;
-    
-    // Final Step: Shrink any names that are too wide for their columns
-    adjustWidths();
-    
-    document.getElementById('output-container').scrollTop = 0;
-}
-</script>
-
+    </script>
 </body>
 </html>

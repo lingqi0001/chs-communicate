@@ -48,31 +48,6 @@
             border-right: 1px solid #e2e8f0;
         }
 
-        /* Back navigation */
-        .back-nav {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            padding: 7px 12px;
-            border-radius: var(--radius);
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            transition: var(--transition);
-            cursor: pointer;
-            width: fit-content;
-            margin-bottom: -6px;
-        }
-
-        .back-nav:hover {
-            color: var(--primary);
-            background: #e2e8f0;
-            border-color: #cbd5e1;
-        }
-
         /* Preview Area */
         #output-container {
             flex-grow: 1;
@@ -365,13 +340,6 @@
 <body>
 
 <div id="sidebar">
-    <a href="/" class="back-nav" onclick="handleBack(event)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        <span>Back to CHSchat</span>
-    </a>
-
     <h2>Layout Control</h2>
     
     <div class="guide-box">
@@ -445,17 +413,6 @@
 </div>
 
 <script>
-function handleBack(event) {
-    if (window.self !== window.top) {
-        // If embedded in iframe (CHSchat extension overlay)
-        event.preventDefault();
-        window.parent.postMessage({ type: 'CLOSE_EXTENSION' }, '*');
-    } else {
-        // If accessed directly in browser, go to CHSchat home
-        window.location.href = '/';
-    }
-}
-
 function manualUpdateFontSize() {
     const val = document.getElementById('fontSize').value;
     document.getElementById('fsVal').innerText = val + 'pt';
