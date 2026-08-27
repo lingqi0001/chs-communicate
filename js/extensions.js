@@ -213,7 +213,7 @@ export const ExtensionModule = {
         },
         'honor_roll': {
             eid: 'honor_roll',
-            url: 'extensions/staff/Honor Roll.html',
+            url: 'honorroll.html',
             title: 'Honor Roll',
             category: 'Staff Tools',
             description: 'Made for Miss. Cipriano and Miss. Dow'

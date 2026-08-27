@@ -14,6 +14,7 @@ export const NotifyModule = {
     version: '2026-05-16-v30',
     unreadCount: 0,
     unreadSet: new Set(),
+    hiddenChats: new Set(JSON.parse(localStorage.getItem('hiddenChats') || '[]')),
     context: {
         db: null,
         currentUser: null,
@@ -49,6 +50,21 @@ export const NotifyModule = {
             this.audio.load(); 
         } catch (e) {
             console.warn('[Notify] Failed to init audio engine:', e);
+        }
+    },
+
+    hideChat(targetId) {
+        if (!targetId) return;
+        this.hiddenChats.add(targetId);
+        localStorage.setItem('hiddenChats', JSON.stringify([...this.hiddenChats]));
+        this.markAsRead(targetId);
+    },
+
+    unhideChat(targetId) {
+        if (!targetId) return;
+        if (this.hiddenChats.has(targetId)) {
+            this.hiddenChats.delete(targetId);
+            localStorage.setItem('hiddenChats', JSON.stringify([...this.hiddenChats]));
         }
     },
 
@@ -149,8 +165,18 @@ export const NotifyModule = {
         this._notificationsUnsub = onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
             this.unreadSet.clear();
+            const hiddenUpdates = {};
             for (const key in data) {
-                if (data[key] === true) this.unreadSet.add(key);
+                if (data[key] === true) {
+                    if (this.hiddenChats.has(key)) {
+                        hiddenUpdates[key] = false;
+                        continue;
+                    }
+                    this.unreadSet.add(key);
+                }
+            }
+            if (Object.keys(hiddenUpdates).length > 0) {
+                update(ref(db, `user_notifications/${uid}`), hiddenUpdates);
             }
             this.unreadCount = this.unreadSet.size;
             this.updateUI();

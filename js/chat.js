@@ -656,10 +656,11 @@ export function initChatEngine(deps) {
     }
 
     async function deleteChatRecord(targetId) {
-        if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.markAsRead === 'function') {
-            window.AppModules.Notify.markAsRead(targetId);
-        }
         if (!await AppModules.Modal.confirm("Remove Chat", "Remove this chat from your list? Messages will not be deleted.", "Remove")) return;
+
+        if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.hideChat === 'function') {
+            window.AppModules.Notify.hideChat(targetId);
+        }
 
         const currentUser = getCurrentUser();
         const lowerTarget = targetId.toLowerCase();
@@ -934,6 +935,10 @@ export function initChatEngine(deps) {
             const targetId = getActiveTargetId();
             if (!targetId || !msgData) return;
             if (await blockIfRestrictedDirectTarget(targetId)) return null;
+
+            if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.unhideChat === 'function') {
+                window.AppModules.Notify.unhideChat(targetId);
+            }
 
             const currentUser = getCurrentUser();
             const isGroup = targetId.startsWith('group_');
