@@ -298,11 +298,13 @@ export const ViewModule = {
      * 判断当前是否处于移动端布局 (<= 850px)
      */
     isMobile: function () {
-        if (window.innerWidth < 800) return true;
-        if (window.innerWidth < 1024 && (this.state.currentPanel === 'news' || this.state.currentPanel === 'tools')) {
-            return true;
+        if (!window.isLoggedIn) {
+            return window.innerWidth < 768;
         }
-        return false;
+        // Logged-in tablet layouts are always a two-pane desktop presentation.
+        // Making this depend on the active tab caused resize cycles to revive
+        // the mobile dock over a visible message pane.
+        return window.innerWidth < 640;
     },
 
     /**
@@ -418,6 +420,19 @@ export const ViewModule = {
         const chatSection = document.getElementById('chatSection');
         const chatBox = document.getElementById('chatBox');
         const glass = document.getElementById('chatSectionGlass');
+
+        // In four-panel mode the handle belongs to the Hub+Tools pair, so collapse
+        // both left panels together without changing the normal sidebar preference.
+        if (document.body.classList.contains('four-panel-layout')
+            || document.body.classList.contains('compact-four-panel-layout')) {
+            const collapsed = !document.body.classList.contains('four-panel-collapsed');
+            document.body.classList.toggle('four-panel-collapsed', collapsed);
+            this.state.isSidebarOpen = !collapsed;
+            localStorage.setItem('fourPanelCollapsed', collapsed ? 'true' : 'false');
+            sidebarHandle?.classList.add('is-transitioning');
+            setTimeout(() => sidebarHandle?.classList.remove('is-transitioning'), 500);
+            return;
+        }
 
         // Detect if we should use the glass overlay/width-locking effect
         let useGlass = true;
@@ -556,8 +571,9 @@ export const ViewModule = {
      * 切换到侧边栏面板（联系人列表�?     */
     showSidebar: function () {
         // activeTargetId 的清理仍由业务层处理，这里只�?UI
-        this.showPanel('tools');
-        if (this.isMobile()) {
+        this.showPanel('messages');
+        const isDualPane = document.body.classList.contains('tablet-dual-pane-layout');
+        if (this.isMobile() || isDualPane) {
             if (typeof window.setActiveTargetId === 'function') {
                 window.setActiveTargetId(null);
             } else {
@@ -938,6 +954,116 @@ export const ViewModule = {
      * [面板管理] showPanel (�?AppView.showPanel)
      * 控制主界面内部三个主要区域的显隐
      */
+    applyDesktopPanelLayout: function (layout = null) {
+        if (!window.isLoggedIn) return;
+
+        const selected = layout === 'four' || (layout === null && localStorage.getItem('panelLayout') === 'four')
+            ? 'four' : 'three';
+        const isCompact = window.innerWidth >= 1024 && window.innerWidth < 1280;
+        const isTabletDualPane = window.innerWidth >= 640 && window.innerWidth < 1024;
+        const useFour = selected === 'four' && window.innerWidth >= 1024;
+        const newsSec = document.getElementById('newsSection');
+        const toolsSec = document.getElementById('toolsSection');
+        const sidePanel = document.getElementById('sidePanel');
+        const chatSec = document.getElementById('chatSection');
+        const toolsMainContent = document.getElementById('toolsMainContent');
+        const newsMainContent = document.getElementById('newsMainContent');
+        const toolsSectionBody = document.getElementById('toolsSectionBody');
+        const newsMainWrapper = document.getElementById('newsMainWrapper');
+        if (!newsSec || !toolsSec || !sidePanel || !chatSec) return;
+
+        document.body.classList.toggle('four-panel-layout', useFour && !isCompact);
+        document.body.classList.toggle('compact-four-panel-layout', useFour && isCompact);
+        document.body.classList.toggle('tablet-dual-pane-layout', isTabletDualPane);
+        document.body.classList.toggle('four-panel-collapsed', useFour && localStorage.getItem('fourPanelCollapsed') === 'true');
+        if (useFour) document.body.classList.remove('sidebar-collapsed');
+
+        newsSec.classList.remove('hidden');
+        newsSec.classList.add('flex');
+        sidePanel.classList.remove('hidden');
+        sidePanel.classList.add('flex');
+        chatSec.classList.remove('hidden');
+        chatSec.classList.add('flex');
+
+        if (useFour && !isCompact) {
+            toolsSec.classList.remove('hidden');
+            toolsSec.classList.add('flex');
+            if (toolsMainContent && toolsSectionBody && !toolsSectionBody.contains(toolsMainContent)) {
+                toolsSectionBody.appendChild(toolsMainContent);
+            }
+            if (toolsMainContent) {
+                toolsMainContent.style.opacity = '1';
+                toolsMainContent.style.transform = 'none';
+                toolsMainContent.style.pointerEvents = 'auto';
+                toolsMainContent.style.zIndex = '1';
+            }
+            // Wide four-panel mode always renders Hub and Tools independently.
+            // A previous narrow Tool selection leaves Hub's shared content at
+            // opacity: 0, which otherwise produces an empty first panel.
+            if (newsMainContent) {
+                newsMainContent.style.opacity = '1';
+                newsMainContent.style.transform = 'translateX(0)';
+                newsMainContent.style.pointerEvents = 'auto';
+                newsMainContent.style.zIndex = '10';
+            }
+            const newsTab = document.getElementById('headTabNews');
+            const toolsTab = document.getElementById('headTabTools');
+            if (newsTab) {
+                newsTab.className = 'text-2xl font-bold tracking-tight text-black dark:text-white tab-transition leading-none head-tab-active scale-110 origin-bottom';
+            }
+            if (toolsTab) {
+                toolsTab.className = 'text-2xl font-bold tracking-tight text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white tab-transition leading-none scale-100 origin-bottom mb-0.5';
+            }
+        } else {
+            toolsSec.classList.add('hidden');
+            toolsSec.classList.remove('flex');
+            if (toolsMainContent && newsMainWrapper && !newsMainWrapper.contains(toolsMainContent)) {
+                newsMainWrapper.appendChild(toolsMainContent);
+            }
+            if (toolsMainContent) {
+                // A resize can move Tools back into the shared left pane while
+                // its tab is already active.  Clearing its inline state then
+                // exposes the element's initial opacity-0 class and produces
+                // an empty "Tool" pane.
+                const activeLeftTab = document.querySelector('.head-tab-active');
+                const toolsIsActive = activeLeftTab?.id === 'headTabTools';
+                toolsMainContent.style.opacity = toolsIsActive ? '1' : '';
+                toolsMainContent.style.transform = toolsIsActive ? 'translateX(0)' : '';
+                toolsMainContent.style.pointerEvents = toolsIsActive ? 'auto' : '';
+                toolsMainContent.style.zIndex = toolsIsActive ? '10' : '';
+            }
+        }
+
+        // Wide four-panel and its medium three-panel variant keep both the
+        // list and conversation visible.  Only the tablet layout switches
+        // between them on the right.
+        if (useFour && !isCompact) {
+            document.body.classList.remove('mobile-layout-active', 'desktop-messages-layout-active');
+        } else if (isCompact) {
+            document.body.classList.remove('mobile-layout-active', 'desktop-messages-layout-active');
+            sidePanel.classList.remove('hidden');
+            sidePanel.classList.add('flex');
+            chatSec.classList.remove('hidden');
+            chatSec.classList.add('flex');
+        } else if (isTabletDualPane) {
+            this.showPanel(window.activeTargetId ? 'chat' : 'messages');
+        } else if (window.innerWidth < 640) {
+            // applyDesktopPanelLayout also runs during every resize.  Restore
+            // exactly one phone panel here so its earlier "all flex" setup
+            // cannot leave the mobile dock over two visible panels.
+            document.body.classList.remove('mobile-layout-active', 'desktop-messages-layout-active');
+            const rememberedPanel = this.state.currentPanel;
+            const phonePanel = window.activeTargetId
+                ? 'chat'
+                : ((rememberedPanel === 'news' || rememberedPanel === 'tools') ? rememberedPanel : 'messages');
+            [newsSec, sidePanel, chatSec].forEach((panel) => {
+                panel.classList.add('hidden');
+                panel.classList.remove('flex', 'slide-in-left', 'slide-in-right', 'slide-out-right');
+            });
+            this.showPanel(phonePanel);
+        }
+    },
+
     showPanel: function (panelId) {
         const newsSec = document.getElementById('newsSection');
         const sidePanel = document.getElementById('sidePanel');
@@ -948,10 +1074,36 @@ export const ViewModule = {
         if (!newsSec || !sidePanel || !chatSec) return;
 
         this.state.currentPanel = panelId;
-        const isMobile = this.isMobile();
+        const isMobile = (typeof this.isMobile === 'function')
+            ? this.isMobile()
+            : (window.AppView && typeof window.AppView.isMobile === 'function'
+                ? window.AppView.isMobile()
+                : (window.innerWidth < (window.isLoggedIn ? 800 : 768)));
+        const isCompactFourPanel = document.body.classList.contains('compact-four-panel-layout');
+        const isTabletDualPane = document.body.classList.contains('tablet-dual-pane-layout');
+        const isDualPane = isTabletDualPane;
+        const effectiveIsMobile = isDualPane ? false : isMobile;
 
-        // Toggle body layout classes dynamically based on layout mode
-        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+        if (isDualPane) {
+            // Keep Hub/Tools on the left while the right half switches between
+            // the messaging list and the active conversation.
+            newsSec.classList.remove('hidden');
+            newsSec.classList.add('flex');
+            if (panelId === 'chat') {
+                sidePanel.classList.add('hidden');
+                sidePanel.classList.remove('flex');
+                chatSec.classList.remove('hidden');
+                chatSec.classList.add('flex');
+            } else if (panelId === 'tools' || panelId === 'news' || panelId === 'messages') {
+                sidePanel.classList.remove('hidden');
+                sidePanel.classList.add('flex');
+                chatSec.classList.add('hidden');
+                chatSec.classList.remove('flex');
+            }
+        }
+
+        // Toggle body layout classes dynamically based on layout mode (authenticated only)
+        if (!isDualPane && !isCompactFourPanel && window.isLoggedIn && window.innerWidth >= 640 && window.innerWidth < 1024) {
             if (panelId === 'news' || panelId === 'tools') {
                 document.body.classList.add('mobile-layout-active');
                 document.body.classList.remove('desktop-messages-layout-active');
@@ -965,7 +1117,7 @@ export const ViewModule = {
 
         // Toggle mobile bottom gradient overlay
         if (gradientShim) {
-            if (isMobile && panelId !== 'chat') {
+            if (effectiveIsMobile && panelId !== 'chat') {
                 gradientShim.classList.remove('hidden');
             } else {
                 gradientShim.classList.add('hidden');
@@ -973,13 +1125,17 @@ export const ViewModule = {
         }
 
         // Desktop Layout: All flex
-        if (!isMobile) {
-            newsSec.classList.replace('hidden', 'flex');
-            sidePanel.classList.replace('hidden', 'flex');
-            chatSec.classList.replace('hidden', 'flex');
-            // Only hide bottomNav on true full desktop (>= 1024). In 800-1024 range keep it visible.
+        if (!effectiveIsMobile) {
+            // Dual-pane layouts deliberately show either the list or the
+            // conversation on the right.  Do not restore the hidden pane.
+            if (!isDualPane) {
+                newsSec.classList.replace('hidden', 'flex');
+                sidePanel.classList.replace('hidden', 'flex');
+                chatSec.classList.replace('hidden', 'flex');
+            }
+            // Only hide bottomNav on true full desktop (>= 1024) or for guests
             if (bottomNav) {
-                if (window.innerWidth >= 1024) {
+                if (window.innerWidth >= 640 || !window.isLoggedIn || isDualPane) {
                     bottomNav.classList.add('hidden');
                 } else {
                     bottomNav.classList.remove('hidden');
@@ -988,9 +1144,9 @@ export const ViewModule = {
             return;
         }
 
-        // For the 800-1024px range where isMobile() is true (Hub/Tool active):
+        // For the 800-1024px range where isMobile() is true (Hub/Tool active) for logged-in users:
         // Don't use slide animations — the CSS body classes handle panel visibility via !important.
-        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+        if (window.isLoggedIn && window.innerWidth >= 640 && window.innerWidth < 1024 && !isDualPane) {
             // Ensure all panels are set to flex so CSS !important can override per body class
             newsSec.classList.remove('hidden');
             newsSec.classList.add('flex');
@@ -1010,7 +1166,11 @@ export const ViewModule = {
             if (panelId === 'news') {
                 newsSec.classList.replace('hidden', 'flex');
                 if (bottomNav) bottomNav.classList.remove('hidden');
-            } else if (panelId === 'tools' || panelId === 'messages') {
+            } else if (panelId === 'tools') {
+                newsSec.classList.replace('hidden', 'flex');
+                this.switchLeftTab('tools');
+                if (bottomNav) bottomNav.classList.remove('hidden');
+            } else if (panelId === 'messages') {
                 sidePanel.classList.replace('hidden', 'flex');
                 if (bottomNav) bottomNav.classList.remove('hidden');
             }
@@ -1054,10 +1214,11 @@ export const ViewModule = {
             p.classList.remove('flex', 'slide-in-left', 'slide-in-right');
         });
 
-        if (panelId === 'news') {
+        if (panelId === 'news' || panelId === 'tools') {
             newsSec.classList.replace('hidden', 'flex');
+            if (panelId === 'tools') this.switchLeftTab('tools');
             if (bottomNav) bottomNav.classList.remove('hidden');
-        } else if (panelId === 'tools' || panelId === 'messages') {
+        } else if (panelId === 'messages') {
             sidePanel.classList.replace('hidden', 'flex');
             if (bottomNav) bottomNav.classList.remove('hidden');
         } else if (panelId === 'chat') {
@@ -1067,18 +1228,21 @@ export const ViewModule = {
     },
 
     switchTab: function (tab, immediate = false) {
-        // In 800-1024px range: Hub/Tool should activate mobile-layout-active, Messages restores two-panel layout
-        if (window.innerWidth >= 800 && window.innerWidth < 1024) {
+        if (!window.isLoggedIn && window.innerWidth >= 768) {
+            // Guest 3-panel mode: panels are all visible simultaneously
+            return;
+        }
+        // Tablet and compact layouts keep Hub/Tools on the left and Messages on
+        // the right; they do not use the phone navigation state machine.
+        if (window.isLoggedIn && window.innerWidth >= 640 && window.innerWidth < 1024) {
             if (tab === 'news' || tab === 'tools') {
                 this.state.currentPanel = tab;
                 this.showPanel(tab);
                 // Also switch the internal sub-tab so Hub vs Tool content is correct
                 this.switchLeftTab(tab);
-                this.refreshBottomNav(tab);
             } else if (tab === 'messages') {
                 this.state.currentPanel = 'messages';
                 this.showPanel('messages');
-                this.refreshBottomNav('messages');
             }
             return;
         }
@@ -1257,7 +1421,7 @@ export const ViewModule = {
 
         // 修正：内部切换不应触�?showPanel，否则会把容器自身隐藏掉
         // 只有当明确需要切换到独立的消息面板时（桌面端逻辑）才处理
-        if (window.innerWidth >= 800) {
+        if (window.innerWidth >= 640) {
             if (tab === 'more') this.showPanel('messages');
             else this.showPanel('news');
         } else {

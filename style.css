@@ -85,6 +85,8 @@ body {
 }
 
 #chatInputPill {
+    container-type: inline-size;
+    container-name: chat-input;
     border: 1px solid rgba(15, 23, 42, 0.1);
     background: rgba(242, 242, 247, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
     backdrop-filter: blur(28px) saturate(180%);
@@ -807,11 +809,16 @@ body {
     }
 
     #sidePanel {
-        width: 320px !important;
-        min-width: 320px !important;
-        max-width: 320px !important;
-        flex: 0 0 320px !important;
-        border-right: 0 !important;
+        /* The list needs enough room for names, previews, and search. */
+        width: clamp(360px, 25vw, 440px) !important;
+        min-width: clamp(360px, 25vw, 440px) !important;
+        max-width: clamp(360px, 25vw, 440px) !important;
+        flex: 0 0 clamp(360px, 25vw, 440px) !important;
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+    }
+
+    .dark #sidePanel {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
     }
 
     #chatSection {
@@ -854,6 +861,512 @@ body {
 @media (min-width: 1024px) {
     .desktop-dynamic-left {
         left: var(--desktop-overlay-left, 320px) !important;
+    }
+}
+
+/* Guest desktop layouts never display the chat panel or mobile navigation. */
+body.is-guest-three-panel #chatSection,
+body.is-guest-three-panel #bottomNavContainer,
+body.is-guest-three-panel #sidebarHandle,
+body.is-guest-three-panel #sidebarTrigger,
+body.is-guest-three-panel #newsSideDivider,
+body.is-guest-three-panel #headTabTools,
+body.is-guest-three-panel .bottom-gradient-shim,
+body.is-guest-two-panel #chatSection,
+body.is-guest-two-panel #bottomNavContainer,
+body.is-guest-two-panel #sidebarHandle,
+body.is-guest-two-panel #sidebarTrigger,
+body.is-guest-two-panel #newsSideDivider,
+body.is-guest-two-panel .bottom-gradient-shim {
+    display: none !important;
+}
+
+/* Authenticated four-panel desktop layout: Hub | Tools | Message list | Conversation. */
+@media (min-width: 1280px) {
+    /* Four-panel mode uses fixed equal-width columns.  The old desktop
+       divider is a draggable Hub/message-list resizer and must not advertise
+       resizing when that layout is active.  Keep the panel borders as the
+       visual separators, but remove the hit target and hover treatment. */
+    body.four-panel-layout #newsSideDivider {
+        display: none !important;
+        pointer-events: none !important;
+        cursor: default !important;
+    }
+
+    body.four-panel-layout #newsSection,
+    body.four-panel-layout #toolsSection,
+    body.four-panel-layout #sidePanel,
+    body.four-panel-layout #chatSection {
+        display: flex !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        flex: 1 1 25% !important;
+        transform: none !important;
+    }
+
+    /* Messages needs more working room than either Hub or Tools.  Treating
+       all four columns as 25% makes the contact list feel like a cramped rail
+       while the combined Hub + Tools side consumes half the window. */
+    body.four-panel-layout:not(.four-panel-collapsed) #newsSection,
+    body.four-panel-layout:not(.four-panel-collapsed) #toolsSection {
+        flex: 1 1 22% !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed) #sidePanel,
+    body.four-panel-layout:not(.four-panel-collapsed) #chatSection {
+        flex: 1 1 28% !important;
+        min-width: 0 !important;
+    }
+
+    body.four-panel-layout #newsSection > *,
+    body.four-panel-layout #toolsSection > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.four-panel-layout #newsSection,
+    body.four-panel-layout #toolsSection {
+        overflow: hidden !important;
+        transform-origin: left center;
+        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.35s ease,
+            transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        will-change: flex-basis, width, opacity, transform;
+    }
+
+    body.four-panel-layout #sidePanel {
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+    }
+
+    /* Keep a clear divider between the independent Hub and Tools panels. */
+    body.four-panel-layout #newsSection {
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+    }
+
+    .dark body.four-panel-layout #newsSection {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+
+    .dark body.four-panel-layout #sidePanel {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+
+    /* Hub and Tools are 22% each in this layout, so their shared outer edge
+       is 44% of the viewport—not the old 50% equal-column boundary. */
+    body.four-panel-layout:not(.four-panel-collapsed) #sidebarHandle {
+        left: 44% !important;
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    body.four-panel-layout #headTabTools {
+        display: none !important;
+    }
+
+    /* A four-panel collapse folds Hub and Tools as one left-side unit. */
+    body.four-panel-layout.four-panel-collapsed #newsSection,
+    body.four-panel-layout.four-panel-collapsed #toolsSection {
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        border-right-width: 0 !important;
+        visibility: visible !important;
+        transform: scaleX(0.001) !important;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #sidebarHandle {
+        left: -28px !important;
+        width: 32px !important;
+        height: 90px !important;
+        opacity: 0.7 !important;
+        transform: translateY(-50%) scaleX(1) !important;
+        border-radius: 0 16px 16px 0 !important;
+        z-index: 41 !important;
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #sidebarTrigger:hover + #sidebarHandle,
+    body.four-panel-layout.four-panel-collapsed #sidebarHandle:hover {
+        left: 0 !important;
+        opacity: 1 !important;
+    }
+}
+
+/* At medium widths, four-panel preference merges Hub/Tools into the first
+   column while keeping Message List and conversation visible. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    /* Never let the mobile dock reappear when resize handlers settle. */
+    body.compact-four-panel-layout #bottomNavContainer,
+    body.compact-four-panel-layout #bottomNav,
+    body.compact-four-panel-layout .bottom-gradient-shim {
+        display: none !important;
+    }
+
+    body.compact-four-panel-layout #newsSection {
+        display: flex !important;
+        flex: 0 1 40% !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    body.compact-four-panel-layout #toolsSection {
+        display: none !important;
+    }
+
+    body.compact-four-panel-layout #newsSection > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.compact-four-panel-layout #sidePanel,
+    body.compact-four-panel-layout #chatSection {
+        display: flex !important;
+        flex: 0 1 30% !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        transform: none !important;
+        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    /* This is still four-panel preference, merely condensed to three
+       columns.  Keep the Hub/Tools collapse control at its 40% boundary. */
+    body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarHandle {
+        display: flex !important;
+        position: fixed;
+        left: 40% !important;
+        top: 50%;
+        width: 16px;
+        height: 60px;
+        opacity: 0.4;
+        background: #8E8E93;
+        transform: translateY(-50%) translateX(-100%) scaleX(-1) !important;
+        z-index: 41;
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease !important;
+    }
+
+    body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarTrigger {
+        display: none !important;
+    }
+
+    body.compact-four-panel-layout.four-panel-collapsed #newsSection {
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        border-right-width: 0 !important;
+        transform: scaleX(0.001) !important;
+    }
+
+    body.compact-four-panel-layout.four-panel-collapsed #sidePanel,
+    body.compact-four-panel-layout.four-panel-collapsed #chatSection {
+        flex: 1 1 50% !important;
+    }
+
+    body.compact-four-panel-layout.four-panel-collapsed #sidebarHandle {
+        display: flex !important;
+        position: fixed;
+        left: -28px !important;
+        top: 50%;
+        width: 32px !important;
+        height: 90px !important;
+        opacity: 0.7 !important;
+        transform: translateY(-50%) scaleX(1) !important;
+        border-radius: 0 16px 16px 0 !important;
+        z-index: 41 !important;
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease !important;
+    }
+
+    body.compact-four-panel-layout.four-panel-collapsed #sidebarTrigger {
+        display: block !important;
+    }
+
+    body.compact-four-panel-layout.four-panel-collapsed #sidebarTrigger:hover + #sidebarHandle,
+    body.compact-four-panel-layout.four-panel-collapsed #sidebarHandle:hover {
+        left: 0 !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Wide guest layout (>= 1280px): Hub + Tools + Messages. */
+@media (min-width: 1280px) {
+    body.is-guest-three-panel #newsSection {
+        display: flex !important;
+        flex: 1 1 300px !important;
+        width: auto !important;
+        min-width: 240px !important;
+        max-width: 440px !important;
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .dark body.is-guest-three-panel #newsSection {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+    body.is-guest-three-panel #newsSection > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.is-guest-three-panel #toolsSection {
+        display: flex !important;
+        flex: 1 1 300px !important;
+        width: auto !important;
+        min-width: 240px !important;
+        max-width: 440px !important;
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .dark body.is-guest-three-panel #toolsSection {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+    body.is-guest-three-panel #toolsSection > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.is-guest-three-panel #toolsMainContent {
+        position: relative !important;
+        inset: auto !important;
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: 1 !important;
+        height: 100% !important;
+        width: 100% !important;
+    }
+
+    body.is-guest-three-panel #newsMainContent {
+        position: relative !important;
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: 1 !important;
+        width: 100% !important;
+    }
+
+    /* Messages panel on the far right: fills remaining space without 4th panel or right border */
+    body.is-guest-three-panel #sidePanel {
+        display: flex !important;
+        flex: 1 1 320px !important;
+        width: auto !important;
+        min-width: 280px !important;
+        max-width: none !important;
+        border-right: 0 !important;
+        transform: none !important;
+        container-type: inline-size;
+        container-name: guest-messages;
+    }
+    .dark body.is-guest-three-panel #sidePanel {
+        border-right: 0 !important;
+    }
+
+    /* At larger widths, keep the Messages title, search, and actions on one row. */
+    body.is-guest-three-panel #sidePanelHeader {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 1.25rem !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 0.75rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+    }
+
+    body.is-guest-three-panel #sidePanelHeaderTopRow {
+        display: contents !important;
+    }
+
+    body.is-guest-three-panel #sidePanelHeader h2 {
+        order: 1 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+    }
+
+    /* The search field is the flexible item: it narrows before the action buttons can overflow. */
+    body.is-guest-three-panel #sidePanelSearchWrap {
+        order: 2 !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        margin: 0 auto !important;
+        max-width: 680px !important;
+        width: 100% !important;
+    }
+
+    body.is-guest-three-panel #sidePanelSearchWrap input {
+        min-width: 0 !important;
+    }
+
+    body.is-guest-three-panel #sidePanelActionBtns {
+        order: 3 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    /*
+       Use the panel's own width rather than the viewport width.  When there is no
+       longer enough room for a useful search field, restore the normal two-row
+       Messages header: title/actions first, search directly underneath.
+    */
+    @container guest-messages (max-width: 560px) {
+        body.is-guest-three-panel #sidePanelHeader {
+            display: block !important;
+        }
+
+        body.is-guest-three-panel #sidePanelHeaderTopRow {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            height: 2.25rem !important;
+        }
+
+        body.is-guest-three-panel #sidePanelHeader h2,
+        body.is-guest-three-panel #sidePanelActionBtns,
+        body.is-guest-three-panel #sidePanelSearchWrap {
+            order: initial !important;
+        }
+
+        body.is-guest-three-panel #sidePanelSearchWrap {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0.75rem 0 0 !important;
+        }
+    }
+
+    /* Sign-in card and button area: fully centered in the wide remaining panel */
+    body.is-guest-three-panel #sidebarList {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 1.5rem !important;
+    }
+
+    body.is-guest-three-panel #guestSignInCard {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* All tool overlays open fullscreen for guest */
+    body.is-guest-three-panel .desktop-dynamic-left {
+        left: 0 !important;
+    }
+}
+
+/*
+   Guest layout at medium desktop widths: preserve a usable Hub/Tools workspace
+   on the left and the sign-in Messages panel on the right.  The tools content
+   is mounted back into the Hub panel by setupGuestThreePanelLayout().
+*/
+@media (min-width: 768px) and (max-width: 1279px) {
+    body.is-guest-two-panel #newsSection,
+    body.is-guest-two-panel #sidePanel {
+        display: flex !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        flex: 1 1 50% !important;
+    }
+
+    body.is-guest-two-panel #newsSection {
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    .dark body.is-guest-two-panel #newsSection {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+
+    body.is-guest-two-panel #newsSection > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.is-guest-two-panel #toolsSection {
+        display: none !important;
+    }
+
+    body.is-guest-two-panel #sidePanel {
+        border-right: 0 !important;
+        transform: none !important;
+    }
+
+    /* Restore the regular desktop Hub/Tools tab controls in the shared left panel. */
+    body.is-guest-two-panel #headTabNews,
+    body.is-guest-two-panel #headTabTools,
+    body.is-guest-two-panel #newsTopTabsRowDesktop {
+        display: flex !important;
+    }
+
+    body.is-guest-two-panel #headTabNews,
+    body.is-guest-two-panel #headTabTools {
+        align-items: center;
+    }
+
+    body.is-guest-two-panel #newsTopTabsRowMobile {
+        display: none !important;
+    }
+
+    body.is-guest-two-panel #sidebarList {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 1.5rem !important;
+    }
+
+    body.is-guest-two-panel #guestSignInCard {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    body.is-guest-two-panel .desktop-dynamic-left {
+        left: 0 !important;
     }
 }
 
@@ -1140,7 +1653,33 @@ body {
 }
 
 @media (min-width: 1024px) {
+    /* Desktop layouts never use the floating mobile navigation, even if a
+       preceding resize transition left its utility class behind. */
+    #bottomNavContainer,
+    .bottom-gradient-shim {
+        display: none !important;
+    }
+
     #newsTopTabsRowMobile {
+        display: none !important;
+    }
+}
+
+/* Compact four-panel mode has desktop Hub/Tools switching even when the
+   viewport also matches the narrow-header breakpoint (960–1023px). */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    body.compact-four-panel-layout #newsTopTabsRowDesktop,
+    body.compact-four-panel-layout #headTabNews,
+    body.compact-four-panel-layout #headTabTools {
+        display: flex !important;
+    }
+
+    body.compact-four-panel-layout #headTabNews,
+    body.compact-four-panel-layout #headTabTools {
+        align-items: center;
+    }
+
+    body.compact-four-panel-layout #newsTopTabsRowMobile {
         display: none !important;
     }
 }
@@ -1992,23 +2531,36 @@ textarea,
     }
 }
 
+/* In the logged-in two-pane state the conversation replaces the list on the
+   right, so its return control must remain available from the instant the
+   layout changes.  It is deliberately icon-only to preserve header space. */
+@media (min-width: 640px) and (max-width: 1023px) {
+    body.tablet-dual-pane-layout .chat-back-btn {
+        display: flex !important;
+    }
+}
+
 @media (min-width: 800px) and (max-width: 1023px) {
-    /* When Messages/Chat is active (desktop-like two-panel layout) */
-    body.desktop-messages-layout-active #newsSection {
+    /* When Messages/Chat is active (desktop-like two-panel layout) for logged-in users only */
+    body:not(.is-guest-three-panel).desktop-messages-layout-active #newsSection {
         display: none !important;
     }
-    body.desktop-messages-layout-active #sidePanel {
+    body:not(.is-guest-three-panel).desktop-messages-layout-active #sidePanel {
         width: 320px !important;
         min-width: 320px !important;
         max-width: 320px !important;
         flex: 0 0 320px !important;
         display: flex !important;
+        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
     }
-    body.desktop-messages-layout-active #chatSection {
+    .dark body:not(.is-guest-three-panel).desktop-messages-layout-active #sidePanel {
+        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    }
+    body:not(.is-guest-three-panel).desktop-messages-layout-active #chatSection {
         display: flex !important;
         flex: 1 1 auto !important;
     }
-    body.desktop-messages-layout-active #bottomNavContainer {
+    body:not(.is-guest-three-panel).desktop-messages-layout-active #bottomNavContainer {
         display: flex !important;
         left: 160px !important;
         transform: translateX(-50%) !important;
@@ -2017,20 +2569,20 @@ textarea,
         z-index: 50 !important;
     }
 
-    /* When Hub/Tools is active (mobile-like single-panel layout) */
-    body.mobile-layout-active #newsSection {
+    /* When Hub/Tools is active (mobile-like single-panel layout) for logged-in users only */
+    body:not(.is-guest-three-panel).mobile-layout-active #newsSection {
         display: flex !important;
         width: 100% !important;
         min-width: 100% !important;
         max-width: 100% !important;
     }
-    body.mobile-layout-active #sidePanel {
+    body:not(.is-guest-three-panel).mobile-layout-active #sidePanel {
         display: none !important;
     }
-    body.mobile-layout-active #chatSection {
+    body:not(.is-guest-three-panel).mobile-layout-active #chatSection {
         display: none !important;
     }
-    body.mobile-layout-active #bottomNavContainer {
+    body:not(.is-guest-three-panel).mobile-layout-active #bottomNavContainer {
         display: flex !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
@@ -2046,6 +2598,72 @@ textarea,
 @media (min-width: 800px) and (max-width: 1023px) {
     body.desktop-messages-layout-active #tabBtn-search {
         display: none !important;
+    }
+}
+
+/* Logged-in tablet layout: Hub/Tools selector on the left and Messages (or
+   the current conversation) on the right.  This is desktop UI, not mobile UI. */
+@media (min-width: 640px) and (max-width: 1023px) {
+    body.tablet-dual-pane-layout #bottomNavContainer,
+    body.tablet-dual-pane-layout .bottom-gradient-shim,
+    body.tablet-dual-pane-layout #sidebarHandle,
+    body.tablet-dual-pane-layout #sidebarTrigger {
+        display: none !important;
+    }
+
+    body.tablet-dual-pane-layout #newsSection,
+    body.tablet-dual-pane-layout #sidePanel:not(.hidden),
+    body.tablet-dual-pane-layout #chatSection:not(.hidden) {
+        display: flex !important;
+        flex: 1 1 50% !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        transform: none !important;
+    }
+
+    body.tablet-dual-pane-layout #newsSection > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Override the narrow phone header rule in this desktop two-pane view. */
+    body.tablet-dual-pane-layout #newsTopTabsRowDesktop,
+    body.tablet-dual-pane-layout #headTabNews,
+    body.tablet-dual-pane-layout #headTabTools {
+        display: flex !important;
+    }
+
+    body.tablet-dual-pane-layout #headTabNews,
+    body.tablet-dual-pane-layout #headTabTools {
+        align-items: center;
+    }
+
+    body.tablet-dual-pane-layout #newsTopTabsRowMobile {
+        display: none !important;
+    }
+
+}
+
+/* The logged-in phone dock has one breakpoint only.  Older resize classes
+   must never override it after a maximized-window round trip. */
+@media (min-width: 640px) {
+    body.is-logged-in #bottomNavContainer,
+    body.is-logged-in .bottom-gradient-shim {
+        display: none !important;
+    }
+}
+
+/* Logged-in three-panel layout: the conversation list is a working column,
+   not a narrow rail.  Keep this separate from the equal-width four-panel
+   rule and from the collapsed state. */
+@media (min-width: 1280px) {
+    body.is-logged-in:not(.four-panel-layout) #sidePanel {
+        width: clamp(420px, 30vw, 520px) !important;
+        min-width: clamp(420px, 30vw, 520px) !important;
+        max-width: clamp(420px, 30vw, 520px) !important;
+        flex: 0 0 clamp(420px, 30vw, 520px) !important;
     }
 }
 

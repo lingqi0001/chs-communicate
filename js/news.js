@@ -280,6 +280,17 @@ export function createNewsModule(deps) {
             return;
         }
 
+        if (type === 'joint') {
+            if (!window.isLoggedIn || !window.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to view your joined clubs.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to view your joined clubs.", "Sign In", "OK");
+                }
+                return;
+            }
+        }
+
         if (type === 'clubs') {
             setCurrentNewsTab('clubs');
             if (!isNavExpanded) {

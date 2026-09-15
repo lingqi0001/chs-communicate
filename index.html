@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260612-1741">
+    <link rel="stylesheet" href="style.css?v=20260612-1800">
 
     <script type="importmap">
     {
@@ -151,7 +151,7 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260519-0925",
         "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260612-1741",
+        "./js/view.js": "./js/view.js?v=20260612-1800",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
         "./js/modal.js": "./js/modal.js?v=20260516-2380",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
@@ -160,7 +160,7 @@
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260521-1905",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260612-1800",
         "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
@@ -197,6 +197,10 @@
         import { initChatEngine } from './js/chat.js';
         import { createNewsModule } from './js/news.js?v=20260524-20';
         import { SettingsModule } from './js/settings.js';
+        window.SettingsModule = SettingsModule;
+        if (typeof SettingsModule.ensureSettingsModal === 'function') {
+            SettingsModule.ensureSettingsModal();
+        }
         import { AdminModule } from './js/admin.js';
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
@@ -382,6 +386,67 @@
 
         /**
          */
+        window.isPublicTool = (nameOrId, url = '') => {
+            const key = String(nameOrId || '').toLowerCase().replace(/[\s\-_.]+/g, '');
+            const urlLower = String(url || '').toLowerCase();
+
+            // IR Navigator explicitly requires login
+            if (key.includes('irnavigator') || key.includes('independentresearch') || urlLower.includes('ir-navigator') || urlLower.includes('ir_navigator')) {
+                return false;
+            }
+            // Staff tools require login (except honor_roll)
+            if (urlLower.includes('/staff/') || urlLower.includes('staff/')) {
+                if (key.includes('honorroll') || urlLower.includes('honor roll')) return true;
+                return false;
+            }
+            // Public tools with direct routes / allowed
+            if (
+                key.includes('gradecalculator') ||
+                key.includes('faceofthegoodandevil') ||
+                key.includes('yearbooksymmetry') ||
+                key.includes('findthegaokaocheater') ||
+                key.includes('bcvolume3d') ||
+                key.includes('calcvolume3d') ||
+                key.includes('selectionlogic') ||
+                key.includes('honorroll') ||
+                key.includes('developer') ||
+                key.includes('cafeteria') ||
+                key.includes('menu') ||
+                urlLower.includes('/fun/') ||
+                urlLower.includes('/school/')
+            ) {
+                return true;
+            }
+            return false;
+        };
+
+        window.promptSignIn = async (message = "Please sign in with your HCPSS account to access this feature.", title = "Sign In Required") => {
+            const Modal = window.AppModules?.Modal;
+            let confirmed = false;
+            if (Modal && typeof Modal.confirm === 'function') {
+                confirmed = await Modal.confirm(title, message, "Sign In", "OK");
+            } else {
+                confirmed = window.confirm(`${title}\n\n${message}\n\nClick OK to Sign In, or Cancel to dismiss.`);
+            }
+
+            if (confirmed) {
+                if (window.innerWidth < 1024) {
+                    if (window.AppModules?.View?.showPanel) {
+                        window.AppModules.View.showPanel('messages');
+                    }
+                    if (typeof window.switchTab === 'function') {
+                        window.switchTab('messages');
+                    }
+                }
+                const card = document.getElementById('guestSignInCard');
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('ring-4', 'ring-[#007AFF]/60', 'transition-all');
+                    setTimeout(() => card.classList.remove('ring-4', 'ring-[#007AFF]/60'), 2000);
+                }
+            }
+        };
+
         function renderExtensionsCategory(title, files) {
             const container = document.getElementById('dynamicExtensionsList');
             if (!container) return;
@@ -424,6 +489,10 @@
                 const card = document.createElement('div');
                 card.className = "p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition select-none";
                 card.onclick = () => {
+                    if (!window.isLoggedIn && !window.isPublicTool(rawName, file.url)) {
+                        window.promptSignIn("Please sign in with your HCPSS account to access this tool.");
+                        return;
+                    }
                     if (typeof window.openExtension === 'function') {
                         window.openExtension(rawName, file.url, displayName);
                     } else if (window.AppModules?.Extension?.openExtension) {
@@ -498,6 +567,8 @@
                     localStorage.setItem('deviceId', devId);
                 }
                 window.isLoggedIn = true;
+                document.body.classList.add('is-logged-in');
+                document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
                 return AuthModule.setupUser(user);
             },
             () => {
@@ -505,19 +576,286 @@
                     const devId = 'device_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                     localStorage.setItem('deviceId', devId);
                 }
-                window.isLoggedIn = false;
-                console.log('App: No user found. Showing login page.');
-                document.getElementById('loginPage')?.classList.remove('hidden');
-                document.getElementById('mainPage')?.classList.add('hidden');
-                hideLoading();
+                window.initPublicGuestShell();
             }
         );
+
+        window.handleDirectRouteAndParams = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab');
+            if (initialTab && typeof window.switchTab === 'function') {
+                window.switchTab(initialTab);
+                if (typeof window.switchLeftTab === 'function') {
+                    window.switchLeftTab(initialTab);
+                }
+            }
+
+            const currentPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+            const openTarget = urlParams.get('open') || urlParams.get('tool') || urlParams.get('module') || currentPath;
+            if (openTarget) {
+                setTimeout(() => {
+                    if (openTarget === 'cafeteria' || openTarget === 'menu') {
+                        if (typeof window.openCafeteria === 'function') window.openCafeteria();
+                    } else if (openTarget === 'suggestions' || openTarget === 'suggestion') {
+                        if (typeof window.openModule === 'function') window.openModule('suggestions');
+                    } else if (openTarget === 'eagletime' || openTarget === 'eagle_time') {
+                        if (typeof window.openEagleTime === 'function') window.openEagleTime();
+                    } else if (openTarget === 'grade_calculator' || openTarget === 'grades' || openTarget === 'grade') {
+                        if (typeof window.openExtension === 'function') window.openExtension('grade_calculator');
+                    } else if (openTarget === 'face' || openTarget === 'face_of_the_good_and_evil' || openTarget === 'good-and-evil') {
+                        if (typeof window.openExtension === 'function') window.openExtension('face_of_the_good_and_evil');
+                    } else if (openTarget === 'gaokao' || openTarget === 'cheater' || openTarget === 'find_the_gao_kao_cheater') {
+                        if (typeof window.openExtension === 'function') window.openExtension('find_the_gao_kao_cheater');
+                    } else if (openTarget === 'volume3d' || openTarget === 'calc3d' || openTarget === 'bc_volume_3d_present') {
+                        if (typeof window.openExtension === 'function') window.openExtension('bc_volume_3d_present');
+                    } else if (openTarget === 'selection_logic' || openTarget === 'logic' || openTarget === 'selection_logic_visualizer') {
+                        if (typeof window.openExtension === 'function') window.openExtension('selection_logic_visualizer');
+                    } else if (openTarget === 'honorroll' || openTarget === 'honor_roll' || openTarget === 'honor-roll') {
+                        if (typeof window.openExtension === 'function') window.openExtension('honor_roll', 'extensions/staff/Honor Roll.html', 'Honor Roll');
+                    } else if (openTarget === 'developer' || openTarget === 'developer_portal' || openTarget === 'docs' || openTarget === 'developer-portal') {
+                        if (typeof window.openExtension === 'function') window.openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents');
+                    } else if (typeof window.openModule === 'function') {
+                        window.openModule(openTarget);
+                    }
+                }, 150);
+            }
+        };
+
+        window.setupGuestThreePanelLayout = () => {
+            if (window.isLoggedIn) return;
+            if (window.innerWidth < 768) {
+                window.teardownGuestThreePanelLayout();
+                return;
+            }
+            const useThreePanels = window.innerWidth >= 1280;
+            const wasThreePanels = document.body.classList.contains('is-guest-three-panel');
+            document.body.classList.remove('sidebar-collapsed', 'mobile-layout-active', 'desktop-messages-layout-active');
+            document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
+            document.body.classList.add(useThreePanels ? 'is-guest-three-panel' : 'is-guest-two-panel');
+
+            const newsSec = document.getElementById('newsSection');
+            const toolsSec = document.getElementById('toolsSection');
+            const sidePanel = document.getElementById('sidePanel');
+            const chatSec = document.getElementById('chatSection');
+            const bottomNav = document.getElementById('bottomNavContainer');
+
+            if (newsSec) { newsSec.classList.remove('hidden'); newsSec.classList.add('flex'); }
+            if (toolsSec) {
+                toolsSec.classList.toggle('hidden', !useThreePanels);
+                toolsSec.classList.toggle('flex', useThreePanels);
+            }
+            if (sidePanel) { sidePanel.classList.remove('hidden'); sidePanel.classList.add('flex'); }
+            if (chatSec) { chatSec.classList.add('hidden'); chatSec.classList.remove('flex'); }
+            if (bottomNav) {
+                bottomNav.classList.add('hidden');
+                // Guard against resize handlers that remove the utility class mid-transition.
+                bottomNav.style.display = 'none';
+            }
+
+            const toolsMainContent = document.getElementById('toolsMainContent');
+            const toolsSectionBody = document.getElementById('toolsSectionBody');
+            const newsMainWrapper = document.getElementById('newsMainWrapper');
+            if (useThreePanels) {
+                if (toolsMainContent && toolsSectionBody && !toolsSectionBody.contains(toolsMainContent)) {
+                    toolsSectionBody.appendChild(toolsMainContent);
+                }
+                if (toolsMainContent) {
+                    toolsMainContent.style.opacity = '1';
+                    toolsMainContent.style.transform = 'none';
+                    toolsMainContent.style.pointerEvents = 'auto';
+                    toolsMainContent.style.zIndex = '1';
+                }
+            } else {
+                if (toolsMainContent && newsMainWrapper && !newsMainWrapper.contains(toolsMainContent)) {
+                    newsMainWrapper.appendChild(toolsMainContent);
+                }
+                // Returning from three panels restores the regular Hub/Tools tab stack.
+                if (wasThreePanels && toolsMainContent) {
+                    toolsMainContent.style.opacity = '';
+                    toolsMainContent.style.transform = '';
+                    toolsMainContent.style.pointerEvents = '';
+                    toolsMainContent.style.zIndex = '';
+                    window.switchLeftTab?.('news');
+                }
+            }
+        };
+
+        window.teardownGuestThreePanelLayout = () => {
+            document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
+
+            const bottomNav = document.getElementById('bottomNavContainer');
+            if (bottomNav) bottomNav.style.display = '';
+
+            const toolsMainContent = document.getElementById('toolsMainContent');
+            const newsMainWrapper = document.getElementById('newsMainWrapper');
+            if (toolsMainContent && newsMainWrapper && !newsMainWrapper.contains(toolsMainContent)) {
+                newsMainWrapper.appendChild(toolsMainContent);
+            }
+            if (toolsMainContent) {
+                toolsMainContent.style.opacity = '';
+                toolsMainContent.style.transform = '';
+                toolsMainContent.style.pointerEvents = '';
+                toolsMainContent.style.zIndex = '';
+            }
+
+            const toolsSec = document.getElementById('toolsSection');
+            if (toolsSec) {
+                toolsSec.classList.add('hidden');
+                toolsSec.classList.remove('flex');
+            }
+
+            if (typeof window.switchLeftTab === 'function') {
+                window.switchLeftTab('news');
+            }
+        };
+
+        // Run after every other resize listener has settled.  Some of those listeners
+        // briefly restore the mobile navigation while recalculating panel widths.
+        let guestLayoutResizeFrame = null;
+        window.addEventListener('resize', () => {
+            if (window.isLoggedIn) return;
+            if (guestLayoutResizeFrame) cancelAnimationFrame(guestLayoutResizeFrame);
+            guestLayoutResizeFrame = requestAnimationFrame(() => {
+                guestLayoutResizeFrame = null;
+                if (window.isLoggedIn) return;
+                if (window.innerWidth >= 768) {
+                    window.setupGuestThreePanelLayout();
+                } else {
+                    window.teardownGuestThreePanelLayout();
+                }
+            });
+        });
+
+        window.initPublicGuestShell = () => {
+            window.isLoggedIn = false;
+            window.currentUser = null;
+            document.body.classList.remove('is-logged-in');
+            console.log('App: Initializing Public Guest Shell (Hub & Tools first)...');
+
+            document.getElementById('loginPage')?.classList.add('hidden');
+            document.getElementById('mainPage')?.classList.remove('hidden');
+
+            window.setupGuestThreePanelLayout();
+
+            if (AppModules.View && typeof AppModules.View.showPage === 'function') {
+                AppModules.View.showPage('mainPage');
+            }
+
+            // On mobile devices (< 768px), default to showing the left Hub/Tools panel
+            if (window.innerWidth < 768 && typeof window.switchTab === 'function') {
+                window.switchTab('news', true);
+            }
+
+            // Search UI initialization for public shell
+            if (AppModules.Search && AppModules.Search.initSearchUI) {
+                AppModules.Search.initSearchUI({
+                    db,
+                    getCurrentUser: () => null,
+                    getSidebarClasses: () => window.sidebarClasses || {},
+                    getCnCache: () => window.cnCache || {}
+                });
+            }
+
+            // Sidebar runtime initialization for guest mode
+            if (AppModules.Sidebar && AppModules.Sidebar.configureRuntime) {
+                AppModules.Sidebar.configureRuntime({
+                    db,
+                    get,
+                    update,
+                    query,
+                    ref,
+                    orderByKey,
+                    limitToLast,
+                    getCurrentUser: () => null,
+                    getActiveTargetId: () => activeTargetId,
+                    getAllUsers: () => ALL_USERS || {},
+                    formatLastSeen,
+                    eagleIcon: EAGLE_ICON,
+                    eagleIconBw: EAGLE_ICON_BW,
+                    isExtensionTargetId: AppModules.Bridge ? AppModules.Bridge.isExtensionTargetId : null,
+                    extensionIdFromTarget: AppModules.Bridge ? AppModules.Bridge.extensionIdFromTarget : null
+                });
+            }
+
+            // Render guest login card inside Messages panel (#sidebarList)
+            if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
+                AppModules.Sidebar.renderSidebar();
+            }
+
+            // Set clean welcome state in chatBox
+            const chatBox = document.getElementById('chatBox');
+            if (chatBox) {
+                chatBox.innerHTML = `
+                    <div class="h-full min-h-[300px] flex flex-col items-center justify-center p-8 text-center select-none">
+                        <div class="w-16 h-16 rounded-3xl bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 dark:text-gray-500 mb-4 shadow-sm">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-black dark:text-white mb-1.5">CHS Chat & Tools</h3>
+                        <p class="text-xs text-gray-400 max-w-xs leading-relaxed">
+                            Browse school announcements and tools, or sign in to start chatting with classmates.
+                        </p>
+                    </div>
+                `;
+            }
+            const chatTitle = document.getElementById('chatTitle');
+            if (chatTitle) chatTitle.innerText = "Centennial High School";
+            const chatStatus = document.getElementById('chatStatus');
+            if (chatStatus) chatStatus.innerText = "Public Hub & Tools";
+
+            // Hide chat input composer and in-chat search for unauthenticated guests
+            document.getElementById('chatComposerWrap')?.classList.add('hidden');
+            document.getElementById('chatSearchWrap')?.classList.add('hidden');
+
+            // Initialize News & Extensions for public browsing
+            if (AppModules.Sync && AppModules.Sync.init) {
+                AppModules.Sync.init({
+                    renderNews: (posts, containerId, tabType) => {
+                        AppModules.News.renderNewsContentFromData(posts, containerId, tabType);
+                    },
+                    renderSidebar: () => {
+                        if (AppModules.Sidebar) AppModules.Sidebar.renderSidebar();
+                    },
+                    onNewChatDiscovered: () => {}
+                });
+            }
+
+            if (AppModules.Extension && AppModules.Extension.init) {
+                AppModules.Extension.init({
+                    renderCategory: renderExtensionsCategory,
+                    onComplete: (container) => {
+                        container.innerHTML = `<div class="text-xs text-gray-400 text-center py-6 italic">No extensions found in /extensions/ folders.</div>`;
+                    }
+                });
+            }
+
+            if (AppModules.Sync && typeof AppModules.Sync.globalDataSync === 'function') {
+                AppModules.Sync.globalDataSync(db, null);
+            }
+
+            if (AppModules.Extension && typeof AppModules.Extension.syncExtensions === 'function') {
+                AppModules.Extension.syncExtensions();
+            }
+
+            if (AppModules.Security && typeof AppModules.Security.updateNewsAccess === 'function') {
+                AppModules.Security.updateNewsAccess();
+            }
+
+            if (window.SettingsModule && typeof SettingsModule.initSettingsUI === 'function') {
+                SettingsModule.initSettingsUI();
+            }
+
+            window.handleDirectRouteAndParams();
+            hideLoading();
+        };
 
 
 
 
 
         window.enterApp = async () => {
+            window.teardownGuestThreePanelLayout();
             currentUser = AppModules.User.current;
 
             try {
@@ -578,6 +916,7 @@
             }
 
             AppModules.View.showPage('mainPage');
+            AppModules.View.applyDesktopPanelLayout?.(localStorage.getItem('panelLayout') || 'three');
             AppModules.Search.initSearchUI({
                 db,
                 getCurrentUser: () => currentUser,
@@ -669,38 +1008,7 @@
             }
             hideLoading();
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const initialTab = urlParams.get('tab');
-            if (initialTab && typeof window.switchTab === 'function') {
-                window.switchTab(initialTab);
-                if (typeof window.switchLeftTab === 'function') {
-                    window.switchLeftTab(initialTab);
-                }
-            }
-
-            const currentPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
-            const openTarget = urlParams.get('open') || urlParams.get('tool') || urlParams.get('module') || currentPath;
-            if (openTarget) {
-                setTimeout(() => {
-                    if (openTarget === 'cafeteria' || openTarget === 'menu') {
-                        if (typeof window.openCafeteria === 'function') window.openCafeteria();
-                    } else if (openTarget === 'suggestions' || openTarget === 'suggestion') {
-                        if (typeof window.openModule === 'function') window.openModule('suggestions');
-                    } else if (openTarget === 'eagletime' || openTarget === 'eagle_time') {
-                        if (typeof window.openEagleTime === 'function') window.openEagleTime();
-                    } else if (openTarget === 'grade_calculator' || openTarget === 'grades' || openTarget === 'grade') {
-                        if (typeof window.openExtension === 'function') window.openExtension('grade_calculator');
-                    } else if (openTarget === 'face' || openTarget === 'face_of_the_good_and_evil') {
-                        if (typeof window.openExtension === 'function') window.openExtension('face_of_the_good_and_evil');
-                    } else if (openTarget === 'honorroll' || openTarget === 'honor_roll') {
-                        if (typeof window.openExtension === 'function') window.openExtension('honor_roll', 'extensions/staff/Honor Roll.html', 'Honor Roll');
-                    } else if (openTarget === 'developer' || openTarget === 'developer_portal' || openTarget === 'docs') {
-                        if (typeof window.openExtension === 'function') window.openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents');
-                    } else if (typeof window.openModule === 'function') {
-                        window.openModule(openTarget);
-                    }
-                }, 150);
-            }
+            window.handleDirectRouteAndParams();
         };
 
 
@@ -888,7 +1196,14 @@
             getAllUsers: () => ALL_USERS,
             SAFETY_BOT_ID,
             getCnCache: () => cnCache,
-            setActiveTargetId: (id) => { activeTargetId = id; window.activeTargetId = id; },
+            setActiveTargetId: (id) => {
+                activeTargetId = id;
+                window.activeTargetId = id;
+                if (!id) {
+                    document.getElementById('chatComposerWrap')?.classList.add('hidden');
+                    document.getElementById('chatSearchWrap')?.classList.add('hidden');
+                }
+            },
             getActiveTargetId: () => activeTargetId,
             getCtCache: () => ctCache,
             getSidebarClasses: () => sidebarClasses,
@@ -903,7 +1218,14 @@
             uploadImageToStorage: (base64Data, folder) => window.uploadImageToStorage(base64Data, folder)
         });
 
-        window.setActiveTargetId = (id) => { activeTargetId = id; window.activeTargetId = id; };
+        window.setActiveTargetId = (id) => {
+            activeTargetId = id;
+            window.activeTargetId = id;
+            if (!id) {
+                document.getElementById('chatComposerWrap')?.classList.add('hidden');
+                document.getElementById('chatSearchWrap')?.classList.add('hidden');
+            }
+        };
 
         window.getSelectedMsgData = () => chatEngine.getSelectedMsgData();
         chatEngine.mountChatUIEvents();
@@ -1028,7 +1350,7 @@
         const syncDesktopDynamicOverlays = () => {
             const overlays = document.querySelectorAll('.desktop-dynamic-left');
             if (!overlays.length) return;
-            if (window.innerWidth < 800) {
+            if (window.innerWidth < 640) {
                 overlays.forEach((el) => { el.style.left = ''; });
                 return;
             }
@@ -1040,6 +1362,14 @@
         };
 
         window.openModule = (moduleName) => {
+            if (!window.isLoggedIn && moduleName !== 'suggestions') {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to access this community module.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to access this community module.", "Sign In", "OK");
+                }
+                return;
+            }
             currentModule = moduleName;
             currentModuleSort = 'latest';
             const config = MODULE_CONFIG[moduleName];
@@ -1192,7 +1522,14 @@
         }
 
         window.voteSuggestion = async (postId, voteType) => {
-            if (!auth.currentUser) return;
+            if (!window.isLoggedIn || !auth.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to vote on suggestions.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to vote on suggestions.", "Sign In", "OK");
+                }
+                return;
+            }
             const uid = auth.currentUser.uid;
             const supportRef = ref(db, `modules/suggestions/${postId}/supportVotes/${uid}`);
             const notSupportRef = ref(db, `modules/suggestions/${postId}/notSupportVotes/${uid}`);
@@ -1364,7 +1701,7 @@
         window.startModuleChat = (authorId) => {
             closeModule();
             setTimeout(() => {
-                const isMobile = window.innerWidth < 800;
+                const isMobile = window.innerWidth < 640;
                 if (isMobile) {
                     if (window.refreshBottomNav) window.refreshBottomNav('messages');
                     // messagesBtn.click() removed
@@ -1378,6 +1715,13 @@
         window.handlePostImageSelect = async (e) => {
             if (!AppModules.Security.checkPhotoUploadAllowed()) {
                 e.target.value = '';
+                return;
+            }
+            if (!window.isLoggedIn || !window.currentUser) {
+                e.target.value = '';
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to upload photos.");
+                }
                 return;
             }
             const file = e.target.files[0];
@@ -1410,6 +1754,14 @@
         let isRequestingExtension = false;
 
         window.openNewsPostForm = () => {
+            if (!window.isLoggedIn || !window.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to post announcements.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to post announcements.", "Sign In", "OK");
+                }
+                return;
+            }
             console.log('App: Opening News Post Form');
             isPostingNews = true;
             document.getElementById('postInputTitle').value = '';
@@ -1434,6 +1786,14 @@
         };
 
         window.openPostForm = () => {
+            if ((!window.isLoggedIn || !window.currentUser) && currentModule !== 'suggestions') {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to create a post.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to create a post.", "Sign In", "OK");
+                }
+                return;
+            }
             console.log('App: Opening Module Post Form. Module:', currentModule);
             isPostingNews = false;
             document.getElementById('postInputTitle').value = '';
@@ -1455,6 +1815,14 @@
         };
 
         window.openExtensionRequest = () => {
+            if (!window.isLoggedIn || !window.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to submit an extension request.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to submit an extension request.", "Sign In", "OK");
+                }
+                return;
+            }
             isPostingNews = false;
             isRequestingExtension = true;
             document.getElementById('postInputTitle').value = '';
@@ -1563,11 +1931,13 @@
                 }
 
                 const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
+                const finalAuthorId = (isAnonymous || !window.currentUser) ? 'anonymous' : (currentUser ? currentUser.id : 'anonymous');
+                const finalAuthorName = (isAnonymous || !window.currentUser) ? 'Anonymous' : (currentUser ? currentUser.name : 'Anonymous');
                 set(push(ref(db, dbRefStr)), {
                     title, desc,
                     image: finalImageUrl,
-                    authorId: isAnonymous ? 'anonymous' : currentUser.id,
-                    authorName: isAnonymous ? 'Anonymous' : currentUser.name,
+                    authorId: finalAuthorId,
+                    authorName: finalAuthorName,
                     timestamp: Date.now(),
                     likes: {}
                 }).then(() => {
@@ -1584,7 +1954,14 @@
         };
 
         window.toggleLike = async (postId) => {
-            if (!auth.currentUser) return;
+            if (!window.isLoggedIn || !auth.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to like posts.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to like posts.", "Sign In", "OK");
+                }
+                return;
+            }
             const uid = auth.currentUser.uid;
             const postRef = ref(db, `modules/${currentModule}/${postId}/likes/${uid}`);
             const post = modulePosts.find(p => p.id === postId);
@@ -1704,6 +2081,14 @@
 
 
         window.submitComment = () => {
+            if (!window.isLoggedIn || !window.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to post comments.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to post comments.", "Sign In", "OK");
+                }
+                return;
+            }
             if (!AppModules.Security.checkRateLimit('comment', true)) return;
             const input = document.getElementById('commentInput');
             const text = input.value.trim();
@@ -1737,10 +2122,13 @@
             getAdminEmail: () => AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL
         });
         // Grade Calculator Logic
-        let lastIsMobile = window.innerWidth < 800;
+        let lastIsMobile = !window.isLoggedIn ? window.innerWidth < 768 : window.innerWidth < 640;
         if (!window._newsResizeHandler) {
             window._newsResizeHandler = () => {
-                const isMobile = window.innerWidth < 800;
+                if (window.isLoggedIn && window.AppView?.applyDesktopPanelLayout) {
+                    window.AppView.applyDesktopPanelLayout();
+                }
+                const isMobile = !window.isLoggedIn ? window.innerWidth < 768 : window.innerWidth < 640;
                 if (isMobile !== lastIsMobile) {
                     lastIsMobile = isMobile;
                     const newsSec = document.getElementById('newsSection');
@@ -1760,11 +2148,15 @@
 
                     if (!isMobile) {
                         // Switch to Desktop: Use AppView to show all panels
-                        window.AppView.showPanel('news'); // In Desktop, showPanel ensures all are flex
+                        if (window.AppView && typeof window.AppView.showPanel === 'function') {
+                            window.AppView.showPanel('news'); // In Desktop, showPanel ensures all are flex
+                        }
                     } else {
                         // Switch to Mobile: determine which panel to show based on activeTargetId or currentPanel
-                        const panelToRestore = activeTargetId ? 'chat' : (window.AppView.currentPanel || 'news');
-                        window.AppView.showPanel(panelToRestore);
+                        const panelToRestore = activeTargetId ? 'chat' : ((window.AppView && window.AppView.currentPanel) || 'news');
+                        if (window.AppView && typeof window.AppView.showPanel === 'function') {
+                            window.AppView.showPanel(panelToRestore);
+                        }
                         if (window.refreshBottomNav) {
                             if (panelToRestore === 'messages') {
                                 window.refreshBottomNav('messages');
@@ -2486,7 +2878,7 @@
             </div>
 
             <!-- Scrollable content area with min-h-0 fix -->
-            <div class="flex-1 relative min-h-0 overflow-hidden">
+            <div id="newsMainWrapper" class="flex-1 relative min-h-0 overflow-hidden">
                 <div id="newsMainContent"
                     class="relative h-full flex flex-col transition-all duration-300 transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
                     <!-- Announcements & generic scroll area -->
@@ -2815,6 +3207,19 @@
             </div>
         </div>
 
+        <!-- Dedicated Tools Panel for 3-Panel Guest Layout -->
+        <div id="toolsSection"
+            class="hidden flex-col h-full bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 z-[10] overflow-hidden relative">
+            <div id="toolsHeader" class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-20">
+                <div class="flex items-center justify-between h-9">
+                    <h2 class="text-2xl font-bold tracking-tight text-black dark:text-white leading-none">Tools</h2>
+                </div>
+            </div>
+            <div id="toolsSectionBody" class="flex-1 relative min-h-0 overflow-hidden">
+                <!-- toolsMainContent is mounted here in guest 3-panel mode -->
+            </div>
+        </div>
+
         <div id="newsSideDivider" class="hidden xl:block" aria-hidden="true"></div>
 
         <!-- Desktop Edge Trigger & Handle -->
@@ -2828,10 +3233,10 @@
         <div id="sidePanel"
             class="flex lg:flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-r border-gray-200 dark:border-gray-800 w-full lg:w-80 z-[10] overflow-hidden">
             <!-- Header synchronized with News panel -->
-            <div class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-30">
-                <div class="flex justify-between items-center h-9">
+            <div id="sidePanelHeader" class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-30">
+                <div id="sidePanelHeaderTopRow" class="flex justify-between items-center h-9">
                     <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
-                    <div class="flex items-center gap-3 mb-1">
+                    <div id="sidePanelActionBtns" class="flex items-center gap-3 mb-1">
                         <button id="portfolioBtn" onclick="openPortfolio()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2861,7 +3266,7 @@
                     </div>
                 </div>
                 <!-- Search bar pill: standardized to 36px height -->
-                <div class="relative mt-3">
+                <div id="sidePanelSearchWrap" class="relative mt-3">
                     <div class="relative flex items-center bg-[#E9E9EB] dark:bg-white/10 rounded-xl h-9 px-3 gap-2">
                         <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor" stroke-width="2.5">
@@ -2898,25 +3303,24 @@
 
         <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-black overflow-x-hidden relative">
             <header
-                class="h-16 mt-safe bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b dark:border-gray-800 flex items-center px-4 z-20 absolute top-0 w-full justify-between">
-                <div class="flex-1 flex justify-start items-center">
-                    <button onclick="showSidebar()" class="chat-back-btn text-[#007AFF] flex items-center z-10">
+                class="h-16 mt-safe bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 z-20 absolute top-0 w-full">
+                <div class="flex justify-start items-center">
+                    <button onclick="showSidebar()" class="chat-back-btn text-[#007AFF] flex items-center z-10" title="Back to messages" aria-label="Back to messages">
                         <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                             <path d="M15 19l-7-7 7-7" />
                         </svg>
-                        <span class="ml-[-6px] relative">Back</span>
                     </button>
                 </div>
 
-                <div class="flex-1 flex flex-col justify-center text-center overflow-hidden">
+                <div class="min-w-0 flex flex-col justify-center text-center overflow-hidden">
                     <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">
                         ...</div>
                     <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
                 </div>
 
-                <div class="flex-1 flex justify-end items-center relative h-full">
-                    <div
-                        class="flex relative transition-all duration-300 w-28 lg:w-32 focus-within:w-40 lg:focus-within:w-48 h-8">
+                <div class="flex justify-end items-center relative h-full">
+                    <div id="chatSearchWrap"
+                        class="hidden flex relative transition-all duration-300 w-28 lg:w-32 focus-within:w-40 lg:focus-within:w-48 h-8">
                         <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -2959,7 +3363,7 @@
 
 
             <div id="chatComposerWrap"
-                class="absolute bottom-0 inset-x-0 z-20 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] pointer-events-none">
+                class="hidden absolute bottom-0 inset-x-0 z-20 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] pointer-events-none">
                 <div class="flex flex-col gap-2 max-w-4xl mx-auto w-full">
                     <!-- Reply/Quote Area -->
                     <div id="quoteArea"
@@ -3566,7 +3970,7 @@
         </div>
         <script>
             // Initial bottom nav sync
-            if (window.innerWidth < 800 && window.refreshBottomNav) {
+            if (window.innerWidth < 640 && window.refreshBottomNav) {
                 window.refreshBottomNav('messages');
             }
         </script>

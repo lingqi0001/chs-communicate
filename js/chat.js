@@ -34,8 +34,8 @@ export function initChatEngine(deps) {
             }
         }
     });
-    let wasDesktopWidth = window.innerWidth >= 800;
-    let wasMobileLayout = window.innerWidth < 800;
+    let wasDesktopWidth = window.innerWidth >= 640;
+    let wasMobileLayout = window.innerWidth < 640;
     let wasFullDesktop = window.innerWidth >= 1024;
     let currentLocalMsgs = [];
     let currentDisplayMsgs = [];
@@ -114,7 +114,7 @@ export function initChatEngine(deps) {
         }
 
         // Force reload on mobile when re-opening the same chat
-        const isMobile = window.innerWidth < 800;
+        const isMobile = window.innerWidth < 640;
         let loadingTimer = null;
         let isLoaded = false;
         if (forceReload || lastChatId !== chatId || isMobile) {
@@ -510,6 +510,9 @@ export function initChatEngine(deps) {
                 setTimeout(updateComposerPadding, 50);
             }
         }
+        if (!msgInput.value) {
+            requestAnimationFrame(() => msgInput.dispatchEvent(new Event('input')));
+        }
     }
 
     async function switchChat(targetId) {
@@ -518,7 +521,7 @@ export function initChatEngine(deps) {
         if (!targetId || targetId === currentUser.id) return;
         
         // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
-        const isMobile = window.innerWidth < 800;
+        const isMobile = window.innerWidth < 640;
         if (targetId === activeTargetId && !isMobile) return;
         
         if (safeIsExtensionTargetId(targetId)) {
@@ -527,6 +530,11 @@ export function initChatEngine(deps) {
         }
 
         safeSetActiveTargetId(targetId);
+
+        const composerWrap = document.getElementById('chatComposerWrap');
+        if (composerWrap) composerWrap.classList.remove('hidden');
+        const chatSearchWrap = document.getElementById('chatSearchWrap');
+        if (chatSearchWrap) chatSearchWrap.classList.remove('hidden');
 
         let isDisbanded = false;
         let isRemoved = false;
@@ -860,7 +868,7 @@ export function initChatEngine(deps) {
             if (typeof initGlobalNotificationMonitor === 'function') initGlobalNotificationMonitor();
             AppModules.Bridge.initIRNavigatorNotificationBridge();
 
-            if (window.innerWidth >= 800) {
+            if (window.innerWidth >= 640) {
                 pickFirstRegularChat(chatMap);
             }
         });
@@ -869,12 +877,12 @@ export function initChatEngine(deps) {
             window.removeEventListener('resize', window._chatListResizeHandler);
         }
         window._chatListResizeHandler = () => {
-            const isDesktopWidth = window.innerWidth >= 800;
-            const isMobileLayout = window.innerWidth < 800;
+            const isDesktopWidth = window.innerWidth >= 640;
+            const isMobileLayout = window.innerWidth < 640;
             const isFullDesktop = window.innerWidth >= 1024;
-            const isMidRange = window.innerWidth >= 800 && window.innerWidth < 1024;
+            const isMidRange = window.innerWidth >= 640 && window.innerWidth < 1024;
 
-            // When shrinking into mobile layout (<800), default back to message list panel.
+            // When shrinking into phone layout (<640), default back to message list panel.
             if (!wasMobileLayout && isMobileLayout) {
                 window.AppModules?.View?.showPanel?.('messages');
                 document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
@@ -1043,7 +1051,20 @@ export function initChatEngine(deps) {
 
         const adjustHeight = () => {
             if (!input.value) {
-                input.style.height = '';
+                // Measure the placeholder itself.  A one-line prompt keeps a
+                // one-line composer; a wrapped prompt grows to two lines.
+                input.style.height = 'auto';
+                const styles = window.getComputedStyle(input);
+                const lineHeight = parseFloat(styles.lineHeight) || 20;
+                const padding = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
+                const singleLineHeight = Math.ceil(lineHeight + padding);
+                const computedMaxHeight = parseInt(styles.maxHeight, 10);
+                const measuredHeight = Math.max(singleLineHeight, input.scrollHeight);
+                // The empty composer follows its prompt for at most two lines;
+                // it must never grow into a tall blank box in a narrow column.
+                const twoLineHeight = Math.ceil(singleLineHeight + lineHeight);
+                input.style.height = `${Math.min(measuredHeight, twoLineHeight, computedMaxHeight || 128)}px`;
+                input.scrollTop = 0;
                 updateComposerPadding();
                 return;
             }
@@ -1055,7 +1076,8 @@ export function initChatEngine(deps) {
         };
 
         const updatePlaceholder = () => {
-            input.placeholder = window.innerWidth < 640
+            const composerWidth = document.getElementById('chatInputPill')?.clientWidth || 0;
+            input.placeholder = window.innerWidth < 640 || (composerWidth > 0 && composerWidth < 430)
                 ? "Type a message..."
                 : "Type a message...Use Shift+Enter to change lines";
         };

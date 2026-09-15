@@ -60,8 +60,25 @@ export const SettingsModule = {
             });
         }
 
+        const isAuth = !!(window.isLoggedIn && (window.currentUser || window.AppModules?.User?.current));
+        const profileLoggedIn = document.getElementById('settingsProfileLoggedIn');
+        const profileGuest = document.getElementById('settingsProfileGuest');
+        const deviceSection = document.getElementById('settingsDeviceSection');
+        const offlineRow = document.getElementById('offlineNotificationsRow');
+        const signOutBtn = document.getElementById('settingsSignOutBtn');
+        const signInBtn = document.getElementById('settingsSignInBtn');
+
+        if (profileLoggedIn) profileLoggedIn.classList.toggle('hidden', !isAuth);
+        if (profileGuest) profileGuest.classList.toggle('hidden', isAuth);
+        if (deviceSection) deviceSection.classList.toggle('hidden', !isAuth);
+        if (offlineRow) offlineRow.classList.toggle('hidden', !isAuth);
+        if (signOutBtn) signOutBtn.classList.toggle('hidden', !isAuth);
+        if (signInBtn) signInBtn.classList.toggle('hidden', isAuth);
+
         if (AppModules.User && typeof AppModules.User.isAdmin === 'function' && AppModules.User.isAdmin()) {
             document.getElementById('adminPanel')?.classList.remove('hidden');
+        } else {
+            document.getElementById('adminPanel')?.classList.add('hidden');
         }
     },
 
@@ -80,6 +97,12 @@ export const SettingsModule = {
             document.getElementById('currentTransitionAnimationLabel').innerText = 
                 transitionAnimation === 'micro' ? 'Micro-Spring' : 'Full-Slide & Fade';
         }
+        const panelLayout = localStorage.getItem('panelLayout') || 'three';
+        const panelLayoutLabel = document.getElementById('currentPanelLayoutLabel');
+        if (panelLayoutLabel) panelLayoutLabel.innerText = panelLayout === 'four' ? 'Four Panels' : 'Three Panels';
+        const panelLayoutSetting = document.getElementById('panelLayoutSetting');
+        const isAuthenticated = !!(window.isLoggedIn && (window.currentUser || window.AppModules?.User?.current));
+        if (panelLayoutSetting) panelLayoutSetting.classList.toggle('hidden', !isAuthenticated);
         // Announcement Color UI Update
         const annColor = localStorage.getItem('annAccentColor') || 'orange';
         const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
@@ -352,20 +375,20 @@ export const SettingsModule = {
     ensureSettingsModal() {
         if (document.getElementById('settingsModal')) return;
         document.body.insertAdjacentHTML('beforeend', `
-    <div id="settingsModal" onclick="if(event.target === this) toggleSettings()"
+    <div id="settingsModal" onclick="if(event.target === this) closeSettingsModal()"
         class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
         <div id="settingsModalCard" class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
             <div
                 class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0">
                 <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
-                <button onclick="toggleSettings()" class="text-[#007AFF] font-medium text-base">Done</button>
+                <button onclick="closeSettingsModal()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>
             <div id="settingsModalBody" class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
 
                 <div id="settingsView" class="space-y-6">
-                    <div class="relative">
+                    <div id="settingsProfileSection" class="relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Profile</label>
-                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
+                        <div id="settingsProfileLoggedIn" class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
                                 <input type="text" id="firstNameInput" placeholder="First Name"
                                     class="w-full bg-transparent outline-none text-base py-1 text-black dark:text-white">
@@ -378,6 +401,13 @@ export const SettingsModule = {
                                 class="w-full text-[#007AFF] font-medium py-3 text-base active:bg-gray-200 dark:active:bg-white/20 transition-colors">
                                 Update Name
                             </button>
+                        </div>
+                        <div id="settingsProfileGuest" class="hidden bg-gray-100 dark:bg-white/10 rounded-xl p-4 flex items-center justify-between">
+                            <div>
+                                <div class="font-bold text-sm text-black dark:text-white">Guest User</div>
+                                <div class="text-xs text-gray-400">Sign in to customize your profile</div>
+                            </div>
+                            <button onclick="closeSettingsModal(); if(typeof window.promptSignIn==='function') window.promptSignIn('Please sign in with your HCPSS account to customize your profile.');" class="bg-[#007AFF] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform">Sign In</button>
                         </div>
                     </div>
 
@@ -429,6 +459,27 @@ export const SettingsModule = {
                                         class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Full-Slide & Fade</button>
                                     <button onclick="selectTransitionAnimation('micro', event)"
                                         class="w-full text-left px-4 py-3 text-sm">Micro-Spring</button>
+                                </div>
+                            </div>
+
+                            <!-- Desktop panel layout -->
+                            <div id="panelLayoutSetting" class="relative border-b border-gray-200 dark:border-gray-700">
+                                <div onclick="toggleDropdown('panelLayoutDropdown', event)"
+                                    class="flex items-center justify-between p-3.5 cursor-pointer">
+                                    <span class="font-medium text-sm">Desktop Layout</span>
+                                    <div class="flex items-center text-gray-500">
+                                        <span id="currentPanelLayoutLabel" class="mr-2 text-xs">Three Panels</span>
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div id="panelLayoutDropdown"
+                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-48 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden">
+                                    <button onclick="selectPanelLayout('three', event)"
+                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Three Panels</button>
+                                    <button onclick="selectPanelLayout('four', event)"
+                                        class="w-full text-left px-4 py-3 text-sm">Four Panels</button>
                                 </div>
                             </div>
 
@@ -706,7 +757,7 @@ export const SettingsModule = {
                                 </div>
                                 <p class="text-[11px] text-gray-400 mt-1 leading-normal">Plays a notification sound when you have CHSchat open. If offline notification is also enabled for this device, sounds will only play when you are actively on the site.</p>
                             </div>
-                            <div onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                            <div id="offlineNotificationsRow" onclick="window.toggleOfflineNotificationsExpand(event)" class="p-3.5 cursor-pointer active:bg-gray-200 dark:active:bg-white/20 transition-colors">
                                 <div class="flex items-center justify-between">
                                     <label class="font-medium text-sm text-black dark:text-white cursor-pointer">Offline Notifications</label>
                                     <svg id="offlineNotificationsChevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -720,7 +771,7 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="relative mb-4">
+                    <div id="settingsDeviceSection" class="relative mb-4">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Device Management</label>
                         <div id="deviceManagementList" class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
                         </div>
@@ -754,11 +805,18 @@ export const SettingsModule = {
                     <div class="relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Data</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
-                            <button onclick="handleSignOut()"
+                            <button id="settingsSignOutBtn" onclick="handleSignOut()"
                                 class="w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
                                 <span class="font-medium text-sm text-red-500">Sign Out</span>
                                 <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                            </button>
+                            <button id="settingsSignInBtn" onclick="closeSettingsModal(); if(typeof window.promptSignIn==='function') window.promptSignIn('Please sign in with your HCPSS account.');"
+                                class="hidden w-full flex items-center justify-between p-3.5 border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
+                                <span class="font-medium text-sm text-[#007AFF]">Sign In</span>
+                                <svg class="w-5 h-5 text-[#007AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                 </svg>
                             </button>
                             <div onclick="window.toggleDataExpand(event)" class="p-3.5 cursor-pointer border-b border-gray-200 dark:border-gray-700 active:bg-gray-200 dark:active:bg-white/20 transition-colors">
@@ -1012,6 +1070,15 @@ window.selectTransitionAnimation = (val, e) => {
     window.toggleDropdown('transitionAnimationDropdown', e);
 };
 
+window.selectPanelLayout = (val, e) => {
+    if (e) e.stopPropagation();
+    const layout = val === 'four' ? 'four' : 'three';
+    localStorage.setItem('panelLayout', layout);
+    SettingsModule.updateSettingsLabels();
+    window.AppModules?.View?.applyDesktopPanelLayout?.(layout);
+    window.toggleDropdown('panelLayoutDropdown', e);
+};
+
 window.selectAnnColor = (val, e) => {
     if (e) e.stopPropagation();
     window.applyAnnColor(val);
@@ -1180,8 +1247,40 @@ window.applyTheme = (mode) => {
     }
 };
 
+window.closeSettingsModal = () => {
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+    modal.classList.add('fade-out');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('fade-out');
+    }, 250);
+};
+
 window.toggleSettings = (view = 'settings') => {
     const AppModules = window.AppModules || {};
+    if (SettingsModule && typeof SettingsModule.ensureSettingsModal === 'function') {
+        SettingsModule.ensureSettingsModal();
+    }
+    const modal = document.getElementById('settingsModal');
+    if (modal && !modal.classList.contains('hidden')) {
+        const title = document.getElementById('settingsModalTitle');
+        // If clicking settings while donation is open, switch to settings view instead of closing
+        if (view === 'settings' && title && title.innerText === "Support Development") {
+            if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
+                AppModules.View.toggleSettings('settings', window.currentUser);
+            }
+            if (SettingsModule && typeof SettingsModule.initSettingsUI === 'function') {
+                SettingsModule.initSettingsUI();
+            }
+            return;
+        }
+        window.closeSettingsModal();
+        return;
+    }
+    if (SettingsModule && typeof SettingsModule.initSettingsUI === 'function') {
+        SettingsModule.initSettingsUI();
+    }
     if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
         AppModules.View.toggleSettings(view, window.currentUser);
     }
@@ -1189,6 +1288,23 @@ window.toggleSettings = (view = 'settings') => {
 
 window.toggleDonation = () => {
     const AppModules = window.AppModules || {};
+    if (SettingsModule && typeof SettingsModule.ensureSettingsModal === 'function') {
+        SettingsModule.ensureSettingsModal();
+    }
+    const modal = document.getElementById('settingsModal');
+    if (modal && !modal.classList.contains('hidden')) {
+        const title = document.getElementById('settingsModalTitle');
+        // If already open in donation view, close it
+        if (title && title.innerText === "Support Development") {
+            window.closeSettingsModal();
+            return;
+        }
+        // If open in settings view, switch to donation
+        if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
+            AppModules.View.toggleSettings('donation', window.currentUser);
+        }
+        return;
+    }
     if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
         AppModules.View.toggleSettings('donation', window.currentUser);
     }

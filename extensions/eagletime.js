@@ -160,6 +160,14 @@ export function initEagleTimeFeature(ctx) {
     }
 
     window.openEagleTime = () => {
+        if (!window.isLoggedIn || !getCurrentUser()) {
+            if (typeof window.promptSignIn === 'function') {
+                window.promptSignIn("Please sign in with your HCPSS account to view and sign up for Eagle Time sessions.");
+            } else if (AppModules?.Modal?.confirm) {
+                AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to view and sign up for Eagle Time sessions.", "Sign In", "OK");
+            }
+            return;
+        }
         setCurrentModule('eagle_time');
         const btn = document.getElementById('eagleAddBtn');
         if (btn) btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));

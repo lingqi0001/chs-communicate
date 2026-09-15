@@ -49,8 +49,7 @@ class RewriteHandler(http.server.SimpleHTTPRequestHandler):
         return super().translate_path(path)
 
 if __name__ == '__main__':
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), RewriteHandler) as httpd:
+    with http.server.ThreadingHTTPServer(("", PORT), RewriteHandler) as httpd:
         print("==================================================")
         print(f" CHSchat Local Dev Server running on http://localhost:{PORT}")
         print(" (Direct URL rewrites enabled from vercel.json)")

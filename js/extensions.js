@@ -54,6 +54,15 @@ const bindExtensionPanelOffsetSync = () => {
 };
 
 export const openExtension = (eid, customUrl = null, customTitle = null) => {
+    if (!window.isLoggedIn && typeof window.isPublicTool === 'function' && !window.isPublicTool(eid, customUrl)) {
+        if (typeof window.promptSignIn === 'function') {
+            window.promptSignIn("Please sign in with your HCPSS account to access this tool.");
+        } else if (window.AppModules?.Modal?.confirm) {
+            window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to access this tool.", "Sign In", "OK");
+        }
+        return;
+    }
+
     const titleEl = document.getElementById('extensionTitle');
     const iframe = document.getElementById('extensionIframe');
     const loader = document.getElementById('extensionLoading');
@@ -115,8 +124,8 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
         };
     }
 
-    // Apply Panel vs Fullscreen logic based on extension type
-    const isPanel = ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'yearbook_symmetry', 'yearbook_symmetry_studio', 'face_of_the_good_and_evil'].includes(eid);
+    // Apply Panel vs Fullscreen logic based on extension type (guests always open fullscreen)
+    const isPanel = !!window.isLoggedIn && ['grade_calculator', 'eagle_time', 'cafeteria', 'social_engine', 'yearbook_symmetry', 'yearbook_symmetry_studio', 'face_of_the_good_and_evil'].includes(eid);
     const extPage = document.getElementById('extensionPage');
 
     if (extPage) {
