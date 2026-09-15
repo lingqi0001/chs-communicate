@@ -88,7 +88,7 @@
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      background-image: url('assets/blood-type-key.png');
+      background-image: url('/extensions/fun/assets/blood-type-key.png');
       background-size: 470%;
       background-position: 28.5% 15.5%; /* Crops a clean clumped blood circle without grid lines */
       border: 2px solid rgba(139, 92, 26, 0.35);
@@ -107,9 +107,17 @@
       50% { opacity: 0; }
     }
   </style>
-  <script src="../js/app-bridge.js"></script>
+  <script src="/js/app-bridge.js"></script>
 </head>
 <body class="font-sans text-slate-100 flex flex-col p-4 md:p-6 select-none h-screen justify-between overflow-hidden">
+  <a id="standaloneBackBtn" href="/?tab=tools" class="hidden fixed top-4 left-4 z-40 w-9 h-9 rounded-full bg-black/70 backdrop-blur-md border border-amber-900/40 text-amber-200 flex items-center justify-center hover:bg-black/90 transition active:scale-95 shadow-lg" title="Back to CHSchat">
+    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+  </a>
+  <script>
+    if (window.self === window.top) {
+      document.getElementById('standaloneBackBtn')?.classList.remove('hidden');
+    }
+  </script>
 
   <!-- Cinematic Prologue Overlay -->
   <div id="intro-screen" class="fixed inset-0 bg-[#070503] flex items-center justify-center z-50 transition-all duration-700 ease-in-out">
@@ -542,7 +550,7 @@
               </div>
               
               <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
-                <img src="assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-36 object-contain rounded-lg">
+                <img src="/extensions/fun/assets/blood-type-key.png" alt="Blood test antigen clumping" class="max-h-36 object-contain rounded-lg">
                 <span class="text-[9px] font-mono text-slate-500 mt-1">Agglutination Reference Sheet</span>
               </div>
               
@@ -684,8 +692,8 @@
               </div>
               
               <div class="flex flex-col items-center border border-amber-900/10 p-2 rounded-xl bg-white/60 shrink-0">
-                <img src="assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg">
-                <span class="text-[9px] font-mono text-slate-500 mt-1">File link: assets/animal-hair-key.png</span>
+                <img src="/extensions/fun/assets/animal-hair-key.png" alt="Microscopic hair comparisons" class="max-h-64 object-contain rounded-lg">
+                <span class="text-[9px] font-mono text-slate-500 mt-1">File link: /extensions/fun/assets/animal-hair-key.png</span>
               </div>
             </div>
           `;

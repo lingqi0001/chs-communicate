@@ -3,6 +3,90 @@
     {
       "source": "/__/auth/:match*",
       "destination": "https://chscommunication.firebaseapp.com/__/auth/:match*"
+    },
+    {
+      "source": "/face",
+      "destination": "/extensions/fun/Face of the good and evil.html"
+    },
+    {
+      "source": "/good-and-evil",
+      "destination": "/extensions/fun/Face of the good and evil.html"
+    },
+    {
+      "source": "/gaokao",
+      "destination": "/extensions/fun/Find the gao kao cheater.html"
+    },
+    {
+      "source": "/cheater",
+      "destination": "/extensions/fun/Find the gao kao cheater.html"
+    },
+    {
+      "source": "/grade-calculator",
+      "destination": "/extensions/grade_calculator.html"
+    },
+    {
+      "source": "/grade",
+      "destination": "/extensions/grade_calculator.html"
+    },
+    {
+      "source": "/grades",
+      "destination": "/extensions/grade_calculator.html"
+    },
+    {
+      "source": "/volume3d",
+      "destination": "/extensions/school/BC volume 3D present.html"
+    },
+    {
+      "source": "/calc3d",
+      "destination": "/extensions/school/BC volume 3D present.html"
+    },
+    {
+      "source": "/selection-logic",
+      "destination": "/extensions/school/Selection Logic Visualizer.html"
+    },
+    {
+      "source": "/logic",
+      "destination": "/extensions/school/Selection Logic Visualizer.html"
+    },
+    {
+      "source": "/honorroll",
+      "destination": "/extensions/staff/Honor Roll.html"
+    },
+    {
+      "source": "/honor-roll",
+      "destination": "/extensions/staff/Honor Roll.html"
+    },
+    {
+      "source": "/developer",
+      "destination": "/docs/maintenance/developer_portal.html"
+    },
+    {
+      "source": "/docs",
+      "destination": "/docs/maintenance/developer_portal.html"
+    },
+    {
+      "source": "/developer-portal",
+      "destination": "/docs/maintenance/developer_portal.html"
+    },
+    {
+      "source": "/menu",
+      "destination": "/?open=cafeteria&tab=tools"
+    },
+    {
+      "source": "/cafeteria",
+      "destination": "/?open=cafeteria&tab=tools"
+    },
+    {
+      "source": "/suggestions",
+      "destination": "/?open=suggestions&tab=tools"
+    },
+    {
+      "source": "/suggestion",
+      "destination": "/?open=suggestions&tab=tools"
+    },
+    {
+      "source": "/assets/:match*",
+      "destination": "/extensions/fun/assets/:match*"
     }
   ]
 }

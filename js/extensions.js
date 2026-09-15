@@ -86,13 +86,14 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
 
     _currentExtensionUrl = url;
     if (titleEl) titleEl.innerText = title;
+    updateExtensionThemeIcons();
     if (loader) loader.classList.remove('hidden');
     if (iframe) iframe.src = url + '?v=' + Date.now();
 
     if (iframe) {
         iframe.onload = () => {
             if (loader) loader.classList.add('hidden');
-            
+            updateExtensionThemeIcons();
             if (iframe.contentWindow) {
                 const ViewModule = window.ViewModule || window.AppModules?.View;
                 const isDarkMode = ViewModule?.state?.isDarkMode || false;
@@ -158,6 +159,44 @@ export const closeExtension = () => {
                 _currentExtensionUrl = '';
             }
         });
+    }
+};
+
+export const updateExtensionThemeIcons = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    const sunIcon = document.getElementById('extensionThemeIconSun');
+    const moonIcon = document.getElementById('extensionThemeIconMoon');
+    if (sunIcon && moonIcon) {
+        if (isDark) {
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        } else {
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        }
+    }
+};
+
+export const toggleExtensionTheme = () => {
+    const isDark = !document.documentElement.classList.contains('dark');
+    const ViewModule = window.ViewModule || window.AppModules?.View;
+    if (ViewModule && typeof ViewModule.setDarkMode === 'function') {
+        ViewModule.setDarkMode(isDark, isDark ? 'dark' : 'light');
+    } else {
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+    updateExtensionThemeIcons();
+    const iframe = document.getElementById('extensionIframe');
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+            type: 'THEME_UPDATE',
+            isDarkMode: isDark
+        }, '*');
     }
 };
 
@@ -459,4 +498,6 @@ if (window) {
     window.closeExtension = closeExtension;
     window.reloadExtension = reloadExtension;
     window.openExtensionExternally = openExtensionExternally;
+    window.toggleExtensionTheme = toggleExtensionTheme;
+    window.updateExtensionThemeIcons = updateExtensionThemeIcons;
 }

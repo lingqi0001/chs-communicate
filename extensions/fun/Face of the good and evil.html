@@ -9,7 +9,30 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <script>
+        // Early CHSchat and theme detection
+        (function() {
+            if (window.self !== window.top) {
+                document.documentElement.classList.add('in-chschat');
+            }
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
     <style>
+        .in-chschat #pageHeader {
+            display: none !important;
+        }
+        .in-chschat .dashboard-container {
+            padding-top: 1rem !important;
+            padding-bottom: 2rem !important;
+        }
+
         :root {
             --bg: #FFFFFF;
             --panel: #F8F8FA;
@@ -101,12 +124,45 @@
             border-color: var(--accent);
         }
 
-        /* Custom dropdown styles */
+        /* Draggable handle styling with enlarged touch target */
+        .drag-handle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 9999px;
+            border: 2.5px solid #FFFFFF;
+            cursor: grab;
+            z-index: 20;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .drag-handle::before {
+            content: '';
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            right: -12px;
+            bottom: -12px;
+            border-radius: 9999px;
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+            transform: scale(1.25);
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35);
+        }
+
+        /* Custom dropdown styles with refined typography */
         .select-trigger {
             background-color: var(--input);
             color: var(--text);
             border: 1px solid var(--border);
             border-radius: 10px;
+            font-family: 'Inter', system-ui, sans-serif;
             transition: all var(--transition);
         }
         .select-trigger:hover {
@@ -121,21 +177,85 @@
         }
         .custom-dropdown-panel {
             background-color: var(--input);
-            border-color: var(--border);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
         }
         .custom-dropdown-panel button {
             color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Inter', system-ui, sans-serif;
             transition: background-color var(--transition), color var(--transition);
         }
         .custom-dropdown-panel button:hover {
-            background-color: rgba(245, 158, 11, 0.1) !important;
+            background-color: rgba(245, 158, 11, 0.12) !important;
             color: var(--accent) !important;
         }
     </style>
     <!-- App Bridge SDK -->
-    <script src="../js/app-bridge.js"></script>
+    <script src="/js/app-bridge.js"></script>
     <script>
+        function safeOpenGallery(urls, index = 0) {
+            if (window.AppBridge && typeof AppBridge.openGallery === 'function') {
+                AppBridge.openGallery(urls, index);
+            } else {
+                const win = window.open();
+                if (win) {
+                    const src = urls[index] || urls[0];
+                    win.document.write(`<!DOCTYPE html><html><head><title>Preview</title><style>body{margin:0;background:#09090b;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;}img{max-height:95vh;max-width:95vw;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6);}</style></head><body><img src="${src}"></body></html>`);
+                }
+            }
+        }
+
+        function toggleThemeMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            updateThemeUI(isDark);
+            updateHandlesUI();
+            if (window.AppBridge && typeof AppBridge.setTheme === 'function') {
+                AppBridge.setTheme(isDark ? 'dark' : 'light');
+            }
+        }
+
+        function updateThemeUI(isDark) {
+            const btnText = document.getElementById('themeBtnText');
+            const iconDark = document.getElementById('themeIconDark');
+            const iconLight = document.getElementById('themeIconLight');
+            if (btnText) btnText.innerText = isDark ? 'Light' : 'Dark';
+            if (iconDark && iconLight) {
+                if (isDark) {
+                    iconDark.classList.remove('hidden');
+                    iconLight.classList.add('hidden');
+                } else {
+                    iconDark.classList.add('hidden');
+                    iconLight.classList.remove('hidden');
+                }
+            }
+        }
+
+        function updateDropdownActiveStates(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            if (!dropdown) return;
+            let hiddenInputId = '';
+            if (dropdownId === 'themeDropdown') hiddenInputId = 'posterTheme';
+            else if (dropdownId === 'layoutStyleDropdown') hiddenInputId = 'posterLayoutStyle';
+            else if (dropdownId === 'arrangementDropdown') hiddenInputId = 'posterArrangement';
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const currentVal = hiddenInput ? hiddenInput.value : '';
+
+            const buttons = dropdown.querySelectorAll('button[data-value]');
+            buttons.forEach(btn => {
+                const val = btn.getAttribute('data-value');
+                const isSelected = (val === currentVal);
+                if (isSelected) {
+                    btn.style.color = 'var(--accent)';
+                    btn.classList.add('font-semibold');
+                    btn.classList.remove('font-medium');
+                } else {
+                    btn.style.color = '';
+                    btn.classList.remove('font-semibold');
+                    btn.classList.add('font-medium');
+                }
+            });
+        }
+
         function toggleCustomDropdown(dropdownId, event) {
             if (event) event.stopPropagation();
             
@@ -143,12 +263,11 @@
             if (!dropdown) return;
             const isHidden = dropdown.classList.contains('hidden');
             
-            // Close all other dropdowns first
             closeAllCustomDropdowns();
             
             if (isHidden) {
+                updateDropdownActiveStates(dropdownId);
                 dropdown.classList.remove('hidden');
-                // Add active styling to trigger
                 const trigger = dropdown.previousElementSibling;
                 if (trigger) {
                     trigger.classList.add('select-trigger-active');
@@ -175,86 +294,117 @@
             if (event) event.stopPropagation();
             
             const dropdown = document.getElementById(dropdownId);
-            const trigger = dropdown.previousElementSibling;
+            const trigger = dropdown ? dropdown.previousElementSibling : null;
             if (trigger) {
                 const textSpan = trigger.querySelector('span');
                 if (textSpan) textSpan.innerText = text;
             }
             
-            // Update the hidden input
             let hiddenInputId = '';
-            if (dropdownId === 'themeDropdown') hiddenInputId = 'yearbookTheme';
-            else if (dropdownId === 'layoutStyleDropdown') hiddenInputId = 'yearbookLayoutStyle';
-            else if (dropdownId === 'arrangementDropdown') hiddenInputId = 'yearbookArrangement';
+            if (dropdownId === 'themeDropdown') hiddenInputId = 'posterTheme';
+            else if (dropdownId === 'layoutStyleDropdown') hiddenInputId = 'posterLayoutStyle';
+            else if (dropdownId === 'arrangementDropdown') hiddenInputId = 'posterArrangement';
             
             const hiddenInput = document.getElementById(hiddenInputId);
             if (hiddenInput) {
                 hiddenInput.value = value;
-                // Trigger generateCollage since value changed
-                generateCollage();
+                updateDropdownActiveStates(dropdownId);
+                
+                // If Triptych mode is selected, lock copies and cols
+                if (hiddenInputId === 'posterArrangement') {
+                    const countSettings = document.getElementById('countSettingsGrid');
+                    const colsSettings = document.getElementById('colsSettingContainer');
+                    const triptychNotice = document.getElementById('triptychNotice');
+                    if (value === 'triptych') {
+                        if (countSettings) countSettings.classList.add('opacity-40', 'pointer-events-none');
+                        if (colsSettings) colsSettings.classList.add('opacity-40', 'pointer-events-none');
+                        if (triptychNotice) triptychNotice.classList.remove('hidden');
+                    } else {
+                        if (countSettings) countSettings.classList.remove('opacity-40', 'pointer-events-none');
+                        if (colsSettings) colsSettings.classList.remove('opacity-40', 'pointer-events-none');
+                        if (triptychNotice) triptychNotice.classList.add('hidden');
+                    }
+                }
+                
+                scheduleCollage();
             }
             
             closeAllCustomDropdowns();
         }
 
-        // Close dropdowns when clicking outside
         document.addEventListener('click', () => {
             closeAllCustomDropdowns();
         });
 
         window.onload = () => {
-            // Theme synchronization check on load
-            if (window.AppBridge && typeof window.AppBridge.isDark === 'function' && window.AppBridge.isDark()) {
+            let isDark = false;
+            if (window.AppBridge && typeof window.AppBridge.isDark === 'function') {
+                isDark = window.AppBridge.isDark();
+            } else {
+                isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+
+            if (isDark) {
                 document.documentElement.classList.add('dark');
             } else {
                 document.documentElement.classList.remove('dark');
             }
+            updateThemeUI(isDark);
 
             initDraggableHandles();
             initDropZone();
 
-            // Bind change listener for file input
             const fileInput = document.getElementById('imageInput');
             if (fileInput) {
                 fileInput.addEventListener('change', handleFileSelect);
             }
 
-            // Click preview image (outside handles) to trigger re-upload
-            const previewContainer = document.getElementById('uploadPreviewContainer');
-            if (previewContainer) {
-                previewContainer.addEventListener('click', (e) => {
-                    if (e.target.closest('#handleTop') || e.target.closest('#handleBottom')) {
-                        return;
-                    }
-                    if (fileInput) {
-                        fileInput.click();
-                    }
-                });
-            }
+            updateDropdownActiveStates('themeDropdown');
+            updateDropdownActiveStates('layoutStyleDropdown');
+            updateDropdownActiveStates('arrangementDropdown');
 
-            generateCollage();
+            scheduleCollage();
         };
 
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'THEME_UPDATE') {
-                if (event.data.isDarkMode) {
+                const isDark = !!event.data.isDarkMode;
+                if (isDark) {
                     document.documentElement.classList.add('dark');
                 } else {
                     document.documentElement.classList.remove('dark');
                 }
+                updateThemeUI(isDark);
                 updateHandlesUI();
             }
         });
     </script>
 </head>
 <body class="min-h-screen pb-16 transition-colors duration-200">
-    <div class="w-full max-w-7xl mx-auto px-6 py-6 space-y-6">
+    <div class="dashboard-container w-full max-w-7xl mx-auto px-6 py-6">
         
-        <!-- Header: Clean alignment, no camera icon, matching Cal BC -->
-        <header class="flex items-center justify-between border-b pb-5" style="border-color: var(--border);">
-            <div class="title-area">
-                <h1 class="text-xl font-black tracking-wider uppercase" style="color: var(--accent);">Face of the good and evil</h1>
-                <p class="text-xs font-semibold mt-1" style="color: var(--muted);">Symmetrize faces and compile your collage</p>
+        <!-- Header with Theme Toggle (Hidden in CHSchat Mode) -->
+        <header id="pageHeader" class="flex items-center justify-between pb-3 mb-6">
+            <div class="flex items-center gap-3">
+                <a href="/?tab=tools" title="Back to CHSchat" class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all cursor-pointer">
+                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
+                </a>
+                <h1 class="text-2xl font-bold tracking-tight" style="color: var(--text);">Face of the Good and Evil</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="themeToggleBtn" onclick="toggleThemeMode()" 
+                    class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-sm font-medium transition hover:opacity-80 active:scale-95 cursor-pointer"
+                    style="background-color: var(--input); border-color: var(--border); color: var(--text);" title="Toggle Dark / Light theme">
+                    <svg id="themeIconDark" class="w-4 h-4 text-[var(--accent)] hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                    </svg>
+                    <svg id="themeIconLight" class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                    </svg>
+                    <span id="themeBtnText">Dark</span>
+                </button>
             </div>
         </header>
 
@@ -262,233 +412,260 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             <!-- LEFT COLUMN: Settings & Upload -->
-            <div class="lg:col-span-5 space-y-6">
+            <div class="lg:col-span-5 space-y-5">
                 
                 <!-- Section 1: Upload Photo -->
                 <div class="gold-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">1. Source Photo</h2>
-                        <button id="resetLineBtn" class="hidden text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded transition border cursor-pointer hover:opacity-80 active:scale-95" 
-                            style="background-color: var(--input); border-color: var(--border); color: var(--accent);"
-                            onclick="resetSymmetryLine()">
-                            Reset Line
-                        </button>
+                        <div class="flex items-center gap-2.5">
+                            <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Source Photo</h2>
+                            <span id="fileNameBadge" class="hidden text-xs font-mono px-2 py-0.5 rounded-md truncate max-w-[150px]" style="background-color: var(--input); color: var(--muted); border: 1px solid var(--border);"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="changePhotoBtn" class="hidden text-xs font-medium px-3 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-80 active:scale-95 flex items-center gap-1.5"
+                                style="background-color: var(--input); border-color: var(--border); color: var(--text);"
+                                onclick="document.getElementById('imageInput').click()">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                </svg>
+                                Change
+                            </button>
+                            <button id="resetLineBtn" class="hidden text-xs font-medium px-3 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-80 active:scale-95 flex items-center gap-1.5" 
+                                style="background-color: var(--input); border-color: var(--border); color: var(--accent);"
+                                onclick="resetSymmetryLine()">
+                                Reset Line
+                            </button>
+                        </div>
                     </div>
                     
-                    <div id="dropZone" class="border border-dashed rounded-xl p-4 text-center relative group flex flex-col items-center justify-center min-h-[180px] transition" style="border-color: var(--border); background-color: var(--panel);">
+                    <div id="dropZone" class="relative group flex flex-col items-center justify-center transition">
                         
                         <!-- File upload controls inside placeholder -->
-                        <div id="uploadPlaceholder" class="space-y-3 py-4 relative z-30 w-full">
+                        <div id="uploadPlaceholder" class="w-full border border-dashed rounded-2xl p-8 text-center relative z-30 flex flex-col items-center justify-center space-y-3 transition min-h-[200px]" style="border-color: var(--border); background-color: var(--input);">
                             <input type="file" id="imageInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                            <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition duration-300" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent);">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-105 transition duration-300" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent);">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z" />
                                 </svg>
                             </div>
                             <div>
-                                <span class="text-sm font-bold block" style="color: var(--text);">Choose a face portrait photo</span>
-                                <span class="text-xs block mt-1" style="color: var(--muted);">Drag and drop image here</span>
+                                <span class="text-base font-semibold block" style="color: var(--text);">Choose a portrait photo</span>
+                                <span class="text-sm block mt-1" style="color: var(--muted);">Drag & drop image here or click to browse</span>
                             </div>
                         </div>
 
-                        <!-- Preview container (no file input overlays here, ensuring draggable works) -->
-                        <div id="uploadPreviewContainer" class="hidden relative inline-block mx-auto cursor-pointer">
+                        <!-- Preview container (Completely borderless) -->
+                        <div id="uploadPreviewContainer" class="hidden relative inline-block mx-auto select-none my-1">
                             <!-- SVG overlay line -->
                             <svg id="svgLine" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
                             
                             <!-- Draggable Top Point -->
-                            <div id="handleTop" style="touch-action: none; background-color: var(--accent);" class="absolute w-5 h-5 border-2 border-white rounded-full cursor-move z-20 shadow-md flex items-center justify-center pointer-events-auto active:scale-125 transition-transform duration-100">
-                                <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                            <div id="handleTop" class="drag-handle" style="background-color: var(--accent);" title="Drag to adjust symmetry axis top">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white pointer-events-none"></span>
                             </div>
                             
                             <!-- Draggable Bottom Point -->
-                            <div id="handleBottom" style="touch-action: none; background-color: var(--accent);" class="absolute w-5 h-5 border-2 border-white rounded-full cursor-move z-20 shadow-md flex items-center justify-center pointer-events-auto active:scale-125 transition-transform duration-100">
-                                <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                            <div id="handleBottom" class="drag-handle" style="background-color: var(--accent);" title="Drag to adjust symmetry axis bottom">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white pointer-events-none"></span>
                             </div>
 
                             <!-- Photo Preview -->
-                            <img id="uploadPreview" class="max-h-56 rounded-lg shadow border block pointer-events-none select-none" style="border-color: var(--border);">
+                            <img id="uploadPreview" class="max-h-64 rounded-2xl shadow-lg block pointer-events-none select-none max-w-full">
                         </div>
                     </div>
                     
-                    <!-- File name label placed outside container so it does not affect aspect box bounds -->
-                    <p id="fileNameLabel" class="text-[10px] font-bold truncate max-w-xs mt-1 text-center pointer-events-none" style="color: var(--muted);"></p>
-
                     <!-- Mirrored Previews -->
-                    <div id="mirroredPreviews" class="hidden grid grid-cols-2 gap-4 pt-1">
-                        <div class="p-3 rounded-xl text-center shadow-sm" style="background-color: var(--panel); border: 1px solid var(--border);">
-                            <p class="text-[10px] font-bold uppercase tracking-widest mb-2" style="color: var(--accent);">Left-Mirror Face</p>
-                            <img id="leftMirrorImg" class="rounded-lg shadow object-cover mx-auto max-h-36 hover:scale-[1.03] transition duration-200 cursor-pointer" style="border: 1px solid var(--border);" onclick="AppBridge.openGallery([this.src])" title="Click to view full size">
+                    <div id="mirroredPreviews" class="hidden grid grid-cols-2 gap-4 pt-3 border-t" style="border-color: var(--border);">
+                        <div class="text-center space-y-2">
+                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
+                                <span class="w-2 h-2 rounded-full" style="background-color: var(--accent);"></span>
+                                <span>Good · Left Mirror</span>
+                            </div>
+                            <img id="leftMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-40 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="safeOpenGallery([this.src])" title="Click to view full size">
                         </div>
-                        <div class="p-3 rounded-xl text-center shadow-sm" style="background-color: var(--panel); border: 1px solid var(--border);">
-                            <p class="text-[10px] font-bold uppercase tracking-widest mb-2" style="color: var(--accent);">Right-Mirror Face</p>
-                            <img id="rightMirrorImg" class="rounded-lg shadow object-cover mx-auto max-h-36 hover:scale-[1.03] transition duration-200 cursor-pointer" style="border: 1px solid var(--border);" onclick="AppBridge.openGallery([this.src])" title="Click to view full size">
+                        <div class="text-center space-y-2">
+                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
+                                <span class="w-2 h-2 rounded-full opacity-60" style="background-color: var(--accent);"></span>
+                                <span>Evil · Right Mirror</span>
+                            </div>
+                            <img id="rightMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-40 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="safeOpenGallery([this.src])" title="Click to view full size">
                         </div>
                     </div>
                 </div>
 
                 <!-- Section 2: Settings -->
                 <div class="gold-panel rounded-2xl p-5 space-y-4">
-                    <h2 class="text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">2. Settings</h2>
+                    <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Poster Settings</h2>
                     
                     <div class="space-y-4">
                         <!-- Face Zoom -->
                         <div class="space-y-1.5">
-                            <div class="flex justify-between text-xs font-bold">
-                                <span style="color: var(--text);">Face Zoom (Crop size)</span>
-                                <span id="zoomLabel" style="color: var(--accent);">1.20x</span>
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span style="color: var(--text);">Face Zoom</span>
+                                <span id="zoomLabel" class="font-mono" style="color: var(--accent);">1.20x</span>
                             </div>
-                            <input type="range" id="zoom" min="1.0" max="2.5" value="1.2" step="0.05" oninput="processFaceSymmetry()" class="w-full cursor-pointer">
+                            <input type="range" id="zoom" min="1.0" max="2.5" value="1.2" step="0.05" oninput="scheduleFaceSymmetry()" class="w-full cursor-pointer">
                         </div>
 
                         <!-- Symmetry Line Alignment -->
                         <div class="space-y-1.5">
-                            <div class="flex justify-between text-xs font-bold">
-                                <span style="color: var(--text);">Symmetry Line Adjust (Horizontal Shift)</span>
-                                <span id="alignLabel" style="color: var(--accent);">0%</span>
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span style="color: var(--text);">Symmetry Line Shift</span>
+                                <span id="alignLabel" class="font-mono" style="color: var(--accent);">0%</span>
                             </div>
-                            <input type="range" id="alignOffset" min="-25" max="25" value="0" step="0.5" oninput="processFaceSymmetry()" class="w-full cursor-pointer">
+                            <input type="range" id="alignOffset" min="-25" max="25" value="0" step="0.5" oninput="scheduleFaceSymmetry()" class="w-full cursor-pointer">
                         </div>
 
-                        <!-- Copies -->
-                        <div class="grid grid-cols-2 gap-4">
+                        <!-- Copies Grid -->
+                        <div id="countSettingsGrid" class="grid grid-cols-2 gap-4 transition-opacity duration-200">
                             <div class="space-y-1.5">
-                                <div class="flex justify-between text-xs font-bold">
-                                    <span style="color: var(--text);">Left Copies</span>
-                                    <span id="leftCountLabel" style="color: var(--accent);">3</span>
+                                <div class="flex justify-between text-sm font-semibold">
+                                    <span style="color: var(--text);">Good Copies</span>
+                                    <span id="leftCountLabel" class="font-mono" style="color: var(--accent);">3</span>
                                 </div>
-                                <input type="range" id="leftCount" min="0" max="8" value="3" oninput="generateCollage()" class="w-full cursor-pointer">
+                                <input type="range" id="leftCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
                             </div>
                             <div class="space-y-1.5">
-                                <div class="flex justify-between text-xs font-bold">
-                                    <span style="color: var(--text);">Right Copies</span>
-                                    <span id="rightCountLabel" style="color: var(--accent);">3</span>
+                                <div class="flex justify-between text-sm font-semibold">
+                                    <span style="color: var(--text);">Evil Copies</span>
+                                    <span id="rightCountLabel" class="font-mono" style="color: var(--accent);">3</span>
                                 </div>
-                                <input type="range" id="rightCount" min="0" max="8" value="3" oninput="generateCollage()" class="w-full cursor-pointer">
+                                <input type="range" id="rightCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
                             </div>
+                        </div>
+
+                        <!-- Triptych Notice (shown when triptych is active) -->
+                        <div id="triptychNotice" class="hidden px-3.5 py-2.5 rounded-xl text-xs font-medium border flex items-center gap-2" style="background-color: var(--input); border-color: var(--border); color: var(--accent);">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                            </svg>
+                            <span>Classic Triptych automatically renders Good, Original, and Evil side-by-side.</span>
                         </div>
 
                         <!-- Layout parameters -->
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-xs font-bold">
+                            <div id="colsSettingContainer" class="space-y-1.5">
+                                <div class="flex justify-between text-sm font-semibold">
                                     <span style="color: var(--text);">Grid Columns</span>
-                                    <span id="colsLabel" style="color: var(--accent);">3</span>
+                                    <span id="colsLabel" class="font-mono" style="color: var(--accent);">3</span>
                                 </div>
-                                <input type="range" id="cols" min="2" max="6" value="3" oninput="generateCollage()" class="w-full cursor-pointer">
+                                <input type="range" id="cols" min="2" max="6" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
                             </div>
                             
                             <div class="space-y-1.5 relative">
-                                <label class="text-xs font-bold" style="color: var(--text);">Background Theme</label>
+                                <label class="text-sm font-semibold" style="color: var(--text);">Poster Theme</label>
                                 <div onclick="toggleCustomDropdown('themeDropdown', event)"
-                                    class="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--input)] flex items-center justify-between font-bold text-xs cursor-pointer select-trigger"
-                                    style="font-family: 'JetBrains Mono', monospace; color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentThemeText" class="truncate pr-2">Imperial Gold (Classic Navy)</span>
+                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                    <span id="currentThemeText" class="truncate pr-2">Imperial Gold</span>
                                     <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                                 <div id="themeDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] bg-white dark:bg-[#1C1C1E] shadow-2xl rounded-xl border border-gray-200 dark:border-zinc-800 z-[115] overflow-hidden">
-                                    <button onclick="selectCustomOption('themeDropdown', 'imperial_gold', 'Imperial Gold (Classic Navy)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Imperial Gold (Classic Navy)</button>
-                                    <button onclick="selectCustomOption('themeDropdown', 'midnight_slate', 'Midnight Slate (Modern Dark)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Midnight Slate (Modern Dark)</button>
-                                    <button onclick="selectCustomOption('themeDropdown', 'retro_parchment', 'Retro Parchment (Vintage Album)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Retro Parchment (Vintage Album)</button>
-                                    <button onclick="selectCustomOption('themeDropdown', 'varsity_spirit', 'Varsity Spirit (Collegiate Athletic)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Varsity Spirit (Collegiate Athletic)</button>
-                                    <button onclick="selectCustomOption('themeDropdown', 'memphis_pop', 'Memphis Pop Art (Pastel Retro)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60">Memphis Pop Art (Pastel Retro)</button>
+                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                    <button data-value="imperial_gold" onclick="selectCustomOption('themeDropdown', 'imperial_gold', 'Imperial Gold', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Imperial Gold (Classic Navy)</button>
+                                    <button data-value="midnight_slate" onclick="selectCustomOption('themeDropdown', 'midnight_slate', 'Midnight Slate', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Midnight Slate (Modern Dark)</button>
+                                    <button data-value="retro_parchment" onclick="selectCustomOption('themeDropdown', 'retro_parchment', 'Retro Parchment', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Retro Parchment (Vintage Gallery)</button>
+                                    <button data-value="varsity_spirit" onclick="selectCustomOption('themeDropdown', 'varsity_spirit', 'Varsity Contrast', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Varsity Contrast (Bold Duo)</button>
+                                    <button data-value="memphis_pop" onclick="selectCustomOption('themeDropdown', 'memphis_pop', 'Neo Pop Art', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Neo Pop Art (Vibrant Pastel)</button>
                                 </div>
-                                <input type="hidden" id="yearbookTheme" value="imperial_gold">
+                                <input type="hidden" id="posterTheme" value="imperial_gold">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1.5 relative">
-                                <label class="text-xs font-bold" style="color: var(--text);">Layout Style</label>
+                                <label class="text-sm font-semibold" style="color: var(--text);">Layout Style</label>
                                 <div onclick="toggleCustomDropdown('layoutStyleDropdown', event)"
-                                    class="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--input)] flex items-center justify-between font-bold text-xs cursor-pointer select-trigger"
-                                    style="font-family: 'JetBrains Mono', monospace; color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentLayoutStyleText" class="truncate pr-2">Classic Aligned Grid</span>
+                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                    <span id="currentLayoutStyleText" class="truncate pr-2">Classic Grid</span>
                                     <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                                 <div id="layoutStyleDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] left-0 w-max min-w-full max-w-[280px] bg-white dark:bg-[#1C1C1E] shadow-2xl rounded-xl border border-gray-200 dark:border-zinc-800 z-[115] overflow-hidden">
-                                    <button onclick="selectCustomOption('layoutStyleDropdown', 'grid', 'Classic Aligned Grid', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Classic Aligned Grid</button>
-                                    <button onclick="selectCustomOption('layoutStyleDropdown', 'scrapbook', 'Creative Scrapbook (Tilted)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60">Creative Scrapbook (Tilted)</button>
+                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] left-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                    <button data-value="grid" onclick="selectCustomOption('layoutStyleDropdown', 'grid', 'Classic Grid', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Aligned Grid</button>
+                                    <button data-value="scrapbook" onclick="selectCustomOption('layoutStyleDropdown', 'scrapbook', 'Creative Scrapbook', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Creative Scrapbook (Tilted)</button>
                                 </div>
-                                <input type="hidden" id="yearbookLayoutStyle" value="grid">
+                                <input type="hidden" id="posterLayoutStyle" value="grid">
                             </div>
                             
                             <div class="space-y-1.5 relative">
-                                <label class="text-xs font-bold" style="color: var(--text);">Photo Arrangement</label>
+                                <label class="text-sm font-semibold" style="color: var(--text);">Arrangement</label>
                                 <div onclick="toggleCustomDropdown('arrangementDropdown', event)"
-                                    class="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--input)] flex items-center justify-between font-bold text-xs cursor-pointer select-trigger"
-                                    style="font-family: 'JetBrains Mono', monospace; color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentArrangementText" class="truncate pr-2">Alternating (Left/Right mixed)</span>
+                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                    <span id="currentArrangementText" class="truncate pr-2">Alternating</span>
                                     <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                                 <div id="arrangementDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] bg-white dark:bg-[#1C1C1E] shadow-2xl rounded-xl border border-gray-200 dark:border-zinc-800 z-[115] overflow-hidden">
-                                    <button onclick="selectCustomOption('arrangementDropdown', 'alternating', 'Alternating (Left/Right mixed)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Alternating (Left/Right mixed)</button>
-                                    <button onclick="selectCustomOption('arrangementDropdown', 'mixed', 'Randomly Mixed (Shuffled)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800/40">Randomly Mixed (Shuffled)</button>
-                                    <button onclick="selectCustomOption('arrangementDropdown', 'grouped', 'Grouped (Left First)', event)"
-                                        class="w-full text-left px-4 py-3 text-xs font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800/60">Grouped (Left First)</button>
+                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                    <button data-value="triptych" onclick="selectCustomOption('arrangementDropdown', 'triptych', 'Classic Triptych (Good • Original • Evil)', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Triptych (Good • Original • Evil)</button>
+                                    <button data-value="alternating" onclick="selectCustomOption('arrangementDropdown', 'alternating', 'Alternating (Good/Evil mixed)', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Alternating (Good/Evil mixed)</button>
+                                    <button data-value="mixed" onclick="selectCustomOption('arrangementDropdown', 'mixed', 'Randomly Mixed (Shuffled)', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Randomly Mixed (Shuffled)</button>
+                                    <button data-value="grouped" onclick="selectCustomOption('arrangementDropdown', 'grouped', 'Grouped (Good First)', event)"
+                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Grouped (Good First)</button>
                                 </div>
-                                <input type="hidden" id="yearbookArrangement" value="alternating">
+                                <input type="hidden" id="posterArrangement" value="alternating">
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Collage Output Viewport -->
-            <div class="lg:col-span-7 space-y-6">
+            <!-- RIGHT COLUMN: Collage Output Viewport (No space-y-6 so it precisely matches left column top) -->
+            <div class="lg:col-span-7">
                 
                 <!-- Placeholder when no photo is uploaded -->
-                <div id="resultPlaceholder" class="gold-panel rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[380px]">
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent);">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-16.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-16.25v14.25" />
+                <div id="resultPlaceholder" class="gold-panel rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[460px]">
+                    <div class="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 transition duration-300" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent); border: 1px solid var(--border);">
+                        <!-- Dual Face / Split Face Silhouette Icon -->
+                        <svg class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M12 3c-4.5 0-8 3.5-8 9s3.5 9 8 9M12 3c4.5 0 8 3.5 8 9s-3.5 9-8 9" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM16 10a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 15c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5" />
                         </svg>
                     </div>
-                    <h3 class="text-sm font-bold" style="color: var(--text);">Collage Viewport</h3>
-                    <p class="text-xs max-w-xs mt-1" style="color: var(--muted);">Select and upload a photo, then align the symmetry line to generate your collage dynamically in real-time.</p>
+                    <h3 class="text-base font-bold tracking-tight" style="color: var(--text);">Dual Symmetry Viewport</h3>
+                    <p class="text-sm max-w-sm mt-2 leading-relaxed" style="color: var(--muted);">Select and upload a portrait to begin. Adjust the vertical axis to reveal your angelic left-symmetry vs. mysterious right-symmetry personas.</p>
                 </div>
 
                 <!-- Result Section -->
                 <div id="resultSection" class="hidden gold-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style="color: var(--accent);">
-                            <span class="w-2 h-2 rounded-full inline-block animate-pulse" style="background-color: var(--accent);"></span>
-                            Collage Rendered
-                        </h2>
+                        <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Rendered Collage</h2>
                     </div>
                     
-                    <div class="rounded-xl overflow-hidden shadow-inner flex items-center justify-center p-3 border" style="background-color: var(--bg); border-color: var(--border);">
-                        <img id="resultImage" class="w-full rounded shadow-md object-contain cursor-pointer hover:opacity-95 transition" onclick="viewFullResult()" title="Click to view fullscreen in app gallery">
+                    <!-- Clean collage presentation -->
+                    <div class="flex items-center justify-center py-2">
+                        <img id="resultImage" class="max-h-[580px] w-auto rounded-xl shadow-lg object-contain cursor-pointer hover:opacity-95 transition" onclick="viewFullResult()" title="Click to view fullscreen in app gallery">
                     </div>
 
                     <div class="flex gap-3">
                         <button onclick="downloadCollage()" 
                             style="background-color: var(--text) !important; color: var(--bg) !important;"
-                            class="flex-1 py-3 px-4 font-bold rounded-xl shadow-md transition duration-200 text-sm flex items-center justify-center gap-2 border-0 cursor-pointer">
+                            class="flex-1 py-3 px-4 font-bold rounded-xl shadow-md transition duration-200 text-sm flex items-center justify-center gap-2 border-0 cursor-pointer hover:opacity-90 active:scale-[0.99]">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                             </svg>
                             Download PNG
                         </button>
-                        <button onclick="viewFullResult()" class="py-3 px-4 font-semibold rounded-xl transition duration-200 text-sm flex items-center justify-center cursor-pointer border" style="background-color: var(--panel); color: var(--text); border-color: var(--border);">
+                        <button onclick="viewFullResult()" class="py-3 px-4 font-semibold rounded-xl transition duration-200 text-sm flex items-center justify-center cursor-pointer border hover:opacity-90 active:scale-[0.99]" style="background-color: var(--panel); color: var(--text); border-color: var(--border);">
                             View Fullsize
                         </button>
                     </div>
@@ -504,6 +681,7 @@
         let sourceImage = null;
         let leftMirrorDataUrl = null;
         let rightMirrorDataUrl = null;
+        let originalFaceDataUrl = null;
         let resultDataUrl = null;
         let imageAspect = 3 / 4; 
 
@@ -511,6 +689,10 @@
         let posTop = { rX: 0.5, rY: 0.15 };
         let posBottom = { rX: 0.5, rY: 0.85 };
         let activeDragHandle = null;
+
+        // Throttling & Debounce timers for smooth 60fps interaction
+        let symmetryRafId = null;
+        let collageDebounceTimer = null;
 
         function handleFileSelect(event) {
             const file = event.target.files[0];
@@ -526,17 +708,25 @@
                     
                     // Show preview container
                     document.getElementById('uploadPreviewContainer').classList.remove('hidden');
-                    document.getElementById('fileNameLabel').innerText = file.name;
+                    const nameBadge = document.getElementById('fileNameBadge');
+                    if (nameBadge) {
+                        nameBadge.innerText = file.name;
+                        nameBadge.classList.remove('hidden');
+                    }
                     
-                    // Show reset button
+                    // Show reset button and change photo button
                     const resetBtn = document.getElementById('resetLineBtn');
                     if (resetBtn) resetBtn.classList.remove('hidden');
+                    const changeBtn = document.getElementById('changePhotoBtn');
+                    if (changeBtn) changeBtn.classList.remove('hidden');
                     
                     imageAspect = sourceImage.naturalWidth / sourceImage.naturalHeight;
 
                     // Reset handles to default center vertical positions
                     posTop = { rX: 0.5, rY: 0.15 };
                     posBottom = { rX: 0.5, rY: 0.85 };
+                    const alignInput = document.getElementById('alignOffset');
+                    if (alignInput) alignInput.value = 0;
 
                     // Recalculate coordinates in next tick
                     setTimeout(() => {
@@ -550,18 +740,54 @@
         }
 
         function resetSymmetryLine() {
-            // Reset coordinates to default center vertical positions
             posTop = { rX: 0.5, rY: 0.15 };
             posBottom = { rX: 0.5, rY: 0.85 };
             
-            // Reset horizontal offset slider to 0
             const alignInput = document.getElementById('alignOffset');
             if (alignInput) {
                 alignInput.value = 0;
             }
 
+            scheduleFaceSymmetry();
+        }
+
+        // Real-time scheduled Face Symmetry processing with RAF & Debounce
+        function scheduleFaceSymmetry() {
+            const zoomVal = parseFloat(document.getElementById('zoom').value) || 1.2;
+            const alignVal = parseFloat(document.getElementById('alignOffset').value) || 0;
+
+            // Instant feedback on labels
+            document.getElementById('zoomLabel').innerText = zoomVal.toFixed(2) + 'x';
+            document.getElementById('alignLabel').innerText = (alignVal > 0 ? '+' : '') + alignVal + '%';
+
+            // Real-time synchronization of line & handles
             updateHandlesUI();
-            processFaceSymmetry();
+
+            // Throttled canvas generation
+            if (symmetryRafId) cancelAnimationFrame(symmetryRafId);
+            symmetryRafId = requestAnimationFrame(() => {
+                clearTimeout(collageDebounceTimer);
+                collageDebounceTimer = setTimeout(() => {
+                    processFaceSymmetry();
+                }, 35);
+            });
+        }
+
+        // Real-time scheduled Collage generation with debouncing
+        function scheduleCollage() {
+            const leftCount = parseInt(document.getElementById('leftCount').value) || 0;
+            const rightCount = parseInt(document.getElementById('rightCount').value) || 0;
+            const cols = parseInt(document.getElementById('cols').value) || 3;
+
+            // Instant label update
+            document.getElementById('leftCountLabel').innerText = leftCount;
+            document.getElementById('rightCountLabel').innerText = rightCount;
+            document.getElementById('colsLabel').innerText = cols;
+
+            clearTimeout(collageDebounceTimer);
+            collageDebounceTimer = setTimeout(() => {
+                generateCollage();
+            }, 40);
         }
 
         // Initialize drag event listeners for mouse and touch devices
@@ -570,7 +796,6 @@
             const handleBottom = document.getElementById('handleBottom');
             const img = document.getElementById('uploadPreview');
 
-            // Set handle colors based on accent variable dynamically
             handleTop.style.backgroundColor = 'var(--accent)';
             handleBottom.style.backgroundColor = 'var(--accent)';
 
@@ -585,17 +810,18 @@
             handleTop.addEventListener('pointerdown', (e) => onStart('top', e));
             handleBottom.addEventListener('pointerdown', (e) => onStart('bottom', e));
 
-             const onMove = (e) => {
+            const onMove = (e) => {
                 if (!activeDragHandle || !img || img.clientWidth === 0) return;
                 
                 const rect = img.getBoundingClientRect();
+                const alignVal = parseFloat(document.getElementById('alignOffset').value) || 0;
+                const offsetRatio = alignVal / 100;
                 
-                // Calculate position relative to the image
-                let rX = (e.clientX - rect.left) / rect.width;
+                // Subtract current horizontal shift ratio so handle sticks precisely under pointer
+                let rX = (e.clientX - rect.left) / rect.width - offsetRatio;
                 let rY = (e.clientY - rect.top) / rect.height;
                 
-                // Keep the handles within the boundaries of the image
-                rX = Math.max(0, Math.min(1, rX));
+                rX = Math.max(-0.5, Math.min(1.5, rX));
                 rY = Math.max(0, Math.min(1, rY));
 
                 if (activeDragHandle === 'top') {
@@ -616,7 +842,6 @@
                 document.removeEventListener('pointerup', onEnd);
             };
 
-            // Use ResizeObserver to position handles whenever the image changes size
             if (typeof ResizeObserver !== 'undefined') {
                 const resizeObserver = new ResizeObserver(() => {
                     updateHandlesUI();
@@ -630,18 +855,19 @@
         // Initialize drag and drop events on the upload placeholder
         function initDropZone() {
             const dropZone = document.getElementById('dropZone');
+            const placeholder = document.getElementById('uploadPlaceholder');
             if (!dropZone) return;
 
             dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = 'var(--accent)';
+                if (placeholder) placeholder.style.borderColor = 'var(--accent)';
             });
             dropZone.addEventListener('dragleave', () => {
-                dropZone.style.borderColor = 'var(--border)';
+                if (placeholder) placeholder.style.borderColor = 'var(--border)';
             });
             dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = 'var(--border)';
+                if (placeholder) placeholder.style.borderColor = 'var(--border)';
                 const file = e.dataTransfer.files[0];
                 if (file) {
                     const input = document.getElementById('imageInput');
@@ -653,7 +879,7 @@
             });
         }
 
-        // Positions the absolute handles and updates the SVG dashed line
+        // Positions the absolute handles and updates the SVG dashed line (Fully synced with alignOffset)
         function updateHandlesUI() {
             const handleTop = document.getElementById('handleTop');
             const handleBottom = document.getElementById('handleBottom');
@@ -665,12 +891,15 @@
             const w = img.clientWidth;
             const h = img.clientHeight;
 
-            const tX = posTop.rX * w;
+            const alignVal = parseFloat(document.getElementById('alignOffset').value) || 0;
+            const offsetScreenX = (alignVal / 100) * w;
+
+            const tX = posTop.rX * w + offsetScreenX;
             const tY = posTop.rY * h;
-            const bX = posBottom.rX * w;
+            const bX = posBottom.rX * w + offsetScreenX;
             const bY = posBottom.rY * h;
 
-            // Offset by half handle size (20px / 2 = 10) to center them
+            // Center handles (20px width / 2 = 10px)
             handleTop.style.left = `${tX - 10}px`;
             handleTop.style.top = `${tY - 10}px`;
             
@@ -682,16 +911,12 @@
             svgLine.innerHTML = `<line x1="${tX}" y1="${tY}" x2="${bX}" y2="${bY}" stroke="${strokeColor}" stroke-width="2.5" stroke-dasharray="5, 3" />`;
         }
 
-        // Straightens, clips, zooms, and mirrors based on the user symmetry line (WITHOUT seams)
+        // Straightens, clips, zooms, and mirrors based on user symmetry line
         function processFaceSymmetry() {
             if (!sourceImage) return;
 
-            const zoomVal = parseFloat(document.getElementById('zoom').value);
-            const alignVal = parseFloat(document.getElementById('alignOffset').value);
-
-            // Update range labels
-            document.getElementById('zoomLabel').innerText = zoomVal.toFixed(2) + 'x';
-            document.getElementById('alignLabel').innerText = (alignVal > 0 ? '+' : '') + alignVal + '%';
+            const zoomVal = parseFloat(document.getElementById('zoom').value) || 1.2;
+            const alignVal = parseFloat(document.getElementById('alignOffset').value) || 0;
 
             const natW = sourceImage.naturalWidth;
             const natH = sourceImage.naturalHeight;
@@ -703,27 +928,25 @@
             const pBottomY = posBottom.rY * natH;
 
             // Compute midpoint and rotation angle of the symmetry line
-            const offsetPx = (alignVal / 100) * natW; // Sliders shift center horizontally as micro-adjust
+            const offsetPx = (alignVal / 100) * natW;
             const MX = (pTopX + pBottomX) / 2 + offsetPx;
             const MY = (pTopY + pBottomY) / 2;
-            const theta = Math.atan2(pBottomX - pTopX, pBottomY - pTopY); // Rotation angle to straighten head
+            const theta = Math.atan2(pBottomX - pTopX, pBottomY - pTopY);
 
             // Dynamic size layout based on aspect ratio
             const destCardH = 400;
             const destCardW = Math.round(destCardH * imageAspect);
             const halfDestW = destCardW / 2;
 
-            // Base scaling factor to map natural height to destCardH
             const baseScale = destCardH / natH;
             const scale = baseScale * zoomVal;
 
-            // 1. Compile Left-Mirror Face Canvas
+            // 1. Compile Left-Mirror Face Canvas (Angelic Good)
             const leftCanvas = document.createElement('canvas');
             leftCanvas.width = destCardW;
             leftCanvas.height = destCardH;
             const leftCtx = leftCanvas.getContext('2d');
 
-            // Draw base original face across the entire canvas (full opacity at center)
             leftCtx.save();
             leftCtx.translate(destCardW / 2, destCardH / 2);
             leftCtx.scale(scale, scale);
@@ -731,26 +954,24 @@
             leftCtx.drawImage(sourceImage, -MX, -MY);
             leftCtx.restore();
 
-            // Draw mirrored left face on the right side, clipped with 0.5px overlap
             leftCtx.save();
             leftCtx.beginPath();
             leftCtx.rect(halfDestW - 0.5, 0, destCardW - halfDestW + 0.5, destCardH);
             leftCtx.clip();
             leftCtx.translate(destCardW / 2, destCardH / 2);
-            leftCtx.scale(-scale, scale); // Mirror horizontally
+            leftCtx.scale(-scale, scale);
             leftCtx.rotate(-theta);
             leftCtx.drawImage(sourceImage, -MX, -MY);
             leftCtx.restore();
 
-            leftMirrorDataUrl = leftCanvas.toDataURL('image/jpeg', 0.95);
+            leftMirrorDataUrl = leftCanvas.toDataURL('image/jpeg', 0.92);
 
-            // 2. Compile Right-Mirror Face Canvas
+            // 2. Compile Right-Mirror Face Canvas (Demonic Evil)
             const rightCanvas = document.createElement('canvas');
             rightCanvas.width = destCardW;
             rightCanvas.height = destCardH;
             const rightCtx = rightCanvas.getContext('2d');
 
-            // Draw base original face across the entire canvas (full opacity at center)
             rightCtx.save();
             rightCtx.translate(destCardW / 2, destCardH / 2);
             rightCtx.scale(scale, scale);
@@ -758,20 +979,34 @@
             rightCtx.drawImage(sourceImage, -MX, -MY);
             rightCtx.restore();
 
-            // Draw mirrored right face on the left side, clipped with 0.5px overlap
             rightCtx.save();
             rightCtx.beginPath();
             rightCtx.rect(0, 0, halfDestW + 0.5, destCardH);
             rightCtx.clip();
             rightCtx.translate(destCardW / 2, destCardH / 2);
-            rightCtx.scale(-scale, scale); // Mirror horizontally
+            rightCtx.scale(-scale, scale);
             rightCtx.rotate(-theta);
             rightCtx.drawImage(sourceImage, -MX, -MY);
             rightCtx.restore();
 
-            rightMirrorDataUrl = rightCanvas.toDataURL('image/jpeg', 0.95);
+            rightMirrorDataUrl = rightCanvas.toDataURL('image/jpeg', 0.92);
 
-            // Update previews aspect ratio matching uploaded photo
+            // 3. Compile Straightened Original Face Canvas (for Triptych Comparison)
+            const origCanvas = document.createElement('canvas');
+            origCanvas.width = destCardW;
+            origCanvas.height = destCardH;
+            const origCtx = origCanvas.getContext('2d');
+
+            origCtx.save();
+            origCtx.translate(destCardW / 2, destCardH / 2);
+            origCtx.scale(scale, scale);
+            origCtx.rotate(-theta);
+            origCtx.drawImage(sourceImage, -MX, -MY);
+            origCtx.restore();
+
+            originalFaceDataUrl = origCanvas.toDataURL('image/jpeg', 0.92);
+
+            // Update previews
             const leftImg = document.getElementById('leftMirrorImg');
             const rightImg = document.getElementById('rightMirrorImg');
             
@@ -783,25 +1018,24 @@
             
             document.getElementById('mirroredPreviews').classList.remove('hidden');
 
-            // Recompile Collage instantly in real time
             generateCollage();
         }
 
         async function generateCollage() {
-            const leftCount = parseInt(document.getElementById('leftCount').value);
-            const rightCount = parseInt(document.getElementById('rightCount').value);
-            const cols = parseInt(document.getElementById('cols').value);
-            const theme = document.getElementById('yearbookTheme').value;
-            const layoutStyle = document.getElementById('yearbookLayoutStyle').value;
-            const arrangement = document.getElementById('yearbookArrangement').value;
+            const leftCount = parseInt(document.getElementById('leftCount').value) || 0;
+            const rightCount = parseInt(document.getElementById('rightCount').value) || 0;
+            let cols = parseInt(document.getElementById('cols').value) || 3;
+            
+            const themeInput = document.getElementById('posterTheme') || document.getElementById('yearbookTheme');
+            const layoutStyleInput = document.getElementById('posterLayoutStyle') || document.getElementById('yearbookLayoutStyle');
+            const arrangementInput = document.getElementById('posterArrangement') || document.getElementById('yearbookArrangement');
 
-            // Update slider labels in real time
-            document.getElementById('leftCountLabel').innerText = leftCount;
-            document.getElementById('rightCountLabel').innerText = rightCount;
-            document.getElementById('colsLabel').innerText = cols;
+            const theme = themeInput ? themeInput.value : 'imperial_gold';
+            const layoutStyle = layoutStyleInput ? layoutStyleInput.value : 'grid';
+            const arrangement = arrangementInput ? arrangementInput.value : 'alternating';
 
-            // If no photo or counts are 0, reset view
-            if (!leftMirrorDataUrl || !rightMirrorDataUrl || (leftCount === 0 && rightCount === 0)) {
+            // If no photo loaded or counts are 0 (and not in triptych mode), reset view
+            if (!leftMirrorDataUrl || !rightMirrorDataUrl || (arrangement !== 'triptych' && leftCount === 0 && rightCount === 0)) {
                 document.getElementById('resultPlaceholder').classList.remove('hidden');
                 document.getElementById('resultSection').classList.add('hidden');
                 resultDataUrl = null;
@@ -809,7 +1043,6 @@
             }
 
             try {
-                // Compile the canvas instantly on user input
                 resultDataUrl = await compileCanvasCollage(leftCount, rightCount, cols, theme, layoutStyle, arrangement);
 
                 document.getElementById('resultPlaceholder').classList.add('hidden');
@@ -824,38 +1057,49 @@
         function compileCanvasCollage(leftCount, rightCount, cols, theme, layoutStyle, arrangement) {
             return new Promise(async (resolve, reject) => {
                 try {
-                    const total = leftCount + rightCount;
-                    const rows = Math.ceil(total / cols);
-
                     const imgL = await loadImage(leftMirrorDataUrl);
                     const imgR = await loadImage(rightMirrorDataUrl);
+                    const imgOrig = originalFaceDataUrl ? await loadImage(originalFaceDataUrl) : null;
 
-                    // Setup list of photos to render
                     const photoList = [];
-                    for (let i = 0; i < leftCount; i++) {
-                        photoList.push({ img: imgL, label: `LEFT-MIRROR #${i + 1}` });
-                    }
-                    for (let i = 0; i < rightCount; i++) {
-                        photoList.push({ img: imgR, label: `RIGHT-MIRROR #${i + 1}` });
+
+                    // Arrangement logic
+                    if (arrangement === 'triptych') {
+                        cols = 3;
+                        photoList.push({ img: imgL, label: '😇 GOOD · LEFT' });
+                        if (imgOrig) {
+                            photoList.push({ img: imgOrig, label: '👤 ORIGINAL' });
+                        } else {
+                            photoList.push({ img: imgL, label: '👤 ORIGINAL' });
+                        }
+                        photoList.push({ img: imgR, label: '😈 EVIL · RIGHT' });
+                    } else {
+                        for (let i = 0; i < leftCount; i++) {
+                            photoList.push({ img: imgL, label: `😇 GOOD #${i + 1}` });
+                        }
+                        for (let i = 0; i < rightCount; i++) {
+                            photoList.push({ img: imgR, label: `😈 EVIL #${i + 1}` });
+                        }
+
+                        if (arrangement === 'alternating') {
+                            const temp = [];
+                            const max = Math.max(leftCount, rightCount);
+                            for (let i = 0; i < max; i++) {
+                                if (i < leftCount) temp.push({ img: imgL, label: `😇 GOOD #${i + 1}` });
+                                if (i < rightCount) temp.push({ img: imgR, label: `😈 EVIL #${i + 1}` });
+                            }
+                            photoList.length = 0;
+                            photoList.push(...temp);
+                        } else if (arrangement === 'mixed') {
+                            for (let i = photoList.length - 1; i > 0; i--) {
+                                const j = Math.floor(Math.random() * (i + 1));
+                                [photoList[i], photoList[j]] = [photoList[j], photoList[i]];
+                            }
+                        }
                     }
 
-                    // Apply Photo Arrangement sorting on canvas
-                    if (arrangement === 'alternating') {
-                        const temp = [];
-                        const max = Math.max(leftCount, rightCount);
-                        for (let i = 0; i < max; i++) {
-                            if (i < leftCount) temp.push({ img: imgL, label: `LEFT-MIRROR #${i + 1}` });
-                            if (i < rightCount) temp.push({ img: imgR, label: `RIGHT-MIRROR #${i + 1}` });
-                        }
-                        photoList.length = 0;
-                        photoList.push(...temp);
-                    } else if (arrangement === 'mixed') {
-                        // Truly randomize layout order on canvas
-                        for (let i = photoList.length - 1; i > 0; i--) {
-                            const j = Math.floor(Math.random() * (i + 1));
-                            [photoList[i], photoList[j]] = [photoList[j], photoList[i]];
-                        }
-                    }
+                    const total = photoList.length;
+                    const rows = Math.ceil(total / cols);
 
                     // Dynamic card layout matching photo aspect ratio
                     const cardH = 420;
@@ -928,7 +1172,7 @@
                     ctx.fillStyle = bgGradient;
                     ctx.fillRect(0, 0, canvasW, canvasH);
 
-                    // Header drawing
+                    // Header drawing (Clean, themed, no yearbook class year)
                     ctx.fillStyle = textColor;
                     ctx.textAlign = 'center';
                     
@@ -937,9 +1181,9 @@
                     
                     ctx.font = fontSub;
                     ctx.fillStyle = subColor;
-                    ctx.fillText('Class of 2026 • Face of the good and evil', canvasW / 2, padding + 70);
+                    ctx.fillText('Dual Symmetry Studio • Good and Evil Exhibition', canvasW / 2, padding + 70);
 
-                    // Header lines (Subtle, thematic stripes/borders only)
+                    // Header lines
                     if (theme === 'varsity_spirit') {
                         ctx.strokeStyle = '#F59E0B';
                         ctx.lineWidth = 3;
@@ -963,7 +1207,7 @@
                         ctx.stroke();
                     }
 
-                    // Draw Grid Cells (Clean, Photo-First layout)
+                    // Draw Grid Cells
                     for (let i = 0; i < photoList.length; i++) {
                         const r = Math.floor(i / cols);
                         const c = i % cols;
@@ -974,7 +1218,6 @@
 
                         ctx.save();
 
-                        // Apply organic rotated/tilted Scrapbook styling if selected
                         if (layoutStyle === 'scrapbook') {
                             const dx = (Math.random() - 0.5) * 16;
                             const dy = (Math.random() - 0.5) * 16;
@@ -994,23 +1237,18 @@
                             ctx.shadowOffsetY = 6;
                         }
 
-                        // Theme-specific photo background or border styling
                         if (theme === 'retro_parchment') {
-                            // Polaroid-style clean white frame backing
                             ctx.fillStyle = '#FFFFFF';
                             ctx.fillRect(x - 8, y - 8, photoW + 16, photoH + 22);
                             
-                            // Fine border around the white card
                             ctx.strokeStyle = 'rgba(88, 47, 14, 0.15)';
                             ctx.lineWidth = 1;
                             ctx.strokeRect(x - 8, y - 8, photoW + 16, photoH + 22);
                         } else if (theme === 'memphis_pop') {
-                            // Flat offset solid black shadow
                             ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
                             ctx.fillRect(x + 8, y + 8, photoW, photoH);
                         }
 
-                        // Disable shadow for inner elements
                         ctx.shadowColor = 'transparent';
                         ctx.shadowBlur = 0;
                         ctx.shadowOffsetX = 0;
@@ -1030,39 +1268,32 @@
                             ctx.strokeRect(x, y, photoW, photoH);
                         }
 
-                        // Draw photo corners for Retro Parchment
+                        // Corners for Retro Parchment
                         if (theme === 'retro_parchment') {
                             ctx.save();
                             ctx.fillStyle = '#582F0E';
                             const sz = 12;
-                            // Top Left
                             ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + sz, y); ctx.lineTo(x, y + sz); ctx.closePath(); ctx.fill();
-                            // Top Right
                             ctx.beginPath(); ctx.moveTo(x + photoW, y); ctx.lineTo(x + photoW - sz, y); ctx.lineTo(x + photoW, y + sz); ctx.closePath(); ctx.fill();
-                            // Bottom Left
                             ctx.beginPath(); ctx.moveTo(x, y + photoH); ctx.lineTo(x + sz, y + photoH); ctx.lineTo(x, y + photoH - sz); ctx.closePath(); ctx.fill();
-                            // Bottom Right
                             ctx.beginPath(); ctx.moveTo(x + photoW, y + photoH); ctx.lineTo(x + photoW - sz, y + photoH); ctx.lineTo(x + photoW, y + photoH - sz); ctx.closePath(); ctx.fill();
                             ctx.restore();
                         }
 
-                        // Draw name label (Clean, directly on background, no card box)
+                        // Draw name label with clean typography
                         ctx.fillStyle = nameplateText;
                         ctx.textAlign = 'center';
                         
                         if (theme === 'retro_parchment') {
-                            // Cursive-like vintage name on the polaroid margin
                             ctx.font = 'italic 14px Georgia, serif';
                             ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 10);
                         } else if (theme === 'memphis_pop') {
-                            // Fun pill background nameplate
                             ctx.save();
                             ctx.font = 'bold 11px "Inter", sans-serif';
                             const textWidth = ctx.measureText(photoList[i].label).width;
                             ctx.fillStyle = '#F0EFFF';
                             ctx.strokeStyle = '#4F46E5';
                             ctx.lineWidth = 1.5;
-                            // Draw rounded name label pill
                             drawRoundedRect(ctx, x + photoW / 2 - textWidth / 2 - 10, y + photoH + 10, textWidth + 20, 22, 6);
                             ctx.fill();
                             ctx.stroke();
@@ -1073,14 +1304,13 @@
                             ctx.font = 'bold 12px Impact, Charcoal, sans-serif';
                             ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 22);
                         } else {
-                            ctx.font = '500 12px Inter, system-ui, sans-serif';
+                            ctx.font = '600 12px Inter, system-ui, sans-serif';
                             ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 22);
                         }
 
                         ctx.restore();
                     }
 
-                    // Helper function to draw rounded rectangles
                     function drawRoundedRect(ctx, rx, ry, rw, rh, rad) {
                         ctx.beginPath();
                         ctx.moveTo(rx + rad, ry);
@@ -1123,7 +1353,7 @@
                                     theme === 'memphis_pop' ? '#4F46E5' : '#F59E0B';
                     ctx.font = '12px Inter, system-ui, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('Generated via CHS Communicate Symmetry Studio', canvasW / 2, canvasH - footerHeight + 42);
+                    ctx.fillText('Generated via CHS Symmetry Studio • Dual Personality Analysis', canvasW / 2, canvasH - footerHeight + 42);
 
                     resolve(canvas.toDataURL('image/png'));
                 } catch (e) {
@@ -1147,7 +1377,7 @@
         function downloadCollage() {
             if (!resultDataUrl) return;
             const link = document.createElement('a');
-            link.download = 'symmetry-yearbook.png';
+            link.download = 'face-of-good-and-evil.png';
             link.href = resultDataUrl;
             link.click();
         }

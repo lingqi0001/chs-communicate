@@ -327,8 +327,10 @@
 </head>
 <body>
     <header>
+        <a id="standaloneBack" href="/?tab=tools" style="display:none; text-decoration:none; color:var(--accent); font-size:12px; font-weight:700; margin-bottom:8px;">← Back to CHSchat</a>
         <h1>Logic Visualizer</h1>
         <p>Step-by-step demonstration of <code>strArrMethod</code> selection logic</p>
+        <script>if (window.self === window.top) document.getElementById('standaloneBack').style.display='inline-block';</script>
     </header>
 
     <main>

@@ -1224,6 +1224,10 @@ body {
 .ann-theme-orange .bg-\[\#007AFF\]\/10 {
     background-color: rgba(249, 115, 22, 0.1) !important;
 }
+.dark .ann-theme-orange .dark\:bg-\[\#0A84FF\]\/20,
+.dark .ann-theme-orange .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(251, 146, 60, 0.15) !important;
+}
 .ann-theme-orange .text-blue-700 {
     color: #C2410C !important;
 }
@@ -1295,6 +1299,10 @@ body {
 .ann-theme-green .bg-\[\#007AFF\]\/10 {
     background-color: rgba(52, 199, 89, 0.1) !important;
 }
+.dark .ann-theme-green .dark\:bg-\[\#0A84FF\]\/20,
+.dark .ann-theme-green .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(149, 255, 20, 0.15) !important;
+}
 .ann-theme-green .text-blue-700 {
     color: #1E824C !important;
 }
@@ -1363,6 +1371,10 @@ body {
 .ann-theme-purple .bg-\[\#007AFF\]\/10 {
     background-color: rgba(175, 82, 222, 0.1) !important;
 }
+.dark .ann-theme-purple .dark\:bg-\[\#0A84FF\]\/20,
+.dark .ann-theme-purple .bg-\[\#007AFF\]\/10 {
+    background-color: rgba(167, 36, 255, 0.15) !important;
+}
 .ann-theme-purple .text-blue-700 {
     color: #6C3483 !important;
 }
@@ -1408,8 +1420,9 @@ body {
 .dark .ann-theme-custom .dark\:bg-blue-500\/10,
 .dark .ann-theme-custom .bg-blue-100,
 .dark .ann-theme-custom .dark\:bg-blue-500\/15,
-.dark .ann-theme-custom .bg-\[\#007AFF\]\/10 {
-    background-color: var(--ann-accent-color-dark-alpha10) !important;
+.dark .ann-theme-custom .bg-\[\#007AFF\]\/10,
+.dark .ann-theme-custom .dark\:bg-\[\#0A84FF\]\/20 {
+    background-color: var(--ann-accent-color-dark-alpha20) !important;
 }
 .ann-theme-custom .border-t-\[\#007AFF\],
 .ann-theme-custom .border-\[\#007AFF\] {
@@ -1481,8 +1494,9 @@ body {
 }
 .dark .msg-theme-orange .bg-blue-500\/10,
 .dark .msg-theme-orange .dark\:bg-blue-500\/10,
-.dark .msg-theme-orange .bg-\[\#007AFF\]\/10 {
-    background-color: rgba(251, 146, 60, 0.1) !important;
+.dark .msg-theme-orange .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-orange .dark\:bg-\[\#0A84FF\]\/20 {
+    background-color: rgba(251, 146, 60, 0.15) !important;
 }
 
 /* 2. Messaging Theme: Blue Mode */
@@ -1523,8 +1537,9 @@ body {
 }
 .dark .msg-theme-green .bg-blue-500\/10,
 .dark .msg-theme-green .dark\:bg-blue-500\/10,
-.dark .msg-theme-green .bg-\[\#007AFF\]\/10 {
-    background-color: rgba(149, 255, 20, 0.1) !important;
+.dark .msg-theme-green .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-green .dark\:bg-\[\#0A84FF\]\/20 {
+    background-color: rgba(149, 255, 20, 0.15) !important;
 }
 
 /* 4. Messaging Theme: Purple Mode */
@@ -1562,8 +1577,9 @@ body {
 }
 .dark .msg-theme-purple .bg-blue-500\/10,
 .dark .msg-theme-purple .dark\:bg-blue-500\/10,
-.dark .msg-theme-purple .bg-\[\#007AFF\]\/10 {
-    background-color: rgba(167, 36, 255, 0.1) !important;
+.dark .msg-theme-purple .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-purple .dark\:bg-\[\#0A84FF\]\/20 {
+    background-color: rgba(167, 36, 255, 0.15) !important;
 }
 
 /* 5. Messaging Theme: Custom Color Mode */
@@ -1599,8 +1615,9 @@ body {
     background-color: var(--msg-accent-color-alpha10) !important;
 }
 .dark .msg-theme-custom .bg-blue-500\/10,
-.dark .msg-theme-custom .bg-\[\#007AFF\]\/10 {
-    background-color: var(--msg-accent-color-dark-alpha10) !important;
+.dark .msg-theme-custom .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-custom .dark\:bg-\[\#0A84FF\]\/20 {
+    background-color: var(--msg-accent-color-dark-alpha20) !important;
 }
 
 

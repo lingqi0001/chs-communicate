@@ -16,12 +16,22 @@
         select { -webkit-appearance: none; appearance: none; }
     </style>
     <!-- 引入 SDK：一行代码解决深浅色适配 -->
-    <script src="../js/app-bridge.js"></script>
+    <script src="/js/app-bridge.js"></script>
     <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
         window.onload = () => {
             // 仅在初始化时询问一次主程序
-            if (AppBridge.isDark()) {
+            if (window.AppBridge && typeof AppBridge.isDark === 'function' && AppBridge.isDark()) {
                 document.documentElement.classList.add('dark');
+            }
+            if (window.self === window.top) {
+                document.getElementById('standaloneHeader')?.classList.remove('hidden');
             }
             calculateGrade();
         };
@@ -29,6 +39,15 @@
 </head>
 <body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10">
     <div class="px-5 pt-4 pb-20 max-w-2xl mx-auto">
+        <header id="standaloneHeader" class="hidden flex items-center justify-between pb-3 mb-4 border-b border-gray-200 dark:border-white/10">
+            <a href="/?tab=tools" title="Back to CHSchat" class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all cursor-pointer">
+                <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+            </a>
+            <h1 class="text-base font-bold text-black dark:text-white">Grade Calculator</h1>
+            <div class="w-9"></div>
+        </header>
         <div class="bg-[#E9E9EB] dark:bg-white/10 rounded-2xl p-1 h-10 flex mb-6">
             <button id="calcTabYear" onclick="switchCalcType('year')"
                 class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all">Year-Long</button>

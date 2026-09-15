@@ -8,7 +8,7 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <!-- 核心：App Bridge SDK (处理深浅色握手与同步) -->
-    <script src="../../js/app-bridge.js"></script>
+    <script src="/js/app-bridge.js"></script>
     
     
 <style>
@@ -215,12 +215,14 @@
 
 <div id="sidebar">
     <header>
+        <a id="standaloneBack" href="/?tab=tools" style="display:none; text-decoration:none; color:var(--accent); font-size:12px; font-weight:700; margin-bottom:10px;">← Back to CHSchat</a>
         <div class="title-area">
             <h1>AP Calculus</h1>
             <h1 style="font-size: 1rem; color: var(--muted); margin-top: 4px;">Volumes w Cross Sections</h1>
             <p style="margin-top: 8px;">Made by Lingqi Mo with Google Gemini</p>
         </div>
         <button id="theme-toggle" onclick="toggleTheme()">Light Mode</button>
+        <script>if (window.self === window.top) document.getElementById('standaloneBack').style.display='inline-block';</script>
     </header>
 
     <div id="mobile-tabs">

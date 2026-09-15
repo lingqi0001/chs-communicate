@@ -340,7 +340,9 @@
 <body>
 
 <div id="sidebar">
+    <a id="standaloneBack" href="/?tab=tools" style="display:none; text-decoration:none; color:var(--primary); font-size:12px; font-weight:700; margin-bottom:12px;">← Back to CHSchat</a>
     <h2>Layout Control</h2>
+    <script>if (window.self === window.top) document.getElementById('standaloneBack').style.display='inline-block';</script>
     
     <div class="guide-box">
         <div class="guide-title">
