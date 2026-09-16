@@ -547,7 +547,7 @@ export const SidebarModule = {
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 pr-5">
-                                <span id="dot-${u.id}" class="w-2.5 h-2.5 bg-[#007AFF] rounded-full ${window.AppModules.Notify.unreadSet.has(u.id) ? '' : 'hidden'}"></span>
+                                <span id="dot-${u.id}" class="w-2.5 h-2.5 bg-[#007AFF] rounded-full ${window.AppModules.Notify.isUnread(u.id) ? '' : 'hidden'}"></span>
                             </div>
                             ${canEdit && u.id !== c.teacherId ? `
                                 <button onclick="removeStudentFromClass('${window.currentClassId}', '${u.id}', '${window.escapeHTML(u.name)}')" class="opacity-0 group-hover:opacity-100 p-2 mr-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all" title="Remove from class">
@@ -940,7 +940,7 @@ export const SidebarModule = {
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${window.AppModules.Notify.unreadSet.has(id) ? '' : 'hidden'}"></span>
+                        <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${window.AppModules.Notify.isUnread(id) ? '' : 'hidden'}"></span>
                         <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -1231,6 +1231,8 @@ window.setupCustomScrollbar = function(element) {
         e.preventDefault();
         e.stopPropagation();
         isDragging = true;
+        scrollbarTrack.classList.add('is-dragging');
+        thumb.classList.add('is-dragging');
         startY = e.clientY;
         startScrollTop = element.scrollTop;
 
@@ -1254,6 +1256,8 @@ window.setupCustomScrollbar = function(element) {
 
         const onMouseUp = () => {
             isDragging = false;
+            scrollbarTrack.classList.remove('is-dragging');
+            thumb.classList.remove('is-dragging');
             document.body.style.userSelect = '';
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
@@ -1293,4 +1297,3 @@ window.setupCustomScrollbar = function(element) {
 
     update(false);
 };
-

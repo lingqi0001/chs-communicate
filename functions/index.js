@@ -69,13 +69,25 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
                 recipients.push(teacherId);
             }
         } else {
-            // Direct chat (e.g., alice_bob)
-            const parts = chatId.split('_');
-            const otherUser = parts.find(p => p !== senderId);
-            if (otherUser) {
-                recipients.push(otherUser);
+            // IDs can contain underscores, so chatId cannot be safely split.
+            // New client messages carry the exact recipient ID explicitly.
+            const recipientId = String(message.recipientId || '').toLowerCase();
+            if (recipientId && recipientId !== String(senderId || '').toLowerCase()) {
+                recipients.push(recipientId);
+            } else {
+                // Compatibility for an already-open, older client that has
+                // not yet started sending recipientId. Compare canonical IDs
+                // against user records rather than splitting on underscores.
+                const senderKey = String(senderId || '').toLowerCase();
+                const usersSnap = await admin.database().ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const fallbackRecipient = Object.keys(users).find(uid => {
+                    const otherKey = String(uid).toLowerCase();
+                    return otherKey !== senderKey && [senderKey, otherKey].sort().join('_') === chatId;
+                });
+                if (fallbackRecipient) recipients.push(fallbackRecipient);
             }
-            console.log(`Direct chat detected. Recipient: ${otherUser}`);
+            console.log(`Direct chat detected. Recipient: ${recipients[0] || 'not found'}`);
         }
 
         console.log(`Resolved recipients: ${JSON.stringify(recipients)}`);

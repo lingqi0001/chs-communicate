@@ -2476,7 +2476,9 @@ body.is-guest-two-panel .bottom-gradient-shim {
     right: 0px;
 }
 .custom-scrollbar-track:hover .custom-scrollbar-thumb,
-.custom-scrollbar-thumb:hover {
+.custom-scrollbar-thumb:hover,
+.custom-scrollbar-track.is-dragging .custom-scrollbar-thumb,
+.custom-scrollbar-thumb.is-dragging {
     background: rgba(120, 120, 120, 0.4) !important;
 }
 
@@ -2484,7 +2486,9 @@ body.is-guest-two-panel .bottom-gradient-shim {
     background: rgba(255, 255, 255, 0.05) !important;
 }
 .dark .custom-scrollbar-track:hover .custom-scrollbar-thumb,
-.dark .custom-scrollbar-thumb:hover {
+.dark .custom-scrollbar-thumb:hover,
+.dark .custom-scrollbar-track.is-dragging .custom-scrollbar-thumb,
+.dark .custom-scrollbar-thumb.is-dragging {
     background: rgba(255, 255, 255, 0.2) !important;
 }
 

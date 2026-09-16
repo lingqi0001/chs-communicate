@@ -53,17 +53,31 @@ export const NotifyModule = {
         }
     },
 
+    notificationKey(targetId) {
+        const target = String(targetId || '').toLowerCase();
+        if (!target || target.startsWith('group_') || target.startsWith('ext_')) return target;
+        const currentUser = this.context.currentUser || window.currentUser || window.AppModules?.User?.current;
+        const ownId = String(currentUser?.id || '').toLowerCase();
+        return ownId ? [ownId, target].sort().join('_') : target;
+    },
+
+    isUnread(targetId) {
+        return this.unreadSet.has(this.notificationKey(targetId));
+    },
+
     hideChat(targetId) {
         if (!targetId) return;
-        this.hiddenChats.add(targetId);
+        this.hiddenChats.add(this.notificationKey(targetId));
         localStorage.setItem('hiddenChats', JSON.stringify([...this.hiddenChats]));
         this.markAsRead(targetId);
     },
 
     unhideChat(targetId) {
         if (!targetId) return;
-        if (this.hiddenChats.has(targetId)) {
-            this.hiddenChats.delete(targetId);
+        const key = this.notificationKey(targetId);
+        if (this.hiddenChats.has(key) || this.hiddenChats.has(targetId)) {
+            this.hiddenChats.delete(key);
+            this.hiddenChats.delete(targetId); // clean up legacy contact-ID entries
             localStorage.setItem('hiddenChats', JSON.stringify([...this.hiddenChats]));
         }
     },
@@ -116,6 +130,8 @@ export const NotifyModule = {
      */
     _deviceUnsub: null,
     _notificationsUnsub: null,
+    _notificationSnapshotInitialized: false,
+    _previousUnreadKeys: new Set(),
 
     async initMonitor() {
         if (!this.context.currentUser && auth.currentUser) {
@@ -150,6 +166,8 @@ export const NotifyModule = {
         // Clean up previous listeners to prevent accumulation
         if (this._deviceUnsub) { this._deviceUnsub(); this._deviceUnsub = null; }
         if (this._notificationsUnsub) { this._notificationsUnsub(); this._notificationsUnsub = null; }
+        this._notificationSnapshotInitialized = false;
+        this._previousUnreadKeys.clear();
 
         const deviceId = window.getOrCreateDeviceId();
         this._deviceUnsub = onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {
@@ -164,23 +182,38 @@ export const NotifyModule = {
 
         this._notificationsUnsub = onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
+            const nextUnreadKeys = new Set(Object.keys(data).filter(key => data[key] === true));
+            const newlyUnreadKeys = this._notificationSnapshotInitialized
+                ? [...nextUnreadKeys].filter(key => !this._previousUnreadKeys.has(key))
+                : [];
             this.unreadSet.clear();
-            const hiddenUpdates = {};
             for (const key in data) {
                 if (data[key] === true) {
+                    // Hiding a chat marks its current notification read.  A
+                    // later true value is therefore a new message: restore
+                    // the chat and show that new unread indicator normally.
                     if (this.hiddenChats.has(key)) {
-                        hiddenUpdates[key] = false;
-                        continue;
+                        this.hiddenChats.delete(key);
+                        localStorage.setItem('hiddenChats', JSON.stringify([...this.hiddenChats]));
                     }
                     this.unreadSet.add(key);
                 }
             }
-            if (Object.keys(hiddenUpdates).length > 0) {
-                update(ref(db, `user_notifications/${uid}`), hiddenUpdates);
-            }
             this.unreadCount = this.unreadSet.size;
             this.updateUI();
             this._syncAllDots();
+            this._previousUnreadKeys = nextUnreadKeys;
+            this._notificationSnapshotInitialized = true;
+
+            // The database listener owns normal chat unread state. Old
+            // unread messages never alert on load. A page that is focused
+            // shows its blue dot silently; any open but unfocused page plays
+            // the in-app sound (and may also receive Web Push).
+            newlyUnreadKeys.forEach(key => {
+                if (!document.hasFocus()) {
+                    this.triggerAlert(key, { senderName: 'New message', text: 'You have a new message' });
+                }
+            });
         });
     },
 
@@ -188,7 +221,7 @@ export const NotifyModule = {
         const dots = document.querySelectorAll('[id^="dot-"]');
         dots.forEach(dot => {
             const id = dot.id.replace('dot-', '');
-            if (this.unreadSet.has(id)) {
+            if (this.isUnread(id)) {
                 dot.classList.remove('hidden');
             } else {
                 if (window.activeTargetId !== id) dot.classList.add('hidden');
@@ -209,16 +242,9 @@ export const NotifyModule = {
             this.setSound(SETTINGS.soundUrl);
         }
 
-        const webPushEnabled = (localStorage.getItem('pushNotificationsEnabled') === 'true') && 
-                               ('Notification' in window) && (Notification.permission === 'granted');
         const isActivelyOnSite = document.visibilityState === 'visible' && document.hasFocus();
-        
-        let playSound = true;
-        if (webPushEnabled && !isActivelyOnSite) {
-            playSound = false;
-        }
-
-        if (this.audio && playSound) {
+        if (this.audio && SETTINGS.soundEnabled !== false && !isActivelyOnSite) {
+            this.audio.currentTime = 0;
             this.audio.play().catch(e => console.warn('[Notify] Audio play failed:', e));
         }
 
@@ -262,14 +288,23 @@ export const NotifyModule = {
 
     markAsRead(targetId) {
         if (!targetId) return;
+        const targetKey = String(targetId).toLowerCase();
+        const notificationKey = this.notificationKey(targetId);
+        // Conversation IDs can arrive from the UI with their original casing,
+        // while notification keys are stored lower-case. Clear both forms so
+        // opening a conversation always clears its matching notification.
         this.unreadSet.delete(targetId);
+        this.unreadSet.delete(targetKey);
+        this.unreadSet.delete(notificationKey);
         
         const dot = document.getElementById(`dot-${targetId}`);
         if (dot) dot.classList.add('hidden');
 
         if (this.context.currentUser) {
             const uid = String(this.context.currentUser.id || '').toLowerCase();
-            update(ref(db, `user_notifications/${uid}`), { [targetId]: false });
+            const updates = { [notificationKey]: false };
+            if (targetKey !== notificationKey) updates[targetKey] = false;
+            update(ref(db, `user_notifications/${uid}`), updates);
         }
         
         this.unreadCount = this.unreadSet.size;

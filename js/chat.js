@@ -522,7 +522,12 @@ export function initChatEngine(deps) {
         
         // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
         const isMobile = window.innerWidth < 640;
-        if (targetId === activeTargetId && !isMobile) return;
+        if (targetId === activeTargetId && !isMobile) {
+            // Clicking the chat that is already open is still a read action.
+            // Previously this early return skipped the notification cleanup.
+            AppModules.Notify.markAsRead(targetId);
+            return;
+        }
         
         if (safeIsExtensionTargetId(targetId)) {
             await safeOpenExtensionNotificationTarget(targetId);
@@ -951,7 +956,13 @@ export function initChatEngine(deps) {
             const currentUser = getCurrentUser();
             const isGroup = targetId.startsWith('group_');
             const chatId = isGroup ? targetId : getChatId(currentUser.id, targetId);
-            const msgObj = { senderId: currentUser.id, senderName: currentUser.name, timestamp: serverTimestamp(), ...msgData };
+            const msgObj = {
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                ...(isGroup ? {} : { recipientId: targetId.toLowerCase() }),
+                timestamp: serverTimestamp(),
+                ...msgData
+            };
 
             const newMsgRef = push(ref(db, `messages/${chatId}`));
             await set(newMsgRef, msgObj);
