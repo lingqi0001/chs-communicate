@@ -177,3 +177,138 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
         console.log('Finished processing all notifications.');
         return null;
     });
+
+// ==========================================
+// Google Doc Comments Extraction & Sync
+// ==========================================
+const { google } = require('googleapis');
+const path = require('path');
+
+function extractGoogleDocId(url) {
+    if (!url) return null;
+    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : null;
+}
+
+exports.fetchGoogleDocComments = functions.https.onCall(async (data, context) => {
+    const docUrl = data.url;
+    const fileId = extractGoogleDocId(docUrl);
+    if (!fileId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid Google Doc URL');
+    }
+
+    try {
+        let auth;
+        const keyPath = path.join(__dirname, 'service-account.json');
+        try {
+            auth = new google.auth.GoogleAuth({
+                keyFile: keyPath,
+                scopes: ['https://www.googleapis.com/auth/drive.readonly']
+            });
+        } catch (e) {
+            auth = new google.auth.GoogleAuth({
+                scopes: ['https://www.googleapis.com/auth/drive.readonly']
+            });
+        }
+
+        const drive = google.drive({ version: 'v3', auth });
+
+        // Fetch document metadata including createdTime and modifiedTime
+        const fileInfo = await drive.files.get({
+            fileId: fileId,
+            fields: 'id, name, mimeType, createdTime, modifiedTime'
+        });
+
+        // Fetch comments list
+        const res = await drive.comments.list({
+            fileId: fileId,
+            includeDeleted: false,
+            fields: 'comments(id,author(displayName),content,createdTime,resolved,quotedFileContent(value),replies(id,author(displayName),content,createdTime))',
+            pageSize: 100
+        });
+
+        const comments = res.data.comments || [];
+        const docData = {
+            title: fileInfo.data.name || 'Untitled Document',
+            fileId: fileId,
+            docUrl: docUrl,
+            commentsCount: comments.length,
+            comments: comments,
+            createdTime: fileInfo.data.createdTime || null,
+            modifiedTime: fileInfo.data.modifiedTime || null,
+            lastSyncedAt: Date.now()
+        };
+
+        // If chatId is provided, update all messages with this docUrl in Realtime Database directly
+        const chatId = data.chatId;
+        const messageKey = data.messageKey;
+        if (chatId) {
+            try {
+                if (messageKey) {
+                    await admin.database().ref(`messages/${chatId}/${messageKey}/docData`).set(docData);
+                }
+                // Also find any other messages in this chat with the same doc link/docId and sync them
+                const chatMsgsSnap = await admin.database().ref(`messages/${chatId}`).once('value');
+                const allMsgs = chatMsgsSnap.val() || {};
+                const updates = {};
+                for (const [mKey, mVal] of Object.entries(allMsgs)) {
+                    if (mVal && mVal.text && mVal.text.includes(fileId)) {
+                        updates[`messages/${chatId}/${mKey}/docData`] = docData;
+                    }
+                }
+                if (Object.keys(updates).length > 0) {
+                    await admin.database().ref().update(updates);
+                    console.log(`[GoogleDoc] Successfully synced docData to ${Object.keys(updates).length} messages in ${chatId}`);
+                }
+            } catch (dbErr) {
+                console.warn(`[GoogleDoc] Failed to update docData in DB for ${chatId}:`, dbErr.message);
+            }
+        }
+
+        return {
+            success: true,
+            title: docData.title,
+            fileId: docData.fileId,
+            docUrl: docData.docUrl,
+            commentsCount: docData.commentsCount,
+            comments: docData.comments,
+            createdTime: docData.createdTime,
+            modifiedTime: docData.modifiedTime,
+            lastSyncedAt: docData.lastSyncedAt
+        };
+    } catch (err) {
+        console.error('Failed to fetch doc comments:', err);
+        const errorText = String(err.message || 'Unable to access this document');
+        const accessLost = [401, 403, 404].includes(Number(err.code)) || /access|permission|forbidden|not found/i.test(errorText);
+
+        // Keep the last successful snapshot intact when sharing permission is later removed.
+        if (accessLost && data.chatId) {
+            try {
+                const messages = (await admin.database().ref(`messages/${data.chatId}`).once('value')).val() || {};
+                const updates = {};
+                for (const [messageKey, message] of Object.entries(messages)) {
+                    if (message?.text && message.text.includes(fileId)) {
+                        updates[`messages/${data.chatId}/${messageKey}/docData`] = {
+                            ...(message.docData || { fileId, docUrl }),
+                            fileId,
+                            docUrl,
+                            accessLost: true,
+                            lastSyncError: errorText,
+                            lastSyncAttemptAt: Date.now()
+                        };
+                    }
+                }
+                if (Object.keys(updates).length) await admin.database().ref().update(updates);
+            } catch (stateErr) {
+                console.warn('[GoogleDoc] Failed to preserve access-loss state:', stateErr.message);
+            }
+        }
+        return {
+            success: false,
+            error: errorText,
+            accessLost,
+            fileId: fileId,
+            docUrl: docUrl
+        };
+    }
+});

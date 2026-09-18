@@ -147,6 +147,19 @@ export async function saveMessageLocal(chatId, msgId, messageData) {
     store.put({ compositeId: `${chatId}_${msgId}`, chatId, ...messageData });
 }
 
+export async function deleteMessageLocal(chatId, msgId) {
+    const db = await dbReady;
+    if (!db) return;
+    return new Promise((resolve) => {
+        const transaction = db.transaction(["messages"], "readwrite");
+        const store = transaction.objectStore("messages");
+        const req = store.delete(`${chatId}_${msgId}`);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+    });
+}
+
+
 export async function getLocalMessages(chatId) {
     const db = await dbReady;
     if (!db) return [];

@@ -8,6 +8,12 @@
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -132,6 +138,35 @@
         input:checked + .switch-track .switch-thumb {
             transform: translateX(18px);
         }
+
+        /* Compact Mini Switch */
+        .switch-track-sm {
+            width: 32px;
+            height: 18px;
+            background-color: var(--border);
+            border-radius: 9999px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        .switch-thumb-sm {
+            width: 14px;
+            height: 14px;
+            background-color: #FFFFFF;
+            border-radius: 9999px;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        }
+        input:checked + .switch-track-sm {
+            background-color: #007AFF;
+        }
+        input:checked + .switch-track-sm .switch-thumb-sm {
+            transform: translateX(14px);
+        }
     </style>
     <!-- 引入 SDK -->
     <script src="/js/app-bridge.js"></script>
@@ -176,7 +211,6 @@
             if (window.self === window.top) {
                 document.getElementById('standaloneHeader')?.classList.remove('hidden');
             }
-            calculateGrade();
         };
     </script>
 </head>
@@ -200,12 +234,79 @@
             <button id="calcTabGpa" onclick="switchCalcType('gpa')"
                 class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center gap-1.5 rounded-xl transition-all text-gray-400">
                 <span>Total GPA</span>
-                <span class="hidden sm:inline-block text-[10px] font-medium opacity-80 bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-[#007AFF] dark:text-[#38BDF8] px-1.5 py-0.5 rounded-md leading-none">Convert to college GPA</span>
+                <span class="hidden sm:inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none" style="background: var(--bg); color: var(--text);">Convert to college GPA</span>
+            </button>
+        </div>
+        <div class="flex items-center justify-between px-1 mb-3">
+            <div class="flex items-center gap-2.5">
+                <div id="saveStatusIndicator" class="text-xs font-medium transition-opacity duration-300 opacity-60 flex items-center gap-1.5" style="color: var(--muted);">
+                    <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    <span>Auto-saved</span>
+                </div>
+
+                <div class="h-3.5 w-[1px] bg-[var(--border)]"></div>
+
+                <!-- iOS-style Mini Switch for Cloud Sync -->
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none group" title="Toggle multi-device real-time cloud sync">
+                    <span id="cloudSyncLabel" class="text-xs font-semibold transition-colors duration-200" style="color: var(--muted);">Sync To Cloud</span>
+                    <div class="relative flex items-center">
+                        <input type="checkbox" id="cloudSyncToggle" onchange="toggleCloudSync()" class="sr-only">
+                        <div class="switch-track-sm">
+                            <div class="switch-thumb-sm"></div>
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <button type="button" onclick="resetAllGradeData()"
+                class="text-xs font-medium hover:text-red-500 transition-colors flex items-center gap-1 cursor-pointer" style="color: var(--muted);"
+                title="Reset all inputs to default">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                <span>Reset</span>
             </button>
         </div>
 
+        <!-- Hidden file inputs for PDF imports -->
+        <input type="file" id="reportCardFileInput" accept="application/pdf" class="hidden" onchange="handleReportCardPdfUpload(event)">
+
         <!-- Year-Long View -->
         <div id="calcYearView" class="space-y-4">
+            <!-- Standalone PDF Report Card Import Banner for Year-Long -->
+            <div class="gold-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border border-[var(--border)] shadow-xs">
+                <div class="space-y-0.5 text-center sm:text-left">
+                    <div class="text-xs font-bold" style="color: var(--text);">Auto-fill from HCPSS Report Card</div>
+                    <div class="text-[11px]" style="color: var(--muted);">
+                        Download your report card PDF from <a href="https://family.hcpss.org/ParentVUE/Student_Reportcard" target="_blank" rel="noopener noreferrer" class="text-[#007AFF] dark:text-[#38BDF8] underline font-medium hover:opacity-80">HCPSS ParentVUE</a>
+                    </div>
+                </div>
+                <button type="button" onclick="document.getElementById('reportCardFileInput').click()"
+                    title="Auto-extract all courses from your HCPSS Report Card PDF"
+                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap text-center">
+                    Import Report Card (PDF)
+                </button>
+            </div>
+
+            <!-- Subject / Course Selector List (Year-Long) -->
+            <div class="gold-panel rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Subjects</span>
+                        <span id="yearCourseListCount" class="text-[10px] font-bold px-1.5 py-0.2 rounded" style="background: var(--bg); color: var(--text);">1 Subject</span>
+                    </div>
+                    <button type="button" onclick="promptAddNewCourse('year')"
+                        class="px-2.5 py-1 rounded-lg bg-[var(--border)] hover:bg-[#007AFF] hover:text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1">
+                        <span>+ Add Subject</span>
+                    </button>
+                </div>
+                <div id="yearCourseChipsList" class="flex flex-wrap items-center gap-2 pt-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
             <!-- No Midterm Toggle -->
             <label class="flex items-center justify-between p-4 gold-panel rounded-2xl cursor-pointer select-none">
                 <div class="flex items-center gap-2.5">
@@ -223,42 +324,42 @@
             <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 1</label>
-                    <select id="y-q1" onchange="calculateGrade()"
+                    <select id="y-q1" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 2</label>
-                    <select id="y-q2" onchange="calculateGrade()"
+                    <select id="y-q2" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 3</label>
-                    <select id="y-q3" onchange="calculateGrade()"
+                    <select id="y-q3" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 4</label>
-                    <select id="y-q4" onchange="calculateGrade()"
+                    <select id="y-q4" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div id="y-mid-wrap" class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Midterm Exam</label>
-                    <select id="y-mid" onchange="calculateGrade()"
+                    <select id="y-mid" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div id="y-fin-wrap" class="space-y-1">
                     <label id="y-fin-label" class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Final Exam</label>
-                    <select id="y-fin" onchange="calculateGrade()"
+                    <select id="y-fin" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
@@ -268,24 +369,56 @@
 
         <!-- Semester View -->
         <div id="calcSemView" class="hidden space-y-4">
+            <!-- Standalone PDF Report Card Import Banner for Semester -->
+            <div class="gold-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border border-[var(--border)] shadow-xs">
+                <div class="space-y-0.5 text-center sm:text-left">
+                    <div class="text-xs font-bold" style="color: var(--text);">Auto-fill from HCPSS Report Card</div>
+                    <div class="text-[11px]" style="color: var(--muted);">
+                        Download your report card PDF from <a href="https://family.hcpss.org/ParentVUE/Student_Reportcard" target="_blank" rel="noopener noreferrer" class="text-[#007AFF] dark:text-[#38BDF8] underline font-medium hover:opacity-80">HCPSS ParentVUE</a>
+                    </div>
+                </div>
+                <button type="button" onclick="document.getElementById('reportCardFileInput').click()"
+                    title="Auto-extract course grades from your HCPSS Report Card PDF"
+                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap text-center">
+                    Import Report Card (PDF)
+                </button>
+            </div>
+
+            <!-- Subject / Course Selector List (Semester) -->
+            <div class="gold-panel rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Subjects</span>
+                        <span id="semCourseListCount" class="text-[10px] font-bold px-1.5 py-0.2 rounded" style="background: var(--bg); color: var(--text);">1 Subject</span>
+                    </div>
+                    <button type="button" onclick="promptAddNewCourse('semester')"
+                        class="px-2.5 py-1 rounded-lg bg-[var(--border)] hover:bg-[#007AFF] hover:text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1">
+                        <span>+ Add Subject</span>
+                    </button>
+                </div>
+                <div id="semCourseChipsList" class="flex flex-wrap items-center gap-2 pt-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 gap-4">
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 1</label>
-                    <select id="s-q1" onchange="calculateGrade()"
+                    <select id="s-q1" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 2</label>
-                    <select id="s-q2" onchange="calculateGrade()"
+                    <select id="s-q2" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Final Exam</label>
-                    <select id="s-exam" onchange="calculateGrade()"
+                    <select id="s-exam" onchange="handleCourseGradeInputChanged()"
                         class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
@@ -320,9 +453,25 @@
         <div id="calcGpaView" class="hidden">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <!-- Left Column: HCPSS Total GPA inputs -->
-                <div class="lg:col-span-7 space-y-6">
+                <div class="lg:col-span-7 space-y-5">
+                    <!-- Standalone PDF Transcript Import Banner -->
+                    <div class="gold-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border border-[var(--border)] shadow-xs">
+                        <div class="space-y-0.5 text-center sm:text-left">
+                            <div class="text-xs font-bold" style="color: var(--text);">Auto-fill from HCPSS Transcript</div>
+                            <div class="text-[11px]" style="color: var(--muted);">
+                                Download your unofficial transcript PDF from <a href="https://family.hcpss.org/ParentVUE/Student_Reportcard" target="_blank" rel="noopener noreferrer" class="text-[#007AFF] dark:text-[#38BDF8] underline font-medium hover:opacity-80">HCPSS ParentVUE</a>
+                            </div>
+                        </div>
+                        <input type="file" id="transcriptFileInput" accept="application/pdf" class="hidden" onchange="handleTranscriptPdfUpload(event)">
+                        <button type="button" onclick="document.getElementById('transcriptFileInput').click()"
+                            title="Auto-extract grades from your HCPSS Unofficial Transcript PDF"
+                            class="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap text-center">
+                            Import Transcript (PDF)
+                        </button>
+                    </div>
+
                     <!-- GPA Result Card -->
-                    <div class="gold-panel rounded-3xl p-6 text-center">
+                    <div class="gold-panel rounded-3xl p-6 text-center relative">
                         <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--muted);">Total GPA (HCPSS Standard)</p>
                         <div class="grid grid-cols-2 divide-x divide-[var(--border)]">
                             <div>
@@ -459,7 +608,7 @@
                             <button type="button" onclick="toggleConverterAccordion('ucConverterContent', 'ucArrow')"
                                 class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background: var(--bg); color: var(--text);">
                                         UC
                                     </div>
                                     <div>
@@ -469,7 +618,7 @@
                                 </div>
                                 <svg id="ucArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
+                                 </svg>
                             </button>
 
                         <div id="ucConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
@@ -563,7 +712,7 @@
                         <button type="button" onclick="toggleConverterAccordion('umdConverterContent', 'umdArrow')"
                             class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background: var(--bg); color: var(--text);">
                                     UMD
                                 </div>
                                 <div>
@@ -667,7 +816,7 @@
                         <button type="button" onclick="toggleConverterAccordion('hccConverterContent', 'hccArrow')"
                             class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background: var(--bg); color: var(--text);">
                                     HCC
                                 </div>
                                 <div>
@@ -712,17 +861,17 @@
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">C's (2.0)</label>
                                         <input type="number" min="0" value="0" id="hcc-grades-c" oninput="calculateHccGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
                                         <input type="number" min="0" value="0" id="hcc-grades-d" oninput="calculateHccGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
                                         <input type="number" min="0" value="0" id="hcc-grades-f" oninput="calculateHccGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                 </div>
                             </div>
@@ -744,7 +893,7 @@
                         <button type="button" onclick="toggleConverterAccordion('umbcConverterContent', 'umbcArrow')"
                             class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] tracking-tight shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] tracking-tight shrink-0" style="background: var(--bg); color: var(--text);">
                                     UMBC
                                 </div>
                                 <div>
@@ -821,7 +970,7 @@
                         <button type="button" onclick="toggleConverterAccordion('jhuConverterContent', 'jhuArrow')"
                             class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background: var(--bg); color: var(--text);">
                                     JHU
                                 </div>
                                 <div>
@@ -888,22 +1037,22 @@
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">C (2.0)</label>
                                         <input type="number" min="0" value="0" id="jhu-grades-c" oninput="calculateJhuGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">C- (1.7)</label>
                                         <input type="number" min="0" value="0" id="jhu-grades-cm" oninput="calculateJhuGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
                                         <input type="number" min="0" value="0" id="jhu-grades-d" oninput="calculateJhuGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                     <div>
                                         <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
                                         <input type="number" min="0" value="0" id="jhu-grades-f" oninput="calculateJhuGpa()"
-                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
                                     </div>
                                 </div>
                             </div>
@@ -925,7 +1074,7 @@
                         <button type="button" onclick="toggleConverterAccordion('psuConverterContent', 'psuArrow')"
                             class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background: var(--bg); color: var(--text);">
                                     PSU
                                 </div>
                                 <div>
@@ -1021,6 +1170,54 @@
                 </div>
             </div>
         </div>
+
+        <!-- Transcript / Report Card Import Preview Modal -->
+        <div id="transcriptModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div class="gold-panel rounded-3xl p-6 max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-[var(--border)] animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+                    <div>
+                        <h3 id="transcriptModalTitle" class="text-base font-bold" style="color: var(--text);">Document Import Preview</h3>
+                        <p id="transcriptModalSubtitle" class="text-xs" style="color: var(--muted);">Parsed locally in your browser</p>
+                    </div>
+                    <button type="button" onclick="closeTranscriptModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors cursor-pointer">
+                        ✕
+                    </button>
+                </div>
+
+                <div id="transcriptModalBody" class="py-4 overflow-y-auto space-y-4 flex-1 text-xs">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="pt-3 border-t border-[var(--border)] flex items-center justify-between">
+                    <a href="https://family.hcpss.org/ParentVUE/Student_Reportcard" target="_blank" rel="noopener noreferrer" class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] underline font-medium hover:opacity-80 flex items-center gap-1">
+                        HCPSS ParentVUE
+                    </a>
+                    <div id="transcriptModalFooterActions" class="flex items-center gap-2">
+                        <button type="button" onclick="closeTranscriptModal()" class="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer" style="color: var(--muted);">
+                            Close
+                        </button>
+                        <button type="button" id="applyTranscriptBtn" onclick="applyParsedTranscript()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white shadow-sm transition-all cursor-pointer">
+                            Apply to Calculator
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Native System Dialog Modal (matching CHSchat AppModules.Modal for alert/confirm/prompt) -->
+        <div id="nativeCustomModal" class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-6 transition-all duration-300 opacity-0">
+            <div class="bg-white/95 dark:bg-gray-900/95 w-full max-w-[320px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-black/10 dark:border-white/10">
+                <div class="p-5 text-center">
+                    <div id="nativeModalTitle" class="text-base font-bold text-black dark:text-white mb-2 leading-tight">Notice</div>
+                    <div id="nativeModalBody" class="text-sm text-black/75 dark:text-white/70 leading-snug break-words">Message</div>
+                </div>
+                <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
+                    <button type="button" id="nativeModalCancel" class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors cursor-pointer">Cancel</button>
+                    <button type="button" id="nativeModalAlt" class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors cursor-pointer">No</button>
+                    <button type="button" id="nativeModalConfirm" class="flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors cursor-pointer">OK</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1050,6 +1247,7 @@
 
         window.switchCalcType = (type) => {
             currentCalcType = type;
+            closeTranscriptModal();
             const btnYear = document.getElementById('calcTabYear');
             const btnSem = document.getElementById('calcTabSem');
             const btnGpa = document.getElementById('calcTabGpa');
@@ -1111,6 +1309,10 @@
                 calculateUmbcGpa();
                 calculateJhuGpa();
                 calculatePsuGpa();
+            }
+
+            if (typeof window.saveGradeState === 'function') {
+                window.saveGradeState();
             }
         };
 
@@ -1527,9 +1729,1733 @@
             if (showAlert && window.showToast) {
                 window.showToast('All college converters synced from your HCPSS grades!');
             }
+
+            if (typeof window.saveGradeState === 'function') {
+                window.saveGradeState();
+            }
         };
 
-        // Initial Calculations
+        // Persistence Storage Key
+        const STORAGE_KEY = 'chs_grade_calculator_data_v1';
+        const CLOUD_SYNC_PREF_KEY = 'chs_grade_calc_cloud_sync_enabled';
+
+        const PERSISTED_FIELD_IDS = [
+            'y-q1', 'y-q2', 'y-q3', 'y-q4', 'y-mid', 'y-fin',
+            's-q1', 's-q2', 's-exam',
+            'gpa-ap-a', 'gpa-ap-b', 'gpa-ap-c',
+            'gpa-hon-a', 'gpa-hon-b', 'gpa-hon-c',
+            'gpa-reg-a', 'gpa-reg-b', 'gpa-reg-c',
+            'gpa-all-d', 'gpa-all-e',
+            'uc-grades-a', 'uc-grades-b', 'uc-grades-c', 'uc-grades-d', 'uc-grades-f', 'uc-honors-count',
+            'umd-grades-a', 'umd-grades-am', 'umd-grades-bp', 'umd-grades-b', 'umd-grades-bm',
+            'umd-grades-cp', 'umd-grades-c', 'umd-grades-cm', 'umd-grades-d', 'umd-grades-f',
+            'hcc-grades-a', 'hcc-grades-b', 'hcc-grades-c', 'hcc-grades-d', 'hcc-grades-f',
+            'umbc-grades-a', 'umbc-grades-b', 'umbc-grades-c', 'umbc-grades-d', 'umbc-grades-f',
+            'jhu-grades-a', 'jhu-grades-am', 'jhu-grades-bp', 'jhu-grades-b', 'jhu-grades-bm',
+            'jhu-grades-cp', 'jhu-grades-c', 'jhu-grades-cm', 'jhu-grades-d', 'jhu-grades-f',
+            'psu-grades-a', 'psu-grades-am', 'psu-grades-bp', 'psu-grades-b', 'psu-grades-bm',
+            'psu-grades-cp', 'psu-grades-c', 'psu-grades-d', 'psu-grades-f'
+        ];
+
+        // Bridge & User Discovery
+        function getBridge() {
+            const b = window.parent || window.top || window.opener;
+            if (b && b.fSet && b.firebaseDb) {
+                return b;
+            }
+            return null;
+        }
+
+        function getCurrentUser() {
+            const b = getBridge();
+            if (!b) return null;
+            const u = b.currentUser || (b.AppModules?.User?.current);
+            if (u && (u.id || u.uid)) {
+                return {
+                    id: String(u.id || u.uid).replace(/[.#$[\]]/g, '_').toLowerCase(),
+                    name: u.name || 'User',
+                    email: u.email || ''
+                };
+            }
+            return null;
+        }
+
+        let isCloudSyncEnabled = false;
+        let cloudSyncUnsubscribe = null;
+        let currentSyncUserId = null;
+        let isApplyingRemoteUpdate = false;
+
+        function updateCloudSyncUI() {
+            const toggle = document.getElementById('cloudSyncToggle');
+            const label = document.getElementById('cloudSyncLabel');
+
+            if (toggle) toggle.checked = isCloudSyncEnabled;
+            if (label) {
+                if (isCloudSyncEnabled) {
+                    label.innerText = 'Sync To Cloud';
+                    label.style.color = '#007AFF';
+                } else {
+                    label.innerText = 'Sync To Cloud';
+                    label.style.color = 'var(--muted)';
+                }
+            }
+        }
+
+        window.toggleCloudSync = async () => {
+            const toggle = document.getElementById('cloudSyncToggle');
+            const targetState = !!toggle?.checked;
+
+            if (targetState) {
+                const user = getCurrentUser();
+                if (!user) {
+                    if (toggle) toggle.checked = false;
+                    let wantsSignIn = false;
+                    if (window.parent && typeof window.parent.promptSignIn === 'function') {
+                        wantsSignIn = await window.parent.promptSignIn("Please sign in with your HCPSS account to enable multi-device cloud synchronization.", "Sign In Required");
+                    } else if (typeof showNativeConfirm === 'function') {
+                        wantsSignIn = await showNativeConfirm("Sign In Required", "Please sign in with your HCPSS account to enable multi-device cloud synchronization.", "Sign In", "Cancel");
+                    } else {
+                        wantsSignIn = confirm("Sign In Required\n\nPlease sign in with your HCPSS account to enable multi-device cloud synchronization.");
+                    }
+                    return;
+                }
+                isCloudSyncEnabled = true;
+                localStorage.setItem(CLOUD_SYNC_PREF_KEY, 'true');
+                updateCloudSyncUI();
+                initCloudSyncListener();
+                // Immediately push current local data to cloud
+                saveGradeState(true);
+            } else {
+                isCloudSyncEnabled = false;
+                localStorage.setItem(CLOUD_SYNC_PREF_KEY, 'false');
+                updateCloudSyncUI();
+                if (cloudSyncUnsubscribe && typeof cloudSyncUnsubscribe === 'function') {
+                    cloudSyncUnsubscribe();
+                    cloudSyncUnsubscribe = null;
+                    currentSyncUserId = null;
+                }
+                const indicator = document.getElementById('saveStatusIndicator');
+                if (indicator) {
+                    indicator.innerHTML = `<span>Local only</span>`;
+                    indicator.style.opacity = '1';
+                    setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 1500);
+                }
+            }
+        };
+
+        function initCloudSyncListener() {
+            const b = getBridge();
+            const user = getCurrentUser();
+            if (!b || !user) return;
+            if (currentSyncUserId === user.id && cloudSyncUnsubscribe) return;
+
+            try {
+                currentSyncUserId = user.id;
+                const cloudPath = `user_tools_data/grade_calculator/${user.id}`;
+                if (b.fOnValue && b.fRef && b.firebaseDb) {
+                    if (cloudSyncUnsubscribe && typeof cloudSyncUnsubscribe === 'function') {
+                        cloudSyncUnsubscribe();
+                    }
+                    cloudSyncUnsubscribe = b.fOnValue(b.fRef(b.firebaseDb, cloudPath), (snap) => {
+                        const remoteData = snap.val();
+                        if (!remoteData || !remoteData.values) return;
+
+                        // Automatically activate cloud sync when cloud data is found for this user
+                        isCloudSyncEnabled = true;
+                        localStorage.setItem(CLOUD_SYNC_PREF_KEY, 'true');
+                        updateCloudSyncUI();
+
+                        // Check if remote data is newer or local is empty/default
+                        const localRaw = localStorage.getItem(STORAGE_KEY);
+                        const localData = localRaw ? JSON.parse(localRaw) : null;
+
+                        if (remoteData.updatedAt && localData && localData.updatedAt && remoteData.updatedAt < localData.updatedAt) {
+                            // Local is strictly newer, push to cloud
+                            saveGradeState(true);
+                            return;
+                        }
+
+                        // Apply remote data
+                        isApplyingRemoteUpdate = true;
+                        applyGradeData(remoteData);
+                        try {
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteData));
+                        } catch(e) {}
+                        isApplyingRemoteUpdate = false;
+
+                        const indicator = document.getElementById('saveStatusIndicator');
+                        if (indicator) {
+                            indicator.innerHTML = `
+                                <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+                                </svg>
+                                <span>Cloud Synced</span>
+                            `;
+                            indicator.style.opacity = '1';
+                            setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 2000);
+                        }
+                    });
+                }
+            } catch(err) {
+                console.warn('Failed to attach cloud sync listener:', err);
+            }
+        }
+
+        // --- Multi-Subject / Course Management State ---
+        let yearCourses = [
+            { id: 'y_1', title: 'Subject 1', level: 'regular', q1: 'A', q2: 'A', q3: 'A', q4: 'A', mid: 'A', fin: 'A', noMid: false, pending: [] }
+        ];
+        let activeYearCourseId = 'y_1';
+
+        let semCourses = [
+            { id: 's_1', title: 'Subject 1', level: 'regular', q1: 'A', q2: 'A', exam: 'A', pending: [] }
+        ];
+        let activeSemCourseId = 's_1';
+
+        function getActiveYearCourse() {
+            return yearCourses.find(c => c.id === activeYearCourseId) || yearCourses[0];
+        }
+
+        function getActiveSemCourse() {
+            return semCourses.find(c => c.id === activeSemCourseId) || semCourses[0];
+        }
+
+        function loadActiveCourseIntoInputs(type = 'year') {
+            if (type === 'year') {
+                const c = getActiveYearCourse();
+                if (!c) return;
+
+                const yQ1 = document.getElementById('y-q1');
+                const yQ2 = document.getElementById('y-q2');
+                const yQ3 = document.getElementById('y-q3');
+                const yQ4 = document.getElementById('y-q4');
+                const yMid = document.getElementById('y-mid');
+                const yFin = document.getElementById('y-fin');
+                const noMidCheckbox = document.getElementById('y-no-mid');
+
+                if (yQ1) yQ1.value = c.q1 || 'A';
+                if (yQ2) yQ2.value = c.q2 || 'A';
+                if (yQ3) yQ3.value = c.q3 || 'A';
+                if (yQ4) yQ4.value = c.q4 || 'A';
+                if (yMid) yMid.value = c.mid || 'A';
+                if (yFin) yFin.value = c.fin || 'A';
+
+                if (noMidCheckbox) {
+                    noMidCheckbox.checked = !!c.noMid;
+                    toggleNoMidterm();
+                }
+            } else if (type === 'semester') {
+                const c = getActiveSemCourse();
+                if (!c) return;
+
+                const sQ1 = document.getElementById('s-q1');
+                const sQ2 = document.getElementById('s-q2');
+                const sExam = document.getElementById('s-exam');
+
+                if (sQ1) sQ1.value = c.q1 || 'A';
+                if (sQ2) sQ2.value = c.q2 || 'A';
+                if (sExam) sExam.value = c.exam || 'A';
+            }
+        }
+
+        function detectCourseLevel(title = '') {
+            const raw = String(title || '');
+            const lower = raw.toLowerCase();
+            if (lower.includes('g/t') || lower.includes('-g/t') || lower.includes('- gt') || /\bgt\b/i.test(raw) || /\bg\/t\b/i.test(raw) || lower.includes('gifted')) {
+                return 'gt';
+            }
+            if (/\bap\b/i.test(raw) || lower.includes('advanced placement')) {
+                return 'ap';
+            }
+            if (lower.includes('honor') || /\bhon\b/i.test(raw) || lower.includes('-hon')) {
+                return 'honors';
+            }
+            return 'regular';
+        }
+
+        function getCourseBadgeInfo(c, isActive = false) {
+            if (!c) return null;
+            let level = c.level;
+            if (!level || level === 'regular' || level === 'ap_gt') {
+                level = detectCourseLevel(c.title);
+            }
+            
+            let label = null;
+            if (level === 'gt') label = 'GT';
+            else if (level === 'ap') label = 'AP';
+            else if (level === 'honors') label = 'HON';
+            else return null;
+
+            return {
+                label,
+                style: isActive 
+                    ? 'background: rgba(255, 255, 255, 0.25); color: #ffffff;' 
+                    : 'background: var(--bg); color: var(--text);'
+            };
+        }
+
+        function renderYearCourseChips() {
+            const container = document.getElementById('yearCourseChipsList');
+            const countLabel = document.getElementById('yearCourseListCount');
+            if (!container) return;
+
+            if (countLabel) {
+                countLabel.textContent = `${yearCourses.length} ${yearCourses.length === 1 ? 'Subject' : 'Subjects'}`;
+            }
+
+            container.innerHTML = yearCourses.map(c => {
+                const isActive = c.id === activeYearCourseId;
+                const badge = getCourseBadgeInfo(c, isActive);
+                return `
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'border border-[var(--border)] hover:border-[#007AFF]/50'}"
+                         style="${isActive ? '' : 'background: var(--panel); color: var(--text);'}"
+                         onclick="switchActiveCourse('year', '${c.id}')"
+                         ondblclick="promptRenameCourse('year', '${c.id}', event)"
+                         title="Click to select · Double-click to rename">
+                        <span class="max-w-[220px] truncate">${c.title}</span>
+                        ${badge ? `
+                            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold" style="${badge.style}">
+                                ${badge.label}
+                            </span>
+                        ` : ''}
+                        ${isActive && yearCourses.length > 1 ? `
+                            <button type="button" onclick="deleteCourse('year', '${c.id}', event)" class="ml-1 w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors text-white/80 hover:text-white cursor-pointer" title="Remove Subject">✕</button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSemCourseChips() {
+            const container = document.getElementById('semCourseChipsList');
+            const countLabel = document.getElementById('semCourseListCount');
+            if (!container) return;
+
+            if (countLabel) {
+                countLabel.textContent = `${semCourses.length} ${semCourses.length === 1 ? 'Subject' : 'Subjects'}`;
+            }
+
+            container.innerHTML = semCourses.map(c => {
+                const isActive = c.id === activeSemCourseId;
+                const badge = getCourseBadgeInfo(c, isActive);
+                return `
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'border border-[var(--border)] hover:border-[#007AFF]/50'}"
+                         style="${isActive ? '' : 'background: var(--panel); color: var(--text);'}"
+                         onclick="switchActiveCourse('semester', '${c.id}')"
+                         ondblclick="promptRenameCourse('semester', '${c.id}', event)"
+                         title="Click to select · Double-click to rename">
+                        <span class="max-w-[220px] truncate">${c.title}</span>
+                        ${badge ? `
+                            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold" style="${badge.style}">
+                                ${badge.label}
+                            </span>
+                        ` : ''}
+                        ${isActive && semCourses.length > 1 ? `
+                            <button type="button" onclick="deleteCourse('semester', '${c.id}', event)" class="ml-1 w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors text-white/80 hover:text-white cursor-pointer" title="Remove Subject">✕</button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.switchActiveCourse = (type, id) => {
+            if (type === 'year') {
+                activeYearCourseId = id;
+                loadActiveCourseIntoInputs('year');
+                renderYearCourseChips();
+                calculateGrade();
+                saveGradeState();
+            } else if (type === 'semester') {
+                activeSemCourseId = id;
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+                calculateGrade();
+                saveGradeState();
+            }
+        };
+
+        window.promptRenameCourse = async (type, id, event) => {
+            if (event) event.stopPropagation();
+            const course = type === 'year' ? yearCourses.find(c => c.id === id) : semCourses.find(c => c.id === id);
+            if (!course) return;
+
+            const newName = await showNativePrompt("Rename Subject", "Enter new subject name:", course.title);
+            if (!newName || !newName.trim()) return;
+
+            course.title = newName.trim();
+            course.level = detectCourseLevel(course.title);
+            if (type === 'year') {
+                renderYearCourseChips();
+            } else {
+                renderSemCourseChips();
+            }
+            saveGradeState(true);
+        };
+
+        window.promptAddNewCourse = async (type = 'year') => {
+            const defaultName = type === 'year' ? `Subject ${yearCourses.length + 1}` : `Subject ${semCourses.length + 1}`;
+            const name = await showNativePrompt("Add Subject", "Enter Subject Name (e.g. AP Psychology, English 11, Video Production G/T):", defaultName);
+            if (!name || !name.trim()) return;
+
+            const cleanName = name.trim();
+            const level = detectCourseLevel(cleanName);
+            const id = (type === 'year' ? 'y_' : 's_') + Date.now();
+
+            if (type === 'year') {
+                yearCourses.push({
+                    id,
+                    title: cleanName,
+                    level,
+                    q1: 'A', q2: 'A', q3: 'A', q4: 'A', mid: 'A', fin: 'A', noMid: false, pending: []
+                });
+                activeYearCourseId = id;
+                loadActiveCourseIntoInputs('year');
+                renderYearCourseChips();
+                calculateGrade();
+                saveGradeState(true);
+            } else {
+                semCourses.push({
+                    id,
+                    title: cleanName,
+                    level,
+                    q1: 'A', q2: 'A', exam: 'A', pending: []
+                });
+                activeSemCourseId = id;
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+                calculateGrade();
+                saveGradeState(true);
+            }
+        };
+
+        window.deleteCourse = async (type, id, event) => {
+            if (event) event.stopPropagation();
+            const course = type === 'year' ? yearCourses.find(c => c.id === id) : semCourses.find(c => c.id === id);
+            const title = course ? course.title : "this subject";
+
+            const confirmed = await showNativeConfirm("Delete Subject", `Are you sure you want to remove <b>${_escapeHtml(title)}</b>?`, "Delete", "Cancel");
+            if (!confirmed) return;
+
+            if (type === 'year') {
+                if (yearCourses.length <= 1) return;
+                yearCourses = yearCourses.filter(c => c.id !== id);
+                if (activeYearCourseId === id) {
+                    activeYearCourseId = yearCourses[0].id;
+                }
+                loadActiveCourseIntoInputs('year');
+                renderYearCourseChips();
+                calculateGrade();
+                saveGradeState(true);
+            } else {
+                if (semCourses.length <= 1) return;
+                semCourses = semCourses.filter(c => c.id !== id);
+                if (activeSemCourseId === id) {
+                    activeSemCourseId = semCourses[0].id;
+                }
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+                calculateGrade();
+                saveGradeState(true);
+            }
+        };
+
+        window.handleCourseGradeInputChanged = () => {
+            if (currentCalcType === 'year') {
+                const c = getActiveYearCourse();
+                if (c) {
+                    c.q1 = document.getElementById('y-q1')?.value || 'A';
+                    c.q2 = document.getElementById('y-q2')?.value || 'A';
+                    c.q3 = document.getElementById('y-q3')?.value || 'A';
+                    c.q4 = document.getElementById('y-q4')?.value || 'A';
+                    c.mid = document.getElementById('y-mid')?.value || 'A';
+                    c.fin = document.getElementById('y-fin')?.value || 'A';
+                    c.noMid = !!document.getElementById('y-no-mid')?.checked;
+                }
+            } else if (currentCalcType === 'semester') {
+                const c = getActiveSemCourse();
+                if (c) {
+                    c.q1 = document.getElementById('s-q1')?.value || 'A';
+                    c.q2 = document.getElementById('s-q2')?.value || 'A';
+                    c.exam = document.getElementById('s-exam')?.value || 'A';
+                }
+            }
+
+            calculateGrade();
+            saveGradeState();
+        };
+
+        let saveTimeout = null;
+        window.saveGradeState = (immediateCloud = false) => {
+            if (isApplyingRemoteUpdate) return;
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                try {
+                    const data = {
+                        calcType: currentCalcType,
+                        noMidterm: !!document.getElementById('y-no-mid')?.checked,
+                        yearCourses,
+                        activeYearCourseId,
+                        semCourses,
+                        activeSemCourseId,
+                        values: {},
+                        updatedAt: Date.now()
+                    };
+
+                    PERSISTED_FIELD_IDS.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            data.values[id] = el.value;
+                        }
+                    });
+
+                    // 1. Save locally
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+                    // 2. Multi-device Cloud Sync if enabled
+                    if (isCloudSyncEnabled) {
+                        const b = getBridge();
+                        const user = getCurrentUser();
+                        if (b && user && b.fSet && b.fRef && b.firebaseDb) {
+                            const cloudPath = `user_tools_data/grade_calculator/${user.id}`;
+                            b.fSet(b.fRef(b.firebaseDb, cloudPath), data).catch(err => {
+                                console.warn('Cloud grade save error:', err);
+                            });
+                        }
+                    }
+
+                    const indicator = document.getElementById('saveStatusIndicator');
+                    if (indicator) {
+                        const isCloud = isCloudSyncEnabled && getCurrentUser();
+                        indicator.innerHTML = isCloud ? `
+                            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+                            </svg>
+                            <span>Cloud Synced</span>
+                        ` : `
+                            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                            <span>Auto-saved</span>
+                        `;
+                        indicator.style.opacity = '1';
+                        setTimeout(() => {
+                            if (indicator) indicator.style.opacity = '0.6';
+                        }, 1200);
+                    }
+                } catch(e) {
+                    console.warn('Failed to save grade calculator state:', e);
+                }
+            }, immediateCloud ? 0 : 100);
+        };
+
+        function applyGradeData(data) {
+            if (!data) return;
+
+            // Restore Year Courses
+            if (Array.isArray(data.yearCourses) && data.yearCourses.length > 0) {
+                yearCourses = data.yearCourses;
+                activeYearCourseId = data.activeYearCourseId || yearCourses[0].id;
+            }
+
+            // Restore Sem Courses
+            if (Array.isArray(data.semCourses) && data.semCourses.length > 0) {
+                semCourses = data.semCourses;
+                activeSemCourseId = data.activeSemCourseId || semCourses[0].id;
+            }
+
+            // Restore form field values
+            if (data.values && typeof data.values === 'object') {
+                Object.keys(data.values).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && data.values[id] !== undefined) {
+                        el.value = data.values[id];
+                    }
+                });
+            }
+
+            // Restore current tab
+            if (data.calcType && ['year', 'semester', 'gpa'].includes(data.calcType)) {
+                switchCalcType(data.calcType);
+            }
+
+            loadActiveCourseIntoInputs(currentCalcType === 'semester' ? 'semester' : 'year');
+            renderYearCourseChips();
+            renderSemCourseChips();
+
+            // Recalculate
+            calculateGrade();
+            calculateGpa();
+            calculateUcGpa();
+            calculateUmdGpa();
+            calculateHccGpa();
+            calculateUmbcGpa();
+            calculateJhuGpa();
+            calculatePsuGpa();
+        }
+
+        window.loadGradeState = () => {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) {
+                    renderYearCourseChips();
+                    renderSemCourseChips();
+                    return false;
+                }
+                const data = JSON.parse(raw);
+                if (!data) {
+                    renderYearCourseChips();
+                    renderSemCourseChips();
+                    return false;
+                }
+                applyGradeData(data);
+                return true;
+            } catch(e) {
+                console.warn('Failed to load saved grade calculator state:', e);
+                renderYearCourseChips();
+                renderSemCourseChips();
+                return false;
+            }
+        };
+
+        window.resetAllGradeData = async () => {
+            const confirmed = await showNativeConfirm("Reset Calculator", "Are you sure you want to reset all inputs and subjects to defaults?", "Reset", "Cancel");
+            if (!confirmed) return;
+
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                if (isCloudSyncEnabled) {
+                    const b = getBridge();
+                    const user = getCurrentUser();
+                    if (b && user && b.fSet && b.fRef && b.firebaseDb) {
+                        const cloudPath = `user_tools_data/grade_calculator/${user.id}`;
+                        b.fSet(b.fRef(b.firebaseDb, cloudPath), null).catch(e => console.warn(e));
+                    }
+                }
+            } catch(e) {}
+
+            yearCourses = [
+                { id: 'y_1', title: 'Subject 1', level: 'regular', q1: 'A', q2: 'A', q3: 'A', q4: 'A', mid: 'A', fin: 'A', noMid: false, pending: [] }
+            ];
+            activeYearCourseId = 'y_1';
+
+            semCourses = [
+                { id: 's_1', title: 'Subject 1', level: 'regular', q1: 'A', q2: 'A', exam: 'A', pending: [] }
+            ];
+            activeSemCourseId = 's_1';
+
+            // Reset selects to 'A'
+            ['y-q1', 'y-q2', 'y-q3', 'y-q4', 'y-mid', 'y-fin', 's-q1', 's-q2', 's-exam'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = 'A';
+            });
+
+            // Reset number inputs to 0
+            PERSISTED_FIELD_IDS.forEach(id => {
+                if (!['y-q1', 'y-q2', 'y-q3', 'y-q4', 'y-mid', 'y-fin', 's-q1', 's-q2', 's-exam'].includes(id)) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = 0;
+                }
+            });
+
+            // Reset noMidterm
+            const check = document.getElementById('y-no-mid');
+            if (check) check.checked = false;
+            toggleNoMidterm();
+
+            renderYearCourseChips();
+            renderSemCourseChips();
+
+            // Reset to year tab
+            switchCalcType('year');
+
+            // Recalculate
+            calculateGrade();
+            calculateGpa();
+            calculateUcGpa();
+            calculateUmdGpa();
+            calculateHccGpa();
+            calculateUmbcGpa();
+            calculateJhuGpa();
+            calculatePsuGpa();
+
+            const indicator = document.getElementById('saveStatusIndicator');
+            if (indicator) {
+                indicator.innerHTML = `<span>Cleared</span>`;
+                indicator.style.opacity = '1';
+                setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 1200);
+            }
+        };
+
+        // Attach change and input auto-save listeners to all fields
+        PERSISTED_FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', window.saveGradeState);
+                el.addEventListener('input', window.saveGradeState);
+            }
+        });
+
+        const checkNoMid = document.getElementById('y-no-mid');
+        if (checkNoMid) {
+            checkNoMid.addEventListener('change', window.saveGradeState);
+        }
+
+        // Proactive Cloud Sync & User Auth Watcher
+        function checkAndInitSync() {
+            const user = getCurrentUser();
+            const savedSyncPref = localStorage.getItem(CLOUD_SYNC_PREF_KEY);
+            if (user) {
+                if (savedSyncPref !== 'false') {
+                    // Default enabled for authenticated user unless explicitly disabled
+                    isCloudSyncEnabled = true;
+                    updateCloudSyncUI();
+                    initCloudSyncListener();
+                }
+            } else {
+                if (savedSyncPref === 'true') {
+                    isCloudSyncEnabled = false;
+                    updateCloudSyncUI();
+                }
+            }
+        }
+
+        checkAndInitSync();
+        // Poll for auth readiness in iframe context (parent Firebase Auth takes a moment to resolve)
+        let authPollCount = 0;
+        const authPollInterval = setInterval(() => {
+            authPollCount++;
+            checkAndInitSync();
+            if (authPollCount >= 20 || getCurrentUser()) {
+                clearInterval(authPollInterval);
+                // Keep periodic low-frequency sync alive for login/logout state changes
+                setInterval(checkAndInitSync, 3000);
+            }
+        }, 300);
+
+        window.addEventListener('focus', checkAndInitSync);
+
+        // --- Native Modal System (matching CHSchat AppModules.Modal) ---
+        const _escapeHtml = (str) => {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        const NativeModal = {
+            _timer: null,
+
+            _getEls() {
+                const modal = document.getElementById('nativeCustomModal');
+                if (!modal) return null;
+                return {
+                    modal,
+                    inner: modal.querySelector('div'),
+                    title: document.getElementById('nativeModalTitle'),
+                    body: document.getElementById('nativeModalBody'),
+                    cancel: document.getElementById('nativeModalCancel'),
+                    alt: document.getElementById('nativeModalAlt'),
+                    confirm: document.getElementById('nativeModalConfirm')
+                };
+            },
+
+            _close(val, resolve) {
+                const els = this._getEls();
+                if (!els) {
+                    if (resolve) resolve(val);
+                    return;
+                }
+                const { modal, inner, cancel, alt, confirm } = els;
+                modal.classList.remove('opacity-100');
+                modal.classList.add('opacity-0');
+                if (inner) {
+                    inner.classList.remove('scale-100');
+                    inner.classList.add('scale-90');
+                }
+                if (this._timer) clearTimeout(this._timer);
+                this._timer = setTimeout(() => {
+                    modal.classList.add('hidden');
+                    if (cancel) cancel.onclick = null;
+                    if (alt) alt.onclick = null;
+                    if (confirm) confirm.onclick = null;
+                    this._timer = null;
+                    if (resolve) resolve(val);
+                }, 250);
+            },
+
+            _open() {
+                const els = this._getEls();
+                if (!els) return;
+                const { modal, inner } = els;
+                if (this._timer) {
+                    clearTimeout(this._timer);
+                    this._timer = null;
+                }
+                modal.classList.remove('hidden');
+                void modal.offsetHeight;
+                modal.classList.add('opacity-100');
+                modal.classList.remove('opacity-0');
+                if (inner) {
+                    inner.classList.add('scale-100');
+                    inner.classList.remove('scale-90');
+                }
+            },
+
+            alert(title, body, btnText = "OK") {
+                try {
+                    if (window.parent && window.parent.AppModules?.Modal?.alert) {
+                        return window.parent.AppModules.Modal.alert(title, body, btnText);
+                    }
+                } catch(e) {}
+
+                return new Promise(resolve => {
+                    const els = this._getEls();
+                    if (!els) {
+                        alert((title ? title + '\n\n' : '') + body);
+                        return resolve(true);
+                    }
+                    els.title.innerText = title;
+                    els.body.innerHTML = body;
+                    els.confirm.innerText = btnText;
+                    els.cancel.classList.add('hidden');
+                    if (els.alt) els.alt.classList.add('hidden');
+
+                    els.confirm.onclick = () => this._close(true, resolve);
+                    this._open();
+                });
+            },
+
+            confirm(title, body, confirmText = "Continue", cancelText = "Cancel") {
+                try {
+                    if (window.parent && window.parent.AppModules?.Modal?.confirm) {
+                        return window.parent.AppModules.Modal.confirm(title, body, confirmText, cancelText);
+                    }
+                } catch(e) {}
+
+                return new Promise(resolve => {
+                    const els = this._getEls();
+                    if (!els) {
+                        const res = confirm((title ? title + '\n\n' : '') + body);
+                        return resolve(res);
+                    }
+                    els.title.innerText = title;
+                    els.body.innerHTML = body;
+                    els.confirm.innerText = confirmText;
+                    els.cancel.innerText = cancelText;
+                    els.cancel.classList.remove('hidden');
+                    if (els.alt) els.alt.classList.add('hidden');
+
+                    els.cancel.onclick = () => this._close(false, resolve);
+                    els.confirm.onclick = () => this._close(true, resolve);
+                    this._open();
+                });
+            },
+
+            prompt(title, body, defaultValue = "") {
+                try {
+                    if (window.parent && window.parent.AppModules?.Modal?.prompt) {
+                        return window.parent.AppModules.Modal.prompt(title, body, defaultValue);
+                    }
+                } catch(e) {}
+
+                return new Promise(resolve => {
+                    const els = this._getEls();
+                    if (!els) {
+                        const res = prompt(body || title, defaultValue);
+                        return resolve(res);
+                    }
+                    els.title.innerText = title;
+                    els.body.innerHTML = `<div class="mb-3">${body}</div><input type="text" id="nativeModalInput" autocomplete="off" spellcheck="false" class="w-full p-2.5 bg-black/5 dark:bg-white/5 rounded-xl border border-black/10 dark:border-white/10 outline-none focus:border-[#007AFF] transition-all text-xs font-semibold" style="color: var(--text);" value="${_escapeHtml(defaultValue)}">`;
+                    els.confirm.innerText = "Save";
+                    els.cancel.innerText = "Cancel";
+                    els.cancel.classList.remove('hidden');
+                    if (els.alt) els.alt.classList.add('hidden');
+
+                    els.cancel.onclick = () => this._close(null, resolve);
+                    els.confirm.onclick = () => {
+                        const inputEl = document.getElementById('nativeModalInput');
+                        const val = inputEl ? inputEl.value : null;
+                        this._close(val, resolve);
+                    };
+
+                    this._open();
+                    setTimeout(() => {
+                        const inputEl = document.getElementById('nativeModalInput');
+                        if (inputEl) {
+                            inputEl.focus();
+                            inputEl.select();
+                            inputEl.onkeydown = (e) => {
+                                if (e.key === 'Enter') els.confirm.click();
+                                if (e.key === 'Escape') els.cancel.click();
+                            };
+                        }
+                    }, 50);
+                });
+            }
+        };
+
+        window.showNativeAlert = (...args) => NativeModal.alert(...args);
+        window.showNativeConfirm = (...args) => NativeModal.confirm(...args);
+        window.showNativePrompt = (...args) => NativeModal.prompt(...args);
+
+        // --- HCPSS PDF Parser & Import (Report Cards & Unofficial Transcripts) ---
+        let lastParsedReportCard = null;
+        let lastParsedTranscriptSummary = null;
+
+        window.closeTranscriptModal = () => {
+            const modal = document.getElementById('transcriptModal');
+            if (modal) modal.classList.add('hidden');
+            const rcInput = document.getElementById('reportCardFileInput');
+            if (rcInput) rcInput.value = '';
+            const trInput = document.getElementById('transcriptFileInput');
+            if (trInput) trInput.value = '';
+        };
+
+        function convertReportCardToGpaSummary(reportCard) {
+            const summary = {
+                totalCourses: 0,
+                courses: [],
+                ap_gt: { A: 0, B: 0, C: 0 },
+                honors: { A: 0, B: 0, C: 0 },
+                regular: { A: 0, B: 0, C: 0 },
+                allD: 0,
+                allE: 0
+            };
+
+            if (!reportCard || !Array.isArray(reportCard.courses)) return summary;
+
+            reportCard.courses.forEach(c => {
+                let grade = c.finalGrade;
+                if (!grade || !['A', 'B', 'C', 'D', 'E'].includes(grade)) {
+                    grade = c.q4 || c.q3 || c.q2 || c.q1;
+                }
+
+                if (grade && ['A', 'B', 'C', 'D', 'E'].includes(grade)) {
+                    summary.totalCourses++;
+                    summary.courses.push({
+                        title: c.title,
+                        grade,
+                        credits: 1.0,
+                        level: c.level
+                    });
+
+                    if (grade === 'D') {
+                        summary.allD++;
+                    } else if (grade === 'E') {
+                        summary.allE++;
+                    } else if (['A', 'B', 'C'].includes(grade)) {
+                        if (c.level === 'ap' || c.level === 'gt' || c.level === 'ap_gt') {
+                            summary.ap_gt[grade]++;
+                        } else if (c.level === 'honors') {
+                            summary.honors[grade]++;
+                        } else {
+                            summary.regular[grade]++;
+                        }
+                    }
+                }
+            });
+
+            return summary;
+        }
+
+        // 1. Handler for Report Card PDF (Year-Long & Semester ONLY - No Transcripts Allowed)
+        window.handleReportCardPdfUpload = async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (!window.pdfjsLib) {
+                showNativeAlert("PDF Parser Loading", "PDF parser library is loading. Please try again in a few seconds.");
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                let fullText = '';
+                const allItems = [];
+
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const items = textContent.items;
+
+                    const linesMap = {};
+                    items.forEach(item => {
+                        const str = item.str.trim();
+                        if (!str) return;
+                        const y = Math.round(item.transform[5]);
+                        allItems.push({ x: item.transform[4], y, text: str });
+
+                        if (!linesMap[y]) linesMap[y] = [];
+                        linesMap[y].push({ x: item.transform[4], text: item.str });
+                    });
+
+                    const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+                    sortedY.forEach(y => {
+                        const lineItems = linesMap[y].sort((a, b) => a.x - b.x);
+                        const lineStr = lineItems.map(i => i.text).join(' ').trim();
+                        if (lineStr) fullText += lineStr + '\n';
+                    });
+                }
+
+                // Strictly parse as HCPSS Report Card (No transcripts allowed in Year-Long / Semester)
+                const transcript = parseHcpssTranscriptText(fullText);
+                const reportCard = parseHcpssReportCardFromItems(allItems, fullText);
+                lastParsedReportCard = reportCard;
+
+                if (!reportCard || !Array.isArray(reportCard.courses) || reportCard.courses.length === 0) {
+                    closeTranscriptModal();
+                    if (transcript && transcript.totalCourses > 0) {
+                        showNativeAlert(
+                            "Cannot Import Transcript to Year-Long",
+                            "<b>This document is an Unofficial Transcript (multi-year).</b><br><br>The Year-Long and Semester tabs only support single-year quarterly Report Cards (Q1–Q4).<br><br>👉 Please go to the <b>Total GPA</b> tab to import this transcript."
+                        );
+                    } else {
+                        showNativeAlert(
+                            "Not a Report Card",
+                            "<b>This document is NOT an HCPSS Report Card.</b><br><br>We could not detect single-year quarterly grades (Q1–Q4) in this PDF.<br><br>• <b>Report Card (Single Year)</b>: Used here for calculating quarterly grades and final course letter grades. Please upload an official <i>Student Progress Report / Report Card</i> downloaded from ParentVUE.<br>• <b>Transcript (Multi-Year)</b>: If this is an <b>Unofficial High School Transcript</b>, please click over to the <b>Total GPA</b> tab to import it."
+                        );
+                    }
+                    event.target.value = '';
+                    return;
+                }
+
+                // Immediately auto-import all parsed courses into the calculator
+                if (currentCalcType === 'semester') {
+                    semCourses = reportCard.courses.map((c, i) => ({
+                        id: 's_' + Date.now() + '_' + i,
+                        title: c.title,
+                        level: c.level,
+                        q1: c.q1 || 'A',
+                        q2: c.q2 || 'A',
+                        exam: c.midterm || c.finalExam || 'A',
+                        pending: c.pendingQuarters || []
+                    }));
+                    activeSemCourseId = semCourses[0].id;
+                    loadActiveCourseIntoInputs('semester');
+                    renderSemCourseChips();
+                } else {
+                    yearCourses = reportCard.courses.map((c, i) => ({
+                        id: 'y_' + Date.now() + '_' + i,
+                        title: c.title,
+                        teacher: c.teacher,
+                        level: c.level,
+                        q1: c.q1 || 'A',
+                        q2: c.q2 || 'A',
+                        mid: c.midterm || 'A',
+                        noMid: !!c.hasNoMidterm,
+                        q3: c.q3 || 'A',
+                        q4: c.q4 || 'A',
+                        fin: c.finalExam || 'A',
+                        pending: c.pendingQuarters || []
+                    }));
+                    activeYearCourseId = yearCourses[0].id;
+                    loadActiveCourseIntoInputs('year');
+                    renderYearCourseChips();
+                }
+
+                calculateGrade();
+                saveGradeState(true);
+                closeTranscriptModal();
+
+                const indicator = document.getElementById('saveStatusIndicator');
+                if (indicator) {
+                    indicator.innerHTML = `
+                        <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        <span>Imported ${reportCard.courses.length} Subjects</span>
+                    `;
+                    indicator.style.opacity = '1';
+                    setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 3000);
+                }
+
+            } catch (err) {
+                console.error("Report Card Parsing Error:", err);
+                closeTranscriptModal();
+                showNativeAlert("Invalid Report Card", "<b>This file could not be parsed as a Report Card.</b><br><br>" + (err.message || "Please make sure this PDF is an HCPSS Progress Report or Report Card downloaded from ParentVUE."));
+            } finally {
+                event.target.value = '';
+            }
+        };
+
+        // 2. Handler for Transcript PDF (Total GPA - Allows Report Card with Advisory Notice)
+        window.handleTranscriptPdfUpload = async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (!window.pdfjsLib) {
+                showNativeAlert("PDF Parser Loading", "PDF parser library is loading. Please try again in a few seconds.");
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                let fullText = '';
+                const allItems = [];
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const items = textContent.items;
+
+                    const linesMap = {};
+                    items.forEach(item => {
+                        const str = item.str.trim();
+                        if (!str) return;
+                        const y = Math.round(item.transform[5]);
+                        allItems.push({ x: item.transform[4], y, text: str });
+                        if (!linesMap[y]) linesMap[y] = [];
+                        linesMap[y].push({ x: item.transform[4], text: item.str });
+                    });
+
+                    const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+                    sortedY.forEach(y => {
+                        const lineItems = linesMap[y].sort((a, b) => a.x - b.x);
+                        const lineStr = lineItems.map(i => i.text).join(' ').trim();
+                        if (lineStr) fullText += lineStr + '\n';
+                    });
+                }
+
+                // 1. Try parsing as full HCPSS Unofficial Transcript (multi-year)
+                const transcript = parseHcpssTranscriptText(fullText);
+                if (transcript && transcript.totalCourses > 0) {
+                    lastParsedTranscriptSummary = transcript;
+                    applyParsedTranscript();
+                    closeTranscriptModal();
+
+                    const indicator = document.getElementById('saveStatusIndicator');
+                    if (indicator) {
+                        indicator.innerHTML = `
+                            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                            <span>Imported Transcript (${transcript.totalCourses} courses)</span>
+                        `;
+                        indicator.style.opacity = '1';
+                        setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 3000);
+                    }
+                    return;
+                }
+
+                // 2. If not a transcript, allow single-year Report Card with advisory notice
+                const reportCard = parseHcpssReportCardFromItems(allItems, fullText);
+                if (reportCard && Array.isArray(reportCard.courses) && reportCard.courses.length > 0) {
+                    const rcSummary = convertReportCardToGpaSummary(reportCard);
+                    lastParsedTranscriptSummary = rcSummary;
+                    applyParsedTranscript();
+                    closeTranscriptModal();
+
+                    showNativeAlert(
+                        "Single-Year Report Card Imported",
+                        `<b>Imported available grades for ${rcSummary.totalCourses} course(s) from your Report Card.</b><br><br>⚠️ <i>Notice: This report card only contains grades from 1 school year (${reportCard.quarterText || 'single year'}). If you want to calculate your complete, cumulative 4-year high school Total GPA, we recommend uploading your <b>HCPSS Unofficial High School Transcript</b>.</i>`
+                    );
+                    return;
+                }
+
+                // 3. Document unrecognized
+                closeTranscriptModal();
+                showNativeAlert(
+                    "Invalid Document",
+                    "<b>This document could not be recognized as an HCPSS Transcript or Report Card.</b><br><br>Please make sure you upload an official PDF downloaded from Synergy ParentVUE."
+                );
+
+            } catch (err) {
+                console.error("Transcript Parsing Error:", err);
+                closeTranscriptModal();
+                showNativeAlert("Failed to Parse Document", "<b>This file could not be parsed.</b><br><br>" + (err.message || "Please make sure this is an HCPSS Unofficial Transcript or Report Card PDF."));
+            } finally {
+                event.target.value = '';
+            }
+        };
+
+        function parseHcpssReportCardFromItems(items, fullText) {
+            const linesMap = {};
+            items.forEach(item => {
+                const str = item.text.trim();
+                if (!str) return;
+                const y = Math.round(item.y);
+                let matchedY = null;
+                for (const ey of Object.keys(linesMap)) {
+                    if (Math.abs(Number(ey) - y) <= 3) {
+                        matchedY = ey;
+                        break;
+                    }
+                }
+                if (!matchedY) {
+                    matchedY = y;
+                    linesMap[matchedY] = [];
+                }
+                linesMap[matchedY].push({ x: item.x, text: str });
+            });
+
+            let quarterText = 'HCPSS Report Card';
+            const headerMatch = fullText.match(/Student Progress Report[^\n]*\s*-\s*School Year\s*([0-9\-]+)\s*-\s*(Quarter \d+)/i);
+            if (headerMatch) {
+                quarterText = headerMatch[2] + ` (${headerMatch[1]})`;
+            } else {
+                const qOnlyMatch = fullText.match(/Quarter \d+/i);
+                if (qOnlyMatch) quarterText = qOnlyMatch[0];
+            }
+
+            const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+            const courses = [];
+            let inCourseTable = false;
+            let currentCourse = null;
+
+            for (let i = 0; i < sortedY.length; i++) {
+                const y = sortedY[i];
+                const lineItems = linesMap[y].sort((a, b) => a.x - b.x);
+                const fullLine = lineItems.map(it => it.text).join(' ');
+
+                // 1. Detect start of course table header
+                if ((fullLine.includes('Course') && fullLine.includes('Teacher')) || (fullLine.includes('1st') && fullLine.includes('2nd') && fullLine.includes('Final'))) {
+                    inCourseTable = true;
+                    continue;
+                }
+
+                // 2. Detect end of course table
+                const isFooterBoundary = [
+                    'Completed Service', 'Completed World', 'Cumulative', 'Weighted GPA',
+                    'School Message', 'YTD:', 'Howard County Evaluation', 'TO THE PARENTS', 'Printed on'
+                ].some(k => fullLine.includes(k));
+
+                if (inCourseTable && isFooterBoundary) {
+                    inCourseTable = false;
+                    break;
+                }
+
+                if (!inCourseTable) {
+                    continue;
+                }
+
+                const titleItems = lineItems.filter(it => it.x < 170);
+                const teacherItems = lineItems.filter(it => it.x >= 170 && it.x < 390);
+                const gradeItems = lineItems.filter(it => it.x >= 390);
+
+                const validGradeTokens = gradeItems.filter(it => ['A', 'B', 'C', 'D', 'E', 'N/A', '-', 'I', 'N', 'W', 'X', 'Z'].includes(it.text.toUpperCase()));
+
+                if (titleItems.length > 0 && (validGradeTokens.length > 0 || teacherItems.length > 0)) {
+                    let rawTitle = titleItems.map(it => it.text).join(' ').trim();
+                    const teacher = teacherItems.map(it => it.text).join(' ').trim();
+
+                    // Skip period, credits, attendance lines
+                    if (rawTitle.startsWith('Period:') || rawTitle.startsWith('Credits:') || rawTitle.startsWith('Excused')) {
+                        continue;
+                    }
+
+                        let level = detectCourseLevel(rawTitle);
+
+                        const colMap = { q1: null, q2: null, mid: null, q3: null, q4: null, finExam: null, finalGrade: null };
+                        validGradeTokens.forEach(it => {
+                            const x = it.x;
+                            const t = it.text.trim().toUpperCase();
+                            if (x >= 400 && x < 425) colMap.q1 = t;
+                            else if (x >= 425 && x < 450) colMap.q2 = t;
+                            else if (x >= 450 && x < 480) colMap.mid = t;
+                            else if (x >= 480 && x < 510) colMap.q3 = t;
+                            else if (x >= 510 && x < 535) colMap.q4 = t;
+                            else if (x >= 535 && x < 560) colMap.finExam = t;
+                            else if (x >= 560 && x < 595) colMap.finalGrade = t;
+                        });
+
+                        const isValid = (g) => g && /^[A-E]$/.test(g);
+                        const noMid = (colMap.mid === 'N/A' || colMap.mid === '-' || !colMap.mid);
+
+                        const pendingQuarters = [];
+                        if (!isValid(colMap.q1)) pendingQuarters.push('Q1');
+                        if (!isValid(colMap.q2)) pendingQuarters.push('Q2');
+                        if (!noMid && !isValid(colMap.mid)) pendingQuarters.push('Midterm');
+                        if (!isValid(colMap.q3)) pendingQuarters.push('Q3');
+                        if (!isValid(colMap.q4)) pendingQuarters.push('Q4');
+                        if (!isValid(colMap.finExam)) pendingQuarters.push('Final Exam');
+
+                        // Clean title from course IDs like (SO-502-1) or (CT-
+                        let cleanTitle = rawTitle.replace(/\s*\([A-Za-z0-9\-\s/]+(\)|$)/i, '').trim();
+
+                        currentCourse = {
+                            title: cleanTitle || rawTitle,
+                            rawTitle,
+                            teacher,
+                            level,
+                            q1: isValid(colMap.q1) ? colMap.q1 : null,
+                            q2: isValid(colMap.q2) ? colMap.q2 : null,
+                            midterm: isValid(colMap.mid) ? colMap.mid : null,
+                            hasNoMidterm: noMid,
+                            q3: isValid(colMap.q3) ? colMap.q3 : null,
+                            q4: isValid(colMap.q4) ? colMap.q4 : null,
+                            finalExam: isValid(colMap.finExam) ? colMap.finExam : null,
+                            finalGrade: isValid(colMap.finalGrade) ? colMap.finalGrade : '',
+                            pendingQuarters
+                        };
+                        courses.push(currentCourse);
+                } else if (currentCourse) {
+                    if (fullLine.toLowerCase().includes('does not have a midterm')) {
+                        currentCourse.hasNoMidterm = true;
+                        currentCourse.midterm = null;
+                        currentCourse.pendingQuarters = currentCourse.pendingQuarters.filter(p => p !== 'Midterm');
+                    }
+                }
+            }
+
+            return {
+                quarterText,
+                courses
+            };
+        }
+
+        function renderReportCardPreview(reportCard, fileName) {
+            const modalTitle = document.getElementById('transcriptModalTitle');
+            const modalSubtitle = document.getElementById('transcriptModalSubtitle');
+            const modalBody = document.getElementById('transcriptModalBody');
+            const footerActions = document.getElementById('transcriptModalFooterActions');
+            if (!modalBody) return;
+
+            if (modalTitle) modalTitle.textContent = "HCPSS Report Card";
+            if (modalSubtitle) modalSubtitle.textContent = `${reportCard.quarterText || 'Quarterly Progress Report'} · ${reportCard.courses.length} courses detected`;
+
+            if (footerActions) {
+                footerActions.innerHTML = `
+                    <button type="button" onclick="closeTranscriptModal()" class="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer" style="color: var(--muted);">
+                        Close
+                    </button>
+                    ${reportCard.courses.length > 0 ? `
+                        <button type="button" onclick="importAllReportCardCourses()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white shadow-sm transition-all cursor-pointer">
+                            Import All ${reportCard.courses.length} Subjects
+                        </button>
+                    ` : ''}
+                `;
+            }
+
+            if (reportCard.courses.length === 0) {
+                modalBody.innerHTML = `
+                    <div class="p-6 text-center space-y-2">
+                        <p class="font-bold text-amber-500">No Course Entries Detected</p>
+                        <p class="text-xs" style="color: var(--muted);">We couldn't identify grade rows in this PDF. Please ensure this is an official/unofficial HCPSS Progress Report or Report Card.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            modalBody.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-3 rounded-2xl border border-[var(--border)] flex items-center justify-between" style="background: var(--bg);">
+                        <div>
+                            <div class="font-bold text-xs" style="color: var(--text);">${reportCard.studentName ? reportCard.studentName + ' · ' : ''}${reportCard.quarterText || 'HCPSS Report Card'}</div>
+                            <div class="text-[11px]" style="color: var(--muted);">${fileName}</div>
+                        </div>
+                        <button type="button" onclick="importAllReportCardCourses()"
+                            class="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer">
+                            Import All (${reportCard.courses.length})
+                        </button>
+                    </div>
+
+                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        ${reportCard.courses.map((c, idx) => `
+                            <div class="p-3 rounded-2xl border border-[var(--border)] space-y-2" style="background: var(--panel);">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-xs truncate" style="color: var(--text);">${c.title}</div>
+                                        <div class="text-[11px] truncate" style="color: var(--muted);">${c.teacher || 'Teacher Unassigned'}</div>
+                                    </div>
+                                    <span class="shrink-0 text-[10px] px-2 py-0.5 rounded font-bold" style="${
+                                        (c.level === 'gt' || c.level === 'ap' || c.level === 'honors') 
+                                            ? 'background: var(--bg); color: var(--text);' 
+                                            : 'background: var(--bg); color: var(--muted);'
+                                    }">
+                                        ${c.level === 'gt' ? 'GT' : (c.level === 'ap' ? 'AP' : (c.level === 'honors' ? 'HON' : 'REG'))}
+                                    </span>
+                                </div>
+
+                                <!-- Quarter badges -->
+                                <div class="grid grid-cols-6 gap-1 text-center text-[10px]">
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">Q1</div>
+                                        <div class="font-bold text-[11px] ${c.q1 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}">${c.q1 || '-'}</div>
+                                    </div>
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">Q2</div>
+                                        <div class="font-bold text-[11px] ${c.q2 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}">${c.q2 || '-'}</div>
+                                    </div>
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">${c.hasNoMidterm ? 'Mid (N/A)' : 'Mid'}</div>
+                                        <div class="font-bold text-[11px] ${c.midterm ? 'text-[#007AFF] dark:text-[#38BDF8]' : 'text-gray-400'}">${c.hasNoMidterm ? 'N/A' : (c.midterm || '-')}</div>
+                                    </div>
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">Q3</div>
+                                        <div class="font-bold text-[11px] ${c.q3 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}">${c.q3 || '-'}</div>
+                                    </div>
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">Q4</div>
+                                        <div class="font-bold text-[11px] ${c.q4 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}">${c.q4 || '-'}</div>
+                                    </div>
+                                    <div class="p-1 rounded-lg border border-[var(--border)]" style="background: var(--bg);">
+                                        <div style="color: var(--muted);">Exam</div>
+                                        <div class="font-bold text-[11px] ${c.finalExam ? 'text-[#007AFF] dark:text-[#38BDF8]' : 'text-gray-400'}">${c.finalExam || '-'}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border)]">
+                                    ${currentCalcType === 'year' ? `
+                                        <button type="button" onclick="loadSingleReportCardCourseToActive('year', ${idx})"
+                                            class="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer">
+                                            Load as Active Subject
+                                        </button>
+                                    ` : (currentCalcType === 'semester' ? `
+                                        <button type="button" onclick="loadSingleReportCardCourseToActive('semester_1', ${idx})"
+                                            class="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer">
+                                            Load Sem 1
+                                        </button>
+                                        <button type="button" onclick="loadSingleReportCardCourseToActive('semester_2', ${idx})"
+                                            class="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer">
+                                            Load Sem 2
+                                        </button>
+                                    ` : `
+                                        <button type="button" onclick="loadSingleReportCardCourseToActive('year', ${idx})"
+                                            class="px-3 py-1.5 rounded-xl border border-[var(--border)] hover:bg-[#007AFF] hover:text-white font-semibold text-xs transition-all cursor-pointer" style="color: var(--text);">
+                                            Load Subject
+                                        </button>
+                                    `)}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        window.importAllReportCardCourses = () => {
+            if (!lastParsedReportCard || !Array.isArray(lastParsedReportCard.courses) || lastParsedReportCard.courses.length === 0) return;
+
+            const courses = lastParsedReportCard.courses;
+
+            if (currentCalcType === 'semester') {
+                semCourses = courses.map((c, i) => ({
+                    id: 's_' + Date.now() + '_' + i,
+                    title: c.title,
+                    level: c.level,
+                    q1: c.q1 || 'A',
+                    q2: c.q2 || 'A',
+                    exam: c.midterm || c.finalExam || 'A',
+                    pending: c.pendingQuarters || []
+                }));
+                activeSemCourseId = semCourses[0].id;
+                switchCalcType('semester');
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+            } else {
+                yearCourses = courses.map((c, i) => ({
+                    id: 'y_' + Date.now() + '_' + i,
+                    title: c.title,
+                    teacher: c.teacher,
+                    level: c.level,
+                    q1: c.q1 || 'A',
+                    q2: c.q2 || 'A',
+                    mid: c.midterm || 'A',
+                    noMid: !!c.hasNoMidterm,
+                    q3: c.q3 || 'A',
+                    q4: c.q4 || 'A',
+                    fin: c.finalExam || 'A',
+                    pending: c.pendingQuarters || []
+                }));
+                activeYearCourseId = yearCourses[0].id;
+                switchCalcType('year');
+                loadActiveCourseIntoInputs('year');
+                renderYearCourseChips();
+            }
+
+            calculateGrade();
+            saveGradeState(true);
+            closeTranscriptModal();
+
+            const indicator = document.getElementById('saveStatusIndicator');
+            if (indicator) {
+                indicator.innerHTML = `<span>Imported ${courses.length} Subjects</span>`;
+                indicator.style.opacity = '1';
+                setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 2500);
+            }
+        };
+
+        window.loadSingleReportCardCourseToActive = (targetType, courseIdx) => {
+            if (!lastParsedReportCard || !lastParsedReportCard.courses[courseIdx]) return;
+            const c = lastParsedReportCard.courses[courseIdx];
+
+            if (targetType === 'year') {
+                switchCalcType('year');
+                let active = getActiveYearCourse();
+                if (!active) {
+                    active = { id: 'y_' + Date.now(), title: c.title, level: c.level, q1: 'A', q2: 'A', q3: 'A', q4: 'A', mid: 'A', fin: 'A', noMid: false, pending: [] };
+                    yearCourses.push(active);
+                    activeYearCourseId = active.id;
+                }
+
+                active.title = c.title;
+                active.level = c.level;
+                active.q1 = c.q1 || active.q1 || 'A';
+                active.q2 = c.q2 || active.q2 || 'A';
+                active.mid = c.midterm || active.mid || 'A';
+                active.noMid = c.hasNoMidterm;
+                active.q3 = c.q3 || active.q3 || 'A';
+                active.q4 = c.q4 || active.q4 || 'A';
+                active.fin = c.finalExam || active.fin || 'A';
+                active.pending = c.pendingQuarters || [];
+
+                loadActiveCourseIntoInputs('year');
+                renderYearCourseChips();
+            } else if (targetType === 'semester_1') {
+                switchCalcType('semester');
+                let active = getActiveSemCourse();
+                if (!active) {
+                    active = { id: 's_' + Date.now(), title: c.title + ' (Sem 1)', level: c.level, q1: 'A', q2: 'A', exam: 'A', pending: [] };
+                    semCourses.push(active);
+                    activeSemCourseId = active.id;
+                }
+                active.title = c.title + ' (Sem 1)';
+                active.level = c.level;
+                active.q1 = c.q1 || active.q1 || 'A';
+                active.q2 = c.q2 || active.q2 || 'A';
+                active.exam = c.midterm || active.exam || 'A';
+
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+            } else if (targetType === 'semester_2') {
+                switchCalcType('semester');
+                let active = getActiveSemCourse();
+                if (!active) {
+                    active = { id: 's_' + Date.now(), title: c.title + ' (Sem 2)', level: c.level, q1: 'A', q2: 'A', exam: 'A', pending: [] };
+                    semCourses.push(active);
+                    activeSemCourseId = active.id;
+                }
+                active.title = c.title + ' (Sem 2)';
+                active.level = c.level;
+                active.q1 = c.q3 || active.q1 || 'A';
+                active.q2 = c.q4 || active.q2 || 'A';
+                active.exam = c.finalExam || active.exam || 'A';
+
+                loadActiveCourseIntoInputs('semester');
+                renderSemCourseChips();
+            }
+
+            calculateGrade();
+            saveGradeState(true);
+            closeTranscriptModal();
+
+            const indicator = document.getElementById('saveStatusIndicator');
+            if (indicator) {
+                indicator.innerHTML = `<span>Loaded ${c.title}</span>`;
+                indicator.style.opacity = '1';
+                setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 2000);
+            }
+        };
+
+        function parseHcpssTranscriptText(rawText) {
+            const lines = rawText.split('\n');
+            const courses = [];
+
+            const courseLineRegex = /^(.*?)\s+([A-E|P|W|X|Z])\s+([0-9]+\.[0-9]{2})\s*\/\s*([0-9]+\.[0-9]{2})/i;
+            const ignoreKeywords = [
+                'Course Title', 'Final Grade', 'Cred Att', 'Cred Cmp', 'Grading Point Values',
+                'GPA Summary', 'Weighted GPA', 'Unweighted GPA', 'Date of Birth', 'Student ID',
+                'Howard County', 'Centennial High School', 'Continued Next Column', 'Unofficial High School'
+            ];
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                if (ignoreKeywords.some(k => trimmed.includes(k))) return;
+
+                const match = trimmed.match(courseLineRegex);
+                if (match) {
+                    const rawTitle = match[1].trim();
+                    const grade = match[2].toUpperCase();
+                    const credComp = parseFloat(match[4]) || 0;
+
+                    if (rawTitle.toLowerCase().includes('grade:') || rawTitle.toLowerCase().startsWith('yr:')) return;
+                    if (['P', 'W', 'X', 'Z'].includes(grade)) return;
+
+                    let level = detectCourseLevel(rawTitle);
+
+                    courses.push({
+                        title: rawTitle,
+                        grade,
+                        credits: credComp,
+                        level
+                    });
+                }
+            });
+
+            const summary = {
+                totalCourses: courses.length,
+                courses,
+                ap_gt: { A: 0, B: 0, C: 0 },
+                honors: { A: 0, B: 0, C: 0 },
+                regular: { A: 0, B: 0, C: 0 },
+                allD: 0,
+                allE: 0
+            };
+
+            courses.forEach(c => {
+                const countWeight = 1;
+                if (c.grade === 'D') {
+                    summary.allD += countWeight;
+                } else if (c.grade === 'E') {
+                    summary.allE += countWeight;
+                } else if (['A', 'B', 'C'].includes(c.grade)) {
+                    if (c.level === 'ap' || c.level === 'gt' || c.level === 'ap_gt') {
+                        summary.ap_gt[c.grade] += countWeight;
+                    } else if (c.level === 'honors') {
+                        summary.honors[c.grade] += countWeight;
+                    } else {
+                        summary.regular[c.grade] += countWeight;
+                    }
+                }
+            });
+
+            return summary;
+        }
+
+        function renderTranscriptPreview(summary, fileName) {
+            const modalTitle = document.getElementById('transcriptModalTitle');
+            const modalSubtitle = document.getElementById('transcriptModalSubtitle');
+            const modalBody = document.getElementById('transcriptModalBody');
+            const footerActions = document.getElementById('transcriptModalFooterActions');
+            if (!modalBody) return;
+
+            if (modalTitle) modalTitle.textContent = "Transcript Import Preview";
+            if (modalSubtitle) modalSubtitle.textContent = "Parsed from your uploaded unofficial transcript PDF";
+
+            if (footerActions) {
+                footerActions.innerHTML = `
+                    <button type="button" onclick="closeTranscriptModal()" class="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer" style="color: var(--muted);">
+                        Cancel
+                    </button>
+                    <button type="button" id="applyTranscriptBtn" onclick="applyParsedTranscript()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white shadow-sm transition-all cursor-pointer">
+                        Apply to Calculator
+                    </button>
+                `;
+            }
+
+            if (summary.totalCourses === 0) {
+                modalBody.innerHTML = `
+                    <div class="p-6 text-center space-y-2">
+                        <p class="font-bold text-amber-500">No Grade Entries Detected</p>
+                        <p class="text-xs" style="color: var(--muted);">We couldn't find recognizable course grade lines in this PDF. Please ensure this is an official/unofficial HCPSS transcript.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            modalBody.innerHTML = `
+                <div class="space-y-4">
+                    <div class="p-3 rounded-2xl border border-[var(--border)]" style="background: var(--bg);">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-bold text-xs" style="color: var(--text);">File: ${fileName}</span>
+                            <span class="text-[11px] font-semibold text-[#007AFF] dark:text-[#38BDF8]">${summary.totalCourses} Courses Parsed</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                            <div class="p-2 rounded-xl border border-[var(--border)]" style="background: var(--panel);">
+                                <div class="text-[10px] uppercase font-bold" style="color: var(--muted);">AP / GT</div>
+                                <div class="font-black mt-0.5" style="color: var(--text);">A:${summary.ap_gt.A} B:${summary.ap_gt.B} C:${summary.ap_gt.C}</div>
+                            </div>
+                            <div class="p-2 rounded-xl border border-[var(--border)]" style="background: var(--panel);">
+                                <div class="text-[10px] uppercase font-bold" style="color: var(--muted);">Honors</div>
+                                <div class="font-black mt-0.5" style="color: var(--text);">A:${summary.honors.A} B:${summary.honors.B} C:${summary.honors.C}</div>
+                            </div>
+                            <div class="p-2 rounded-xl border border-[var(--border)]" style="background: var(--panel);">
+                                <div class="text-[10px] uppercase font-bold" style="color: var(--muted);">Regular</div>
+                                <div class="font-black mt-0.5" style="color: var(--text);">A:${summary.regular.A} B:${summary.regular.B} C:${summary.regular.C}</div>
+                            </div>
+                            <div class="p-2 rounded-xl border border-[var(--border)]" style="background: var(--panel);">
+                                <div class="text-[10px] uppercase font-bold" style="color: var(--muted);">D & E</div>
+                                <div class="font-black mt-0.5" style="color: var(--text);">D:${summary.allD} E:${summary.allE}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Course Detail List Scrollable -->
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        <div class="text-[11px] font-bold uppercase tracking-wider ml-1" style="color: var(--muted);">Recognized Course List</div>
+                        ${summary.courses.map(c => `
+                            <div class="flex items-center justify-between p-2 rounded-xl border border-[var(--border)] text-[11px]" style="background: var(--panel);">
+                                <div class="truncate mr-2">
+                                    <span class="font-semibold" style="color: var(--text);">${c.title}</span>
+                                    <span class="text-[10px] ml-1.5 px-1.5 py-0.2 rounded font-bold" style="${
+                                        (c.level === 'gt' || c.level === 'ap' || c.level === 'honors') 
+                                            ? 'background: var(--bg); color: var(--text);' 
+                                            : 'background: var(--bg); color: var(--muted);'
+                                    }">${c.level === 'gt' ? 'GT' : (c.level === 'ap' ? 'AP' : (c.level === 'honors' ? 'HON' : 'REG'))}</span>
+                                </div>
+                                <span class="font-black px-2 py-0.5 rounded-lg ${c.grade === 'A' ? 'text-green-600 bg-green-500/10' : (c.grade === 'B' ? 'text-blue-600 bg-blue-500/10' : (c.grade === 'C' ? 'text-orange-600 bg-orange-500/10' : 'text-red-600 bg-red-500/10'))}">${c.grade}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        window.applyParsedTranscript = () => {
+            if (!lastParsedTranscriptSummary) return;
+
+            const s = lastParsedTranscriptSummary;
+
+            // Switch to GPA view
+            switchCalcType('gpa');
+
+            // Populate AP / GT
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
+            setVal('gpa-ap-a', s.ap_gt.A);
+            setVal('gpa-ap-b', s.ap_gt.B);
+            setVal('gpa-ap-c', s.ap_gt.C);
+
+            setVal('gpa-hon-a', s.honors.A);
+            setVal('gpa-hon-b', s.honors.B);
+            setVal('gpa-hon-c', s.honors.C);
+
+            setVal('gpa-reg-a', s.regular.A);
+            setVal('gpa-reg-b', s.regular.B);
+            setVal('gpa-reg-c', s.regular.C);
+
+            setVal('gpa-all-d', s.allD);
+            setVal('gpa-all-e', s.allE);
+
+            // Trigger GPA recalculation
+            calculateGpa();
+
+            // Auto sync to colleges
+            syncAllFromHcpss(false);
+
+            // Save to local & cloud
+            saveGradeState(true);
+
+            closeTranscriptModal();
+
+            const indicator = document.getElementById('saveStatusIndicator');
+            if (indicator) {
+                indicator.innerHTML = `<span>Transcript Applied</span>`;
+                indicator.style.opacity = '1';
+                setTimeout(() => { if (indicator) indicator.style.opacity = '0.6'; }, 2000);
+            }
+        };
+
+        // Auto-load previously saved state or fallback to default initial state
+        const hasLoaded = loadGradeState();
+        if (!hasLoaded) {
+            switchCalcType('year');
+        }
+
+        // Run all calculations to reflect current inputs
         calculateGrade();
         calculateGpa();
         calculateUcGpa();

@@ -43,11 +43,11 @@ const _escape = (str) => {
 // Private UI Template: The HTML structure for the custom modal
 const MODAL_HTML = `
     <div id="customModal"
-        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-10 transition-all duration-300 opacity-0">
-        <div class="bg-white/80 dark:bg-gray-900/80 w-full max-w-[280px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
+        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-6 transition-all duration-300 opacity-0">
+        <div class="bg-white/90 dark:bg-gray-900/90 w-full max-w-[320px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
             <div class="p-5 text-center">
-                <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-1.5 leading-tight">Title</div>
-                <div id="modalBody" class="text-sm text-black/70 dark:text-white/60 leading-snug">Body</div>
+                <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-2 leading-tight">Title</div>
+                <div id="modalBody" class="text-sm text-black/75 dark:text-white/70 leading-snug break-words">Body</div>
             </div>
             <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
                 <button id="modalCancel" class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
@@ -57,6 +57,7 @@ const MODAL_HTML = `
         </div>
     </div>
 `;
+
 
 export const ModalModule = {
     _timer: null,
@@ -234,7 +235,7 @@ export const ModalModule = {
             if (!els) return resolve(null);
 
             els.title.innerText = title;
-            els.body.innerHTML = `<div class="mb-2">${body}</div><input type="text" id="modalInput" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${_escape(defaultValue)}">`;
+            els.body.innerHTML = `<div class="mb-2">${body}</div><input type="text" id="modalInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" value="${_escape(defaultValue)}">`;
 
             els.cancel.classList.remove('hidden');
             els.alt.classList.add('hidden');

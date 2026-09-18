@@ -123,10 +123,14 @@ export const UIComponents = {
                                </div>`;
                 }
             }
+        } else if (msg.text && msg.text.includes('docs.google.com/document/d/')) {
+            // Render Clean Google Doc Writing Card (No emojis, minimal light blue design)
+            content = UIComponents.renderDocCard(msg, key, isMe);
         } else {
             const bS = isMe ? 'chat-accent-bg bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'other-accent-bg bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
             content = `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(msg.text), isMe)}</div>`;
         }
+
 
         const wrapper = document.createElement('div');
         wrapper.innerHTML = content;
@@ -260,5 +264,211 @@ export const UIComponents = {
                     <div class="text-base text-gray-700 dark:text-gray-300">${UIUtils.linkify(UIUtils.escape(c.text))}</div>
                 </div>
             </div>`;
+    },
+
+    /**
+     * [Google Doc Comments HTML Builder] 统一的评论列表渲染引擎（保证首次渲染和点击 Sync 后的 UI 100% 绝对一致）
+     */
+    renderDocCommentsHtml: function (key, comments, count, openCount, resolvedCount, docId, docUrl) {
+        if (!comments || comments.length === 0) {
+            return `
+                <div class="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                    No comments found. Click sync to load latest comments.
+                </div>
+            `;
+        }
+
+        const filterBarHtml = `
+            <div class="doc-filter-bar flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-white/5">
+                <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${count})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${openCount})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${resolvedCount})</button>
+            </div>
+        `;
+
+        const itemsHtml = comments.map((c, i) => {
+            const quoteVal = c.quotedFileContent?.value || '';
+            let quoteHtml = '';
+            if (quoteVal) {
+                const quoteId = `quoteBox-${key}-${i}`;
+                const isLong = quoteVal.length > 60;
+                quoteHtml = `
+                    <div class="mb-2 pl-3 border-l-2 border-[#007AFF]/40 dark:border-[#0A84FF]/50 text-left py-0.5">
+                        <div id="${quoteId}" class="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed italic ${isLong ? 'line-clamp-2' : ''}">“${UIUtils.escape(quoteVal)}”</div>
+                        ${isLong ? `<button type="button" onclick="window.toggleQuoteText('${quoteId}', this, event)" class="mt-0.5 text-[11px] text-[#007AFF] dark:text-[#0A84FF] hover:underline font-medium transition-colors">Expand</button>` : ''}
+                    </div>
+                `;
+            }
+
+            const author = c.author?.displayName || 'Reviewer';
+            // Only show badge if Resolved; omit redundant Open pill tag
+            const statusTag = c.resolved 
+                ? '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' 
+                : '';
+            
+            // Deep-link to comment in Google Docs
+            const commentId = c.id || '';
+            const commentDirectUrl = (docId && commentId) 
+                ? `https://docs.google.com/document/d/${docId}/edit?disco=${encodeURIComponent(commentId)}`
+                : (docUrl || '#');
+
+            let repliesHtml = '';
+            if (c.replies && c.replies.length > 0) {
+                repliesHtml = c.replies.map(r => `
+                    <div class="mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[13px]">
+                        <span class="font-semibold text-black dark:text-white">${UIUtils.escape(r.author?.displayName || 'User')}:</span>
+                        <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(r.content || '')}</span>
+                    </div>
+                `).join('');
+            }
+
+            return `
+                <div class="comment-item-row py-3 border-b border-gray-100 dark:border-white/5 last:border-b-0 text-left transition-opacity duration-150" data-card-key="${key}" data-resolved="${c.resolved ? 'true' : 'false'}">
+                    ${quoteHtml}
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
+                        <div class="flex items-center gap-2">
+                            ${statusTag}
+                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline transition-colors" title="Jump to this comment in Google Doc">
+                                <span>View</span>
+                                <svg class="w-3 h-3 inline-block opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="text-[14px] text-gray-800 dark:text-gray-100 leading-relaxed">${UIUtils.escape(c.content || '')}</div>
+                    ${repliesHtml}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            ${filterBarHtml}
+            <div id="commentListContainer-${key}">
+                ${itemsHtml}
+            </div>
+            <div id="commentEmpty-${key}" class="hidden py-4 text-center text-xs text-gray-400 dark:text-gray-500"></div>
+        `;
+    },
+
+    /**
+     * [Writing Doc Card] Google Docs 批注卡片（极简浅蓝、无 Emoji、纯线条 SVG、支持展开与同步）
+     */
+    renderDocCard: function (msg, key, isMe) {
+        const text = msg.text || '';
+        const match = text.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)[^\s]*/);
+        const docId = msg.docData?.fileId || (match ? match[1] : '');
+        const docUrl = msg.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
+
+        // 取出已保存的评论缓存（如果已有）
+        const docData = msg.docData || window._docCache?.[docId] || null;
+        const docTitle = docData?.title || 'Google Document';
+        const comments = docData?.comments || [];
+        const count = comments.length || docData?.commentsCount || 0;
+
+        // Open vs Resolved count breakdown
+        let openCount = 0;
+        let resolvedCount = 0;
+        comments.forEach(c => {
+            if (c.resolved) resolvedCount++;
+            else openCount++;
+        });
+
+        // Dynamic badge label highlighting open feedback
+        let badgeLabel = 'Google Doc';
+        if (count > 0) {
+            if (openCount > 0) {
+                badgeLabel = count === 1 ? `1 comment (${openCount} open)` : `${count} comments (${openCount} open)`;
+            } else {
+                badgeLabel = count === 1 ? `1 comment (resolved)` : `${count} comments (all resolved)`;
+            }
+        }
+        const createdTime = docData?.createdTime;
+        const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        const createdDateTag = createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight"></span>`;
+        const lastSyncedText = docData?.lastSyncedAt ? new Date(docData.lastSyncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'an earlier date';
+        const accessLostNotice = docData?.accessLost
+            ? `<div class="mx-3.5 mb-3 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/20 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200"><span class="font-bold">Access lost</span><span class="text-amber-700/80 dark:text-amber-200/75"> · Last synced ${lastSyncedText}. Reconnect access to retrieve newer comments.</span></div>`
+            : '';
+
+        // 构建评论列表 HTML (统一复用 UIComponents.renderDocCommentsHtml)
+        const commentsListHtml = UIComponents.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl);
+
+
+
+        return `
+            <div data-doc-id="${docId}" data-doc-url="${UIUtils.escape(docUrl)}" data-open-count="${openCount}" data-total-comments="${count}" class="doc-card-container w-full bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden text-left my-1">
+                <!-- Card Header -->
+                <div class="p-3.5 flex items-center justify-between gap-3 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02]">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <!-- Minimal Document SVG Icon with Soft Blue Circle -->
+                        <div class="w-9 h-9 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h4 id="docTitle-${key}" class="text-[15px] font-semibold text-black dark:text-white truncate leading-snug" title="${UIUtils.escape(docTitle)}">${UIUtils.escape(docTitle)}</h4>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <!-- Light Blue Pill Badge -->
+                                <span id="docBadge-${key}" class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF] leading-tight">
+                                    ${badgeLabel}
+                                </span>
+                                ${createdDateTag}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Icons -->
+                    <div class="flex items-center gap-1">
+                        <!-- Sync Comments Action Button -->
+                        <button onclick="window.syncDocCardComments('${key}', '${docUrl}', event, '${msg.chatId || ''}')" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-[#007AFF] transition-colors" title="Sync comments">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Open Google Doc External Link -->
+                        <a href="${UIUtils.escape(docUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-[#007AFF] transition-colors" title="Open Google Doc">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+
+                        <!-- Toggle Comments Collapse -->
+                        <button onclick="window.toggleDocCommentsExpand('${key}', event)" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 transition-colors" title="Toggle comments list">
+                            <svg id="docArrow-${key}" class="w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                ${accessLostNotice}
+
+                <!-- Expandable Comments Drawer Area with Smooth Accordion -->
+                <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">
+                    <div class="min-h-0 overflow-hidden border-t border-gray-100 dark:border-white/5">
+                        <div class="px-3.5 py-1.5">
+                            <div id="docList-${key}">
+                                ${commentsListHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 };
+

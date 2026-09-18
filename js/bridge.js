@@ -213,6 +213,13 @@ export const BridgeModule = {
                             console.log('Bridge SDK showToast:', event.data.message);
                         }
                         break;
+                    case 'SHOW_ALERT':
+                        if (window.AppModules?.Modal?.alert) {
+                            window.AppModules.Modal.alert(event.data.title || 'Notice', event.data.message || event.data.body || '');
+                        } else if (window.alert) {
+                            window.alert((event.data.title ? event.data.title + '\n\n' : '') + (event.data.message || event.data.body || ''));
+                        }
+                        break;
                     case 'OPEN_GALLERY':
                         if (window.openGallery) {
                             window.openGallery(event.data.images, event.data.index || 0);

@@ -358,6 +358,13 @@ export const SidebarModule = {
             subList?.classList.remove('sidebar-pop', 'sidebar-push', 'tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
         }
 
+        // When returning from Level 2, Level 1 was already populated underneath; preserve it to eliminate flickering
+        if (window._isPopNav && subList && subList.children.length > 0) {
+            window._isPopNav = false;
+            if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
+            return;
+        }
+
         if (window.sidebarMode === 'class') await this.renderClassLevel1(subList);
         else await this.renderUserSidebarItems(subList);
 
@@ -575,7 +582,6 @@ export const SidebarModule = {
                     .map(id => ({ id, ...allClasses[id] }))
                     .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
 
-                container.innerHTML = '';
                 const wrapper = document.createElement('div');
 
                 if ((window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
@@ -625,7 +631,7 @@ export const SidebarModule = {
                     });
                 }
 
-                container.appendChild(wrapper);
+                container.replaceChildren(wrapper);
                 window._isPopNav = false;
             } catch (err) {
                 console.error('renderClassLevel1 error:', err);

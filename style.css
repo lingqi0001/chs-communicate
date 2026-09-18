@@ -98,13 +98,16 @@ body {
 }
 
 #chatInputPill.liquid-glass-active,
-#chatCameraBtn.chat-fab-btn.liquid-glass-active {
-    border: 1px solid rgba(255, 255, 255, 0.45) !important;
-    background: rgba(255, 255, 255, 0.12) !important;
+#chatCameraBtn.chat-fab-btn.liquid-glass-active,
+#attachMenu.liquid-glass-active {
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
     box-shadow:
-        inset 0 1px 2px rgba(255, 255, 255, 0.5),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.05),
-        0 8px 32px rgba(15, 23, 42, 0.08) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.7),
+        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
+        0 14px 36px rgba(15, 23, 42, 0.1) !important;
 }
 
 
@@ -150,9 +153,54 @@ body {
     height: 22px !important;
     display: block !important;
     margin: 0;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) rotate(0deg);
+    transform-origin: center center;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
 }
+
+#chatCameraBtn.attach-open #chatAttachPlusIcon {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+#attachMenu {
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.8),
+        0 12px 36px -4px rgba(15, 23, 42, 0.16),
+        0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
+    transform-origin: bottom left;
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.34, 1.45, 0.64, 1);
+    will-change: transform, opacity;
+}
+
+#attachMenu.menu-hidden {
+    opacity: 0;
+    transform: scale(0.82) translateY(10px);
+    pointer-events: none;
+}
+
+#attachMenu.menu-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+
+.dark #attachMenu {
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    background: rgba(38, 38, 42, 0.82) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.18),
+        0 16px 40px -4px rgba(0, 0, 0, 0.6),
+        0 6px 16px -2px rgba(0, 0, 0, 0.35) !important;
+}
+
+
 
 .dark #chatComposerWrap {
     background: linear-gradient(to top, rgba(8, 10, 16, 0.34), rgba(8, 10, 16, 0));
@@ -168,13 +216,16 @@ body {
 }
 
 .dark #chatInputPill.liquid-glass-active,
-.dark #chatCameraBtn.chat-fab-btn.liquid-glass-active {
+.dark #chatCameraBtn.chat-fab-btn.liquid-glass-active,
+.dark #attachMenu.liquid-glass-active {
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
-    background: rgba(255, 255, 255, 0.04) !important;
+    background: rgba(45, 45, 50, 0.65) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
     box-shadow:
-        inset 0 1px 2px rgba(255, 255, 255, 0.2),
+        inset 0 1px 2px rgba(255, 255, 255, 0.22),
         inset 0 -1px 2px rgba(0, 0, 0, 0.4),
-        0 12px 38px rgba(0, 0, 0, 0.45) !important;
+        0 16px 44px rgba(0, 0, 0, 0.5) !important;
 }
 
 
@@ -457,11 +508,11 @@ body {
 }
 
 .sidebar-push {
-    animation: sidebarPush 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    animation: sidebarPush 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .sidebar-pop {
-    animation: sidebarPop 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    animation: sidebarPop 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .tab-pop-animation {
@@ -473,11 +524,11 @@ body {
 }
 
 .sidebar-full-slide-in {
-    animation: sidebarFullSlideIn 0.3s ease-in-out forwards;
+    animation: sidebarFullSlideIn 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .sidebar-full-slide-pop {
-    animation: sidebarFullSlidePop 0.3s ease-in-out forwards;
+    animation: sidebarFullSlidePop 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 #sidebarList {
@@ -503,9 +554,28 @@ body {
 }
 
 .sidebar-full-slide-out {
-    animation: sidebarFullSlideOut 0.3s ease-in-out forwards;
+    animation: sidebarFullSlideOut 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Google Doc Card Comments Accordion Animation */
+.doc-drawer-accordion {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    overflow: hidden;
+    transition: grid-template-rows 340ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.doc-drawer-accordion.expanded {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.doc-drawer-accordion > div {
+    min-height: 0;
+    overflow: hidden;
+}
 
 .msg-pop {
     animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
@@ -984,13 +1054,15 @@ body.is-guest-two-panel .bottom-gradient-shim {
         bottom: 0;
         right: 0;
         width: 1px;
-        background-color: rgba(229, 231, 235, 0.95);
+        transform: scaleX(0.5);
+        transform-origin: right center;
+        background-color: rgba(229, 231, 235, 0.85);
         pointer-events: none;
         z-index: 25;
     }
 
     .dark body.four-panel-layout #sidePanel::after {
-        background-color: rgba(55, 65, 81, 0.78);
+        background-color: rgba(55, 65, 81, 0.7);
     }
 
     /* Top bar spans from Messages panel all the way to the right edge of the screen (covering Chat header area) */
@@ -1078,6 +1150,26 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #1C1C1E !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
+    }
+
+    /* Writing Portfolio drawer offset by 4.5rem top bar and header aligned with tabs/Level2 */
+    body.four-panel-layout #writingPortfolioDrawer {
+        top: 4.5rem !important;
+    }
+
+    body.four-panel-layout #writingPortfolioHeader {
+        height: 2.75rem !important;
+        min-height: 2.75rem !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.four-panel-layout #writingPortfolioHeader {
+        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+        background: #1C1C1E !important;
     }
 
     /* Adjust chat messages scroll area so messages don't hide behind the lower header */
@@ -1245,13 +1337,15 @@ body.is-guest-two-panel .bottom-gradient-shim {
         bottom: 0;
         right: 0;
         width: 1px;
-        background-color: rgba(229, 231, 235, 0.95);
+        transform: scaleX(0.5);
+        transform-origin: right center;
+        background-color: rgba(229, 231, 235, 0.85);
         pointer-events: none;
         z-index: 25;
     }
 
     .dark body.compact-four-panel-layout #sidePanel::after {
-        background-color: rgba(55, 65, 81, 0.78);
+        background-color: rgba(55, 65, 81, 0.7);
     }
 
     /* Top bar spans from Messages panel all the way to the right edge of the screen */
@@ -1338,6 +1432,26 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #1C1C1E !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
+    }
+
+    /* Writing Portfolio drawer offset by 4.5rem top bar and header aligned with tabs/Level2 */
+    body.compact-four-panel-layout #writingPortfolioDrawer {
+        top: 4.5rem !important;
+    }
+
+    body.compact-four-panel-layout #writingPortfolioHeader {
+        height: 2.75rem !important;
+        min-height: 2.75rem !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.compact-four-panel-layout #writingPortfolioHeader {
+        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+        background: #1C1C1E !important;
     }
 
     body.compact-four-panel-layout #chatBox {
@@ -1795,26 +1909,27 @@ body.is-guest-two-panel .bottom-gradient-shim {
     flex-shrink: 0;
 }
 
-/* iOS 26 Liquid Glass Design System */
+/* iOS 26 Liquid Glass Design System (Synchronized with Composer & Attach Menu) */
 .ios26-liquid-glass {
-    background: rgba(255, 255, 255, 0.75) !important;
-    backdrop-filter: blur(20px) saturate(190%);
-    -webkit-backdrop-filter: blur(20px) saturate(190%);
-    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
     box-shadow: 
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.6), 
-        0 12px 30px 0 rgba(0, 0, 0, 0.08) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.7), 
+        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
+        0 14px 36px rgba(15, 23, 42, 0.1) !important;
 }
 
 .dark .ios26-liquid-glass {
-    background: rgba(15, 15, 15, 0.72) !important;
-    backdrop-filter: blur(32px) saturate(210%);
-    -webkit-backdrop-filter: blur(32px) saturate(210%);
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(45, 45, 50, 0.65) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
     box-shadow: 
-        inset 0 1px 2px 0 rgba(255, 255, 255, 0.15), 
-        inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.4), 
-        0 16px 48px 0 rgba(0, 0, 0, 0.55) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.22), 
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4), 
+        0 16px 44px rgba(0, 0, 0, 0.5) !important;
 }
 
 :root {
@@ -1826,66 +1941,70 @@ body.is-guest-two-panel .bottom-gradient-shim {
 }
 
 .ios26-liquid-glass.liquid-glass-active {
-    background: rgba(255, 255, 255, 0.15) !important;
-    border: 1px solid rgba(255, 255, 255, 0.55) !important;
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
     box-shadow: 
-        inset 0 1px 2px rgba(255, 255, 255, 0.6), 
-        0 12px 32px rgba(0, 0, 0, 0.08) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.7), 
+        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
+        0 14px 36px rgba(15, 23, 42, 0.1) !important;
 }
 
 .ios26-liquid-glass.liquid-glass-fallback {
-    background: rgba(255, 255, 255, 0.45) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
     box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.4), 
-        0 10px 24px rgba(15, 23, 42, 0.04) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.7), 
+        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
+        0 14px 36px rgba(15, 23, 42, 0.1) !important;
 }
 
 .dark .ios26-liquid-glass.liquid-glass-active {
-    background: rgba(15, 15, 15, 0.68) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    background: rgba(45, 45, 50, 0.65) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
     box-shadow: 
-        inset 0 1px 2px rgba(255, 255, 255, 0.15), 
-        inset 0 -1px 1.5px rgba(0, 0, 0, 0.5), 
-        0 16px 48px rgba(0, 0, 0, 0.55) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.22), 
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4), 
+        0 16px 44px rgba(0, 0, 0, 0.5) !important;
 }
 
 .dark .ios26-liquid-glass.liquid-glass-fallback {
-    background: rgba(15, 15, 15, 0.35) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(45, 45, 50, 0.65) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
     box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.1), 
-        inset 0 -1px 1px rgba(0, 0, 0, 0.3), 
-        0 12px 30px rgba(0, 0, 0, 0.3) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.22), 
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4), 
+        0 16px 44px rgba(0, 0, 0, 0.5) !important;
 }
+
 
 .ios26-active-pill {
-    background: rgba(0, 0, 0, 0.08) !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-}
-
-.ios26-active-pill.liquid-glass-fallback {
-    background: rgba(0, 0, 0, 0.08) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    background: rgba(0, 0, 0, 0.06) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    box-shadow: 
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.6),
+        0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
 }
 
 .dark .ios26-active-pill {
-    background: rgba(255, 255, 255, 0.22) !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
     box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.15),
-        0 4px 12px rgba(0, 0, 0, 0.2) !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-.dark .ios26-active-pill.liquid-glass-fallback {
-    background: rgba(255, 255, 255, 0.22) !important;
-    box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.15),
-        0 4px 12px rgba(0, 0, 0, 0.2) !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
-}
 
 /* =========================================
    Chat Search Results & Global Search Results - iOS 26 Liquid Glass System

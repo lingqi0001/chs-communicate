@@ -132,12 +132,17 @@ export const NotifyModule = {
     _notificationsUnsub: null,
     _notificationSnapshotInitialized: false,
     _previousUnreadKeys: new Set(),
+    getFirebaseAuth() {
+        return auth || window.firebaseAuth;
+    },
 
     async initMonitor() {
-        if (!this.context.currentUser && auth.currentUser) {
+        const firebaseAuth = auth || window.firebaseAuth;
+        if (!this.context) this.context = {};
+        if (!this.context.currentUser && firebaseAuth?.currentUser) {
             this.context.currentUser = {
-                id: auth.currentUser.email.split('@')[0].replace(/\./g, '_'),
-                email: auth.currentUser.email
+                id: firebaseAuth.currentUser.email.split('@')[0].replace(/\./g, '_'),
+                email: firebaseAuth.currentUser.email
             };
         }
 
@@ -167,7 +172,11 @@ export const NotifyModule = {
         if (this._deviceUnsub) { this._deviceUnsub(); this._deviceUnsub = null; }
         if (this._notificationsUnsub) { this._notificationsUnsub(); this._notificationsUnsub = null; }
         this._notificationSnapshotInitialized = false;
-        this._previousUnreadKeys.clear();
+        if (!this._previousUnreadKeys) {
+            this._previousUnreadKeys = new Set();
+        } else {
+            this._previousUnreadKeys.clear();
+        }
 
         const deviceId = window.getOrCreateDeviceId();
         this._deviceUnsub = onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {

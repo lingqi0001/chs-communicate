@@ -147,15 +147,15 @@
     <script type="importmap">
     {
       "imports": {
-        "./js/core.js": "./js/core.js?v=20260519-0935",
+        "./js/core.js": "./js/core.js?v=20260918-portfolio-delete-v1",
         "./js/config.js": "./js/config.js?v=20260516-2380",
-        "./js/db.js": "./js/db.js?v=20260519-0925",
+        "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
         "./js/user.js": "./js/user.js?v=20260516-2380",
         "./js/view.js": "./js/view.js?v=20260612-1800",
-        "./js/notify_v2.js": "./js/notify_v2.js?v=20260516-2380",
+        "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
         "./js/modal.js": "./js/modal.js?v=20260516-2380",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260519-0220",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260918-portfolio-v8",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
@@ -167,20 +167,20 @@
         "./js/security.js": "./js/security.js?v=20260519-0935",
         "./js/search.js": "./js/search.js?v=20260522-structsplit-1",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
-        "./js/admin.js": "./js/admin.js?v=20260522"
-        ,"./js/chat.js": "./js/chat.js?v=20260612-1741"
+        "./js/admin.js": "./js/admin.js?v=20260522",
+        "./js/chat.js": "./js/chat.js?v=20260918-portfolio-v11"
       }
     }
     </script>
 
     <script type="module">
-        import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore, sRef, uploadBytes, getDownloadURL, deleteObject } from './js/core.js';
+        import { CoreModule, ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore, sRef, uploadBytes, getDownloadURL, deleteObject } from './js/core.js';
 
 
         import { firebaseConfig, APP_CONSTANTS, LIMITS, SYSTEM_USERS } from './js/config.js';
         import { NotifyModule } from './js/notify_v2.js';
         import { ModalModule } from './js/modal.js';
-        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, saveMessageLocal, getLocalMessages, saveModulePostLocal, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
+        import { DBModule, initCloudRefs, localDB, dbReady, initLocalDB, saveMessageLocal, deleteMessageLocal, getLocalMessages, saveModulePostLocal, getLocalNews, getLastKey, getLocalModulePosts } from './js/db.js';
         import { UserModule } from './js/user.js';
         import { ViewModule } from './js/view.js';
         import { UIComponents } from './js/ui-components.js';
@@ -278,6 +278,15 @@
 
         const av = document.getElementById('appVersionLabel');
         if (av) av.innerText = `Build: 20260516-2380`;
+
+        // Automatically purge any legacy writing_deleted_docs blacklists across all devices
+        try {
+            Object.keys(localStorage).forEach(k => {
+                if (k.startsWith('writing_deleted_docs_')) {
+                    localStorage.removeItem(k);
+                }
+            });
+        } catch (e) {}
 
         AppModules.View.init();
         AppModules.Gallery.init();
@@ -430,13 +439,14 @@
             }
 
             if (confirmed) {
-                if (window.innerWidth < 1024) {
-                    if (window.AppModules?.View?.showPanel) {
-                        window.AppModules.View.showPanel('messages');
-                    }
-                    if (typeof window.switchTab === 'function') {
-                        window.switchTab('messages');
-                    }
+                if (typeof window.closeExtension === 'function') {
+                    window.closeExtension();
+                }
+                if (typeof window.switchTab === 'function') {
+                    window.switchTab('messages');
+                }
+                if (window.AppModules?.View?.showPanel) {
+                    window.AppModules.View.showPanel('messages');
                 }
                 const card = document.getElementById('guestSignInCard');
                 if (card) {
@@ -1196,8 +1206,8 @@
         };
 
         const chatEngine = initChatEngine({
-            db, ref, push, set, get, update, query, orderByKey, startAfter, limitToLast, onChildAdded, onValue, serverTimestamp, endBefore,
-            UIComponents, AppModules, getChatId, getLocalMessages, saveMessageLocal, escapeHTML,
+            db, ref, push, set, get, update, query, orderByKey, startAfter, limitToLast, onChildAdded, onChildChanged, onChildRemoved, onValue, serverTimestamp, endBefore,
+            UIComponents, AppModules, getChatId, getLocalMessages, saveMessageLocal, deleteMessageLocal, escapeHTML,
             getCurrentUser: () => currentUser,
             getActiveTargetId: () => activeTargetId,
             getStopCurrentChatListener: () => stopCurrentChatListener,
@@ -3323,7 +3333,17 @@
                     <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
                 </div>
 
-                <div class="flex justify-end items-center relative h-full">
+                <div class="flex justify-end items-center relative h-full gap-1.5">
+                    <!-- Writing Portfolio Button -->
+                    <button id="chatWritingBtn" onclick="openWritingPortfolio()"
+                        class="hidden w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] flex items-center justify-center text-gray-600 dark:text-white/80 active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/20"
+                        title="Writing Portfolio">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                    </button>
+
                     <div id="chatSearchWrap"
                         class="hidden flex items-center relative transition-all duration-300 w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] overflow-hidden">
                         <button id="chatSearchIconBtn" onclick="toggleChatSearch()"
@@ -3393,14 +3413,56 @@
                         </button>
                     </div>
 
-                    <div class="flex gap-2 items-end w-full">
-                    <label id="chatCameraBtn" class="chat-fab-btn cursor-pointer transition-all duration-200 pointer-events-auto">
-                        <svg class="h-7 w-7 text-[#8E8E93]" viewBox="0 0 20 20" fill="currentColor">
-                            <path
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
-                        </svg>
-                        <input type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
-                    </label>
+                    <div class="flex gap-2 items-end w-full relative">
+                    <!-- Plus Attachment Button & Popup Menu -->
+                    <div class="relative flex-shrink-0">
+                        <button id="chatCameraBtn" type="button" onclick="toggleAttachMenu(event)" class="chat-fab-btn cursor-pointer transition-all duration-200 pointer-events-auto flex items-center justify-center">
+                            <svg id="chatAttachPlusIcon" class="h-6 w-6 text-[#8E8E93] transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+
+                        <!-- Hidden File Input for Photos -->
+                        <input id="chatImageFileInput" type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
+
+                        <!-- Attachment Popover Menu -->
+                        <div id="attachMenu" class="hidden menu-hidden absolute bottom-[54px] left-0 z-50 w-[210px] rounded-[22px] overflow-hidden p-1.5 pointer-events-auto">
+                            <!-- Photo Button -->
+                            <button type="button" onclick="triggerPhotoUpload()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Photos</span>
+                                    <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Upload images</span>
+                                </div>
+                            </button>
+
+                            <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
+                            <!-- Google Doc Button -->
+                            <button type="button" onclick="openAddGoogleDocDialog()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                        <polyline points="10 9 9 9 8 9"/>
+                                    </svg>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Google Doc</span>
+                                    <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Add link & comments</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
                     <div id="chatInputPill"
                         class="flex-1 flex items-center rounded-[24px] pl-[14px] pr-[4px] min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
@@ -3415,6 +3477,133 @@
                         </button>
                     </div>
                 </div>
+                </div>
+            </div>
+
+            <!-- Writing Portfolio Panel (Covering full chatSection including its header) -->
+            <div id="writingPortfolioDrawer"
+                class="hidden absolute inset-0 z-30 bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
+                <!-- Navigation Header (Synchronized with sidebar Level 2 header specifications) -->
+                <div id="writingPortfolioHeader" class="flex-shrink-0 flex items-center px-4 h-16 mt-safe bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 relative z-10">
+                    <button onclick="closeWritingPortfolio()"
+                        class="text-[#007AFF] flex items-center text-sm font-bold z-10 active:opacity-50 transition-opacity">
+                        <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back
+                    </button>
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-16">
+                        <div id="writingPortfolioTitle" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center truncate max-w-full">
+                            Writing Portfolio
+                        </div>
+                    </div>
+                    <div class="ml-auto z-10 flex items-center">
+                        <span id="writingPortfolioSubtitle" class="text-[11px] text-gray-400 font-medium truncate text-right"></span>
+                    </div>
+                </div>
+
+                <!-- Documents Timeline List -->
+                <div id="writingPortfolioContent" class="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-4">
+                    <!-- Timeline items rendered here -->
+                </div>
+
+                <!-- Local In-Panel Project / Version Edit Dialog (Constrained to writing panel, not full-screen) -->
+                <div id="portfolioProjectModal" class="hidden absolute inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200">
+                    <div id="portfolioProjectCard" class="w-full sm:max-w-md bg-white dark:bg-[#1C1C1E] border-t sm:border border-gray-200 dark:border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 text-left transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-200 ease-out">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5 mb-4">
+                            <div>
+                                <h3 id="portfolioProjectModalTitle" class="text-[16px] font-bold text-black dark:text-white">Edit Project / Version</h3>
+                                <p id="portfolioProjectDocName" class="text-[12px] text-gray-400 truncate max-w-[280px] mt-0.5"></p>
+                            </div>
+                            <button type="button" onclick="window.closePortfolioProjectModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Form Content -->
+                        <div class="space-y-4">
+                            <!-- Project Name Input -->
+                            <div>
+                                <label class="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Project Name</label>
+                                <input type="text" id="portfolioInputProjectName" placeholder="e.g. Macbeth Essay, Research Paper" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:border-[#007AFF] dark:focus:border-[#0A84FF] focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
+                            </div>
+
+                            <!-- Version Label Input & Presets -->
+                            <div>
+                                <label class="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Version Label</label>
+                                <input type="text" id="portfolioInputVersionLabel" placeholder="e.g. Draft 1, Draft 2, Final" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:border-[#007AFF] dark:focus:border-[#0A84FF] focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
+                                <!-- Quick Presets -->
+                                <div class="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-none py-0.5">
+                                    <button type="button" onclick="window.setPortfolioVersionPreset('Draft 1')" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">Draft 1</button>
+                                    <button type="button" onclick="window.setPortfolioVersionPreset('Draft 2')" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">Draft 2</button>
+                                    <button type="button" onclick="window.setPortfolioVersionPreset('Peer Review')" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">Peer Review</button>
+                                    <button type="button" onclick="window.setPortfolioVersionPreset('Final')" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">Final</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center justify-between gap-3 mt-6 pt-3 border-t border-gray-100 dark:border-white/5">
+                            <button type="button" id="portfolioBtnUngroup" onclick="window.submitPortfolioUngroup()" class="text-[13px] font-semibold text-red-500 hover:underline transition-colors">
+                                Remove from Project
+                            </button>
+                            <div class="flex items-center gap-2 ml-auto">
+                                <button type="button" onclick="window.closePortfolioProjectModal()" class="px-4 py-2 rounded-xl text-[13px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                                    Cancel
+                                </button>
+                                <button type="button" onclick="window.submitPortfolioProjectSave()" class="px-5 py-2 rounded-xl text-[13px] font-semibold bg-[#007AFF] hover:bg-[#0062cc] text-white shadow-sm transition-colors">
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Local In-Panel Portfolio Export Preview Modal -->
+                <div id="portfolioExportModal" class="hidden absolute inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-sm transition-opacity duration-200">
+                    <div id="portfolioExportCard" class="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left transform scale-95 transition-all duration-200 ease-out">
+                        <!-- Export Header -->
+                        <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-[#007AFF] dark:text-[#0A84FF] flex items-center justify-center">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M6 9V2h12v7"></path>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                        <rect x="6" y="14" width="12" height="8"></rect>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-[15px] font-bold text-black dark:text-white">Export Writing Portfolio</h3>
+                                    <p class="text-[11px] text-gray-400">Print or Save as PDF with authentic records</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="window.printPortfolioDossier()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#007AFF] text-white hover:bg-[#0062cc] active:scale-95 transition-all shadow-sm">
+                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                        <rect x="6" y="14" width="12" height="8"></rect>
+                                    </svg>
+                                    <span>Print / Save PDF</span>
+                                </button>
+                                <button type="button" onclick="window.closePortfolioExportModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Export Preview Body -->
+                        <div id="portfolioExportBody" class="flex-1 overflow-y-auto p-5 sm:p-6 bg-white dark:bg-[#1C1C1E] text-black dark:text-white text-xs space-y-4">
+                            <!-- Populated dynamically with clean printable dossier -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

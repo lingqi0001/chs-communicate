@@ -22,3 +22,7 @@ firebase-export*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Credentials
+*service-account*.json
+*credentials*.json

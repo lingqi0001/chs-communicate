@@ -8,9 +8,11 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, push, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { getMessaging, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
 
 export const CoreModule = {
     services: {
@@ -36,19 +38,23 @@ export const CoreModule = {
         const db = getDatabase(app);
         const storage = getStorage(app);
         const auth = getAuth(app);
+        const functions = getFunctions(app);
         
         // Instantiate Auth providers
         const googleProvider = new GoogleAuthProvider();
         const microsoftProvider = new OAuthProvider('microsoft.com');
 
-        this.services = { app, db, storage, auth, googleProvider, microsoftProvider, signInWithPopup, signInWithRedirect };
+        this.services = { app, db, storage, auth, functions, googleProvider, microsoftProvider, signInWithPopup, signInWithRedirect };
 
         // Export globals/aliases for debugging & legacy integration
         window.firebaseApp = app;
         window.firebaseDb = db;
         window.firebaseStorage = storage;
         window.firebaseAuth = auth;
+        window.firebaseFunctions = functions;
+        window.httpsCallable = httpsCallable;
         window.fRef = ref; window.fSet = set; window.fUpdate = update; window.fPush = push; window.fGet = get; window.fOnValue = onValue;
+
         window.sRef = sRef; window.sUpload = uploadBytes; window.sGetUrl = getDownloadURL;
         window.firebaseOnAuth = onAuthStateChanged;
 
@@ -168,5 +174,5 @@ export const CoreModule = {
 };
 
 // Re-export Firebase Database and Storage API functions for index.html use
-export { ref, push, set, get, update, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+export { ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 export { ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";

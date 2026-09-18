@@ -62,6 +62,8 @@ export const SearchModule = {
                         <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
                             <button onclick="setSearchCategory('messages')" id="searchCat-messages"
                                 class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
+                            <button onclick="setSearchCategory('writing')" id="searchCat-writing"
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Writing</button>
                             <button onclick="setSearchCategory('community')" id="searchCat-community"
                                 class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
                             <button onclick="setSearchCategory('news')" id="searchCat-news"
@@ -432,6 +434,129 @@ export const SearchModule = {
         ]);
 
         return results;
+    },
+
+    /**
+     * Dimension: Search Writing Annotations (Doc comments, quoted text, replies, titles)
+     */
+    async searchWritingAnnotations(term, currentUser, localDB, sidebarClasses, cnCache) {
+        const termLower = term.toLowerCase().trim();
+        if (!termLower || !localDB) return [];
+
+        try {
+            const tx = localDB.transaction("messages", "readonly");
+            const store = tx.objectStore("messages");
+            const allMsgs = await new Promise((resolve, reject) => {
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+
+            const currentUserIdLower = currentUser.id.toLowerCase();
+            const results = [];
+
+            for (const m of allMsgs) {
+                if (!m.chatId || (!m.docData && !(m.text && m.text.includes('docs.google.com/document/d/')))) continue;
+
+                if (m.chatId.startsWith('group_')) {
+                    const classId = m.chatId.replace('group_', '');
+                    if (!sidebarClasses || !sidebarClasses[classId]) continue;
+                } else {
+                    const otherParticipantId = getOtherParticipantId(m.chatId, currentUserIdLower);
+                    if (!otherParticipantId) continue;
+                }
+
+                let chatName = "Chat";
+                let jumpId = m.chatId;
+                if (m.chatId.startsWith('group_')) {
+                    const classId = m.chatId.replace('group_', '');
+                    chatName = (cnCache && cnCache[classId]) ? cnCache[classId] : "Class Chat";
+                } else {
+                    const otherId = getOtherParticipantId(m.chatId, currentUser.id);
+                    if (otherId) {
+                        chatName = window.ALL_USERS[otherId]?.name || otherId;
+                        jumpId = otherId;
+                    }
+                }
+
+                const docData = m.docData;
+                const docTitle = docData?.title || 'Google Doc';
+                const docUrl = docData?.docUrl || (m.text.match(/https:\/\/docs\.google\.com\/document\/d\/[a-zA-Z0-9-_]+[^\s<>"']*/)?.[0] || '');
+                const comments = docData?.comments || [];
+
+                // Check title match
+                if (docTitle.toLowerCase().includes(termLower)) {
+                    results.push({
+                        type: 'doc_title',
+                        chatId: m.chatId,
+                        chatName,
+                        jumpId,
+                        messageKey: m.key || (m.compositeId ? m.compositeId.substring(m.chatId.length + 1) : ''),
+                        docTitle,
+                        docUrl,
+                        quotedText: '',
+                        commentText: `${comments.length} comment(s) attached`,
+                        author: 'Document Title'
+                    });
+                }
+
+                // Check comments & quoted texts & replies
+                for (const c of comments) {
+                    const quote = c.quotedFileContent?.value || '';
+                    const commentBody = c.content || '';
+                    const author = c.author?.displayName || 'Reviewer';
+                    const replies = c.replies || [];
+
+                    const quoteMatched = quote.toLowerCase().includes(termLower);
+                    const commentMatched = commentBody.toLowerCase().includes(termLower);
+                    let replyMatched = false;
+                    let matchedReplyContent = '';
+                    let matchedReplyAuthor = '';
+
+                    for (const r of replies) {
+                        if ((r.content || '').toLowerCase().includes(termLower)) {
+                            replyMatched = true;
+                            matchedReplyContent = r.content;
+                            matchedReplyAuthor = r.author?.displayName || 'User';
+                            break;
+                        }
+                    }
+
+                    if (quoteMatched || commentMatched || replyMatched) {
+                        results.push({
+                            type: 'annotation',
+                            chatId: m.chatId,
+                            chatName,
+                            jumpId,
+                            messageKey: m.key || (m.compositeId ? m.compositeId.substring(m.chatId.length + 1) : ''),
+                            docId: docData?.fileId || docUrl,
+                            docTitle,
+                            docUrl,
+                            quotedText: quote,
+                            commentText: replyMatched ? `[Reply from ${matchedReplyAuthor}]: ${matchedReplyContent}` : commentBody,
+                            author: replyMatched ? matchedReplyAuthor : author,
+                            resolved: c.resolved
+                        });
+                    }
+                }
+            }
+
+            // Deduplicate: same document + same comment/quote should only show once
+            const seenKeys = new Set();
+            const uniqueResults = [];
+            for (const item of results) {
+                const uniqueKey = `${item.chatId}_${item.docId || item.docTitle}_${item.quotedText}_${item.commentText}`;
+                if (!seenKeys.has(uniqueKey)) {
+                    seenKeys.add(uniqueKey);
+                    uniqueResults.push(item);
+                }
+            }
+
+            return uniqueResults.slice(0, 30);
+        } catch (e) {
+            console.error('[SEARCH:WRITING] ✗ searchWritingAnnotations failed:', e);
+            return [];
+        }
     },
 
     async searchClubEvents(term, db) {
@@ -853,6 +978,49 @@ export const SearchModule = {
                                 </div>`);
                             }
                         } catch (err) { console.error('[SEARCH] ✗ Messages search FAILED:', err); }
+                    })());
+                }
+
+                // Writing search: trigger when 'all', 'messages', or 'writing'
+                if (cat === 'all' || cat === 'messages' || cat === 'writing') {
+                    searchPromises.push((async () => {
+                        console.log('[SEARCH] → Writing search starting...');
+                        try {
+                            if (!localDB) { await dbReady; }
+                            const sidebarClasses = getSidebarClasses();
+                            const cnCache = getCnCache();
+                            const writingResults = await this.searchWritingAnnotations(term, currentUser, localDB, sidebarClasses, cnCache);
+                            console.log('[SEARCH] → Writing results:', writingResults.length);
+
+                            if (writingResults.length > 0) {
+                                let chunk = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-[#007AFF] dark:text-[#0A84FF] uppercase tracking-wider flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                    Writing & Annotations
+                                </div>`;
+                                writingResults.forEach(w => {
+                                    const escapedJumpId = escapeForInlineHandler(w.jumpId);
+                                    const escapedKey = escapeForInlineHandler(w.messageKey || '');
+                                    const escapedDocTitle = escapeForInlineHandler(w.docTitle || '');
+
+                                    let quoteSnippet = '';
+                                    if (w.quotedText) {
+                                        quoteSnippet = `<div class="mt-1 px-2.5 py-1.5 rounded-xl bg-[#007AFF]/[0.06] dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 text-[11px] line-clamp-1 italic">"${window.escapeHTML(w.quotedText)}"</div>`;
+                                    }
+
+                                    chunk += `<div onclick="switchChat('${escapedJumpId}'); triggerAddHistory('${escapedTerm}'); setTimeout(() => { if (typeof openWritingPortfolio === 'function') { openWritingPortfolio('${escapedKey}'); } else { jumpToMessage('${escapedDocTitle}', '${escapedTerm}', '${escapedKey}'); } }, 500); clearGlobalSearch();" class="px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-xs font-bold text-[#007AFF] truncate">${window.escapeHTML(w.docTitle)}</span>
+                                            <span class="text-[10px] text-gray-400 shrink-0">in ${window.escapeHTML(w.chatName)}</span>
+                                        </div>
+                                        ${quoteSnippet}
+                                        <div class="text-xs text-gray-700 dark:text-gray-200 line-clamp-2 mt-1 leading-snug">
+                                            <span class="font-semibold text-black dark:text-white">${window.escapeHTML(w.author)}:</span> ${window.escapeHTML(w.commentText)}
+                                        </div>
+                                    </div>`;
+                                });
+                                appendHtml(chunk);
+                            }
+                        } catch (err) { console.error('[SEARCH] ✗ Writing search FAILED:', err); }
                     })());
                 }
 
