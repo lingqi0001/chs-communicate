@@ -134,50 +134,48 @@ export const SidebarModule = {
         if (!container) return;
         container.innerHTML = `
             <div id="guestSignInCard" class="flex-1 w-full flex flex-col justify-center items-center px-4 py-8 text-center select-none overflow-y-auto min-h-[360px] transition-all duration-300">
-                <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#007AFF]/20 to-[#007AFF]/5 dark:from-[#0A84FF]/30 dark:to-[#0A84FF]/10 flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] shadow-inner mb-4 ring-1 ring-[#007AFF]/20">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <div class="w-16 h-16 bg-[#E3F2FD] dark:bg-[#1e293b] rounded-[22px] rounded-bl-none flex items-center justify-center shadow-md mb-4 relative overflow-hidden">
+                    <svg class="w-11 h-11 drop-shadow-sm" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                        <polygon fill="white"
+                            points="12.6,121.7 75.6,96.1 74.1,90.8 127.5,79.2 130.2,76.3 140.4,75.3 164.3,75.7 192.3,81.8 212.9,81.8 215.1,87.3 246.7,95.8 251.7,112.8 245.5,125.3 235.5,130.4 233.5,128.5 233.9,112.7 218.4,114.3 204.7,120.5 206.6,125.3 220.7,152.5 208.3,152.5 178.9,137.5 170.9,136.1 156.2,141.7 147,152.1 148,168.7 88.4,174.1 35.2,145.8 33.3,138.1" />
+                        <path fill="#ED2129"
+                            d="M243.8,97.1c-14.5-6.1-17.4-4.7-32.5-4.8c-2.4,1.8-2.4,3.2-4.8,4.2l-6.6,3.1c-2.5,6.3-5,19.9-15.5,24.5 l-10.9,5.1c11.2,10.6,32.1,25.6,45.4,21.2l-4.1-8.2l-11.3-16.5l0.9-0.8l-3.1,3.4c0.7,2,0.4,2.4,1.2,3.5l11.4,14.2 c-10.4,0.4-20-7.2-28.3-15.1c1.9-3.5,4.6-6.3,9.2-9.3l3.8-2.5c10.7-7,31.6-13.2,37.6-4l1.5,2.3c1.8,2.8-0.2,8.5-2.9,10.6l1,1.5 l6.8-4.5C251.2,119.4,249.7,106.5,243.8,97.1L243.8,97.1z M76.6,92.4l0.5,0.8l15.6,0.2l-13.4,4.8c-6.2-0.8-47.9,18.3-57.7,24.8 c8.3,4.6,16.1,10.5,25.4,10.6c21.9-14.4,41.5-20,61.5-27.3l8-1.5l-15.6,6.4c-12.3,0.2-45.5,26.5-58.6,35.1 c4.8,4.6,21.4,8.2,27.7,9.1l18-15.5l3.3-1.7c16.7-11,30.4-10.8,44-15.8l10.5-1l-14.5,4.8l-29.2,11.6l-1.2,1.7 c-12.6,8.2-15.3,15.9-22.6,23.5c4,5.1,27.6,9.5,34,7.1c-0.8-8.4,5.4-17.6,14.8-23.8l6.1-4c13.2-8.7,25.5-10.2,36.9-10l-5.3-3.1 l-5.6-1.6c7.3-2.6,11.8-0.3,21.8-6.9l4.6-3c3.7-2.4,5.5-5.5,6.4-8.5l-10.4,5.9l-0.5-0.9l8.4-5.5l-0.9-8.1c-3.8-1.1-1.3,1.9-4.1,3.8 l-0.8,0.5c-2.5,1.6-1-0.3-4.8,1l-2.6-2.7l-0.2-1.9l2.1-1.5l-3-1.3c-0.4,1.3-1.5,4.3-0.6,5.8c1.5,2.3,4.5,2.5,6.5,3.3l1.8,0.9 l1.5-0.9l2.3-1.5c-0.6,2-0.3,2.4-2.8,4c-3.8,2.5-10.3,1-13.6-0.9c-2.8-1.3-6.7-4.5-10-5.6c-3.4-1.2-8.9-0.3-11.4-2.2l10.4-2.3 c-4.6-6.7-10.8-2.9-15.6-7.2l-16.1,2c5-3.3,16.9-3.8,22.6-4.4c9.4-1.1,14,1.5,21.3,1.6l-4.6-3.4c4.8-0.1,10.4,5.6,18.3,7.2 c4.5,1,14.9,0.3,19.9-4.1l6.2-5.4l-0.8-1.3c-16.9,6.2-55.7-15.2-80.2-6.2l0.5,0.8l2.5,0.5l3.8,1.2l-3.3-0.4L76.6,92.4L76.6,92.4z M213.5,100.6l-2.3,1.5c-3.3,2.2-3.1,0.3-7.1,2.5c0.5-1.7,1.1-4,3.1-5.3C208.5,98.4,212.2,99.4,213.5,100.6L213.5,100.6z M160,136.7c-3.7-0.5-8.4,1.1-12.6,3.9l-7.6,5c-6,3.9-12,11.6-12.1,16.6l-0.1,1.1l15.4,1.8l0.1-0.9 C135.9,152.7,148.3,144.4,160,136.7L160,136.7z M185,101.9l-1-1.5l-1.5,1l1,1.5L185,101.9L185,101.9z M162.5,74.2 c7.9,0.1,19.7,3.1,27.9,4.8c7,1.5,26.3,0.8,28.6,1.7l-2,5c1.9,1.8,28.5,4.1,31.9,9.2l1.5,2.3c7,10.6,4.4,24.3-5.8,31l-0.8,0.5 c-4.3,2.8-9,2.7-12.6,3.9l-1-1.5c3-2.3,4.2-6.9,2.1-10.1c-3.7-5.6-16.4-3.4-21.7,0.1c-1.8,1.2-2.9,5.5-2.1,6.8 c3.6,5.5,7,8.6,9.8,13.2c3.4,5.7,2.5,9.9,4.4,13.4c-9.1,3.3-35.4-6.1-42.8-15.5c-5.8,2.1-11.3-2.4-22,4.6l-0.8,0.5 c-4.5,2.9-7.6,10-4.4,14.8l2.5,3.8c1.5,2.3,5.8,4.9,3.2,6.6c-13.5,8.8-28,2.6-33.1,4.3l1.5,4.4c-7.2,4.6-12.6,2.4-19.5,3.1 c-7.7-0.2-45.7-7-49.8-13l5.5-4.9c-9-3.8-33.9-7.3-42.2-14.6l11.4-7.5l-31.4-18l0.5-1.3l48.8-18.7l22.4-6.8L59.8,94l-0.1-1.3 l59.6-13.1l-3.9-2.9l-0.1-0.9L162.5,74.2L162.5,74.2z" />
                     </svg>
                 </div>
                 <h3 class="text-xl font-bold text-black dark:text-white tracking-tight mb-1.5">
                     Sign in to Messages
                 </h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 max-w-[240px] leading-relaxed">
-                    Connect with classmates, join study groups, and chat in real-time.
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 whitespace-nowrap leading-relaxed">
+                    Connect With Your Class, Clubs, Chat in real-time
                 </p>
 
                 <div class="w-full space-y-2.5 max-w-[260px]">
                     <button onclick="loginWithMicrosoft()"
                         class="w-full bg-white dark:bg-[#2C2C2E] text-black dark:text-white border border-gray-200/80 dark:border-white/10 py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2.5 shadow-sm hover:bg-gray-50 dark:hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer">
-                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 32 32">
-                            <rect x="2" y="2" width="13" height="13" fill="#f25022" />
-                            <rect x="17" y="2" width="13" height="13" fill="#7fba00" />
-                            <rect x="2" y="17" width="13" height="13" fill="#00a4ef" />
-                            <rect x="17" y="17" width="13" height="13" fill="#ffb900" />
-                        </svg>
+                        <img src="/resources/hcpss.png" alt="HCPSS" class="w-5 h-5 shrink-0 rounded-full object-contain" />
                         <div class="text-left flex flex-col">
-                            <span class="leading-tight text-[13px]">Sign In with Microsoft</span>
-                            <span class="text-[10px] text-gray-400 font-normal leading-tight">HCPSS accounts</span>
+                            <span class="leading-tight text-[13px]">Sign in With HCPSS</span>
+                            <span class="text-[10px] text-gray-400 font-normal leading-tight">Microsoft accounts</span>
                         </div>
                     </button>
 
                     <button onclick="loginWithGoogle()"
-                        class="w-full bg-white dark:bg-[#2C2C2E] text-black dark:text-white border border-gray-200/80 dark:border-white/10 py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2.5 shadow-sm hover:bg-gray-50 dark:hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer">
-                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                        class="w-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                            <!-- Blue section -> medium dark grey -->
+                            <path fill="#6B7280" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <!-- Green section -> dark grey -->
+                            <path fill="#4B5563" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <!-- Yellow section -> light silver grey -->
+                            <path fill="#D1D5DB" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                            <!-- Red section -> medium grey -->
+                            <path fill="#9CA3AF" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                         </svg>
-                        <div class="text-left flex flex-col">
-                            <span class="leading-tight text-[13px]">Sign In with Google</span>
-                            <span class="text-[10px] text-gray-400 font-normal leading-tight">Administrator</span>
-                        </div>
+                        <span class="text-[11px] font-normal">Administrator Sign in</span>
                     </button>
                 </div>
 
                 <div class="mt-6 flex flex-col items-center gap-1.5">
-                    <span class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Centennial High School</span>
                     <button onclick="handleTroubleRefresh()" class="text-[11px] text-[#007AFF] dark:text-[#0A84FF] hover:underline cursor-pointer">
                         Having trouble? Refresh
                     </button>

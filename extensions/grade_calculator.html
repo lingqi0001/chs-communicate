@@ -181,7 +181,7 @@
     </script>
 </head>
 <body class="pb-10 transition-colors duration-200">
-    <div class="px-5 pt-4 pb-20 max-w-2xl mx-auto">
+    <div id="mainContainer" class="px-5 pt-4 pb-20 max-w-2xl mx-auto transition-all duration-300">
         <header id="standaloneHeader" class="hidden flex items-center justify-between pb-3 mb-4 border-b border-[var(--border)]">
             <a href="/?tab=tools" title="Back to CHSchat" class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all cursor-pointer">
                 <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
@@ -198,7 +198,10 @@
             <button id="calcTabSem" onclick="switchCalcType('semester')"
                 class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center rounded-xl transition-all text-gray-400">Semester</button>
             <button id="calcTabGpa" onclick="switchCalcType('gpa')"
-                class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center rounded-xl transition-all text-gray-400">Total GPA</button>
+                class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center gap-1.5 rounded-xl transition-all text-gray-400">
+                <span>Total GPA</span>
+                <span class="hidden sm:inline-block text-[10px] font-medium opacity-80 bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-[#007AFF] dark:text-[#38BDF8] px-1.5 py-0.5 rounded-md leading-none">Convert to college GPA</span>
+            </button>
         </div>
 
         <!-- Year-Long View -->
@@ -314,118 +317,705 @@
         </div>
 
         <!-- GPA Calculator View -->
-        <div id="calcGpaView" class="hidden space-y-6">
-            <!-- GPA Result Card -->
-            <div class="gold-panel rounded-3xl p-6 text-center">
-                <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--muted);">Total GPA</p>
-                <div class="grid grid-cols-2 divide-x divide-[var(--border)]">
-                    <div>
-                        <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Weighted</div>
-                        <div id="gpaWeighted" class="text-4xl font-black text-[#007AFF] dark:text-[#38BDF8]">0.00</div>
+        <div id="calcGpaView" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- Left Column: HCPSS Total GPA inputs -->
+                <div class="lg:col-span-7 space-y-6">
+                    <!-- GPA Result Card -->
+                    <div class="gold-panel rounded-3xl p-6 text-center">
+                        <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--muted);">Total GPA (HCPSS Standard)</p>
+                        <div class="grid grid-cols-2 divide-x divide-[var(--border)]">
+                            <div>
+                                <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Weighted</div>
+                                <div id="gpaWeighted" class="text-4xl font-black text-[#007AFF] dark:text-[#38BDF8]">0.00</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Unweighted</div>
+                                <div id="gpaUnweighted" class="text-4xl font-black" style="color: var(--text);">0.00</div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-[var(--border)] text-xs" style="color: var(--muted);">
+                            Total Courses Counted: <span id="gpaTotalCourses" class="font-bold" style="color: var(--text);">0</span>
+                        </div>
                     </div>
-                    <div>
-                        <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Unweighted</div>
-                        <div id="gpaUnweighted" class="text-4xl font-black" style="color: var(--text);">0.00</div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-[var(--border)] text-xs" style="color: var(--muted);">
-                    Total Courses Counted: <span id="gpaTotalCourses" class="font-bold" style="color: var(--text);">0</span>
-                </div>
-            </div>
 
-            <!-- Grade Count Inputs by Course Level -->
-            <div class="space-y-4">
-                <!-- AP / GT Section -->
-                <div class="gold-panel rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold uppercase tracking-wider text-[#007AFF] dark:text-[#38BDF8]">AP / GT Courses</span>
-                        <span class="text-[11px]" style="color: var(--muted);">A=5.0 · B=4.0 · C=3.0</span>
-                    </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                            <input type="number" min="0" value="0" id="gpa-ap-a" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                    <!-- Grade Count Inputs by Course Level -->
+                    <div class="space-y-4">
+                        <!-- AP / GT Section -->
+                        <div class="gold-panel rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">AP / GT Courses</span>
+                                <span class="text-[11px]" style="color: var(--muted);">A=5.0 · B=4.0 · C=3.0</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                                    <input type="number" min="0" value="0" id="gpa-ap-a" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                                    <input type="number" min="0" value="0" id="gpa-ap-b" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                                    <input type="number" min="0" value="0" id="gpa-ap-c" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                            </div>
                         </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                            <input type="number" min="0" value="0" id="gpa-ap-b" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+
+                        <!-- Honors Section -->
+                        <div class="gold-panel rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Honors Courses</span>
+                                <span class="text-[11px]" style="color: var(--muted);">A=4.5 · B=3.5 · C=2.5</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                                    <input type="number" min="0" value="0" id="gpa-hon-a" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                                    <input type="number" min="0" value="0" id="gpa-hon-b" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                                    <input type="number" min="0" value="0" id="gpa-hon-c" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                            </div>
                         </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                            <input type="number" min="0" value="0" id="gpa-ap-c" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+
+                        <!-- Regular Section -->
+                        <div class="gold-panel rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Regular Courses</span>
+                                <span class="text-[11px]" style="color: var(--muted);">A=4.0 · B=3.0 · C=2.0</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                                    <input type="number" min="0" value="0" id="gpa-reg-a" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                                    <input type="number" min="0" value="0" id="gpa-reg-b" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                                    <input type="number" min="0" value="0" id="gpa-reg-c" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- All Courses D & E -->
+                        <div class="gold-panel rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">All Courses (Standard)</span>
+                                <span class="text-[11px]" style="color: var(--muted);">D=1.0 · E=0.0</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of D's</label>
+                                    <input type="number" min="0" value="0" id="gpa-all-d" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of E's</label>
+                                    <input type="number" min="0" value="0" id="gpa-all-e" oninput="calculateGpa()"
+                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Honors Section -->
-                <div class="gold-panel rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Honors Courses</span>
-                        <span class="text-[11px]" style="color: var(--muted);">A=4.5 · B=3.5 · C=2.5</span>
+                <!-- Right Column (Desktop) / Bottom (Mobile): Specific College & University Converters -->
+                <div class="lg:col-span-5 space-y-4">
+                    <div class="flex items-center justify-between px-1">
+                        <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">College Converters</h3>
+                        <button type="button" onclick="syncAllFromHcpss(true)"
+                            title="Auto-fill all colleges from HCPSS inputs"
+                            class="py-1.5 px-3 rounded-xl bg-[#007AFF] hover:bg-[#007AFF]/90 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            Sync All
+                        </button>
                     </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                            <input type="number" min="0" value="0" id="gpa-hon-a" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                            <input type="number" min="0" value="0" id="gpa-hon-b" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                            <input type="number" min="0" value="0" id="gpa-hon-c" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Regular Section -->
-                <div class="gold-panel rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Regular Courses</span>
-                        <span class="text-[11px]" style="color: var(--muted);">A=4.0 · B=3.0 · C=2.0</span>
-                    </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                            <input type="number" min="0" value="0" id="gpa-reg-a" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                            <input type="number" min="0" value="0" id="gpa-reg-b" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                            <input type="number" min="0" value="0" id="gpa-reg-c" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                        </div>
-                    </div>
-                </div>
+                    <!-- Enclosed College List Rectangular Box -->
+                    <div class="gold-panel rounded-2xl overflow-hidden border border-[var(--border)] divide-y divide-[var(--border)] shadow-sm">
+                        <!-- 1. University of California (UC) Accordion Calculator -->
+                        <div class="transition-colors duration-200">
+                            <button type="button" onclick="toggleConverterAccordion('ucConverterContent', 'ucArrow')"
+                                class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                        UC
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-bold" style="color: var(--text);">University of California</div>
+                                        <div class="text-[11px]" style="color: var(--muted);">RogerHub A-G Capped, Unweighted, Fully Weighted</div>
+                                    </div>
+                                </div>
+                                <svg id="ucArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
 
-                <!-- All Courses D & E -->
-                <div class="gold-panel rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--muted);">All Courses (Standard)</span>
-                        <span class="text-[11px]" style="color: var(--muted);">D=1.0 · E=0.0</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of D's</label>
-                            <input type="number" min="0" value="0" id="gpa-all-d" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        <div id="ucConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to UC:</div>
+                                <div>• Each full-year high school course is counted as <strong>2 semester grades</strong> (e.g. 1 year of AP Calculus = 2 semester A's).</div>
+                                <div>• UC admissions evaluates 10th-11th grade A-G courses. <strong>Capped GPA</strong> limits extra honors/AP bonus points to a maximum of 8 semesters.</div>
+                            </div>
+
+                            <!-- UC Live Results -->
+                            <div class="grid grid-cols-3 gap-2 p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase" style="color: var(--muted);">Unweighted</div>
+                                    <div id="ucResUnweighted" class="text-base font-black" style="color: var(--text);">0.00</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase text-[#007AFF] dark:text-[#38BDF8]">Capped W.</div>
+                                    <div id="ucResCapped" class="text-base font-black text-[#007AFF] dark:text-[#38BDF8]">0.00</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase" style="color: var(--muted);">Fully W.</div>
+                                    <div id="ucResFully" class="text-base font-black" style="color: var(--text);">0.00</div>
+                                </div>
+                            </div>
+
+                            <!-- UC Inputs -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A's (4.0 pts)</label>
+                                        <div class="text-[10px]" style="color: var(--muted);">Semester count</div>
+                                        <input type="number" min="0" value="0" id="uc-grades-a" oninput="calculateUcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B's (3.0 pts)</label>
+                                        <div class="text-[10px]" style="color: var(--muted);">Semester count</div>
+                                        <input type="number" min="0" value="0" id="uc-grades-b" oninput="calculateUcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C's (2.0)</label>
+                                        <input type="number" min="0" value="0" id="uc-grades-c" oninput="calculateUcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
+                                        <input type="number" min="0" value="0" id="uc-grades-d" oninput="calculateUcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
+                                        <input type="number" min="0" value="0" id="uc-grades-f" oninput="calculateUcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-0.5">
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">How many Honors / GT / APs / IBs do you have (C or better)?</label>
+                                        <span class="text-[10px]" style="color: var(--muted);">Max 8 for Capped</span>
+                                    </div>
+                                    <input type="number" min="0" value="0" id="uc-honors-count" oninput="calculateUcGpa()"
+                                         class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-end gap-3 border-t border-[var(--border)]">
+                                <a href="https://admission.universityofcalifornia.edu/admission-requirements/first-year-requirements/gpa-requirement.html" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    UC Official GPA Policy
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                                <a href="https://rogerhub.com/gpa-calculator-uc/" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-gray-400 hover:text-[#007AFF] transition-colors flex items-center gap-0.5">
+                                    RogerHub
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of E's</label>
-                            <input type="number" min="0" value="0" id="gpa-all-e" oninput="calculateGpa()"
-                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                    </div>
+
+                    <!-- 2. University of Maryland (UMD College Park) Accordion Calculator -->
+                    <div class="transition-colors duration-200">
+                        <button type="button" onclick="toggleConverterAccordion('umdConverterContent', 'umdArrow')"
+                            class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    UMD
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold" style="color: var(--text);">University of Maryland</div>
+                                    <div class="text-[11px]" style="color: var(--muted);">Plus / Minus Scale (A/A+=4.0, A-=3.7, B+=3.3, B=3.0...)</div>
+                                </div>
+                            </div>
+                            <svg id="umdArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div id="umdConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to UMD:</div>
+                                <div>• Each full-year high school course counts as <strong>2 semester grades</strong>.</div>
+                                <div>• Standard high school letter grades map directly into UMD base quality points (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0).</div>
+                            </div>
+
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Estimated UMD GPA</div>
+                                <div id="umdGpaResult" class="text-3xl font-black mt-0.5" style="color: var(--text);">0.00</div>
+                                <div class="text-[10px] mt-1" style="color: var(--muted);">Total Semesters: <span id="umdTotalCredits" class="font-bold">0</span></div>
+                            </div>
+
+                            <!-- UMD Grade Counts -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A / A+ (4.0)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-a" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A- (3.7)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-am" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B+ (3.3)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-bp" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B (3.0)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-b" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B- (2.7)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-bm" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C+ (2.3)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-cp" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C (2.0)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-c" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C- (1.7)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-cm" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-d" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
+                                        <input type="number" min="0" value="0" id="umd-grades-f" oninput="calculateUmdGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+                                <a href="https://registrar.umd.edu/grades-records" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    UMD Registrar Grades Policy
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Howard Community College (HCC) Accordion Calculator -->
+                    <div class="transition-colors duration-200">
+                        <button type="button" onclick="toggleConverterAccordion('hccConverterContent', 'hccArrow')"
+                            class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    HCC
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold" style="color: var(--text);">Howard Community College</div>
+                                    <div class="text-[11px]" style="color: var(--muted);">Standard 4.0 Scale (JumpStart & Dual Enrollment)</div>
+                                </div>
+                            </div>
+                            <svg id="hccArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div id="hccConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to HCC:</div>
+                                <div>• Each full-year high school course is converted into <strong>2 semester grades</strong>.</div>
+                                <div>• HCC evaluates courses and JumpStart dual enrollment on a standard 4.0 quality points scale (A=4, B=3, C=2, D=1, F/E=0).</div>
+                            </div>
+
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-[#007AFF] dark:text-[#38BDF8]">Estimated HCC GPA</div>
+                                <div id="hccGpaResult" class="text-3xl font-black mt-0.5" style="color: var(--text);">0.00</div>
+                                <div class="text-[10px] mt-1" style="color: var(--muted);">Total Semesters: <span id="hccTotalCredits" class="font-bold">0</span></div>
+                            </div>
+
+                            <!-- HCC Grade Counts -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A's (4.0 pts)</label>
+                                        <input type="number" min="0" value="0" id="hcc-grades-a" oninput="calculateHccGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B's (3.0 pts)</label>
+                                        <input type="number" min="0" value="0" id="hcc-grades-b" oninput="calculateHccGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C's (2.0)</label>
+                                        <input type="number" min="0" value="0" id="hcc-grades-c" oninput="calculateHccGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
+                                        <input type="number" min="0" value="0" id="hcc-grades-d" oninput="calculateHccGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
+                                        <input type="number" min="0" value="0" id="hcc-grades-f" oninput="calculateHccGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+                                <a href="https://www.howardcc.edu/programs-courses/dual-enrollment/" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    HCC JumpStart Dual Enrollment
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. UMBC (Univ. of Maryland, Baltimore County) Accordion Calculator -->
+                    <div class="transition-colors duration-200">
+                        <button type="button" onclick="toggleConverterAccordion('umbcConverterContent', 'umbcArrow')"
+                            class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] tracking-tight shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    UMBC
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold" style="color: var(--text);">UMBC (Baltimore County)</div>
+                                    <div class="text-[11px]" style="color: var(--muted);">Regular Standard Scale (No +/- quality point difference)</div>
+                                </div>
+                            </div>
+                            <svg id="umbcArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div id="umbcConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to UMBC:</div>
+                                <div>• Each full-year high school course converts into <strong>2 semester grades</strong>.</div>
+                                <div>• UMBC calculates GPA using a strict standard 4.0 scale with no plus/minus GPA distinction (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0).</div>
+                            </div>
+
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Estimated UMBC GPA</div>
+                                <div id="umbcGpaResult" class="text-3xl font-black mt-0.5" style="color: var(--text);">0.00</div>
+                                <div class="text-[10px] mt-1" style="color: var(--muted);">Total Semesters: <span id="umbcTotalCredits" class="font-bold">0</span></div>
+                            </div>
+
+                            <!-- UMBC Grade Counts -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A's (4.0 pts)</label>
+                                        <input type="number" min="0" value="0" id="umbc-grades-a" oninput="calculateUmbcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B's (3.0 pts)</label>
+                                        <input type="number" min="0" value="0" id="umbc-grades-b" oninput="calculateUmbcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C's (2.0)</label>
+                                        <input type="number" min="0" value="0" id="umbc-grades-c" oninput="calculateUmbcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
+                                        <input type="number" min="0" value="0" id="umbc-grades-d" oninput="calculateUmbcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
+                                        <input type="number" min="0" value="0" id="umbc-grades-f" oninput="calculateUmbcGpa()"
+                                             class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+                                <a href="https://catalog.umbc.edu/" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    UMBC Official Catalog
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Johns Hopkins University (JHU) Accordion Calculator -->
+                    <div class="transition-colors duration-200">
+                        <button type="button" onclick="toggleConverterAccordion('jhuConverterContent', 'jhuArrow')"
+                            class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    JHU
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold" style="color: var(--text);">Johns Hopkins University</div>
+                                    <div class="text-[11px]" style="color: var(--muted);">Undergraduate Quality Point Scale (A+/A=4.0, A-=3.7...)</div>
+                                </div>
+                            </div>
+                            <svg id="jhuArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div id="jhuConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to JHU:</div>
+                                <div>• Each full-year high school course converts into <strong>2 semester grades</strong>.</div>
+                                <div>• Standard letter grades map to JHU's quality points scale (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0). JHU evaluates AP exam credit for college placement.</div>
+                            </div>
+
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">Estimated JHU GPA</div>
+                                <div id="jhuGpaResult" class="text-3xl font-black mt-0.5" style="color: var(--text);">0.00</div>
+                                <div class="text-[10px] mt-1" style="color: var(--muted);">Total Semesters: <span id="jhuTotalCredits" class="font-bold">0</span></div>
+                            </div>
+
+                            <!-- JHU Grade Counts -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A+ / A (4.0)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-a" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A- (3.7)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-am" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B+ (3.3)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-bp" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B (3.0)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-b" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B- (2.7)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-bm" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C+ (2.3)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-cp" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C (2.0)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-c" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C- (1.7)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-cm" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D's (1.0)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-d" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F's (0.0)</label>
+                                        <input type="number" min="0" value="0" id="jhu-grades-f" oninput="calculateJhuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+                                <a href="https://e-catalogue.jhu.edu/" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    JHU Academic Catalogue
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Penn State University (PSU) Accordion Calculator -->
+                    <div class="transition-colors duration-200">
+                        <button type="button" onclick="toggleConverterAccordion('psuConverterContent', 'psuArrow')"
+                            class="w-full p-4 flex items-center justify-between text-left hover:opacity-90 transition-opacity cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background-color: rgba(0, 122, 255, 0.10) !important; color: var(--text) !important;">
+                                    PSU
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold" style="color: var(--text);">Penn State University</div>
+                                    <div class="text-[11px]" style="color: var(--muted);">Senate Policy 51-30 Scale (A=4.0, A-=3.67, B+=3.33...)</div>
+                                </div>
+                            </div>
+                            <svg id="psuArrow" class="w-4 h-4 transition-transform duration-200" style="color: var(--muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div id="psuConverterContent" class="hidden p-4 pt-0 border-t border-[var(--border)] space-y-4">
+                            <!-- Explanation Callout -->
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-[11px] leading-relaxed space-y-1 mt-3" style="background: var(--bg); color: var(--muted);">
+                                <div class="font-bold text-[12px]" style="color: var(--text);">How HCPSS grades convert to Penn State:</div>
+                                <div>• Each full-year high school course converts into <strong>2 semester grades</strong>.</div>
+                                <div>• Penn State calculates grade-point averages under Senate Policy 51-30 using standard university letter weights (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0).</div>
+                            </div>
+
+                            <div class="p-3 rounded-xl border border-[var(--border)] text-center" style="background: var(--bg);">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Estimated Penn State GPA</div>
+                                <div id="psuGpaResult" class="text-3xl font-black mt-0.5" style="color: var(--text);">0.00</div>
+                                <div class="text-[10px] mt-1" style="color: var(--muted);">Total Semesters: <span id="psuTotalCredits" class="font-bold">0</span></div>
+                            </div>
+
+                            <!-- PSU Grade Counts -->
+                            <div class="space-y-3 text-xs">
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A (4.0)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-a" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">A- (3.67)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-am" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B+ (3.33)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-bp" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B (3.0)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-b" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">B- (2.67)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-bm" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C+ (2.33)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-cp" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">C (2.0)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-c" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">D (1.0)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-d" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-semibold" style="color: var(--text);">F (0.0)</label>
+                                        <input type="number" min="0" value="0" id="psu-grades-f" oninput="calculatePsuGpa()"
+                                            class="w-full gold-input p-2 rounded-lg text-center font-bold mt-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+                                <a href="https://senate.psu.edu/curriculum/policies-rules-for-undergraduate-instruction-and-curriculum/" target="_blank" rel="noopener noreferrer"
+                                    class="text-[11px] text-[#007AFF] dark:text-[#38BDF8] hover:underline flex items-center gap-0.5 font-medium">
+                                    Penn State Senate Policies
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -487,7 +1077,11 @@
             semView.classList.add('hidden');
             gpaView.classList.add('hidden');
 
+            const mainContainer = document.getElementById('mainContainer');
+
             if (type === 'year') {
+                mainContainer?.classList.remove('max-w-5xl');
+                mainContainer?.classList.add('max-w-2xl');
                 setBtnActive(btnYear);
                 yearView.classList.remove('hidden');
                 gradeResultCard.classList.remove('hidden');
@@ -495,6 +1089,8 @@
                 updateGradingScaleUI(false);
                 calculateGrade();
             } else if (type === 'semester') {
+                mainContainer?.classList.remove('max-w-5xl');
+                mainContainer?.classList.add('max-w-2xl');
                 setBtnActive(btnSem);
                 semView.classList.remove('hidden');
                 gradeResultCard.classList.remove('hidden');
@@ -502,11 +1098,19 @@
                 updateGradingScaleUI(true);
                 calculateGrade();
             } else if (type === 'gpa') {
+                mainContainer?.classList.remove('max-w-2xl');
+                mainContainer?.classList.add('max-w-5xl');
                 setBtnActive(btnGpa);
                 gpaView.classList.remove('hidden');
                 gradeResultCard.classList.add('hidden');
                 gradingScaleRef.classList.add('hidden');
                 calculateGpa();
+                calculateUcGpa();
+                calculateUmdGpa();
+                calculateHccGpa();
+                calculateUmbcGpa();
+                calculateJhuGpa();
+                calculatePsuGpa();
             }
         };
 
@@ -654,8 +1258,286 @@
             document.getElementById('gpaUnweighted').innerText = unweightedGpa;
         };
 
+        // Accordion Toggle for University Converters
+        window.toggleConverterAccordion = (contentId, arrowId) => {
+            const content = document.getElementById(contentId);
+            const arrow = document.getElementById(arrowId);
+            if (!content) return;
+            const isHidden = content.classList.contains('hidden');
+            if (isHidden) {
+                content.classList.remove('hidden');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        };
+
+        // Helper: get current HCPSS course inputs
+        function getHcpssGrades() {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const apA = getVal('gpa-ap-a');
+            const apB = getVal('gpa-ap-b');
+            const apC = getVal('gpa-ap-c');
+            const honA = getVal('gpa-hon-a');
+            const honB = getVal('gpa-hon-b');
+            const honC = getVal('gpa-hon-c');
+            const regA = getVal('gpa-reg-a');
+            const regB = getVal('gpa-reg-b');
+            const regC = getVal('gpa-reg-c');
+            const allD = getVal('gpa-all-d');
+            const allE = getVal('gpa-all-e');
+
+            const totalYearCourses = apA + apB + apC + honA + honB + honC + regA + regB + regC + allD + allE;
+
+            return {
+                apA, apB, apC,
+                honA, honB, honC,
+                regA, regB, regC,
+                allD, allE,
+                totalYearCourses,
+                // In college semester conversion, 1 full-year high school course = 2 semester course credits
+                semA: (apA + honA + regA) * 2,
+                semB: (apB + honB + regB) * 2,
+                semC: (apC + honC + regC) * 2,
+                semD: allD * 2,
+                semF: allE * 2,
+                semHonors: (apA + apB + apC + honA + honB + honC) * 2
+            };
+        }
+
+        // 1. University of California (UC) Calculation (RogerHub A-G Algorithm)
+        window.calculateUcGpa = () => {
+            const a = Math.max(0, parseInt(document.getElementById('uc-grades-a')?.value || '0', 10));
+            const b = Math.max(0, parseInt(document.getElementById('uc-grades-b')?.value || '0', 10));
+            const c = Math.max(0, parseInt(document.getElementById('uc-grades-c')?.value || '0', 10));
+            const d = Math.max(0, parseInt(document.getElementById('uc-grades-d')?.value || '0', 10));
+            const f = Math.max(0, parseInt(document.getElementById('uc-grades-f')?.value || '0', 10));
+            const honors = Math.max(0, parseInt(document.getElementById('uc-honors-count')?.value || '0', 10));
+
+            const totalGrades = a + b + c + d + f;
+            if (totalGrades === 0) {
+                document.getElementById('ucResUnweighted').innerText = '0.00';
+                document.getElementById('ucResCapped').innerText = '0.00';
+                document.getElementById('ucResFully').innerText = '0.00';
+                return;
+            }
+
+            const unweightedPts = (a * 4) + (b * 3) + (c * 2) + (d * 1);
+            const cappedHonors = Math.min(honors, 8);
+
+            const unweightedGpa = (unweightedPts / totalGrades).toFixed(2);
+            const cappedGpa = ((unweightedPts + cappedHonors) / totalGrades).toFixed(2);
+            const fullyWeightedGpa = ((unweightedPts + honors) / totalGrades).toFixed(2);
+
+            document.getElementById('ucResUnweighted').innerText = unweightedGpa;
+            document.getElementById('ucResCapped').innerText = cappedGpa;
+            document.getElementById('ucResFully').innerText = fullyWeightedGpa;
+        };
+
+        // 2. University of Maryland (UMD) Converter
+        window.calculateUmdGpa = () => {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const a = getVal('umd-grades-a');
+            const am = getVal('umd-grades-am');
+            const bp = getVal('umd-grades-bp');
+            const b = getVal('umd-grades-b');
+            const bm = getVal('umd-grades-bm');
+            const cp = getVal('umd-grades-cp');
+            const c = getVal('umd-grades-c');
+            const cm = getVal('umd-grades-cm');
+            const d = getVal('umd-grades-d');
+            const f = getVal('umd-grades-f');
+
+            const totalCredits = a + am + bp + b + bm + cp + c + cm + d + f;
+            const points = (a * 4.0) + (am * 3.7) + (bp * 3.3) + (b * 3.0) + (bm * 2.7) +
+                           (cp * 2.3) + (c * 2.0) + (cm * 1.7) + (d * 1.0) + (f * 0.0);
+
+            const creditsEl = document.getElementById('umdTotalCredits');
+            const resultEl = document.getElementById('umdGpaResult');
+            if (creditsEl) creditsEl.innerText = totalCredits;
+            if (resultEl) resultEl.innerText = totalCredits > 0 ? (points / totalCredits).toFixed(2) : '0.00';
+        };
+
+        // 3. Howard Community College (HCC) Converter
+        window.calculateHccGpa = () => {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const a = getVal('hcc-grades-a');
+            const b = getVal('hcc-grades-b');
+            const c = getVal('hcc-grades-c');
+            const d = getVal('hcc-grades-d');
+            const f = getVal('hcc-grades-f');
+
+            const totalCredits = a + b + c + d + f;
+            const points = (a * 4.0) + (b * 3.0) + (c * 2.0) + (d * 1.0) + (f * 0.0);
+
+            const creditsEl = document.getElementById('hccTotalCredits');
+            const resultEl = document.getElementById('hccGpaResult');
+            if (creditsEl) creditsEl.innerText = totalCredits;
+            if (resultEl) resultEl.innerText = totalCredits > 0 ? (points / totalCredits).toFixed(2) : '0.00';
+        };
+
+        // 4. University of Maryland, Baltimore County (UMBC) Converter
+        window.calculateUmbcGpa = () => {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const a = getVal('umbc-grades-a');
+            const b = getVal('umbc-grades-b');
+            const c = getVal('umbc-grades-c');
+            const d = getVal('umbc-grades-d');
+            const f = getVal('umbc-grades-f');
+
+            const totalCredits = a + b + c + d + f;
+            const points = (a * 4.0) + (b * 3.0) + (c * 2.0) + (d * 1.0) + (f * 0.0);
+
+            const creditsEl = document.getElementById('umbcTotalCredits');
+            const resultEl = document.getElementById('umbcGpaResult');
+            if (creditsEl) creditsEl.innerText = totalCredits;
+            if (resultEl) resultEl.innerText = totalCredits > 0 ? (points / totalCredits).toFixed(2) : '0.00';
+        };
+
+        // 5. Johns Hopkins University (JHU) Converter
+        window.calculateJhuGpa = () => {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const a = getVal('jhu-grades-a');
+            const am = getVal('jhu-grades-am');
+            const bp = getVal('jhu-grades-bp');
+            const b = getVal('jhu-grades-b');
+            const bm = getVal('jhu-grades-bm');
+            const cp = getVal('jhu-grades-cp');
+            const c = getVal('jhu-grades-c');
+            const cm = getVal('jhu-grades-cm');
+            const d = getVal('jhu-grades-d');
+            const f = getVal('jhu-grades-f');
+
+            const totalCredits = a + am + bp + b + bm + cp + c + cm + d + f;
+            const points = (a * 4.0) + (am * 3.7) + (bp * 3.3) + (b * 3.0) + (bm * 2.7) +
+                           (cp * 2.3) + (c * 2.0) + (cm * 1.7) + (d * 1.0) + (f * 0.0);
+
+            const creditsEl = document.getElementById('jhuTotalCredits');
+            const resultEl = document.getElementById('jhuGpaResult');
+            if (creditsEl) creditsEl.innerText = totalCredits;
+            if (resultEl) resultEl.innerText = totalCredits > 0 ? (points / totalCredits).toFixed(2) : '0.00';
+        };
+
+        // 6. Penn State University (PSU) Converter
+        window.calculatePsuGpa = () => {
+            const getVal = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10));
+            const a = getVal('psu-grades-a');
+            const am = getVal('psu-grades-am');
+            const bp = getVal('psu-grades-bp');
+            const b = getVal('psu-grades-b');
+            const bm = getVal('psu-grades-bm');
+            const cp = getVal('psu-grades-cp');
+            const c = getVal('psu-grades-c');
+            const d = getVal('psu-grades-d');
+            const f = getVal('psu-grades-f');
+
+            const totalCredits = a + am + bp + b + bm + cp + c + d + f;
+            const points = (a * 4.0) + (am * 3.67) + (bp * 3.33) + (b * 3.0) + (bm * 2.67) +
+                           (cp * 2.33) + (c * 2.0) + (d * 1.0) + (f * 0.0);
+
+            const creditsEl = document.getElementById('psuTotalCredits');
+            const resultEl = document.getElementById('psuGpaResult');
+            if (creditsEl) creditsEl.innerText = totalCredits;
+            if (resultEl) resultEl.innerText = totalCredits > 0 ? (points / totalCredits).toFixed(2) : '0.00';
+        };
+
+        // Auto-fill individual college counter inputs from HCPSS
+        window.autoFillCollegeFromHcpss = (school) => {
+            const g = getHcpssGrades();
+
+            if (school === 'uc') {
+                const aEl = document.getElementById('uc-grades-a');
+                if (aEl) aEl.value = g.semA;
+                const bEl = document.getElementById('uc-grades-b');
+                if (bEl) bEl.value = g.semB;
+                const cEl = document.getElementById('uc-grades-c');
+                if (cEl) cEl.value = g.semC;
+                const dEl = document.getElementById('uc-grades-d');
+                if (dEl) dEl.value = g.semD;
+                const fEl = document.getElementById('uc-grades-f');
+                if (fEl) fEl.value = g.semF;
+                const hEl = document.getElementById('uc-honors-count');
+                if (hEl) hEl.value = g.semHonors;
+                calculateUcGpa();
+            } else if (school === 'umd') {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                setVal('umd-grades-a', g.semA);
+                setVal('umd-grades-am', 0);
+                setVal('umd-grades-bp', 0);
+                setVal('umd-grades-b', g.semB);
+                setVal('umd-grades-bm', 0);
+                setVal('umd-grades-cp', 0);
+                setVal('umd-grades-c', g.semC);
+                setVal('umd-grades-cm', 0);
+                setVal('umd-grades-d', g.semD);
+                setVal('umd-grades-f', g.semF);
+                calculateUmdGpa();
+            } else if (school === 'hcc') {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                setVal('hcc-grades-a', g.semA);
+                setVal('hcc-grades-b', g.semB);
+                setVal('hcc-grades-c', g.semC);
+                setVal('hcc-grades-d', g.semD);
+                setVal('hcc-grades-f', g.semF);
+                calculateHccGpa();
+            } else if (school === 'umbc') {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                setVal('umbc-grades-a', g.semA);
+                setVal('umbc-grades-b', g.semB);
+                setVal('umbc-grades-c', g.semC);
+                setVal('umbc-grades-d', g.semD);
+                setVal('umbc-grades-f', g.semF);
+                calculateUmbcGpa();
+            } else if (school === 'jhu') {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                setVal('jhu-grades-a', g.semA);
+                setVal('jhu-grades-am', 0);
+                setVal('jhu-grades-bp', 0);
+                setVal('jhu-grades-b', g.semB);
+                setVal('jhu-grades-bm', 0);
+                setVal('jhu-grades-cp', 0);
+                setVal('jhu-grades-c', g.semC);
+                setVal('jhu-grades-cm', 0);
+                setVal('jhu-grades-d', g.semD);
+                setVal('jhu-grades-f', g.semF);
+                calculateJhuGpa();
+            } else if (school === 'psu') {
+                const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+                setVal('psu-grades-a', g.semA);
+                setVal('psu-grades-am', 0);
+                setVal('psu-grades-bp', 0);
+                setVal('psu-grades-b', g.semB);
+                setVal('psu-grades-bm', 0);
+                setVal('psu-grades-cp', 0);
+                setVal('psu-grades-c', g.semC);
+                setVal('psu-grades-d', g.semD);
+                setVal('psu-grades-f', g.semF);
+                calculatePsuGpa();
+            }
+        };
+
+        // Master Sync All: Imports HCPSS grades into all 6 university calculators simultaneously
+        window.syncAllFromHcpss = (showAlert = false) => {
+            window.hasSyncedColleges = true;
+            ['uc', 'umd', 'hcc', 'umbc', 'jhu', 'psu'].forEach(school => {
+                autoFillCollegeFromHcpss(school);
+            });
+
+            if (showAlert && window.showToast) {
+                window.showToast('All college converters synced from your HCPSS grades!');
+            }
+        };
+
         // Initial Calculations
         calculateGrade();
+        calculateGpa();
+        calculateUcGpa();
+        calculateUmdGpa();
+        calculateHccGpa();
+        calculateUmbcGpa();
+        calculateJhuGpa();
+        calculatePsuGpa();
     </script>
 </body>
 </html>
