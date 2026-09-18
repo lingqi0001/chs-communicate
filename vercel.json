@@ -6,67 +6,67 @@
     },
     {
       "source": "/face",
-      "destination": "/extensions/fun/Face of the good and evil.html"
+      "destination": "/?open=face&tab=tools"
     },
     {
       "source": "/good-and-evil",
-      "destination": "/extensions/fun/Face of the good and evil.html"
+      "destination": "/?open=face&tab=tools"
     },
     {
       "source": "/gaokao",
-      "destination": "/extensions/fun/Find the gao kao cheater.html"
+      "destination": "/?open=gaokao&tab=tools"
     },
     {
       "source": "/cheater",
-      "destination": "/extensions/fun/Find the gao kao cheater.html"
+      "destination": "/?open=cheater&tab=tools"
     },
     {
       "source": "/grade-calculator",
-      "destination": "/extensions/grade_calculator.html"
+      "destination": "/?open=grade_calculator&tab=tools"
     },
     {
       "source": "/grade",
-      "destination": "/extensions/grade_calculator.html"
+      "destination": "/?open=grade_calculator&tab=tools"
     },
     {
       "source": "/grades",
-      "destination": "/extensions/grade_calculator.html"
+      "destination": "/?open=grade_calculator&tab=tools"
     },
     {
       "source": "/volume3d",
-      "destination": "/extensions/school/BC volume 3D present.html"
+      "destination": "/?open=volume3d&tab=tools"
     },
     {
       "source": "/calc3d",
-      "destination": "/extensions/school/BC volume 3D present.html"
+      "destination": "/?open=calc3d&tab=tools"
     },
     {
       "source": "/selection-logic",
-      "destination": "/extensions/school/Selection Logic Visualizer.html"
+      "destination": "/?open=selection_logic&tab=tools"
     },
     {
       "source": "/logic",
-      "destination": "/extensions/school/Selection Logic Visualizer.html"
+      "destination": "/?open=logic&tab=tools"
     },
     {
       "source": "/honorroll",
-      "destination": "/extensions/staff/Honor Roll.html"
+      "destination": "/?open=honorroll&tab=tools"
     },
     {
       "source": "/honor-roll",
-      "destination": "/extensions/staff/Honor Roll.html"
+      "destination": "/?open=honor_roll&tab=tools"
     },
     {
       "source": "/developer",
-      "destination": "/docs/maintenance/developer_portal.html"
+      "destination": "/?open=developer&tab=tools"
     },
     {
       "source": "/docs",
-      "destination": "/docs/maintenance/developer_portal.html"
+      "destination": "/?open=developer&tab=tools"
     },
     {
       "source": "/developer-portal",
-      "destination": "/docs/maintenance/developer_portal.html"
+      "destination": "/?open=developer&tab=tools"
     },
     {
       "source": "/menu",

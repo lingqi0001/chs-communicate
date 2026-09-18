@@ -90,7 +90,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
         title = 'Grade Calculator';
     } else if (eid === 'yearbook_symmetry' || eid === 'yearbook_symmetry_studio' || eid === 'face_of_the_good_and_evil') {
         url = 'extensions/fun/Face of the good and evil.html';
-        title = 'Face of the good and evil';
+        title = 'Face of the Good and Evil';
     }
 
     _currentExtensionUrl = url;
@@ -220,7 +220,8 @@ export const reloadExtension = () => {
 
 export const openExtensionExternally = () => {
     if (_currentExtensionUrl && _currentExtensionUrl !== 'about:blank') {
-        window.open(_currentExtensionUrl, '_blank');
+        const separator = _currentExtensionUrl.includes('?') ? '&' : '?';
+        window.open(_currentExtensionUrl + separator + 'standalone=true', '_blank');
     }
 };
 
@@ -248,7 +249,7 @@ export const ExtensionModule = {
         'face_of_the_good_and_evil': {
             eid: 'face_of_the_good_and_evil',
             url: 'extensions/fun/Face of the good and evil.html',
-            title: 'Face of the good and evil',
+            title: 'Face of the Good and Evil',
             category: 'Fun Tools',
             description: 'Made for Mr. Bartholomew'
         },

@@ -261,10 +261,13 @@ body {
 }
 
 /* 彻底隐藏搜索结果框的滚动条，确保有无滚动条时都完美贴边 */
-#searchResultList {
+#searchResultList,
+#searchResults {
     scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important;
 }
-#searchResultList::-webkit-scrollbar {
+#searchResultList::-webkit-scrollbar,
+#searchResults::-webkit-scrollbar {
     display: none !important; /* Safari and Chrome */
     width: 0 !important;
     height: 0 !important;
@@ -667,34 +670,44 @@ body {
     }
 
     /* Message list color themes for sidebarHandle only when collapsed/shrunk */
-    body.sidebar-collapsed .msg-theme-orange#sidebarHandle {
+    body.sidebar-collapsed .msg-theme-orange#sidebarHandle,
+    body.four-panel-collapsed .msg-theme-orange#sidebarHandle {
         background: #F97316 !important;
     }
-    .dark body.sidebar-collapsed .msg-theme-orange#sidebarHandle {
+    .dark body.sidebar-collapsed .msg-theme-orange#sidebarHandle,
+    .dark body.four-panel-collapsed .msg-theme-orange#sidebarHandle {
         background: #FB923C !important;
     }
-    body.sidebar-collapsed .msg-theme-blue#sidebarHandle {
+    body.sidebar-collapsed .msg-theme-blue#sidebarHandle,
+    body.four-panel-collapsed .msg-theme-blue#sidebarHandle {
         background: #007AFF !important;
     }
-    .dark body.sidebar-collapsed .msg-theme-blue#sidebarHandle {
+    .dark body.sidebar-collapsed .msg-theme-blue#sidebarHandle,
+    .dark body.four-panel-collapsed .msg-theme-blue#sidebarHandle {
         background: #0A84FF !important;
     }
-    body.sidebar-collapsed .msg-theme-green#sidebarHandle {
+    body.sidebar-collapsed .msg-theme-green#sidebarHandle,
+    body.four-panel-collapsed .msg-theme-green#sidebarHandle {
         background: #34C759 !important;
     }
-    .dark body.sidebar-collapsed .msg-theme-green#sidebarHandle {
+    .dark body.sidebar-collapsed .msg-theme-green#sidebarHandle,
+    .dark body.four-panel-collapsed .msg-theme-green#sidebarHandle {
         background: #95FF14 !important;
     }
-    body.sidebar-collapsed .msg-theme-purple#sidebarHandle {
+    body.sidebar-collapsed .msg-theme-purple#sidebarHandle,
+    body.four-panel-collapsed .msg-theme-purple#sidebarHandle {
         background: #AF52DE !important;
     }
-    .dark body.sidebar-collapsed .msg-theme-purple#sidebarHandle {
+    .dark body.sidebar-collapsed .msg-theme-purple#sidebarHandle,
+    .dark body.four-panel-collapsed .msg-theme-purple#sidebarHandle {
         background: #A724FF !important;
     }
-    body.sidebar-collapsed .msg-theme-custom#sidebarHandle {
+    body.sidebar-collapsed .msg-theme-custom#sidebarHandle,
+    body.four-panel-collapsed .msg-theme-custom#sidebarHandle {
         background: var(--msg-accent-color) !important;
     }
-    .dark body.sidebar-collapsed .msg-theme-custom#sidebarHandle {
+    .dark body.sidebar-collapsed .msg-theme-custom#sidebarHandle,
+    .dark body.four-panel-collapsed .msg-theme-custom#sidebarHandle {
         background: var(--msg-accent-color-dark) !important;
     }
 
@@ -764,7 +777,7 @@ body {
         transform: translateY(-50%) scaleX(1);
     }
 
-    body:not(.sidebar-collapsed) #sidebarHandle {
+    body:not(.sidebar-collapsed):not(.four-panel-collapsed) #sidebarHandle {
         left: 320px;
         width: 16px;
         height: 60px;
@@ -774,14 +787,14 @@ body {
         box-shadow: none;
     }
 
-    body:not(.sidebar-collapsed) #sidebarHandle:hover {
+    body:not(.sidebar-collapsed):not(.four-panel-collapsed) #sidebarHandle:hover {
         opacity: 1;
         width: 22px;
         box-shadow: none;
         background: var(--ann-accent-color) !important;
     }
 
-    .dark body:not(.sidebar-collapsed) #sidebarHandle:hover {
+    .dark body:not(.sidebar-collapsed):not(.four-panel-collapsed) #sidebarHandle:hover {
         background: var(--ann-accent-color-dark) !important;
     }
 
@@ -792,23 +805,23 @@ body {
 }
 
 @media (min-width: 1280px) {
-    body:not(.sidebar-collapsed) #sidebarHandle {
+    body.is-logged-in:not(.sidebar-collapsed):not(.four-panel-collapsed):not(.four-panel-layout):not(.compact-four-panel-layout) #sidebarHandle {
         left: var(--news-panel-width);
     }
 
-    body:not(.sidebar-collapsed) #newsSection {
+    body.is-logged-in:not(.sidebar-collapsed):not(.four-panel-collapsed):not(.four-panel-layout):not(.compact-four-panel-layout) #newsSection {
         width: var(--news-panel-width) !important;
         min-width: var(--news-panel-width) !important;
         max-width: var(--news-panel-width) !important;
         border-right: 0 !important;
     }
 
-    #newsSection > * {
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #newsSection > * {
         width: var(--news-panel-width) !important;
         flex-shrink: 0 !important;
     }
 
-    #sidePanel {
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #sidePanel {
         /* The list needs enough room for names, previews, and search. */
         width: clamp(360px, 25vw, 440px) !important;
         min-width: clamp(360px, 25vw, 440px) !important;
@@ -817,7 +830,7 @@ body {
         border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
     }
 
-    .dark #sidePanel {
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) .dark #sidePanel {
         border-right-color: rgba(55, 65, 81, 0.78) !important;
     }
 
@@ -898,10 +911,7 @@ body.is-guest-two-panel .bottom-gradient-shim {
     body.four-panel-layout #sidePanel,
     body.four-panel-layout #chatSection {
         display: flex !important;
-        width: auto !important;
         min-width: 0 !important;
-        max-width: none !important;
-        flex: 1 1 25% !important;
         transform: none !important;
     }
 
@@ -910,13 +920,30 @@ body.is-guest-two-panel .bottom-gradient-shim {
        while the combined Hub + Tools side consumes half the window. */
     body.four-panel-layout:not(.four-panel-collapsed) #newsSection,
     body.four-panel-layout:not(.four-panel-collapsed) #toolsSection {
-        flex: 1 1 22% !important;
+        flex: 0 0 22% !important;
+        width: 22% !important;
+        max-width: 22% !important;
     }
 
     body.four-panel-layout:not(.four-panel-collapsed) #sidePanel,
     body.four-panel-layout:not(.four-panel-collapsed) #chatSection {
-        flex: 1 1 28% !important;
-        min-width: 0 !important;
+        flex: 0 0 28% !important;
+        width: 28% !important;
+        max-width: 28% !important;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #sidePanel,
+    body.four-panel-layout.four-panel-collapsed #chatSection {
+        flex: 0 0 50% !important;
+        width: 50% !important;
+        max-width: 50% !important;
+    }
+
+    body.four-panel-layout #sidePanel,
+    body.four-panel-layout #chatSection {
+        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
     body.four-panel-layout #newsSection > *,
@@ -939,8 +966,126 @@ body.is-guest-two-panel .bottom-gradient-shim {
     }
 
     body.four-panel-layout #sidePanel {
-        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+        border-right: 0 !important;
+        position: relative;
+        overflow: visible !important;
+        z-index: 50 !important;
     }
+
+    body.four-panel-layout #chatSection {
+        z-index: 10 !important;
+    }
+
+    /* Vertical divider between Message list and Chat section, starting below the tabs row (so it doesn't cut between CLASS and Moss Mo) */
+    body.four-panel-layout #sidePanel::after {
+        content: '';
+        position: absolute;
+        top: 7.25rem; /* 4.5rem top bar + 2.75rem tabs bar */
+        bottom: 0;
+        right: 0;
+        width: 1px;
+        background-color: rgba(229, 231, 235, 0.95);
+        pointer-events: none;
+        z-index: 25;
+    }
+
+    .dark body.four-panel-layout #sidePanel::after {
+        background-color: rgba(55, 65, 81, 0.78);
+    }
+
+    /* Top bar spans from Messages panel all the way to the right edge of the screen (covering Chat header area) */
+    body.four-panel-layout #sidePanelHeader {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: -100% !important; /* Spans across Chat panel to the right edge */
+        width: 200% !important;
+        max-width: none !important;
+        z-index: 60 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 1.25rem !important;
+        padding-top: 1.25rem !important;
+        padding-bottom: 0.75rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        height: 4.5rem !important;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.four-panel-layout #sidePanelHeader {
+        background: #1C1C1E !important;
+    }
+
+    body.four-panel-layout #sidePanelHeaderTopRow {
+        display: contents !important;
+    }
+
+    body.four-panel-layout #sidePanelHeader h2 {
+        order: 1 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+    }
+
+    /* Wide flexible search bar in the unified top header */
+    body.four-panel-layout #sidePanelSearchWrap {
+        order: 2 !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        z-index: 70 !important;
+    }
+
+    body.four-panel-layout #globalSearchResults {
+        z-index: 150 !important;
+    }
+
+    body.four-panel-layout #sidePanelSearchWrap input {
+        min-width: 0 !important;
+    }
+
+    body.four-panel-layout #sidePanelActionBtns {
+        order: 3 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    /* Sidebar list offset by 4.5rem top bar */
+    body.four-panel-layout #sidebarList {
+        margin-top: 4.5rem !important;
+    }
+
+    /* Chat header is moved down to align horizontally with RECENT / CONTACTS / CLASS tabs */
+    body.four-panel-layout #chatSection > header {
+        top: 4.5rem !important;
+        height: 2.75rem !important; /* Exactly matches sidebar-tabs height (h-11 = 44px) */
+        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
+        z-index: 30 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.four-panel-layout #chatSection > header {
+        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+        background: #1C1C1E !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* Adjust chat messages scroll area so messages don't hide behind the lower header */
+    body.four-panel-layout #chatBox {
+        padding-top: 7.75rem !important;
+    }
+
+
 
     /* Keep a clear divider between the independent Hub and Tools panels. */
     body.four-panel-layout #newsSection {
@@ -951,17 +1096,37 @@ body.is-guest-two-panel .bottom-gradient-shim {
         border-right-color: rgba(55, 65, 81, 0.78) !important;
     }
 
-    .dark body.four-panel-layout #sidePanel {
-        border-right-color: rgba(55, 65, 81, 0.78) !important;
-    }
-
     /* Hub and Tools are 22% each in this layout, so their shared outer edge
        is 44% of the viewport—not the old 50% equal-column boundary. */
     body.four-panel-layout:not(.four-panel-collapsed) #sidebarHandle {
-        left: 44% !important;
+        display: flex !important;
+        position: fixed !important;
+        left: var(--four-panel-boundary, 44%) !important;
+        top: 50% !important;
+        width: 16px !important;
+        height: 60px !important;
+        background: #8E8E93 !important;
+        opacity: 0.4 !important;
+        transform: translateY(-50%) translateX(-100%) scaleX(-1) !important;
+        z-index: 90 !important;
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed) #sidebarHandle:hover {
+        opacity: 1 !important;
+        width: 22px !important;
+        box-shadow: none !important;
+        background: var(--ann-accent-color) !important;
+    }
+
+    .dark body.four-panel-layout:not(.four-panel-collapsed) #sidebarHandle:hover {
+        background: var(--ann-accent-color-dark) !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed) #sidebarTrigger {
+        display: none !important;
     }
 
     body.four-panel-layout #headTabTools {
@@ -983,22 +1148,36 @@ body.is-guest-two-panel .bottom-gradient-shim {
     }
 
     body.four-panel-layout.four-panel-collapsed #sidebarHandle {
+        display: flex !important;
+        position: fixed !important;
         left: -28px !important;
+        top: 50% !important;
         width: 32px !important;
         height: 90px !important;
+        background: #007AFF;
         opacity: 0.7 !important;
         transform: translateY(-50%) scaleX(1) !important;
         border-radius: 0 16px 16px 0 !important;
-        z-index: 41 !important;
+        z-index: 90 !important;
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    .dark body.four-panel-layout.four-panel-collapsed #sidebarHandle {
+        background: #0A84FF;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #sidebarTrigger {
+        display: block !important;
+        z-index: 89 !important;
     }
 
     body.four-panel-layout.four-panel-collapsed #sidebarTrigger:hover + #sidebarHandle,
     body.four-panel-layout.four-panel-collapsed #sidebarHandle:hover {
         left: 0 !important;
         opacity: 1 !important;
+        width: 38px !important;
     }
 }
 
@@ -1014,10 +1193,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
     body.compact-four-panel-layout #newsSection {
         display: flex !important;
-        flex: 0 1 40% !important;
-        width: auto !important;
+        flex: 0 0 40% !important;
+        width: 40% !important;
         min-width: 0 !important;
-        max-width: none !important;
+        max-width: 40% !important;
         transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1037,29 +1216,162 @@ body.is-guest-two-panel .bottom-gradient-shim {
     body.compact-four-panel-layout #sidePanel,
     body.compact-four-panel-layout #chatSection {
         display: flex !important;
-        flex: 0 1 30% !important;
-        width: auto !important;
+        flex: 0 0 30% !important;
+        width: 30% !important;
         min-width: 0 !important;
-        max-width: none !important;
+        max-width: 30% !important;
         transform: none !important;
-        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
+
+    body.compact-four-panel-layout #sidePanel {
+        border-right: 0 !important;
+        position: relative;
+        overflow: visible !important;
+        z-index: 50 !important;
+    }
+
+    body.compact-four-panel-layout #chatSection {
+        z-index: 10 !important;
+    }
+
+    /* Divider starts below the tabs bar so it doesn't cut between CLASS and Moss Mo */
+    body.compact-four-panel-layout #sidePanel::after {
+        content: '';
+        position: absolute;
+        top: 7.25rem;
+        bottom: 0;
+        right: 0;
+        width: 1px;
+        background-color: rgba(229, 231, 235, 0.95);
+        pointer-events: none;
+        z-index: 25;
+    }
+
+    .dark body.compact-four-panel-layout #sidePanel::after {
+        background-color: rgba(55, 65, 81, 0.78);
+    }
+
+    /* Top bar spans from Messages panel all the way to the right edge of the screen */
+    body.compact-four-panel-layout #sidePanelHeader {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: -100% !important;
+        width: 200% !important;
+        max-width: none !important;
+        z-index: 60 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 1.25rem !important;
+        padding-top: 1.25rem !important;
+        padding-bottom: 0.75rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        height: 4.5rem !important;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.compact-four-panel-layout #sidePanelHeader {
+        background: #1C1C1E !important;
+    }
+
+    body.compact-four-panel-layout #sidePanelHeaderTopRow {
+        display: contents !important;
+    }
+
+    body.compact-four-panel-layout #sidePanelHeader h2 {
+        order: 1 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+    }
+
+    body.compact-four-panel-layout #sidePanelSearchWrap {
+        order: 2 !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        z-index: 70 !important;
+    }
+
+    body.compact-four-panel-layout #globalSearchResults {
+        z-index: 150 !important;
+    }
+
+    body.compact-four-panel-layout #sidePanelSearchWrap input {
+        min-width: 0 !important;
+    }
+
+    body.compact-four-panel-layout #sidePanelActionBtns {
+        order: 3 !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    /* Sidebar list offset by 4.5rem top bar */
+    body.compact-four-panel-layout #sidebarList {
+        margin-top: 4.5rem !important;
+    }
+
+    /* Chat header moved down to align horizontally with sidebar tabs */
+    body.compact-four-panel-layout #chatSection > header {
+        top: 4.5rem !important;
+        height: 2.75rem !important;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
+        z-index: 30 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: #ffffff !important;
+    }
+
+    .dark body.compact-four-panel-layout #chatSection > header {
+        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+        background: #1C1C1E !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body.compact-four-panel-layout #chatBox {
+        padding-top: 7.75rem !important;
+    }
+
+
 
     /* This is still four-panel preference, merely condensed to three
        columns.  Keep the Hub/Tools collapse control at its 40% boundary. */
     body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarHandle {
         display: flex !important;
-        position: fixed;
-        left: 40% !important;
-        top: 50%;
-        width: 16px;
-        height: 60px;
-        opacity: 0.4;
-        background: #8E8E93;
+        position: fixed !important;
+        left: var(--compact-panel-boundary, 40%) !important;
+        top: 50% !important;
+        width: 16px !important;
+        height: 60px !important;
+        opacity: 0.4 !important;
+        background: #8E8E93 !important;
         transform: translateY(-50%) translateX(-100%) scaleX(-1) !important;
-        z-index: 41;
+        z-index: 90 !important;
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease !important;
+    }
+
+    body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarHandle:hover {
+        opacity: 1 !important;
+        width: 22px !important;
+        box-shadow: none !important;
+        background: var(--ann-accent-color) !important;
+    }
+
+    .dark body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarHandle:hover {
+        background: var(--ann-accent-color-dark) !important;
     }
 
     body.compact-four-panel-layout:not(.four-panel-collapsed) #sidebarTrigger {
@@ -1079,32 +1391,41 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
     body.compact-four-panel-layout.four-panel-collapsed #sidePanel,
     body.compact-four-panel-layout.four-panel-collapsed #chatSection {
-        flex: 1 1 50% !important;
+        flex: 0 0 50% !important;
+        width: 50% !important;
+        max-width: 50% !important;
     }
 
     body.compact-four-panel-layout.four-panel-collapsed #sidebarHandle {
         display: flex !important;
-        position: fixed;
+        position: fixed !important;
         left: -28px !important;
-        top: 50%;
+        top: 50% !important;
         width: 32px !important;
         height: 90px !important;
+        background: #007AFF;
         opacity: 0.7 !important;
         transform: translateY(-50%) scaleX(1) !important;
         border-radius: 0 16px 16px 0 !important;
-        z-index: 41 !important;
+        z-index: 90 !important;
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease !important;
     }
 
+    .dark body.compact-four-panel-layout.four-panel-collapsed #sidebarHandle {
+        background: #0A84FF;
+    }
+
     body.compact-four-panel-layout.four-panel-collapsed #sidebarTrigger {
         display: block !important;
+        z-index: 89 !important;
     }
 
     body.compact-four-panel-layout.four-panel-collapsed #sidebarTrigger:hover + #sidebarHandle,
     body.compact-four-panel-layout.four-panel-collapsed #sidebarHandle:hover {
         left: 0 !important;
         opacity: 1 !important;
+        width: 38px !important;
     }
 }
 
@@ -1173,7 +1494,7 @@ body.is-guest-two-panel .bottom-gradient-shim {
     /* Messages panel on the far right: fills remaining space without 4th panel or right border */
     body.is-guest-three-panel #sidePanel {
         display: flex !important;
-        flex: 1 1 320px !important;
+        flex: 1 1 auto !important;
         width: auto !important;
         min-width: 280px !important;
         max-width: none !important;
@@ -1217,8 +1538,8 @@ body.is-guest-two-panel .bottom-gradient-shim {
         order: 2 !important;
         flex: 1 1 0 !important;
         min-width: 0 !important;
-        margin: 0 auto !important;
-        max-width: 680px !important;
+        margin: 0 !important;
+        max-width: none !important;
         width: 100% !important;
     }
 
@@ -1564,6 +1885,120 @@ body.is-guest-two-panel .bottom-gradient-shim {
         inset 0 1px 1.5px rgba(255, 255, 255, 0.15),
         0 4px 12px rgba(0, 0, 0, 0.2) !important;
     border: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+
+/* =========================================
+   Chat Search Results & Global Search Results - iOS 26 Liquid Glass System
+   Enhanced Frosted Glass Edge (磨砂倒角高光与边缘光圈)
+   ========================================= */
+#searchResults,
+#globalSearchResults {
+    background: rgba(255, 255, 255, 0.82) !important;
+    backdrop-filter: blur(28px) saturate(200%) brightness(1.04) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.04) !important;
+}
+
+#searchResults {
+    border-left: 1px solid rgba(255, 255, 255, 0.75) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.75) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.75) !important;
+    border-top: none !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-left-radius: 1rem !important;
+    border-bottom-right-radius: 1rem !important;
+    margin-top: 0 !important;
+    z-index: 100 !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    box-shadow: 
+        inset 0 0 16px 0 rgba(255, 255, 255, 0.45), 
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.8), 
+        0 16px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+#globalSearchResults {
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
+    border-radius: 1rem !important;
+    z-index: 150 !important;
+    box-shadow: 
+        inset 0 0 16px 0 rgba(255, 255, 255, 0.45), 
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.8), 
+        0 20px 48px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dark #searchResults,
+.dark #globalSearchResults {
+    background: rgba(20, 20, 24, 0.82) !important;
+    backdrop-filter: blur(36px) saturate(220%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(220%) brightness(1.1) !important;
+}
+
+.dark #searchResults {
+    border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-top: none !important;
+    box-shadow: 
+        inset 0 0 18px 0 rgba(255, 255, 255, 0.08), 
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), 
+        inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.4), 
+        0 20px 48px rgba(0, 0, 0, 0.55) !important;
+}
+
+.dark #globalSearchResults {
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: 
+        inset 0 0 18px 0 rgba(255, 255, 255, 0.08), 
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.2), 
+        inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.4), 
+        0 20px 48px rgba(0, 0, 0, 0.55) !important;
+}
+
+#searchResults::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+#searchResults.liquid-glass-active {
+    border-top: none !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+#searchResults.liquid-glass-fallback {
+    border-top: none !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+#searchResults > div:last-child {
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+    border-bottom: none !important;
+}
+
+/* Translucent hover effect on liquid glass for search results */
+#searchResults > div,
+#searchResultList > div {
+    transition: background-color 0.15s ease !important;
+}
+
+#searchResults > div:hover,
+#searchResultList > div:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark #searchResults > div:hover,
+.dark #searchResultList > div:hover {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Ensure Safari renders backdrop-filter on searchResults without ancestor interference */
+#chatSection > header.search-results-open {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 /* iOS resets for bottom navigation buttons and their descendants */

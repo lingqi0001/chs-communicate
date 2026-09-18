@@ -725,6 +725,49 @@ export function initChatEngine(deps) {
         }
     }
 
+    function toggleChatSearch() {
+        const wrap = document.getElementById('chatSearchWrap');
+        const input = document.getElementById('chatSearchInput');
+        const iconBtn = document.getElementById('chatSearchIconBtn');
+        const leadingIcon = document.getElementById('chatSearchLeadingIcon');
+        if (wrap) {
+            wrap.classList.remove('w-8');
+            wrap.classList.add('w-44');
+        }
+        if (iconBtn) iconBtn.classList.add('hidden');
+        if (leadingIcon) leadingIcon.classList.remove('hidden');
+        if (input) {
+            input.classList.remove('hidden');
+            setTimeout(() => input.focus(), 50);
+        }
+    }
+
+    function maybeCollapseChatSearch() {
+        const input = document.getElementById('chatSearchInput');
+        setTimeout(() => {
+            if (document.activeElement === input) return;
+            const term = (input?.value || '').trim();
+            if (term) return;
+            const wrap = document.getElementById('chatSearchWrap');
+            const iconBtn = document.getElementById('chatSearchIconBtn');
+            const leadingIcon = document.getElementById('chatSearchLeadingIcon');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            const resultsBox = document.getElementById('searchResults');
+            if (wrap) {
+                wrap.classList.remove('w-44');
+                wrap.classList.add('w-8');
+            }
+            if (input) input.classList.add('hidden');
+            if (leadingIcon) leadingIcon.classList.add('hidden');
+            if (clearBtn) clearBtn.classList.add('hidden');
+            if (iconBtn) iconBtn.classList.remove('hidden');
+            if (resultsBox) {
+                resultsBox.classList.add('hidden');
+                resultsBox.innerHTML = '';
+            }
+        }, 150);
+    }
+
     function clearSearch() {
         const input = document.getElementById('chatSearchInput');
         if (input) input.value = '';
@@ -735,6 +778,7 @@ export function initChatEngine(deps) {
             resultsBox.classList.add('hidden');
             resultsBox.innerHTML = '';
         }
+        maybeCollapseChatSearch();
     }
 
     async function handleSearch(e, scope) {
@@ -779,7 +823,7 @@ export function initChatEngine(deps) {
             resultsBox.classList.remove('hidden');
             matches.forEach(m => {
                 const item = document.createElement('div');
-                item.className = "p-3 pl-5 pr-10 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-white/5 transition-all group hover:bg-gray-50 dark:hover:bg-white/5";
+                item.className = "p-3 pl-5 pr-10 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-white/5 transition-all group hover:bg-black/5 dark:hover:bg-white/10";
                 
                 const escapedSnippet = escapeHTML(m.text);
                 const escapedTerm = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
@@ -1169,6 +1213,8 @@ export function initChatEngine(deps) {
     window.jumpToMessage = jumpToMessage;
     window.clearSearch = clearSearch;
     window.handleSearch = handleSearch;
+    window.toggleChatSearch = toggleChatSearch;
+    window.maybeCollapseChatSearch = maybeCollapseChatSearch;
     window.initChatListObserver = initChatListObserver;
     window.sendMsg = sendMsg;
     window.MessageEngine = MessageEngine;
@@ -1192,6 +1238,8 @@ export function initChatEngine(deps) {
         jumpToMessage,
         clearSearch,
         handleSearch,
+        toggleChatSearch,
+        maybeCollapseChatSearch,
         initChatListObserver,
         forwardTo,
         getSelectedMsgData: () => selectedMsgData

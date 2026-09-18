@@ -12,8 +12,14 @@
     <script>
         // Early CHSchat and theme detection
         (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isExplicitStandalone = urlParams.get('standalone') === 'true';
             if (window.self !== window.top) {
                 document.documentElement.classList.add('in-chschat');
+            } else if (!isExplicitStandalone) {
+                // 如果用户直接输入链接访问，自动重定向到主站框架下（保留顶部导航栏和完整框架）
+                window.location.replace('/?open=face&tab=tools');
+                return;
             }
             const savedTheme = localStorage.getItem('theme');
             const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -34,10 +40,10 @@
         }
 
         :root {
-            --bg: #FFFFFF;
-            --panel: #F8F8FA;
-            --border: #E4E4E7;
-            --input: #FFFFFF;
+            --bg: #EDEFFA; /* Google NotebookLM light blue background */
+            --panel: #FFFFFF; /* Pure white panel */
+            --border: #E2E5EE;
+            --input: #F8F9FD;
             --text: #09090B;
             --muted: #71717A;
             --accent: #B45309; /* light mode gold/amber */
@@ -45,12 +51,12 @@
         }
 
         .dark {
-            --bg: #000000;
-            --panel: #0C0C0E;
-            --border: #27272A;
-            --input: #151518;
+            --bg: #1A1D22; /* Google NotebookLM / Gemini deep slate dark background */
+            --panel: #22262B; /* Google NotebookLM panel color */
+            --border: #32363C;
+            --input: #1A1D22;
             --text: #F4F4F5;
-            --muted: #71717A;
+            --muted: #9AA0A6;
             --accent: #F59E0B; /* dark mode gold/amber matching Cal BC */
         }
 
@@ -61,6 +67,53 @@
             transition: background var(--transition), color var(--transition);
         }
 
+        /* Google NotebookLM / Gemini style floating overlay scrollbar */
+        html, body {
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar {
+            width: 8px !important;
+            height: 8px !important;
+            background: transparent !important;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-track-piece,
+        ::-webkit-scrollbar-corner {
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+        }
+        ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(120, 120, 128, 0.4) !important;
+            border-radius: 9999px !important;
+            border: 2px solid transparent !important;
+            background-clip: padding-box !important;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(120, 120, 128, 0.7) !important;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.28) !important;
+            border: 2px solid transparent !important;
+            background-clip: padding-box !important;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+        /* Firefox native scrollbar support */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(120, 120, 128, 0.4) transparent !important;
+        }
+        .dark * {
+            scrollbar-color: rgba(255, 255, 255, 0.28) transparent !important;
+        }
+
         /* Cal BC style panel */
         .gold-panel {
             background: var(--panel);
@@ -69,7 +122,7 @@
             transition: background var(--transition), border-color var(--transition);
         }
         .dark .gold-panel {
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.55);
+            box-shadow: none;
         }
 
         /* Range sliders matching Cal BC accent theme */
@@ -193,18 +246,6 @@
     <!-- App Bridge SDK -->
     <script src="/js/app-bridge.js"></script>
     <script>
-        function safeOpenGallery(urls, index = 0) {
-            if (window.AppBridge && typeof AppBridge.openGallery === 'function') {
-                AppBridge.openGallery(urls, index);
-            } else {
-                const win = window.open();
-                if (win) {
-                    const src = urls[index] || urls[0];
-                    win.document.write(`<!DOCTYPE html><html><head><title>Preview</title><style>body{margin:0;background:#09090b;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;}img{max-height:95vh;max-width:95vw;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6);}</style></head><body><img src="${src}"></body></html>`);
-                }
-            }
-        }
-
         function toggleThemeMode() {
             const isDark = document.documentElement.classList.toggle('dark');
             updateThemeUI(isDark);
@@ -353,6 +394,7 @@
 
             initDraggableHandles();
             initDropZone();
+            initSplitWipeEvents();
 
             const fileInput = document.getElementById('imageInput');
             if (fileInput) {
@@ -381,7 +423,7 @@
     </script>
 </head>
 <body class="min-h-screen pb-16 transition-colors duration-200">
-    <div class="dashboard-container w-full max-w-7xl mx-auto px-6 py-6">
+    <div class="dashboard-container w-full max-w-[1760px] 2xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
         
         <!-- Header with Theme Toggle (Hidden in CHSchat Mode) -->
         <header id="pageHeader" class="flex items-center justify-between pb-3 mb-6">
@@ -408,32 +450,48 @@
             </div>
         </header>
 
-        <!-- Two Column Dashboard Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Three-Column Layout on Desktop / Sequential Stack on Mobile -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
             
-            <!-- LEFT COLUMN: Settings & Upload -->
-            <div class="lg:col-span-5 space-y-5">
+            <!-- COLUMN 1: Source Photo & Face Alignment -->
+            <div class="order-1 xl:col-span-4">
                 
                 <!-- Section 1: Upload Photo -->
                 <div class="gold-panel rounded-2xl p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2.5">
                             <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Source Photo</h2>
-                            <span id="fileNameBadge" class="hidden text-xs font-mono px-2 py-0.5 rounded-md truncate max-w-[150px]" style="background-color: var(--input); color: var(--muted); border: 1px solid var(--border);"></span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button id="changePhotoBtn" class="hidden text-xs font-medium px-3 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-80 active:scale-95 flex items-center gap-1.5"
+                        <div class="flex items-center gap-1.5">
+                            <button id="changePhotoBtn" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-85 active:scale-95 flex items-center gap-1 shadow-xs"
                                 style="background-color: var(--input); border-color: var(--border); color: var(--text);"
-                                onclick="document.getElementById('imageInput').click()">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                onclick="document.getElementById('imageInput').click()" title="Choose another photo">
+                                <svg class="w-3.5 h-3.5 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                                 </svg>
-                                Change
+                                Upload
                             </button>
-                            <button id="resetLineBtn" class="hidden text-xs font-medium px-3 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-80 active:scale-95 flex items-center gap-1.5" 
+                            <button id="cameraHeaderBtn" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-85 active:scale-95 flex items-center gap-1 shadow-xs"
+                                style="background-color: var(--input); border-color: var(--border); color: var(--text);"
+                                onclick="openCameraModal(event)" title="Take a new selfie">
+                                <svg class="w-3.5 h-3.5 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                                </svg>
+                                Selfie
+                            </button>
+                            <button id="autoAlignBtn" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-85 active:scale-95 flex items-center gap-1 shadow-xs" 
                                 style="background-color: var(--input); border-color: var(--border); color: var(--accent);"
-                                onclick="resetSymmetryLine()">
-                                Reset Line
+                                onclick="autoDetectFaceAxis(true)" title="Auto-detect face & align symmetry axis">
+                                <svg class="w-3.5 h-3.5 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                                </svg>
+                                Auto Align
+                            </button>
+                            <button id="resetLineBtn" class="hidden text-xs font-semibold px-2.5 py-1.5 rounded-lg transition border cursor-pointer hover:opacity-85 active:scale-95 flex items-center gap-1 shadow-xs" 
+                                style="background-color: var(--input); border-color: var(--border); color: var(--muted);"
+                                onclick="resetSymmetryLine()" title="Reset symmetry axis to center">
+                                ↺ Reset
                             </button>
                         </div>
                     </div>
@@ -441,16 +499,28 @@
                     <div id="dropZone" class="relative group flex flex-col items-center justify-center transition">
                         
                         <!-- File upload controls inside placeholder -->
-                        <div id="uploadPlaceholder" class="w-full border border-dashed rounded-2xl p-8 text-center relative z-30 flex flex-col items-center justify-center space-y-3 transition min-h-[200px]" style="border-color: var(--border); background-color: var(--input);">
-                            <input type="file" id="imageInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-105 transition duration-300" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent);">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <div id="uploadPlaceholder" class="w-full border border-dashed rounded-2xl p-6 text-center relative z-30 flex flex-col items-center justify-center space-y-3 transition min-h-[200px]" style="border-color: var(--border); background-color: var(--input);">
+                            <input type="file" id="imageInput" accept="image/*" class="absolute inset-0 w-full h-36 opacity-0 cursor-pointer z-10" title="Click or drop photo here">
+                            
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-105 transition duration-300 pointer-events-none" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent);">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z" />
                                 </svg>
                             </div>
-                            <div>
+                            <div class="pointer-events-none">
                                 <span class="text-base font-semibold block" style="color: var(--text);">Choose a portrait photo</span>
-                                <span class="text-sm block mt-1" style="color: var(--muted);">Drag & drop image here or click to browse</span>
+                                <span class="text-xs block mt-0.5" style="color: var(--muted);">Drag & drop image here or click to browse</span>
+                            </div>
+
+                            <!-- Live Camera Action Button -->
+                            <div class="relative z-20 pt-1">
+                                <button type="button" onclick="openCameraModal(event)" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer hover:opacity-90 active:scale-95 shadow-sm border" style="background-color: var(--panel); color: var(--text); border-color: var(--border);">
+                                    <svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                                    </svg>
+                                    Take Selfie (Camera)
+                                </button>
                             </div>
                         </div>
 
@@ -473,31 +543,9 @@
                             <img id="uploadPreview" class="max-h-64 rounded-2xl shadow-lg block pointer-events-none select-none max-w-full">
                         </div>
                     </div>
-                    
-                    <!-- Mirrored Previews -->
-                    <div id="mirroredPreviews" class="hidden grid grid-cols-2 gap-4 pt-3 border-t" style="border-color: var(--border);">
-                        <div class="text-center space-y-2">
-                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
-                                <span class="w-2 h-2 rounded-full" style="background-color: var(--accent);"></span>
-                                <span>Good · Left Mirror</span>
-                            </div>
-                            <img id="leftMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-40 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="safeOpenGallery([this.src])" title="Click to view full size">
-                        </div>
-                        <div class="text-center space-y-2">
-                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
-                                <span class="w-2 h-2 rounded-full opacity-60" style="background-color: var(--accent);"></span>
-                                <span>Evil · Right Mirror</span>
-                            </div>
-                            <img id="rightMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-40 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="safeOpenGallery([this.src])" title="Click to view full size">
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Section 2: Settings -->
-                <div class="gold-panel rounded-2xl p-5 space-y-4">
-                    <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Poster Settings</h2>
-                    
-                    <div class="space-y-4">
+                    <!-- Face Alignment Controls: Below original photo, above Good/Evil previews -->
+                    <div id="faceAlignmentControls" class="hidden space-y-3 pt-3 border-t" style="border-color: var(--border);">
                         <!-- Face Zoom -->
                         <div class="space-y-1.5">
                             <div class="flex justify-between text-sm font-semibold">
@@ -507,7 +555,7 @@
                             <input type="range" id="zoom" min="1.0" max="2.5" value="1.2" step="0.05" oninput="scheduleFaceSymmetry()" class="w-full cursor-pointer">
                         </div>
 
-                        <!-- Symmetry Line Alignment -->
+                        <!-- Symmetry Line Shift -->
                         <div class="space-y-1.5">
                             <div class="flex justify-between text-sm font-semibold">
                                 <span style="color: var(--text);">Symmetry Line Shift</span>
@@ -515,121 +563,154 @@
                             </div>
                             <input type="range" id="alignOffset" min="-25" max="25" value="0" step="0.5" oninput="scheduleFaceSymmetry()" class="w-full cursor-pointer">
                         </div>
+                    </div>
 
-                        <!-- Copies Grid -->
-                        <div id="countSettingsGrid" class="grid grid-cols-2 gap-4 transition-opacity duration-200">
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-sm font-semibold">
-                                    <span style="color: var(--text);">Good Copies</span>
-                                    <span id="leftCountLabel" class="font-mono" style="color: var(--accent);">3</span>
-                                </div>
-                                <input type="range" id="leftCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-sm font-semibold">
-                                    <span style="color: var(--text);">Evil Copies</span>
-                                    <span id="rightCountLabel" class="font-mono" style="color: var(--accent);">3</span>
-                                </div>
-                                <input type="range" id="rightCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
+                    <!-- Persona Comparison & Mirrored Previews Section -->
+                    <div id="previewSection" class="hidden space-y-3.5 pt-3 border-t" style="border-color: var(--border);">
+                        <!-- Mode Switch Tabs -->
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--muted);">Persona Preview</span>
+                            <div class="inline-flex p-0.5 rounded-xl border" style="background-color: var(--input); border-color: var(--border);">
+                                <button id="tabSplitWipe" onclick="setPreviewTab('split')" class="px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer" style="background-color: var(--accent); color: #fff;">Split Wipe</button>
+                                <button id="tabSideBySide" onclick="setPreviewTab('side')" class="px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer" style="color: var(--muted);">Dual View</button>
                             </div>
                         </div>
 
-                        <!-- Triptych Notice (shown when triptych is active) -->
-                        <div id="triptychNotice" class="hidden px-3.5 py-2.5 rounded-xl text-xs font-medium border flex items-center gap-2" style="background-color: var(--input); border-color: var(--border); color: var(--accent);">
-                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                            </svg>
-                            <span>Classic Triptych automatically renders Good, Original, and Evil side-by-side.</span>
-                        </div>
-
-                        <!-- Layout parameters -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div id="colsSettingContainer" class="space-y-1.5">
-                                <div class="flex justify-between text-sm font-semibold">
-                                    <span style="color: var(--text);">Grid Columns</span>
-                                    <span id="colsLabel" class="font-mono" style="color: var(--accent);">3</span>
-                                </div>
-                                <input type="range" id="cols" min="2" max="6" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
-                            </div>
+                        <!-- 1. Split Wipe Interactive Slider View -->
+                        <div id="splitWipeContainer" class="relative select-none rounded-2xl overflow-hidden shadow-lg mx-auto max-w-[320px] aspect-square border cursor-ew-resize group" style="border-color: var(--border); touch-action: none;">
+                            <!-- Base Good Face (Left Mirror) -->
+                            <img id="splitGoodImg" class="w-full h-full object-cover select-none pointer-events-none block">
                             
-                            <div class="space-y-1.5 relative">
-                                <label class="text-sm font-semibold" style="color: var(--text);">Poster Theme</label>
-                                <div onclick="toggleCustomDropdown('themeDropdown', event)"
-                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
-                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentThemeText" class="truncate pr-2">Imperial Gold</span>
-                                    <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
+                            <!-- Clipped Evil Face (Right Mirror) -->
+                            <div id="splitEvilWrapper" class="absolute inset-0 select-none pointer-events-none overflow-hidden" style="clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%);">
+                                <img id="splitEvilImg" class="w-full h-full object-cover select-none pointer-events-none block">
+                            </div>
+
+                            <!-- Interactive Dividing Line & Thumb -->
+                            <div id="splitDivider" class="absolute top-0 bottom-0 w-0.5 pointer-events-none z-20 flex items-center justify-center transition-none" style="left: 50%; background-color: var(--accent); box-shadow: 0 0 10px rgba(0,0,0,0.5);">
+                                <div class="w-8 h-8 rounded-full shadow-2xl flex items-center justify-center text-[10px] font-black text-white pointer-events-none" style="background-color: var(--accent); border: 2.5px solid white;">
+                                    ◂▸
                                 </div>
-                                <div id="themeDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
-                                    <button data-value="imperial_gold" onclick="selectCustomOption('themeDropdown', 'imperial_gold', 'Imperial Gold', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Imperial Gold (Classic Navy)</button>
-                                    <button data-value="midnight_slate" onclick="selectCustomOption('themeDropdown', 'midnight_slate', 'Midnight Slate', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Midnight Slate (Modern Dark)</button>
-                                    <button data-value="retro_parchment" onclick="selectCustomOption('themeDropdown', 'retro_parchment', 'Retro Parchment', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Retro Parchment (Vintage Gallery)</button>
-                                    <button data-value="varsity_spirit" onclick="selectCustomOption('themeDropdown', 'varsity_spirit', 'Varsity Contrast', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Varsity Contrast (Bold Duo)</button>
-                                    <button data-value="memphis_pop" onclick="selectCustomOption('themeDropdown', 'memphis_pop', 'Neo Pop Art', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Neo Pop Art (Vibrant Pastel)</button>
-                                </div>
-                                <input type="hidden" id="posterTheme" value="imperial_gold">
+                            </div>
+
+                            <!-- Float Badges -->
+                            <div class="absolute bottom-2.5 left-2.5 pointer-events-none z-20 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-black/60 text-white backdrop-blur flex items-center gap-1">
+                                <span>😇</span> Good
+                            </div>
+                            <div class="absolute bottom-2.5 right-2.5 pointer-events-none z-20 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-black/60 text-white backdrop-blur flex items-center gap-1">
+                                <span>😈</span> Evil
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1.5 relative">
-                                <label class="text-sm font-semibold" style="color: var(--text);">Layout Style</label>
-                                <div onclick="toggleCustomDropdown('layoutStyleDropdown', event)"
-                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
-                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentLayoutStyleText" class="truncate pr-2">Classic Grid</span>
-                                    <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
+                        <!-- 2. Dual Side-by-Side Mirrored Previews (Toggled View) -->
+                        <div id="mirroredPreviews" class="hidden grid grid-cols-2 gap-3">
+                            <div class="text-center space-y-1.5">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
+                                    <span class="w-2 h-2 rounded-full" style="background-color: var(--accent);"></span>
+                                    <span>Good · Left</span>
                                 </div>
-                                <div id="layoutStyleDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] left-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
-                                    <button data-value="grid" onclick="selectCustomOption('layoutStyleDropdown', 'grid', 'Classic Grid', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Aligned Grid</button>
-                                    <button data-value="scrapbook" onclick="selectCustomOption('layoutStyleDropdown', 'scrapbook', 'Creative Scrapbook', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Creative Scrapbook (Tilted)</button>
-                                </div>
-                                <input type="hidden" id="posterLayoutStyle" value="grid">
+                                <img id="leftMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-36 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="AppBridge.openGallery([this.src])" title="Click to view full size">
                             </div>
-                            
-                            <div class="space-y-1.5 relative">
-                                <label class="text-sm font-semibold" style="color: var(--text);">Arrangement</label>
-                                <div onclick="toggleCustomDropdown('arrangementDropdown', event)"
-                                    class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
-                                    style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
-                                    <span id="currentArrangementText" class="truncate pr-2">Alternating</span>
-                                    <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
+                            <div class="text-center space-y-1.5">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: var(--input); border: 1px solid var(--border); color: var(--text);">
+                                    <span class="w-2 h-2 rounded-full opacity-60" style="background-color: var(--accent);"></span>
+                                    <span>Evil · Right</span>
                                 </div>
-                                <div id="arrangementDropdown"
-                                    class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
-                                    <button data-value="triptych" onclick="selectCustomOption('arrangementDropdown', 'triptych', 'Classic Triptych (Good • Original • Evil)', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Triptych (Good • Original • Evil)</button>
-                                    <button data-value="alternating" onclick="selectCustomOption('arrangementDropdown', 'alternating', 'Alternating (Good/Evil mixed)', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Alternating (Good/Evil mixed)</button>
-                                    <button data-value="mixed" onclick="selectCustomOption('arrangementDropdown', 'mixed', 'Randomly Mixed (Shuffled)', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Randomly Mixed (Shuffled)</button>
-                                    <button data-value="grouped" onclick="selectCustomOption('arrangementDropdown', 'grouped', 'Grouped (Good First)', event)"
-                                        class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Grouped (Good First)</button>
-                                </div>
-                                <input type="hidden" id="posterArrangement" value="alternating">
+                                <img id="rightMirrorImg" class="rounded-xl shadow-md object-cover mx-auto max-h-36 hover:scale-[1.02] transition duration-200 cursor-pointer" onclick="AppBridge.openGallery([this.src])" title="Click to view full size">
                             </div>
+                        </div>
+
+                        <!-- 3. Dual Persona Dossier (Clean integrated layout separated by horizontal rule) -->
+                        <div id="analysisCard" class="pt-3 border-t space-y-3.5 transition" style="border-color: var(--border);">
+                            <!-- Top Header: Title -->
+                            <div class="flex items-center gap-1.5">
+                                <div>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full" style="background-color: var(--accent);"></span>
+                                        <span class="text-[11px] font-bold uppercase tracking-widest" style="color: var(--muted);">DUALITY DOSSIER</span>
+                                    </div>
+                                    <h4 class="text-sm font-black tracking-tight mt-0.5" style="color: var(--text);">
+                                        <span class="font-medium text-xs mr-1" style="color: var(--muted);">You are:</span><span id="archetypeTitle">The Unshakable Arbiter</span>
+                                    </h4>
+                                </div>
+                            </div>
+
+                            <!-- Duality Balance Track: Refined Editorial Meter -->
+                            <div class="space-y-1.5 py-0.5">
+                                <div class="flex justify-between items-baseline text-xs font-semibold">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent);">Good</span>
+                                        <span id="angelicPctText" class="font-mono text-sm font-bold" style="color: var(--text);">51%</span>
+                                    </div>
+                                    <span id="balanceMetric" class="text-[11px] font-medium" style="color: var(--muted);">
+                                        0.8° Left Bias
+                                    </span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span id="demonicPctText" class="font-mono text-sm font-bold" style="color: var(--text);">49%</span>
+                                        <span class="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Evil</span>
+                                    </div>
+                                </div>
+
+                                <!-- Dual Glow Beam Track with Center Equilibrium Line -->
+                                <div class="relative h-2 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden flex shadow-inner">
+                                    <!-- Center equilibrium notch -->
+                                    <div class="absolute left-1/2 top-0 bottom-0 w-[2px] bg-white dark:bg-white/90 z-10 -translate-x-1/2 shadow-xs"></div>
+                                    
+                                    <!-- Angelic Light Wing: Warm Amber / Gold Gradient -->
+                                    <div id="angelicBar" class="h-full transition-all duration-300 rounded-l-full"
+                                        style="width: 51%; background: linear-gradient(90deg, #FDE68A 0%, #F59E0B 100%);"></div>
+                                    
+                                    <!-- Demonic Shadow Wing: Violet / Deep Purple Gradient -->
+                                    <div id="demonicBar" class="h-full transition-all duration-300 rounded-r-full"
+                                        style="width: 49%; background: linear-gradient(90deg, #8B5CF6 0%, #4C1D95 100%);"></div>
+                                </div>
+                            </div>
+
+                            <!-- Personality Tags (Chips) -->
+                            <div id="analysisTags" class="flex flex-wrap gap-1.5 pt-0.5">
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md border" style="background-color: var(--input); border-color: var(--border); color: var(--muted);">#PokerFace</span>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md border" style="background-color: var(--input); border-color: var(--border); color: var(--muted);">#ZeroDrama</span>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md border" style="background-color: var(--input); border-color: var(--border); color: var(--muted);">#TheMediator</span>
+                            </div>
+
+                            <!-- Witty Yearbook Verdict (Natural continuous flow without divider line) -->
+                            <div>
+                                <p id="analysisVerdict" class="text-xs leading-relaxed font-medium" style="color: var(--text);">
+                                    Can sit calmly through the wildest group chat drama, sip their drink, and never pick a side.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Permanent Sample Portraits Bar (Now placed below Persona Preview) -->
+                    <div id="samplePortraitsBar" class="pt-3 border-t w-full text-center" style="border-color: var(--border);">
+                        <span class="text-[11px] font-semibold block mb-2" style="color: var(--muted);">Or quick try with sample portraits:</span>
+                        <div class="flex items-center justify-center gap-5">
+                            <button type="button" onclick="loadSamplePortrait('monalisa', event)" class="flex flex-col items-center gap-1 group cursor-pointer hover:scale-105 active:scale-95 transition" title="Try Mona Lisa" id="sampleAvatar_monalisa">
+                                <div class="w-10 h-10 rounded-full border-2 overflow-hidden flex items-center justify-center text-lg shadow-sm transition duration-200" style="border-color: var(--border); background: #3b2f2f;">
+                                    👩‍🎨
+                                </div>
+                                <span class="text-[11px] font-medium" style="color: var(--text);">Mona Lisa</span>
+                            </button>
+                            <button type="button" onclick="loadSamplePortrait('david', event)" class="flex flex-col items-center gap-1 group cursor-pointer hover:scale-105 active:scale-95 transition" title="Try Sculpture David" id="sampleAvatar_david">
+                                <div class="w-10 h-10 rounded-full border-2 overflow-hidden flex items-center justify-center text-lg shadow-sm transition duration-200" style="border-color: var(--border); background: #4a5568;">
+                                    🗿
+                                </div>
+                                <span class="text-[11px] font-medium" style="color: var(--text);">Statue David</span>
+                            </button>
+                            <button type="button" onclick="loadSamplePortrait('vintage', event)" class="flex flex-col items-center gap-1 group cursor-pointer hover:scale-105 active:scale-95 transition" title="Try Vintage Portrait" id="sampleAvatar_vintage">
+                                <div class="w-10 h-10 rounded-full border-2 overflow-hidden flex items-center justify-center text-lg shadow-sm transition duration-200" style="border-color: var(--border); background: #2d3748;">
+                                    🎩
+                                </div>
+                                <span class="text-[11px] font-medium" style="color: var(--text);">Vintage Noir</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Collage Output Viewport (No space-y-6 so it precisely matches left column top) -->
-            <div class="lg:col-span-7">
+            <!-- COLUMN 2: Collage Output Viewport (Middle on Desktop, 3rd on Mobile) -->
+            <div class="order-3 xl:order-2 xl:col-span-5">
                 
                 <!-- Placeholder when no photo is uploaded -->
                 <div id="resultPlaceholder" class="gold-panel rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[460px]">
@@ -653,27 +734,244 @@
                     
                     <!-- Clean collage presentation -->
                     <div class="flex items-center justify-center py-2">
-                        <img id="resultImage" class="max-h-[580px] w-auto rounded-xl shadow-lg object-contain cursor-pointer hover:opacity-95 transition" onclick="viewFullResult()" title="Click to view fullscreen in app gallery">
+                        <img id="resultImage" class="max-h-[640px] 2xl:max-h-[720px] w-auto rounded-xl shadow-lg object-contain cursor-pointer hover:opacity-95 transition" onclick="viewFullResult()" title="Click to view fullscreen in app gallery">
                     </div>
 
-                    <div class="flex gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button onclick="downloadCollage()" 
                             style="background-color: var(--text) !important; color: var(--bg) !important;"
-                            class="flex-1 py-3 px-4 font-bold rounded-xl shadow-md transition duration-200 text-sm flex items-center justify-center gap-2 border-0 cursor-pointer hover:opacity-90 active:scale-[0.99]">
+                            class="py-3 px-2 font-bold rounded-xl shadow-md transition duration-200 text-xs flex items-center justify-center gap-1.5 border-0 cursor-pointer hover:opacity-90 active:scale-[0.99]" title="Download full high-res collage poster">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                             </svg>
-                            Download PNG
+                            Poster PNG
                         </button>
-                        <button onclick="viewFullResult()" class="py-3 px-4 font-semibold rounded-xl transition duration-200 text-sm flex items-center justify-center cursor-pointer border hover:opacity-90 active:scale-[0.99]" style="background-color: var(--panel); color: var(--text); border-color: var(--border);">
-                            View Fullsize
+                        <button id="saveAvatarsBtn" onclick="saveSquareAvatars()" 
+                            class="py-3 px-2 font-bold rounded-xl transition duration-200 text-xs flex items-center justify-center gap-1.5 cursor-pointer border hover:opacity-90 active:scale-[0.99]"
+                            style="background-color: var(--panel); color: var(--text); border-color: var(--border);" title="Export 1:1 square cropped Good & Evil avatars">
+                            <svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7 0 3.75 3.75 0 017 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                            Avatars (1:1)
                         </button>
+                        <button id="exportGifBtn" onclick="exportMorphGif()" 
+                            class="py-3 px-2 font-bold rounded-xl transition duration-200 text-xs flex items-center justify-center gap-1.5 cursor-pointer border hover:opacity-90 active:scale-[0.99]"
+                            style="background-color: var(--panel); color: var(--accent); border-color: var(--accent);" title="Export 2s morphing GIF loop">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            <span id="exportGifBtnText">GIF (2s)</span>
+                        </button>
+                        <button onclick="viewFullResult()" class="py-3 px-2 font-semibold rounded-xl transition duration-200 text-xs flex items-center justify-center cursor-pointer border hover:opacity-90 active:scale-[0.99]" style="background-color: var(--panel); color: var(--text); border-color: var(--border);">
+                            Fullsize
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FAQ & Privacy: Single cohesive card with large background -->
+                <div class="mt-6 gold-panel rounded-2xl p-6 space-y-5">
+                    <div>
+                        <h3 class="text-sm font-semibold tracking-tight" style="color: var(--text);">Frequently Asked Questions</h3>
+                        <p class="text-xs mt-0.5" style="color: var(--muted);">How your photos are processed and kept private.</p>
+                    </div>
+
+                    <div class="space-y-4 text-xs">
+                        <div class="space-y-1">
+                            <h4 class="font-medium text-xs" style="color: var(--text);">Is my photo uploaded or saved anywhere?</h4>
+                            <p class="leading-relaxed" style="color: var(--muted);">
+                                No. Everything runs entirely in your browser using local canvas memory. Your photos never leave your device, and no data is ever sent to a server.
+                            </p>
+                        </div>
+
+                        <div class="space-y-1 pt-3.5 border-t" style="border-color: var(--border);">
+                            <h4 class="font-medium text-xs" style="color: var(--text);">How does Auto Align work?</h4>
+                            <p class="leading-relaxed" style="color: var(--muted);">
+                                It uses browser face detection to locate key landmarks like eyes and nose bridge, then aligns the symmetry axis automatically. You can still adjust the handles manually anytime.
+                            </p>
+                        </div>
+
+                        <div class="space-y-1 pt-3.5 border-t" style="border-color: var(--border);">
+                            <h4 class="font-medium text-xs" style="color: var(--text);">Why do the left and right mirrors look like different people?</h4>
+                            <p class="leading-relaxed" style="color: var(--muted);">
+                                Almost nobody has a perfectly symmetrical face. Mirroring each side creates two distinct composite faces, highlighting natural variations in expression, lighting, and structure.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
             </div>
 
-        </div>
+            <!-- COLUMN 3: Poster Settings (Right of Preview on Desktop, 2nd on Mobile) -->
+            <div class="order-2 xl:order-3 xl:col-span-3">
+                <div class="gold-panel rounded-2xl p-5 space-y-4">
+                    <h2 class="text-base font-bold tracking-tight" style="color: var(--text);">Poster Settings</h2>
+                    
+                    <div class="space-y-4">
+                        <!-- Copies Grid -->
+                        <div id="countSettingsGrid" class="grid grid-cols-2 gap-3 transition-opacity duration-200">
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-xs font-semibold">
+                                    <span style="color: var(--text);">Good Copies</span>
+                                    <span id="leftCountLabel" class="font-mono" style="color: var(--accent);">3</span>
+                                </div>
+                                <input type="range" id="leftCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-xs font-semibold">
+                                    <span style="color: var(--text);">Evil Copies</span>
+                                    <span id="rightCountLabel" class="font-mono" style="color: var(--accent);">3</span>
+                                </div>
+                                <input type="range" id="rightCount" min="0" max="8" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
+                            </div>
+                        </div>
+
+                        <!-- Triptych Notice (shown when triptych is active) -->
+                        <div id="triptychNotice" class="hidden px-3 py-2 rounded-xl text-xs font-medium border flex items-center gap-2" style="background-color: var(--input); border-color: var(--border); color: var(--accent);">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                            </svg>
+                            <span>Classic Triptych renders Good, Original, and Evil side-by-side.</span>
+                        </div>
+
+                        <!-- Grid Columns -->
+                        <div id="colsSettingContainer" class="space-y-1.5">
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span style="color: var(--text);">Grid Columns</span>
+                                <span id="colsLabel" class="font-mono" style="color: var(--accent);">3</span>
+                            </div>
+                            <input type="range" id="cols" min="2" max="6" value="3" oninput="scheduleCollage()" class="w-full cursor-pointer">
+                        </div>
+                        
+                        <!-- Poster Theme -->
+                        <div class="space-y-1.5 relative">
+                            <label class="text-sm font-semibold" style="color: var(--text);">Poster Theme</label>
+                            <div onclick="toggleCustomDropdown('themeDropdown', event)"
+                                class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                <span id="currentThemeText" class="truncate pr-2">Studio Neutral Gray</span>
+                                <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                            <div id="themeDropdown"
+                                class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                <button data-value="imperial_gold" onclick="selectCustomOption('themeDropdown', 'imperial_gold', 'Imperial Gold', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Imperial Gold (Classic Navy)</button>
+                                <button data-value="midnight_slate" onclick="selectCustomOption('themeDropdown', 'midnight_slate', 'Midnight Slate', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Midnight Slate (Modern Dark)</button>
+                                <button data-value="retro_parchment" onclick="selectCustomOption('themeDropdown', 'retro_parchment', 'Retro Parchment', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Retro Parchment (Vintage Gallery)</button>
+                                <button data-value="varsity_spirit" onclick="selectCustomOption('themeDropdown', 'varsity_spirit', 'Varsity Contrast', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Varsity Contrast (Bold Duo)</button>
+                                <button data-value="memphis_pop" onclick="selectCustomOption('themeDropdown', 'memphis_pop', 'Neo Pop Art', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Neo Pop Art (Vibrant Pastel)</button>
+                                <button data-value="studio_gray" onclick="selectCustomOption('themeDropdown', 'studio_gray', 'Studio Neutral Gray', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Studio Neutral Gray (Standard)</button>
+                                <button data-value="academic_navy" onclick="selectCustomOption('themeDropdown', 'academic_navy', 'Academic Ivy Navy', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Academic Ivy Navy</button>
+                                <button data-value="fine_art_white" onclick="selectCustomOption('themeDropdown', 'fine_art_white', 'Fine Art Studio White', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Fine Art Studio White</button>
+                                <button data-value="oxford_green" onclick="selectCustomOption('themeDropdown', 'oxford_green', 'Oxford Ivy Green', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Oxford Ivy Green</button>
+                                <button data-value="midnight_obsidian" onclick="selectCustomOption('themeDropdown', 'midnight_obsidian', 'Midnight Obsidian', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Midnight Obsidian</button>
+                            </div>
+                            <input type="hidden" id="posterTheme" value="studio_gray">
+                        </div>
+
+                        <!-- Layout Style -->
+                        <div class="space-y-1.5 relative">
+                            <label class="text-sm font-semibold" style="color: var(--text);">Layout Style</label>
+                            <div onclick="toggleCustomDropdown('layoutStyleDropdown', event)"
+                                class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                <span id="currentLayoutStyleText" class="truncate pr-2">Classic Grid</span>
+                                <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                            <div id="layoutStyleDropdown"
+                                class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                <button data-value="grid" onclick="selectCustomOption('layoutStyleDropdown', 'grid', 'Classic Grid', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Aligned Grid</button>
+                                <button data-value="scrapbook" onclick="selectCustomOption('layoutStyleDropdown', 'scrapbook', 'Creative Scrapbook', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Creative Scrapbook (Tilted)</button>
+                            </div>
+                            <input type="hidden" id="posterLayoutStyle" value="grid">
+                        </div>
+
+                        <!-- Arrangement -->
+                        <div class="space-y-1.5 relative">
+                            <label class="text-sm font-semibold" style="color: var(--text);">Arrangement</label>
+                            <div onclick="toggleCustomDropdown('arrangementDropdown', event)"
+                                class="w-full py-2.5 px-3.5 rounded-xl border bg-[var(--input)] flex items-center justify-between font-medium text-sm cursor-pointer select-trigger"
+                                style="color: var(--text); border-color: var(--border); transition: all var(--transition);">
+                                <span id="currentArrangementText" class="truncate pr-2">Alternating</span>
+                                <svg class="w-4 h-4 text-[var(--accent)] flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                            <div id="arrangementDropdown"
+                                class="custom-dropdown-panel hidden absolute top-[calc(100%+4px)] right-0 w-max min-w-full max-w-[280px] shadow-2xl rounded-xl border z-[115] overflow-hidden">
+                                <button data-value="triptych" onclick="selectCustomOption('arrangementDropdown', 'triptych', 'Classic Triptych (Good • Original • Evil)', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Classic Triptych (Good • Original • Evil)</button>
+                                <button data-value="alternating" onclick="selectCustomOption('arrangementDropdown', 'alternating', 'Alternating (Good/Evil mixed)', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Alternating (Good/Evil mixed)</button>
+                                <button data-value="mixed" onclick="selectCustomOption('arrangementDropdown', 'mixed', 'Randomly Mixed (Shuffled)', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 border-b" style="border-color: var(--border);">Randomly Mixed (Shuffled)</button>
+                                <button data-value="grouped" onclick="selectCustomOption('arrangementDropdown', 'grouped', 'Grouped (Good First)', event)"
+                                    class="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5">Grouped (Good First)</button>
+                            </div>
+                            <input type="hidden" id="posterArrangement" value="alternating">
+                        </div>
+
+                        <!-- Appraisal Stamp Toggle -->
+                        <div class="flex items-center justify-between pt-3 border-t" style="border-color: var(--border);">
+                            <div>
+                                <span class="text-sm font-semibold block" style="color: var(--text);">Appraisal Stamp</span>
+                                <span class="text-xs block" style="color: var(--muted);">Imprint vintage Saint/Demon seal</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="stampToggle" checked onchange="scheduleCollage()" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent)]"></div>
+                            </label>
+                        </div>
+
+                        <!-- Aura FX Toggle -->
+                        <div class="flex items-center justify-between pt-3 border-t" style="border-color: var(--border);">
+                            <div>
+                                <span class="text-sm font-semibold block" style="color: var(--text);">Aura FX (Angel & Demon)</span>
+                                <span class="text-xs block" style="color: var(--muted);">Golden bloom vs cold noir shadow</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="auraFxToggle" onchange="processFaceSymmetry()" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent)]"></div>
+                            </label>
+                        </div>
+
+                        <!-- Custom Typography -->
+                        <div class="space-y-2.5 pt-3 border-t" style="border-color: var(--border);">
+                            <span class="text-xs font-bold uppercase tracking-wider block" style="color: var(--muted);">Custom Typography</span>
+                            
+                            <div class="space-y-1">
+                                <label class="text-xs font-semibold" style="color: var(--text);">Poster Title</label>
+                                <input type="text" id="posterTitleInput" value="FACE OF GOOD AND EVIL" oninput="scheduleCollage()"
+                                    class="w-full px-3 py-2 text-xs rounded-xl border bg-[var(--input)] font-semibold" style="color: var(--text); border-color: var(--border);">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-semibold" style="color: var(--text);">Motto / Subtitle (Optional)</label>
+                                <input type="text" id="posterMottoInput" placeholder="e.g. Class of 2026 · Who would you trust?" oninput="scheduleCollage()"
+                                    class="w-full px-3 py-2 text-xs rounded-xl border bg-[var(--input)]" style="color: var(--text); border-color: var(--border);">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-semibold" style="color: var(--text);">Footer Signature</label>
+                                <input type="text" id="posterCreditInput" value="Generated by chschat.xyz" oninput="scheduleCollage()"
+                                    class="w-full px-3 py-2 text-xs rounded-xl border bg-[var(--input)]" style="color: var(--text); border-color: var(--border);">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
     </div>
 
@@ -685,6 +983,12 @@
         let resultDataUrl = null;
         let imageAspect = 3 / 4; 
 
+        // Split Wipe & Persona Analysis state
+        let currentPreviewTab = 'split';
+        let splitWipeRatio = 0.5;
+        let isDraggingSplit = false;
+        let lastAnalysisResult = null;
+
         // Drag split line coordinates in relative space [0, 1]
         let posTop = { rX: 0.5, rY: 0.15 };
         let posBottom = { rX: 0.5, rY: 0.85 };
@@ -694,49 +998,963 @@
         let symmetryRafId = null;
         let collageDebounceTimer = null;
 
+        function setPreviewTab(tab) {
+            currentPreviewTab = tab;
+            const splitBtn = document.getElementById('tabSplitWipe');
+            const sideBtn = document.getElementById('tabSideBySide');
+            const splitContainer = document.getElementById('splitWipeContainer');
+            const dualContainer = document.getElementById('mirroredPreviews');
+            if (!splitBtn || !sideBtn || !splitContainer || !dualContainer) return;
+
+            if (tab === 'split') {
+                splitBtn.style.backgroundColor = 'var(--accent)';
+                splitBtn.style.color = '#fff';
+                sideBtn.style.backgroundColor = 'transparent';
+                sideBtn.style.color = 'var(--muted)';
+                splitContainer.classList.remove('hidden');
+                dualContainer.classList.add('hidden');
+                applySplitWipe();
+            } else {
+                sideBtn.style.backgroundColor = 'var(--accent)';
+                sideBtn.style.color = '#fff';
+                splitBtn.style.backgroundColor = 'transparent';
+                splitBtn.style.color = 'var(--muted)';
+                dualContainer.classList.remove('hidden');
+                splitContainer.classList.add('hidden');
+            }
+        }
+
+        function initSplitWipeEvents() {
+            const container = document.getElementById('splitWipeContainer');
+            if (!container) return;
+
+            const updateWipe = (clientX) => {
+                const rect = container.getBoundingClientRect();
+                if (rect.width <= 0) return;
+                let r = (clientX - rect.left) / rect.width;
+                r = Math.max(0.02, Math.min(0.98, r));
+                splitWipeRatio = r;
+                applySplitWipe();
+            };
+
+            container.addEventListener('pointerdown', (e) => {
+                isDraggingSplit = true;
+                try { container.setPointerCapture(e.pointerId); } catch(err) {}
+                updateWipe(e.clientX);
+            });
+
+            container.addEventListener('pointermove', (e) => {
+                if (!isDraggingSplit) return;
+                updateWipe(e.clientX);
+            });
+
+            const onPointerUp = (e) => {
+                if (isDraggingSplit) {
+                    try { container.releasePointerCapture(e.pointerId); } catch(err) {}
+                    isDraggingSplit = false;
+                }
+            };
+
+            container.addEventListener('pointerup', onPointerUp);
+            container.addEventListener('pointercancel', onPointerUp);
+        }
+
+        function applySplitWipe() {
+            const divider = document.getElementById('splitDivider');
+            const evilWrapper = document.getElementById('splitEvilWrapper');
+            if (!divider || !evilWrapper) return;
+
+            const pct = (splitWipeRatio * 100).toFixed(1);
+            divider.style.left = `${pct}%`;
+            evilWrapper.style.clipPath = `polygon(${pct}% 0, 100% 0, 100% 100%, ${pct}% 100%)`;
+        }
+
+        let currentSampleType = null;
+
+        function updateSampleChipsUI() {
+            ['monalisa', 'david', 'vintage'].forEach(t => {
+                const btn = document.getElementById(`sampleAvatar_${t}`);
+                if (!btn) return;
+                const ring = btn.querySelector('div');
+                const label = btn.querySelector('span');
+                if (currentSampleType === t) {
+                    if (ring) {
+                        ring.style.borderColor = 'var(--accent)';
+                        ring.style.boxShadow = '0 0 0 2.5px var(--accent)';
+                        ring.style.transform = 'scale(1.08)';
+                    }
+                    if (label) {
+                        label.style.color = 'var(--accent)';
+                        label.style.fontWeight = '700';
+                    }
+                } else {
+                    if (ring) {
+                        ring.style.borderColor = 'var(--border)';
+                        ring.style.boxShadow = 'none';
+                        ring.style.transform = 'scale(1)';
+                    }
+                    if (label) {
+                        label.style.color = 'var(--text)';
+                        label.style.fontWeight = '500';
+                    }
+                }
+            });
+        }
+
+        function computePersonalityAnalysis(theta, alignVal, leftCtx, rightCtx, w, h) {
+            let diffSum = 0;
+            let sampleCount = 0;
+            try {
+                const lData = leftCtx.getImageData(0, 0, w, h).data;
+                const rData = rightCtx.getImageData(0, 0, w, h).data;
+                const step = 20 * 4;
+                for (let i = 0; i < lData.length; i += step) {
+                    const lLum = 0.299 * lData[i] + 0.587 * lData[i + 1] + 0.114 * lData[i + 2];
+                    const rLum = 0.299 * rData[i] + 0.587 * rData[i + 1] + 0.114 * rData[i + 2];
+                    diffSum += (lLum - rLum);
+                    sampleCount++;
+                }
+            } catch (e) {
+                diffSum = 0;
+                sampleCount = 1;
+            }
+
+            const lumBias = sampleCount > 0 ? (diffSum / sampleCount) / 35 : 0;
+            const shiftBias = (alignVal / 25) * 0.35;
+            const tiltBias = (theta / (Math.PI / 8)) * 0.2;
+
+            const rawScore = 0.5 + (lumBias * 0.25) + (shiftBias * 0.45) + (tiltBias * 0.2);
+            const angelicRatio = Math.max(0.18, Math.min(0.82, rawScore));
+            const angelicPct = Math.round(angelicRatio * 100);
+            const demonicPct = 100 - angelicPct;
+
+            const symmetryScore = Math.max(78, Math.min(99, Math.round(100 - Math.abs(angelicPct - 50) * 0.9 - Math.abs(alignVal) * 0.6)));
+            const degTilt = (theta * 180 / Math.PI).toFixed(1);
+            let biasText = "Balanced";
+            if (angelicPct > 53) {
+                biasText = `+${angelicPct - 50}% Left bias`;
+            } else if (demonicPct > 53) {
+                biasText = `+${demonicPct - 50}% Right bias`;
+            } else {
+                biasText = "Equilibrium";
+            }
+
+            let alignment = "True Neutral";
+            let archetype = "The Unshakable Arbiter";
+            let tags = ["#PokerFace", "#ZeroDrama", "#TheMediator"];
+            let verdict = "Master of the poker face. Can listen to jaw-dropping campus tea without twitching a single eyebrow.";
+
+            if (angelicPct >= 72) {
+                alignment = "Lawful Good";
+                archetype = "The Textbook Saint";
+                tags = ["#HallMonitorEnergy", "#GuiltProne", "#WouldReturnLostWallet"];
+                verdict = "Voted most likely to return a borrowed pen 6 months later with a handwritten apology note.";
+            } else if (angelicPct >= 62) {
+                alignment = "Neutral Good";
+                archetype = "The Wholesome Anchor";
+                tags = ["#SnackBringer", "#MoralCompass", "#CertifiedReliable"];
+                verdict = "The glue holding the group project together. Brings snacks and quietly fixes everyone else's slides at 2 AM.";
+            } else if (angelicPct >= 53) {
+                alignment = "Chaotic Good";
+                archetype = "The Noble Troublemaker";
+                tags = ["#RebelWithCause", "#ChaoticCharming", "#RulesAreSuggestions"];
+                verdict = "Breaks every school rule on the books, but exclusively for wholesome and honorable reasons.";
+            } else if (angelicPct >= 47) {
+                alignment = "True Neutral";
+                archetype = "The Unshakable Arbiter";
+                tags = ["#PokerFace", "#MasterOfNeutral", "#UnbotheredKing"];
+                verdict = "Master of the poker face. Can listen to jaw-dropping campus tea without twitching a single eyebrow.";
+            } else if (angelicPct >= 38) {
+                alignment = "Chaotic Neutral";
+                archetype = "The Wildcard Gremlin";
+                tags = ["#Instigator", "#ImpulseBuyer", "#ChaosInBodyForm"];
+                verdict = "Pure wildcard energy. Could either solve your deepest existential crisis or convince you to buy a $300 jacket.";
+            } else if (angelicPct >= 28) {
+                alignment = "Neutral Evil";
+                archetype = "The Silent Mastermind";
+                tags = ["#SecretOverlord", "#FlawlessEtiquette", "#SilentlyJudging"];
+                verdict = "Flawlessly polite in public. Secretly running mental calculations on how to take over the organization.";
+            } else {
+                alignment = "Chaotic Evil";
+                archetype = "The Cinematic Villain";
+                tags = ["#VillainOrigin", "#DangerousAura", "#DramaticExit"];
+                verdict = "Cinematic villain origin story in 4K. Even their mirrored clone looks like they're orchestrating a heist.";
+            }
+
+            return { angelicPct, demonicPct, alignment, archetype, tags, verdict, biasText, symmetryScore };
+        }
+
+        function updateAnalysisUI(res) {
+            if (!res) return;
+            const badge = document.getElementById('analysisBadge');
+            const archetypeTitle = document.getElementById('archetypeTitle');
+            const balanceMetric = document.getElementById('balanceMetric');
+            const angelicText = document.getElementById('angelicPctText');
+            const demonicText = document.getElementById('demonicPctText');
+            const angelicBar = document.getElementById('angelicBar');
+            const demonicBar = document.getElementById('demonicBar');
+            const balancePointer = document.getElementById('balancePointer');
+            const tagsContainer = document.getElementById('analysisTags');
+            const verdict = document.getElementById('analysisVerdict');
+
+            if (badge) badge.innerText = res.alignment;
+            if (archetypeTitle) archetypeTitle.innerText = res.archetype;
+            if (balanceMetric) balanceMetric.innerText = res.biasText;
+            if (angelicText) angelicText.innerText = `${res.angelicPct}%`;
+            if (demonicText) demonicText.innerText = `${res.demonicPct}%`;
+            if (angelicBar) angelicBar.style.width = `${res.angelicPct}%`;
+            if (demonicBar) demonicBar.style.width = `${res.demonicPct}%`;
+            if (balancePointer) balancePointer.style.left = `${res.angelicPct}%`;
+            if (verdict) verdict.innerText = res.verdict;
+
+            if (tagsContainer && res.tags) {
+                tagsContainer.innerHTML = res.tags.map(t => 
+                    `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-md border" style="background-color: var(--panel); border-color: var(--border); color: var(--muted);">${t}</span>`
+                ).join('');
+            }
+        }
+
+        let cameraStream = null;
+        let countdownTimer = null;
+
+        function loadPhotoDataUrl(dataUrl, fileName, preserveCustomHandles = false) {
+            sourceImage = new Image();
+            sourceImage.onload = () => {
+                document.getElementById('uploadPlaceholder').classList.add('hidden');
+                const img = document.getElementById('uploadPreview');
+                img.src = dataUrl;
+                
+                // Show preview container and face alignment controls
+                document.getElementById('uploadPreviewContainer').classList.remove('hidden');
+                const faceControls = document.getElementById('faceAlignmentControls');
+                if (faceControls) faceControls.classList.remove('hidden');
+                const nameBadge = document.getElementById('fileNameBadge');
+                if (nameBadge) {
+                    nameBadge.innerText = fileName || 'Portrait';
+                    nameBadge.classList.remove('hidden');
+                }
+                
+                // Show reset, auto-align and change photo buttons in header
+                const autoAlignBtn = document.getElementById('autoAlignBtn');
+                if (autoAlignBtn) autoAlignBtn.classList.remove('hidden');
+                const resetBtn = document.getElementById('resetLineBtn');
+                if (resetBtn) resetBtn.classList.remove('hidden');
+                const changeBtn = document.getElementById('changePhotoBtn');
+                if (changeBtn) changeBtn.classList.remove('hidden');
+                const cameraHeaderBtn = document.getElementById('cameraHeaderBtn');
+                if (cameraHeaderBtn) cameraHeaderBtn.classList.remove('hidden');
+                
+                imageAspect = sourceImage.naturalWidth / sourceImage.naturalHeight;
+
+                const alignInput = document.getElementById('alignOffset');
+                if (alignInput) alignInput.value = 0;
+
+                if (!preserveCustomHandles) {
+                    // Reset handles to default center vertical positions first
+                    posTop = { rX: 0.5, rY: 0.15 };
+                    posBottom = { rX: 0.5, rY: 0.85 };
+
+                    // Run automatic face & symmetry axis detection
+                    setTimeout(() => {
+                        autoDetectFaceAxis(false);
+                    }, 60);
+                } else {
+                    // Instantly apply preset asymmetric handles & render
+                    setTimeout(() => {
+                        updateHandlesUI();
+                        processFaceSymmetry();
+                    }, 60);
+                }
+            };
+            sourceImage.src = dataUrl;
+        }
+
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            currentSampleType = null;
+            updateSampleChipsUI();
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                sourceImage = new Image();
-                sourceImage.onload = () => {
-                    document.getElementById('uploadPlaceholder').classList.add('hidden');
-                    const img = document.getElementById('uploadPreview');
-                    img.src = e.target.result;
-                    
-                    // Show preview container
-                    document.getElementById('uploadPreviewContainer').classList.remove('hidden');
-                    const nameBadge = document.getElementById('fileNameBadge');
-                    if (nameBadge) {
-                        nameBadge.innerText = file.name;
-                        nameBadge.classList.remove('hidden');
-                    }
-                    
-                    // Show reset button and change photo button
-                    const resetBtn = document.getElementById('resetLineBtn');
-                    if (resetBtn) resetBtn.classList.remove('hidden');
-                    const changeBtn = document.getElementById('changePhotoBtn');
-                    if (changeBtn) changeBtn.classList.remove('hidden');
-                    
-                    imageAspect = sourceImage.naturalWidth / sourceImage.naturalHeight;
-
-                    // Reset handles to default center vertical positions
-                    posTop = { rX: 0.5, rY: 0.15 };
-                    posBottom = { rX: 0.5, rY: 0.85 };
-                    const alignInput = document.getElementById('alignOffset');
-                    if (alignInput) alignInput.value = 0;
-
-                    // Recalculate coordinates in next tick
-                    setTimeout(() => {
-                        updateHandlesUI();
-                        processFaceSymmetry();
-                    }, 50);
-                };
-                sourceImage.src = e.target.result;
+                loadPhotoDataUrl(e.target.result, file.name);
             };
             reader.readAsDataURL(file);
+        }
+
+        async function openCameraModal(e) {
+            if (e) e.stopPropagation();
+            const modal = document.getElementById('cameraModal');
+            const video = document.getElementById('cameraVideo');
+            const countdownEl = document.getElementById('cameraCountdown');
+            if (countdownEl) countdownEl.classList.add('hidden');
+
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 800 } },
+                    audio: false
+                });
+                if (video) {
+                    video.srcObject = cameraStream;
+                    video.play();
+                }
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        modal.classList.remove('opacity-0');
+                        modal.classList.add('opacity-100');
+                    });
+                }
+            } catch (err) {
+                console.error("Camera access failed:", err);
+                alert("Unable to access camera. Please allow camera permissions in your browser settings.");
+            }
+        }
+
+        function closeCameraModal() {
+            const modal = document.getElementById('cameraModal');
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = null;
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            if (modal) {
+                modal.classList.remove('opacity-100');
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 200);
+            }
+        }
+
+        function startCameraCountdown() {
+            if (countdownTimer) return;
+            const overlay = document.getElementById('cameraCountdown');
+            const numEl = document.getElementById('countdownNumber');
+            if (!overlay || !numEl) return;
+
+            let count = 3;
+            numEl.innerText = count;
+            overlay.classList.remove('hidden');
+
+            countdownTimer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    numEl.innerText = count;
+                } else if (count === 0) {
+                    numEl.innerText = "📸";
+                } else {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                    overlay.classList.add('hidden');
+                    captureCameraPhoto();
+                }
+            }, 850);
+        }
+
+        function captureCameraPhoto() {
+            const video = document.getElementById('cameraVideo');
+            if (!video || !video.videoWidth) return;
+
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const c = document.createElement('canvas');
+            c.width = vw;
+            c.height = vh;
+            const ctx = c.getContext('2d');
+
+            // Mirror horizontally to match preview
+            ctx.translate(vw, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, vw, vh);
+
+            const photoDataUrl = c.toDataURL('image/jpeg', 0.95);
+            closeCameraModal();
+            currentSampleType = null;
+            updateSampleChipsUI();
+            loadPhotoDataUrl(photoDataUrl, 'Selfie_Capture.jpg');
+        }
+
+        function loadSamplePortrait(type, e) {
+            if (e) e.stopPropagation();
+            const w = 450, h = 600;
+            const c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext('2d');
+
+            if (type === 'monalisa') {
+                // Renaissance Mona Lisa: Authentic 3/4 turned face with strong Chiaroscuro & asymmetric smirk
+                const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+                bgGrad.addColorStop(0, '#1c2218');
+                bgGrad.addColorStop(0.4, '#303324');
+                bgGrad.addColorStop(1, '#0e110c');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+
+                // Body & Drapery turned slightly right
+                ctx.fillStyle = '#181714';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.54, h + 30, 230, 250, 0.08, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Low-cut dress & chest
+                ctx.fillStyle = '#c8a178';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.52, 385, 75, 85, 0.05, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head turned ~15° toward right shoulder (Left cheek broad & lit, Right cheek compressed & shaded)
+                const faceGrad = ctx.createRadialGradient(w * 0.44, 215, 20, w * 0.50, 230, 150);
+                faceGrad.addColorStop(0, '#faecd8');
+                faceGrad.addColorStop(0.45, '#e5be94');
+                faceGrad.addColorStop(0.85, '#a6774e');
+                faceGrad.addColorStop(1, '#593922');
+                ctx.fillStyle = faceGrad;
+                ctx.beginPath();
+                // Asymmetrical jawline: full left side, steep shadow on right
+                ctx.moveTo(w * 0.48 - 90, 160);
+                ctx.lineTo(w * 0.48 + 75, 160);
+                ctx.quadraticCurveTo(w * 0.48 + 80, 260, w * 0.48 + 55, 335);
+                ctx.quadraticCurveTo(w * 0.48, 362, w * 0.48 - 35, 350);
+                ctx.quadraticCurveTo(w * 0.48 - 95, 275, w * 0.48 - 90, 160);
+                ctx.closePath();
+                ctx.fill();
+
+                // Sfumato shadow on the right side of the face
+                const sfumatoShadow = ctx.createLinearGradient(w * 0.40, 0, w * 0.65, 0);
+                sfumatoShadow.addColorStop(0, 'rgba(0,0,0,0)');
+                sfumatoShadow.addColorStop(1, 'rgba(40,20,10,0.65)');
+                ctx.fillStyle = sfumatoShadow;
+                ctx.fill();
+
+                // Dark hair & veil: heavy drapery on left, falling behind on right
+                ctx.fillStyle = '#201610';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.32, 290, 52, 175, 0.12, 0, Math.PI * 2);
+                ctx.ellipse(w * 0.68, 290, 38, 160, -0.08, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(w * 0.48, 168, 110, Math.PI, 0);
+                ctx.fill();
+
+                // Left Eye (Wide, gentle, warm, saintly)
+                ctx.fillStyle = '#3d2618';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.41, 218, 15, 8, 0.05, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#100a06';
+                ctx.beginPath();
+                ctx.arc(w * 0.41, 218, 5, 0, Math.PI * 2);
+                ctx.fill();
+                // Gentle arched brow
+                ctx.strokeStyle = 'rgba(65, 42, 28, 0.45)';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.arc(w * 0.41, 222, 23, Math.PI * 1.12, Math.PI * 1.85);
+                ctx.stroke();
+
+                // Right Eye (Narrowed, heavily shadowed, calculating, darker)
+                ctx.fillStyle = '#28170c';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.58, 220, 12, 6, -0.08, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0a0503';
+                ctx.beginPath();
+                ctx.arc(w * 0.575, 220, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Deep cynical brow
+                ctx.strokeStyle = 'rgba(30, 15, 8, 0.7)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.53, 208);
+                ctx.quadraticCurveTo(w * 0.58, 204, w * 0.64, 214);
+                ctx.stroke();
+
+                // Asymmetric Nose (Turned slightly, casting sharp shadow to right)
+                ctx.strokeStyle = '#9e6942';
+                ctx.lineWidth = 2.8;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.47, 210);
+                ctx.lineTo(w * 0.46, 268);
+                ctx.lineTo(w * 0.51, 275);
+                ctx.stroke();
+                // Nose shadow on right nostril
+                ctx.fillStyle = 'rgba(50, 25, 10, 0.45)';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.51, 274, 8, 4, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Famous Asymmetric Smirk (Left corner relaxed & sweet, Right corner raised & cynical)
+                ctx.fillStyle = '#8f4f41';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.48, 308, 26, 8, 0.08, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#421a14';
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.38, 308); // Left corner rests neutral
+                ctx.quadraticCurveTo(w * 0.48, 314, w * 0.58, 301); // Right corner hooks sharply upward
+                ctx.stroke();
+
+            } else if (type === 'david') {
+                // Classical Sculpture David: Dramatic side-eye glare & extreme directional lighting
+                const bgGrad = ctx.createLinearGradient(0, 0, w, 0);
+                bgGrad.addColorStop(0, '#0f172a');
+                bgGrad.addColorStop(0.5, '#1e293b');
+                bgGrad.addColorStop(1, '#020617');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+
+                // Chiseled marble neck & tense sternocleidomastoid muscle (left neck tense, right neck shadow)
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.47, 385, 68, 88, -0.06, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Face turned toward Goliath: Bright light hit on left jaw, deep obsidian shadow on right
+                const faceGrad = ctx.createRadialGradient(w * 0.38, 210, 25, w * 0.52, 240, 160);
+                faceGrad.addColorStop(0, '#ffffff');
+                faceGrad.addColorStop(0.35, '#e2e8f0');
+                faceGrad.addColorStop(0.7, '#64748b');
+                faceGrad.addColorStop(1, '#1e293b');
+                ctx.fillStyle = faceGrad;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.48 - 98, 155);
+                ctx.lineTo(w * 0.48 + 85, 162);
+                ctx.lineTo(w * 0.48 + 72, 265);
+                ctx.lineTo(w * 0.48 + 36, 348);
+                ctx.lineTo(w * 0.48 - 46, 348);
+                ctx.lineTo(w * 0.48 - 92, 268);
+                ctx.closePath();
+                ctx.fill();
+
+                // Hard chiaroscuro shadow on right half of face
+                const marbleShadow = ctx.createLinearGradient(w * 0.44, 0, w * 0.65, 0);
+                marbleShadow.addColorStop(0, 'rgba(15,23,42,0)');
+                marbleShadow.addColorStop(1, 'rgba(15,23,42,0.85)');
+                ctx.fillStyle = marbleShadow;
+                ctx.fill();
+
+                // Curls: Wild and sunlit on left, obscured in dark on right
+                for (let a = 0; a < Math.PI * 1.1; a += 0.2) {
+                    const cx = w * 0.48 + Math.cos(a) * 115;
+                    const cy = 150 - Math.sin(a) * 65;
+                    ctx.fillStyle = (cx < w * 0.48) ? '#cbd5e1' : '#334155';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Asymmetric Intense Brow (Right brow violently furrowed downward in wrath, Left brow noble and focused)
+                ctx.fillStyle = '#475569';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.34, 202);
+                ctx.lineTo(w * 0.47, 212); // Left bridge
+                ctx.lineTo(w * 0.62, 192); // Right outer brow sharp rise
+                ctx.lineTo(w * 0.58, 218); // Deep angry furrow into bridge
+                ctx.lineTo(w * 0.47, 222);
+                ctx.lineTo(w * 0.36, 212);
+                ctx.closePath();
+                ctx.fill();
+
+                // Left Eye (Wide, determined, angelic hero looking into distance)
+                ctx.fillStyle = '#334155';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.38, 224, 17, 9, 0.04, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(w * 0.36, 224, 5.5, 0, Math.PI * 2); // looking hard left
+                ctx.fill();
+
+                // Right Eye (Shrouded in deep eye socket shadow, piercing sinister pupil)
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.56, 221, 14, 7, -0.06, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(w * 0.54, 221, 1.8, 0, Math.PI * 2); // glint of ruthless coldness
+                ctx.fill();
+
+                // Chiseled Greek Nose tilted left
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.46, 212);
+                ctx.lineTo(w * 0.49, 212);
+                ctx.lineTo(w * 0.51, 280);
+                ctx.lineTo(w * 0.44, 280);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.49, 282, 9, 5, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Determined tense lips
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.47, 314, 27, 8, -0.04, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.37, 314);
+                ctx.lineTo(w * 0.58, 312);
+                ctx.stroke();
+
+            } else {
+                // 1920s Vintage Noir: Dramatic 45° noir film lighting with monocle, raised brow & wicked half-smile
+                const bgGrad = ctx.createRadialGradient(w * 0.25, h * 0.3, 40, w * 0.5, h * 0.5, 380);
+                bgGrad.addColorStop(0, '#543b27');
+                bgGrad.addColorStop(0.6, '#21160d');
+                bgGrad.addColorStop(1, '#080503');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+
+                // High-collared tuxedo with slanted lapel
+                ctx.fillStyle = '#120e0a';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.50, h + 30, 220, 230, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // White dress shirt & crooked bow tie
+                ctx.fillStyle = '#f5f0eb';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.46 - 32, 360);
+                ctx.lineTo(w * 0.46 + 42, 360);
+                ctx.lineTo(w * 0.48, 440);
+                ctx.fill();
+
+                // Asymmetric sepia face (Left side bathed in harsh warm spotlight, Right side in total noir mystery)
+                const faceGrad = ctx.createRadialGradient(w * 0.38, 205, 15, w * 0.52, 235, 145);
+                faceGrad.addColorStop(0, '#fff4e6');
+                faceGrad.addColorStop(0.4, '#e0be9b');
+                faceGrad.addColorStop(0.75, '#734d30');
+                faceGrad.addColorStop(1, '#261408');
+                ctx.fillStyle = faceGrad;
+                ctx.beginPath();
+                ctx.ellipse(w * 0.48, 230, 96, 126, 0.03, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Venetian blind shadow bar slanting across the evil right side
+                ctx.fillStyle = 'rgba(10, 5, 2, 0.72)';
+                ctx.beginPath();
+                ctx.rect(w * 0.46, 140, w * 0.54, 300);
+                ctx.fill();
+
+                // Slicked side-part hair: neat part on left, rogue strand on right
+                ctx.fillStyle = '#1a120b';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.48, 145, 105, 54, 0.08, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Left Eye: Calm, gentlemanly, polite, innocent
+                ctx.fillStyle = '#382214';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.37, 212, 16, 8, 0.02, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0a0502';
+                ctx.beginPath();
+                ctx.arc(w * 0.37, 212, 5, 0, Math.PI * 2);
+                ctx.fill();
+                // Gentle arched gentleman brow
+                ctx.strokeStyle = '#26160c';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.30, 202);
+                ctx.quadraticCurveTo(w * 0.37, 194, w * 0.44, 204);
+                ctx.stroke();
+
+                // Right Eye: Dramatic monocle with golden rim & villainous raised sinister brow
+                ctx.fillStyle = '#1c0c05';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.58, 210, 13, 6, -0.06, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#050201';
+                ctx.beginPath();
+                ctx.arc(w * 0.58, 210, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Monocle rim in brass gold
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(w * 0.58, 210, 18, 0, Math.PI * 2);
+                ctx.stroke();
+                // Monocle chain hanging down
+                ctx.strokeStyle = '#d97706';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.60, 226);
+                ctx.quadraticCurveTo(w * 0.64, 270, w * 0.56, 320);
+                ctx.stroke();
+                // High cocked cynical villain eyebrow
+                ctx.strokeStyle = '#140a04';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.51, 196);
+                ctx.quadraticCurveTo(w * 0.58, 182, w * 0.66, 198);
+                ctx.stroke();
+
+                // Nose tilted with spotlight catch
+                ctx.strokeStyle = '#8c5932';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.46, 202);
+                ctx.lineTo(w * 0.45, 265);
+                ctx.lineTo(w * 0.51, 272);
+                ctx.stroke();
+
+                // Vintage Mustache (Asymmetrical: left side gentlemanly down, right side wickedly curled up!)
+                ctx.fillStyle = '#140c06';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.47, 280);
+                // Left side droops polite
+                ctx.quadraticCurveTo(w * 0.40, 282, w * 0.31, 288);
+                ctx.quadraticCurveTo(w * 0.39, 292, w * 0.47, 286);
+                // Right side curls up dangerously into a villain curve
+                ctx.quadraticCurveTo(w * 0.55, 292, w * 0.64, 276);
+                ctx.quadraticCurveTo(w * 0.56, 280, w * 0.47, 280);
+                ctx.fill();
+
+                // Smirking villain mouth
+                ctx.strokeStyle = '#2b1108';
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.38, 308);
+                ctx.quadraticCurveTo(w * 0.47, 311, w * 0.59, 302);
+                ctx.stroke();
+            }
+
+            const sampleUrl = c.toDataURL('image/jpeg', 0.95);
+            const titleName = type === 'monalisa' ? 'Mona_Lisa.jpg' : (type === 'david' ? 'Statue_David.jpg' : 'Vintage_Noir.jpg');
+            currentSampleType = type;
+            updateSampleChipsUI();
+
+            // Preset distinct custom symmetry alignments for each sample so the contrast is instant and dramatic
+            const sampleAlignments = {
+                'monalisa': { top: { rX: 0.475, rY: 0.15 }, btm: { rX: 0.470, rY: 0.85 } },
+                'david':    { top: { rX: 0.472, rY: 0.14 }, btm: { rX: 0.465, rY: 0.86 } },
+                'vintage':  { top: { rX: 0.468, rY: 0.15 }, btm: { rX: 0.460, rY: 0.85 } }
+            };
+
+            const preset = sampleAlignments[type];
+            if (preset) {
+                posTop = { rX: preset.top.rX, rY: preset.top.rY };
+                posBottom = { rX: preset.btm.rX, rY: preset.btm.rY };
+            }
+            loadPhotoDataUrl(sampleUrl, titleName, true);
+        }
+
+        async function saveSquareAvatars() {
+            if (!leftMirrorDataUrl || !rightMirrorDataUrl) return;
+            const btn = document.getElementById('saveAvatarsBtn');
+            try {
+                if (btn) btn.disabled = true;
+
+                const imgGood = await loadImage(leftMirrorDataUrl);
+                const imgEvil = await loadImage(rightMirrorDataUrl);
+
+                const exportSingleAvatar = (img, filename) => {
+                    const sz = Math.min(img.naturalWidth, img.naturalHeight);
+                    const c = document.createElement('canvas');
+                    c.width = 512;
+                    c.height = 512;
+                    const ctx = c.getContext('2d');
+
+                    const sx = (img.naturalWidth - sz) / 2;
+                    const sy = (img.naturalHeight - sz) / 2;
+                    ctx.drawImage(img, sx, sy, sz, sz, 0, 0, 512, 512);
+
+                    const a = document.createElement('a');
+                    a.download = filename;
+                    a.href = c.toDataURL('image/png');
+                    a.click();
+                };
+
+                exportSingleAvatar(imgGood, `good-avatar-1x1-${Date.now()}.png`);
+                setTimeout(() => {
+                    exportSingleAvatar(imgEvil, `evil-avatar-1x1-${Date.now()}.png`);
+                }, 250);
+
+            } catch (err) {
+                console.error("Avatar export failed:", err);
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function autoDetectFaceAxis(showFeedback = true) {
+            if (!sourceImage) return;
+            const autoBtn = document.getElementById('autoAlignBtn');
+            const origHtml = autoBtn ? autoBtn.innerHTML : '';
+            if (autoBtn && showFeedback) {
+                autoBtn.disabled = true;
+                autoBtn.innerHTML = `
+                    <svg class="w-3.5 h-3.5 animate-spin text-[var(--accent)]" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg> Aligning...`;
+            }
+
+            try {
+                let detected = false;
+                let topX = 0.5, topY = 0.15, btmX = 0.5, btmY = 0.85;
+
+                // Method 1: Hardware-accelerated Browser FaceDetector API (available in Chrome/Edge/Android)
+                if (window.FaceDetector) {
+                    try {
+                        const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+                        const faces = await detector.detect(sourceImage);
+                        if (faces && faces.length > 0) {
+                            const face = faces[0];
+                            const bb = face.boundingBox;
+                            const natW = sourceImage.naturalWidth;
+                            const natH = sourceImage.naturalHeight;
+
+                            // Landmarks check (eyes, nose, mouth)
+                            let eyeL = null, eyeR = null, nose = null;
+                            if (face.landmarks) {
+                                face.landmarks.forEach(lm => {
+                                    if (lm.type === 'eye' || lm.type === 'left_eye') {
+                                        if (!eyeL) eyeL = lm.location;
+                                        else eyeR = lm.location;
+                                    } else if (lm.type === 'right_eye') {
+                                        eyeR = lm.location;
+                                    } else if (lm.type === 'nose') {
+                                        nose = lm.location;
+                                    }
+                                });
+                            }
+
+                            if (eyeL && eyeR) {
+                                if (eyeL.x > eyeR.x) { const tmp = eyeL; eyeL = eyeR; eyeR = tmp; }
+                                const midEyeX = (eyeL.x + eyeR.x) / 2;
+                                const midEyeY = (eyeL.y + eyeR.y) / 2;
+                                const eyeDx = eyeR.x - eyeL.x;
+                                const eyeDy = eyeR.y - eyeL.y;
+                                
+                                // Perpendicular angle to eye slope
+                                const eyeAngle = Math.atan2(eyeDy, eyeDx);
+                                const axisAngle = eyeAngle + Math.PI / 2;
+
+                                const length = bb.height * 0.75;
+                                topX = (midEyeX - Math.cos(axisAngle) * (length * 0.55)) / natW;
+                                topY = (midEyeY - Math.sin(axisAngle) * (length * 0.55)) / natH;
+                                btmX = (midEyeX + Math.cos(axisAngle) * (length * 0.75)) / natW;
+                                btmY = (midEyeY + Math.sin(axisAngle) * (length * 0.75)) / natH;
+                                detected = true;
+                            } else if (bb) {
+                                const centerX = bb.x + bb.width / 2;
+                                topX = centerX / natW;
+                                topY = Math.max(0.05, (bb.y) / natH);
+                                btmX = centerX / natW;
+                                btmY = Math.min(0.95, (bb.y + bb.height) / natH);
+                                detected = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("FaceDetector failed, falling back to CV symmetry:", e);
+                    }
+                }
+
+                // Method 2: Fast Computer-Vision Facial Symmetry & Brightness Gradient Analysis
+                if (!detected) {
+                    const natW = sourceImage.naturalWidth;
+                    const natH = sourceImage.naturalHeight;
+                    const sampleW = 180;
+                    const sampleH = Math.round(sampleW * (natH / natW));
+                    
+                    const sc = document.createElement('canvas');
+                    sc.width = sampleW;
+                    sc.height = sampleH;
+                    const sctx = sc.getContext('2d');
+                    sctx.drawImage(sourceImage, 0, 0, sampleW, sampleH);
+                    const imgData = sctx.getImageData(0, 0, sampleW, sampleH).data;
+
+                    // Convert to luminance
+                    const lum = new Float32Array(sampleW * sampleH);
+                    for (let i = 0, j = 0; i < imgData.length; i += 4, j++) {
+                        lum[j] = 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
+                    }
+
+                    // Face bounding vertical search band (usually in top 15% to 75%)
+                    const yStart = Math.floor(sampleH * 0.18);
+                    const yEnd = Math.floor(sampleH * 0.68);
+                    let bestX = sampleW / 2;
+                    let bestAngle = 0;
+                    let minDiff = Infinity;
+
+                    // Search vertical central axis within central 35%
+                    const xMin = Math.floor(sampleW * 0.32);
+                    const xMax = Math.floor(sampleW * 0.68);
+                    const angleSteps = [-0.14, -0.09, -0.05, 0, 0.05, 0.09, 0.14]; // radians (~ -8° to +8°)
+
+                    for (let cx = xMin; cx <= xMax; cx += 2) {
+                        for (let a = 0; a < angleSteps.length; a++) {
+                            const angle = angleSteps[a];
+                            let diffTotal = 0;
+                            let count = 0;
+
+                            for (let y = yStart; y < yEnd; y += 3) {
+                                const shiftX = Math.round((y - (sampleH / 2)) * Math.sin(angle));
+                                const currentCenter = cx + shiftX;
+                                
+                                for (let dist = 6; dist <= 38; dist += 3) {
+                                    const lx = currentCenter - dist;
+                                    const rx = currentCenter + dist;
+                                    if (lx >= 0 && rx < sampleW) {
+                                        const lVal = lum[y * sampleW + lx];
+                                        const rVal = lum[y * sampleW + rx];
+                                        diffTotal += Math.abs(lVal - rVal);
+                                        count++;
+                                    }
+                                }
+                            }
+
+                            if (count > 0) {
+                                const avgDiff = diffTotal / count;
+                                if (avgDiff < minDiff) {
+                                    minDiff = avgDiff;
+                                    bestX = cx;
+                                    bestAngle = angle;
+                                }
+                            }
+                        }
+                    }
+
+                    const normCenterX = bestX / sampleW;
+                    const topShift = Math.sin(bestAngle) * (0.35 * (sampleH / sampleW));
+                    topX = Math.max(0.1, Math.min(0.9, normCenterX - topShift));
+                    topY = 0.15;
+                    btmX = Math.max(0.1, Math.min(0.9, normCenterX + topShift));
+                    btmY = 0.85;
+                }
+
+                // Apply detected position with smooth clamping
+                posTop = { 
+                    rX: Math.max(0.05, Math.min(0.95, topX)), 
+                    rY: Math.max(0.05, Math.min(0.4, topY)) 
+                };
+                posBottom = { 
+                    rX: Math.max(0.05, Math.min(0.95, btmX)), 
+                    rY: Math.max(0.6, Math.min(0.95, btmY)) 
+                };
+
+                const alignInput = document.getElementById('alignOffset');
+                if (alignInput) alignInput.value = 0;
+
+                scheduleFaceSymmetry();
+
+            } catch (err) {
+                console.error("Auto face alignment error:", err);
+            } finally {
+                if (autoBtn && showFeedback) {
+                    autoBtn.disabled = false;
+                    autoBtn.innerHTML = origHtml;
+                }
+            }
         }
 
         function resetSymmetryLine() {
@@ -964,6 +2182,26 @@
             leftCtx.drawImage(sourceImage, -MX, -MY);
             leftCtx.restore();
 
+            const auraFx = document.getElementById('auraFxToggle')?.checked;
+            if (auraFx) {
+                leftCtx.save();
+                const bloomGrad = leftCtx.createRadialGradient(
+                    halfDestW, destCardH * 0.42, destCardW * 0.15,
+                    halfDestW, destCardH * 0.42, destCardW * 0.75
+                );
+                bloomGrad.addColorStop(0, 'rgba(255, 240, 180, 0.28)');
+                bloomGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.14)');
+                bloomGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                leftCtx.globalCompositeOperation = 'screen';
+                leftCtx.fillStyle = bloomGrad;
+                leftCtx.fillRect(0, 0, destCardW, destCardH);
+
+                leftCtx.globalCompositeOperation = 'color';
+                leftCtx.fillStyle = 'rgba(251, 191, 36, 0.10)';
+                leftCtx.fillRect(0, 0, destCardW, destCardH);
+                leftCtx.restore();
+            }
+
             leftMirrorDataUrl = leftCanvas.toDataURL('image/jpeg', 0.92);
 
             // 2. Compile Right-Mirror Face Canvas (Demonic Evil)
@@ -989,6 +2227,25 @@
             rightCtx.drawImage(sourceImage, -MX, -MY);
             rightCtx.restore();
 
+            if (auraFx) {
+                rightCtx.save();
+                const darkGrad = rightCtx.createRadialGradient(
+                    halfDestW, destCardH * 0.48, destCardW * 0.2,
+                    halfDestW, destCardH * 0.48, destCardW * 0.75
+                );
+                darkGrad.addColorStop(0, 'rgba(15, 5, 25, 0)');
+                darkGrad.addColorStop(0.65, 'rgba(20, 5, 30, 0.35)');
+                darkGrad.addColorStop(1, 'rgba(45, 0, 15, 0.65)');
+                rightCtx.globalCompositeOperation = 'multiply';
+                rightCtx.fillStyle = darkGrad;
+                rightCtx.fillRect(0, 0, destCardW, destCardH);
+
+                rightCtx.globalCompositeOperation = 'color';
+                rightCtx.fillStyle = 'rgba(139, 92, 246, 0.10)';
+                rightCtx.fillRect(0, 0, destCardW, destCardH);
+                rightCtx.restore();
+            }
+
             rightMirrorDataUrl = rightCanvas.toDataURL('image/jpeg', 0.92);
 
             // 3. Compile Straightened Original Face Canvas (for Triptych Comparison)
@@ -1009,14 +2266,33 @@
             // Update previews
             const leftImg = document.getElementById('leftMirrorImg');
             const rightImg = document.getElementById('rightMirrorImg');
+            const splitGood = document.getElementById('splitGoodImg');
+            const splitEvil = document.getElementById('splitEvilImg');
             
-            leftImg.src = leftMirrorDataUrl;
-            leftImg.style.aspectRatio = `${sourceImage.naturalWidth} / ${sourceImage.naturalHeight}`;
+            if (leftImg) {
+                leftImg.src = leftMirrorDataUrl;
+                leftImg.style.aspectRatio = `${destCardW} / ${destCardH}`;
+            }
+            if (rightImg) {
+                rightImg.src = rightMirrorDataUrl;
+                rightImg.style.aspectRatio = `${destCardW} / ${destCardH}`;
+            }
+            if (splitGood) {
+                splitGood.src = leftMirrorDataUrl;
+                splitGood.style.aspectRatio = `${destCardW} / ${destCardH}`;
+            }
+            if (splitEvil) {
+                splitEvil.src = rightMirrorDataUrl;
+                splitEvil.style.aspectRatio = `${destCardW} / ${destCardH}`;
+            }
             
-            rightImg.src = rightMirrorDataUrl;
-            rightImg.style.aspectRatio = `${sourceImage.naturalWidth} / ${sourceImage.naturalHeight}`;
-            
-            document.getElementById('mirroredPreviews').classList.remove('hidden');
+            const previewSection = document.getElementById('previewSection');
+            if (previewSection) previewSection.classList.remove('hidden');
+            applySplitWipe();
+
+            // Calculate Personality Spectrum
+            lastAnalysisResult = computePersonalityAnalysis(theta, alignVal, leftCtx, rightCtx, destCardW, destCardH);
+            updateAnalysisUI(lastAnalysisResult);
 
             generateCollage();
         }
@@ -1102,17 +2378,17 @@
                     const rows = Math.ceil(total / cols);
 
                     // Dynamic card layout matching photo aspect ratio
-                    const cardH = 420;
+                    const cardH = 400;
                     const cardW = Math.round(cardH * imageAspect);
                     const gap = 24;
                     const padding = 48;
-                    const headerHeight = 120;
-                    const footerHeight = 80;
+                    const headerHeight = 90;
+                    const footerHeight = 85;
 
                     const cellW = cardW;
                     const cellH = cardH;
-                    const photoH = cellH - 35;
-                    const photoW = Math.round(photoH * imageAspect);
+                    const photoH = cardH;
+                    const photoW = cardW;
 
                     const canvasW = padding * 2 + cols * cardW + (cols - 1) * gap;
                     const canvasH = headerHeight + padding * 2 + rows * cardH + (rows - 1) * gap + footerHeight;
@@ -1122,88 +2398,130 @@
                     canvas.height = canvasH;
                     const ctx = canvas.getContext('2d');
 
-                    // Style configs
+                    // Style configs based on real studio graduation & yearbook standards
                     let bgGradient = ctx.createLinearGradient(0, 0, 0, canvasH);
                     let textColor = '#ffffff';
-                    let nameplateText = '#F59E0B';
-                    let fontHeader = 'bold 38px Georgia, serif';
-                    let fontSub = 'italic 16px Inter, system-ui, sans-serif';
-                    let subColor = '#F59E0B';
+                    let fontHeader = 'bold 38px "Inter", -apple-system, sans-serif';
+                    let headerLineColor = null;
+                    let footerColor = '#94A3B8';
 
                     if (theme === 'imperial_gold') {
                         bgGradient.addColorStop(0, '#060C1F');
                         bgGradient.addColorStop(1, '#0B132B');
                         textColor = '#F59E0B';
-                        nameplateText = '#F59E0B';
-                        subColor = '#F59E0B';
                         fontHeader = 'bold 38px Georgia, serif';
+                        headerLineColor = '#F59E0B';
+                        footerColor = '#F59E0B';
                     } else if (theme === 'midnight_slate') {
                         bgGradient.addColorStop(0, '#09090B');
                         bgGradient.addColorStop(1, '#18181B');
                         textColor = '#F4F4F5';
-                        nameplateText = '#D4D4D8';
-                        subColor = '#A1A1AA';
                         fontHeader = 'bold 38px "Inter", sans-serif';
+                        headerLineColor = 'rgba(255, 255, 255, 0.14)';
+                        footerColor = '#A1A1AA';
                     } else if (theme === 'retro_parchment') {
                         bgGradient.addColorStop(0, '#F5EBE6');
                         bgGradient.addColorStop(1, '#E3D5CA');
                         textColor = '#582F0E';
-                        nameplateText = '#582F0E';
-                        subColor = '#7F5539';
                         fontHeader = 'bold 38px Georgia, serif';
-                        fontSub = 'italic 16px Georgia, serif';
+                        headerLineColor = 'rgba(88, 47, 14, 0.2)';
+                        footerColor = '#7F5539';
                     } else if (theme === 'varsity_spirit') {
                         bgGradient.addColorStop(0, '#4A0E17');
                         bgGradient.addColorStop(1, '#2D050B');
                         textColor = '#F59E0B';
-                        nameplateText = '#FFFFFF';
-                        subColor = '#FFFFFF';
                         fontHeader = 'bold 38px Impact, Charcoal, sans-serif';
+                        headerLineColor = '#F59E0B';
+                        footerColor = '#FFFFFF';
                     } else if (theme === 'memphis_pop') {
                         bgGradient.addColorStop(0, '#EAE8FE');
                         bgGradient.addColorStop(1, '#E3E0FC');
                         textColor = '#4F46E5';
-                        nameplateText = '#4F46E5';
-                        subColor = '#4F46E5';
                         fontHeader = '900 38px "Inter", sans-serif';
+                        headerLineColor = '#4F46E5';
+                        footerColor = '#4F46E5';
+                    } else if (theme === 'studio_gray') {
+                        // Industry Gold Standard: 18% Neutral Studio Gray
+                        bgGradient.addColorStop(0, '#252930');
+                        bgGradient.addColorStop(1, '#1D2026');
+                        textColor = '#FFFFFF';
+                        fontHeader = 'bold 38px "Inter", -apple-system, sans-serif';
+                        headerLineColor = 'rgba(255, 255, 255, 0.18)';
+                        footerColor = '#94A3B8';
+                    } else if (theme === 'academic_navy') {
+                        // Ivy League & University Commencement Navy
+                        bgGradient.addColorStop(0, '#0A1128');
+                        bgGradient.addColorStop(1, '#16203B');
+                        textColor = '#F8FAFC';
+                        fontHeader = 'bold 38px Georgia, "Times New Roman", serif';
+                        headerLineColor = 'rgba(197, 168, 128, 0.6)';
+                        footerColor = '#CBD5E1';
+                    } else if (theme === 'fine_art_white') {
+                        // Clean Museum Fine Art Studio White
+                        bgGradient.addColorStop(0, '#F8FAFC');
+                        bgGradient.addColorStop(1, '#EDF2F7');
+                        textColor = '#0F172A';
+                        fontHeader = 'bold 38px Georgia, "Times New Roman", serif';
+                        headerLineColor = 'rgba(15, 23, 42, 0.12)';
+                        footerColor = '#64748B';
+                    } else if (theme === 'oxford_green') {
+                        // Oxford / Cambridge Ivy League Deep Academic Green
+                        bgGradient.addColorStop(0, '#091A14');
+                        bgGradient.addColorStop(1, '#122D23');
+                        textColor = '#F3F4F6';
+                        fontHeader = 'bold 38px Georgia, "Times New Roman", serif';
+                        headerLineColor = 'rgba(194, 163, 107, 0.55)';
+                        footerColor = '#A7B3AB';
+                    } else if (theme === 'midnight_obsidian') {
+                        // Modern Obsidian Dark Slate
+                        bgGradient.addColorStop(0, '#101318');
+                        bgGradient.addColorStop(1, '#181C23');
+                        textColor = '#F8FAFC';
+                        fontHeader = 'bold 38px "Inter", -apple-system, sans-serif';
+                        headerLineColor = 'rgba(255, 255, 255, 0.16)';
+                        footerColor = '#94A3B8';
+                    } else {
+                        // Default fallback
+                        bgGradient.addColorStop(0, '#252930');
+                        bgGradient.addColorStop(1, '#1D2026');
+                        textColor = '#FFFFFF';
+                        fontHeader = 'bold 38px "Inter", -apple-system, sans-serif';
+                        headerLineColor = 'rgba(255, 255, 255, 0.18)';
+                        footerColor = '#94A3B8';
                     }
 
                     // Background drawing
                     ctx.fillStyle = bgGradient;
                     ctx.fillRect(0, 0, canvasW, canvasH);
 
-                    // Header drawing (Clean, themed, no yearbook class year)
+                    // Header drawing (Dynamic Title & Subtitle/Motto)
+                    const titleText = (document.getElementById('posterTitleInput')?.value || 'FACE OF GOOD AND EVIL').trim();
+                    const mottoText = (document.getElementById('posterMottoInput')?.value || '').trim();
+
                     ctx.fillStyle = textColor;
                     ctx.textAlign = 'center';
                     
-                    ctx.font = fontHeader;
-                    ctx.fillText('FACE OF GOOD AND EVIL', canvasW / 2, padding + 40);
-                    
-                    ctx.font = fontSub;
-                    ctx.fillStyle = subColor;
-                    ctx.fillText('Dual Symmetry Studio • Good and Evil Exhibition', canvasW / 2, padding + 70);
+                    if (mottoText) {
+                        ctx.font = fontHeader;
+                        ctx.fillText(titleText || 'FACE OF GOOD AND EVIL', canvasW / 2, padding + 34);
 
-                    // Header lines
-                    if (theme === 'varsity_spirit') {
-                        ctx.strokeStyle = '#F59E0B';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(padding, padding + 85);
-                        ctx.lineTo(canvasW - padding, padding + 85);
-                        ctx.stroke();
+                        ctx.save();
+                        ctx.fillStyle = footerColor;
+                        ctx.font = 'italic 16px Georgia, "Times New Roman", serif';
+                        ctx.fillText(mottoText, canvasW / 2, padding + 56);
+                        ctx.restore();
+                    } else {
+                        ctx.font = fontHeader;
+                        ctx.fillText(titleText || 'FACE OF GOOD AND EVIL', canvasW / 2, padding + 40);
+                    }
 
-                        ctx.strokeStyle = '#FFFFFF';
+                    // Refined header dividing line
+                    if (headerLineColor) {
+                        ctx.strokeStyle = headerLineColor;
                         ctx.lineWidth = 1.5;
                         ctx.beginPath();
-                        ctx.moveTo(padding, padding + 90);
-                        ctx.lineTo(canvasW - padding, padding + 90);
-                        ctx.stroke();
-                    } else if (theme === 'memphis_pop') {
-                        ctx.strokeStyle = '#4F46E5';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(padding, padding + 95);
-                        ctx.lineTo(canvasW - padding, padding + 95);
+                        ctx.moveTo(padding, padding + 68);
+                        ctx.lineTo(canvasW - padding, padding + 68);
                         ctx.stroke();
                     }
 
@@ -1213,8 +2531,9 @@
                         const c = i % cols;
 
                         const offsetX = (cellW - photoW) / 2;
+                        const offsetY = (cellH - photoH) / 2;
                         let x = padding + c * (cellW + gap) + offsetX;
-                        let y = padding + headerHeight + r * (cellH + gap);
+                        let y = padding + headerHeight + r * (cellH + gap) + offsetY;
 
                         ctx.save();
 
@@ -1237,13 +2556,19 @@
                             ctx.shadowOffsetY = 6;
                         }
 
+                        // Theme-specific backings
                         if (theme === 'retro_parchment') {
                             ctx.fillStyle = '#FFFFFF';
-                            ctx.fillRect(x - 8, y - 8, photoW + 16, photoH + 22);
-                            
+                            ctx.fillRect(x - 8, y - 8, photoW + 16, photoH + 16);
                             ctx.strokeStyle = 'rgba(88, 47, 14, 0.15)';
                             ctx.lineWidth = 1;
-                            ctx.strokeRect(x - 8, y - 8, photoW + 16, photoH + 22);
+                            ctx.strokeRect(x - 8, y - 8, photoW + 16, photoH + 16);
+                        } else if (theme === 'fine_art_white') {
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(x - 8, y - 8, photoW + 16, photoH + 16);
+                            ctx.strokeStyle = 'rgba(15, 23, 42, 0.08)';
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(x - 8, y - 8, photoW + 16, photoH + 16);
                         } else if (theme === 'memphis_pop') {
                             ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
                             ctx.fillRect(x + 8, y + 8, photoW, photoH);
@@ -1257,7 +2582,7 @@
                         // Draw portrait face
                         ctx.drawImage(photoList[i].img, x, y, photoW, photoH);
 
-                        // Draw borders on top of the image
+                        // Theme-specific borders on top of image
                         if (theme === 'varsity_spirit') {
                             ctx.strokeStyle = '#F59E0B';
                             ctx.lineWidth = 2;
@@ -1266,9 +2591,25 @@
                             ctx.strokeStyle = '#4F46E5';
                             ctx.lineWidth = 3;
                             ctx.strokeRect(x, y, photoW, photoH);
+                        } else if (theme === 'imperial_gold') {
+                            ctx.strokeStyle = '#F59E0B';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(x, y, photoW, photoH);
+                        } else if (theme === 'academic_navy') {
+                            ctx.strokeStyle = 'rgba(197, 168, 128, 0.45)';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(x, y, photoW, photoH);
+                        } else if (theme === 'oxford_green') {
+                            ctx.strokeStyle = 'rgba(194, 163, 107, 0.45)';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(x, y, photoW, photoH);
+                        } else if (theme === 'studio_gray' || theme === 'midnight_obsidian' || theme === 'midnight_slate') {
+                            ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(x, y, photoW, photoH);
                         }
 
-                        // Corners for Retro Parchment
+                        // Vintage corner brackets for Retro Parchment
                         if (theme === 'retro_parchment') {
                             ctx.save();
                             ctx.fillStyle = '#582F0E';
@@ -1280,80 +2621,81 @@
                             ctx.restore();
                         }
 
-                        // Draw name label with clean typography
-                        ctx.fillStyle = nameplateText;
-                        ctx.textAlign = 'center';
-                        
-                        if (theme === 'retro_parchment') {
-                            ctx.font = 'italic 14px Georgia, serif';
-                            ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 10);
-                        } else if (theme === 'memphis_pop') {
-                            ctx.save();
-                            ctx.font = 'bold 11px "Inter", sans-serif';
-                            const textWidth = ctx.measureText(photoList[i].label).width;
-                            ctx.fillStyle = '#F0EFFF';
-                            ctx.strokeStyle = '#4F46E5';
-                            ctx.lineWidth = 1.5;
-                            drawRoundedRect(ctx, x + photoW / 2 - textWidth / 2 - 10, y + photoH + 10, textWidth + 20, 22, 6);
-                            ctx.fill();
-                            ctx.stroke();
-                            ctx.fillStyle = '#4F46E5';
-                            ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 24);
-                            ctx.restore();
-                        } else if (theme === 'varsity_spirit') {
-                            ctx.font = 'bold 12px Impact, Charcoal, sans-serif';
-                            ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 22);
-                        } else {
-                            ctx.font = '600 12px Inter, system-ui, sans-serif';
-                            ctx.fillText(photoList[i].label, x + photoW / 2, y + photoH + 22);
-                        }
-
                         ctx.restore();
                     }
 
-                    function drawRoundedRect(ctx, rx, ry, rw, rh, rad) {
+                    // Footer line
+                    if (headerLineColor) {
+                        ctx.strokeStyle = headerLineColor;
+                        ctx.lineWidth = 1;
                         ctx.beginPath();
-                        ctx.moveTo(rx + rad, ry);
-                        ctx.lineTo(rx + rw - rad, ry);
-                        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rad);
-                        ctx.lineTo(rx + rw, ry + rh - rad);
-                        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rad, ry + rh);
-                        ctx.lineTo(rx + rad, ry + rh);
-                        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rad);
-                        ctx.lineTo(rx, ry + rad);
-                        ctx.quadraticCurveTo(rx, ry, rx + rad, ry);
-                        ctx.closePath();
-                    }
-
-                    // Footer drawing
-                    if (theme === 'varsity_spirit') {
-                        ctx.strokeStyle = '#F59E0B';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(padding, canvasH - footerHeight);
-                        ctx.lineTo(canvasW - padding, canvasH - footerHeight);
-                        ctx.stroke();
-
-                        ctx.strokeStyle = '#FFFFFF';
-                        ctx.lineWidth = 1.5;
-                        ctx.beginPath();
-                        ctx.moveTo(padding, canvasH - footerHeight + 5);
-                        ctx.lineTo(canvasW - padding, canvasH - footerHeight + 5);
-                        ctx.stroke();
-                    } else if (theme === 'memphis_pop') {
-                        ctx.strokeStyle = '#4F46E5';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(padding, canvasH - footerHeight);
-                        ctx.lineTo(canvasW - padding, canvasH - footerHeight);
+                        ctx.moveTo(padding, canvasH - footerHeight + 10);
+                        ctx.lineTo(canvasW - padding, canvasH - footerHeight + 10);
                         ctx.stroke();
                     }
 
-                    ctx.fillStyle = theme === 'retro_parchment' ? '#7F5539' :
-                                    theme === 'memphis_pop' ? '#4F46E5' : '#F59E0B';
-                    ctx.font = '12px Inter, system-ui, sans-serif';
+                    const creditText = (document.getElementById('posterCreditInput')?.value || 'Generated by chschat.xyz').trim();
+                    ctx.fillStyle = footerColor;
+                    ctx.font = '600 22px Inter, -apple-system, system-ui, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('Generated via CHS Symmetry Studio • Dual Personality Analysis', canvasW / 2, canvasH - footerHeight + 42);
+                    ctx.fillText(creditText || 'Generated by chschat.xyz', canvasW / 2, canvasH - footerHeight + 52);
+
+                    // Appraisal Stamp (if enabled)
+                    const stampToggle = document.getElementById('stampToggle');
+                    if (stampToggle && stampToggle.checked && lastAnalysisResult) {
+                        ctx.save();
+                        const stampR = 54;
+                        const stampX = canvasW - padding - stampR - 10;
+                        const stampY = canvasH - footerHeight / 2 - 20;
+                        ctx.translate(stampX, stampY);
+                        ctx.rotate(-0.2); // ~ -11.5 deg vintage stamp tilt
+
+                        let stampColor = 'rgba(245, 158, 11, 0.88)';
+                        if (theme === 'retro_parchment') stampColor = 'rgba(127, 85, 57, 0.88)';
+                        else if (theme === 'varsity_spirit') stampColor = 'rgba(245, 158, 11, 0.92)';
+                        else if (theme === 'memphis_pop') stampColor = 'rgba(79, 70, 229, 0.9)';
+                        else if (theme === 'fine_art_white') stampColor = 'rgba(15, 23, 42, 0.78)';
+                        else if (theme === 'academic_navy') stampColor = 'rgba(217, 180, 99, 0.88)';
+                        else if (theme === 'oxford_green') stampColor = 'rgba(212, 175, 55, 0.88)';
+                        else if (theme === 'studio_gray' || theme === 'midnight_obsidian' || theme === 'midnight_slate') stampColor = 'rgba(245, 158, 11, 0.88)';
+
+                        ctx.strokeStyle = stampColor;
+                        ctx.fillStyle = stampColor;
+
+                        // Outer double rings
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, stampR, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, stampR - 4, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Inner ring
+                        ctx.beginPath();
+                        ctx.arc(0, 0, stampR - 14, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Stamp Typography
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        ctx.font = '800 8.5px "Inter", sans-serif';
+                        ctx.fillText('★ VERIFIED PERSONA ★', 0, -stampR + 9.5);
+
+                        ctx.font = '900 11.5px "Inter", sans-serif';
+                        ctx.fillText(lastAnalysisResult.alignment.toUpperCase(), 0, -2);
+
+                        ctx.font = '700 8px "Inter", monospace';
+                        ctx.fillText(`${lastAnalysisResult.angelicPct}% ANGEL · ${lastAnalysisResult.demonicPct}% EVIL`, 0, 11);
+
+                        ctx.font = '800 7.5px "Inter", sans-serif';
+                        ctx.fillText('CHS ARCHIVES', 0, stampR - 9.5);
+
+                        ctx.restore();
+                    }
 
                     resolve(canvas.toDataURL('image/png'));
                 } catch (e) {
@@ -1387,6 +2729,258 @@
                 AppBridge.openGallery([resultDataUrl], 0);
             }
         }
+
+        // Lightweight Pure-JS GIF89a Encoder (Zero dependency, fast 2s looping morph)
+        class SimpleGifEncoder {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.buffer = [];
+            }
+            writeBytes(arr) {
+                for (let i = 0; i < arr.length; i++) this.buffer.push(arr[i]);
+            }
+            writeString(str) {
+                for (let i = 0; i < str.length; i++) this.buffer.push(str.charCodeAt(i));
+            }
+            writeShort(val) {
+                this.buffer.push(val & 0xFF);
+                this.buffer.push((val >> 8) & 0xFF);
+            }
+            start() {
+                this.writeString("GIF89a");
+                this.writeShort(this.width);
+                this.writeShort(this.height);
+                this.buffer.push(0x70);
+                this.buffer.push(0);
+                this.buffer.push(0);
+                // Netscape Loop Block (infinite)
+                this.buffer.push(0x21, 0xFF, 11);
+                this.writeString("NETSCAPE2.0");
+                this.buffer.push(3, 1);
+                this.writeShort(0);
+                this.buffer.push(0);
+            }
+            buildPalette(rgbaData) {
+                const palette = [];
+                for (let r = 0; r < 6; r++) {
+                    for (let g = 0; g < 7; g++) {
+                        for (let b = 0; b < 6; b++) {
+                            palette.push(Math.round(r * 255 / 5), Math.round(g * 255 / 6), Math.round(b * 255 / 5));
+                        }
+                    }
+                }
+                while (palette.length < 256 * 3) palette.push(0);
+
+                const indices = new Uint8Array(this.width * this.height);
+                for (let i = 0, p = 0; i < rgbaData.length; i += 4, p++) {
+                    const r = Math.min(5, Math.floor((rgbaData[i] * 5 + 127) / 255));
+                    const g = Math.min(6, Math.floor((rgbaData[i + 1] * 7 + 127) / 255));
+                    const b = Math.min(5, Math.floor((rgbaData[i + 2] * 5 + 127) / 255));
+                    indices[p] = r * 42 + g * 6 + b;
+                }
+                return { palette, indices };
+            }
+            addFrame(rgbaData, delayCentisecs = 12) {
+                const { palette, indices } = this.buildPalette(rgbaData);
+                this.buffer.push(0x21, 0xF9, 4, 0);
+                this.writeShort(delayCentisecs);
+                this.buffer.push(0, 0);
+                this.buffer.push(0x2C);
+                this.writeShort(0);
+                this.writeShort(0);
+                this.writeShort(this.width);
+                this.writeShort(this.height);
+                this.buffer.push(0x87);
+                this.writeBytes(palette);
+                this.writeLzw(indices, 8);
+            }
+            writeLzw(indices, minCodeSize) {
+                this.buffer.push(minCodeSize);
+                const clearCode = 1 << minCodeSize;
+                const eoiCode = clearCode + 1;
+                let codeSize = minCodeSize + 1;
+                let nextCode = clearCode + 2;
+                const table = new Map();
+                const packet = [];
+                let curAccum = 0;
+                let curBits = 0;
+
+                const writeBits = (code) => {
+                    curAccum |= (code << curBits);
+                    curBits += codeSize;
+                    while (curBits >= 8) {
+                        packet.push(curAccum & 0xFF);
+                        curAccum >>= 8;
+                        curBits -= 8;
+                        if (packet.length === 255) {
+                            this.buffer.push(255);
+                            this.writeBytes(packet);
+                            packet.length = 0;
+                        }
+                    }
+                };
+
+                const flushPacket = () => {
+                    if (curBits > 0) {
+                        packet.push(curAccum & 0xFF);
+                        curAccum = 0;
+                        curBits = 0;
+                    }
+                    if (packet.length > 0) {
+                        this.buffer.push(packet.length);
+                        this.writeBytes(packet);
+                        packet.length = 0;
+                    }
+                };
+
+                writeBits(clearCode);
+                let prefix = indices[0];
+                for (let i = 1; i < indices.length; i++) {
+                    const k = indices[i];
+                    const key = (prefix << 8) | k;
+                    if (table.has(key)) {
+                        prefix = table.get(key);
+                    } else {
+                        writeBits(prefix);
+                        if (nextCode < 4096) {
+                            table.set(key, nextCode++);
+                            if (nextCode > (1 << codeSize) && codeSize < 12) {
+                                codeSize++;
+                            }
+                        } else {
+                            writeBits(clearCode);
+                            table.clear();
+                            codeSize = minCodeSize + 1;
+                            nextCode = clearCode + 2;
+                        }
+                        prefix = k;
+                    }
+                }
+                writeBits(prefix);
+                writeBits(eoiCode);
+                flushPacket();
+                this.buffer.push(0);
+            }
+            finish() {
+                this.buffer.push(0x3B);
+                return new Uint8Array(this.buffer);
+            }
+        }
+
+        async function exportMorphGif() {
+            if (!leftMirrorDataUrl || !rightMirrorDataUrl) return;
+            const btn = document.getElementById('exportGifBtn');
+            const btnText = document.getElementById('exportGifBtnText');
+            const origContent = btnText ? btnText.innerText : 'Export GIF (2s)';
+
+            try {
+                if (btn) btn.disabled = true;
+                if (btnText) btnText.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Encoding...';
+
+                // Load Good & Evil image objects
+                const imgGood = await loadImage(leftMirrorDataUrl);
+                const imgEvil = await loadImage(rightMirrorDataUrl);
+
+                const gifW = 320;
+                const gifH = Math.round(gifW * (imgGood.naturalHeight / imgGood.naturalWidth)) || 320;
+
+                const c = document.createElement('canvas');
+                c.width = gifW;
+                c.height = gifH;
+                const ctx = c.getContext('2d');
+
+                const encoder = new SimpleGifEncoder(gifW, gifH);
+                encoder.start();
+
+                const totalFrames = 14;
+                const frameDelay = 12; // 120ms per frame * 14 frames ≈ 1.68s breathing loop
+
+                for (let f = 0; f < totalFrames; f++) {
+                    const progress = f / totalFrames;
+                    // Sinusoidal ease: 0 -> 1 -> 0
+                    const evilAlpha = 0.5 * (1 - Math.cos(progress * 2 * Math.PI));
+
+                    ctx.clearRect(0, 0, gifW, gifH);
+                    ctx.globalAlpha = 1.0;
+                    ctx.drawImage(imgGood, 0, 0, gifW, gifH);
+
+                    ctx.globalAlpha = evilAlpha;
+                    ctx.drawImage(imgEvil, 0, 0, gifW, gifH);
+
+                    const imgData = ctx.getImageData(0, 0, gifW, gifH);
+                    encoder.addFrame(imgData.data, frameDelay);
+                }
+
+                const gifBytes = encoder.finish();
+                const blob = new Blob([gifBytes], { type: 'image/gif' });
+                const gifUrl = URL.createObjectURL(blob);
+
+                // Auto download
+                const link = document.createElement('a');
+                link.download = `face-of-good-and-evil-morph-${Date.now()}.gif`;
+                link.href = gifUrl;
+                link.click();
+
+                // Open in fullsize viewer via CHSchat native gallery
+                AppBridge.openGallery([gifUrl], 0);
+
+            } catch (err) {
+                console.error("GIF export failed:", err);
+                alert("GIF generation failed: " + err.message);
+            } finally {
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.innerText = origContent;
+            }
+        }
     </script>
+
+    <!-- Live Camera Selfie Capture Modal -->
+    <div id="cameraModal" class="hidden fixed inset-0 z-[9998] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none opacity-0 transition-opacity duration-200" onclick="closeCameraModal()">
+        <div class="relative w-full max-w-md bg-[var(--panel)] rounded-3xl p-5 border shadow-2xl space-y-3.5 text-center overflow-hidden" style="border-color: var(--border);" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                    <h3 class="text-sm font-bold tracking-tight" style="color: var(--text);">Align & Take Selfie</h3>
+                </div>
+                <button type="button" onclick="closeCameraModal()" class="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer" style="color: var(--muted);" title="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Video Viewport with Alignment Guides -->
+            <div class="relative w-full aspect-[3/4] bg-black rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
+                <video id="cameraVideo" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                
+                <!-- Symmetry vertical dashed line -->
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 border-l-2 border-dashed pointer-events-none z-10" style="border-color: var(--accent); opacity: 0.85;"></div>
+                
+                <!-- Face oval guide silhouette -->
+                <div class="absolute inset-0 m-auto w-44 h-60 border-2 border-dashed rounded-[50%/60%] pointer-events-none z-10" style="border-color: rgba(255,255,255,0.45);"></div>
+
+                <!-- 3s Countdown Overlay -->
+                <div id="cameraCountdown" class="hidden absolute inset-0 bg-black/65 backdrop-blur-sm z-30 flex items-center justify-center">
+                    <span id="countdownNumber" class="text-7xl font-black text-white transform scale-125 transition-transform duration-300">3</span>
+                </div>
+            </div>
+
+            <p class="text-xs" style="color: var(--muted);">Center your nose with the vertical line for best symmetry results.</p>
+
+            <!-- Actions -->
+            <div class="flex gap-2.5">
+                <button type="button" onclick="startCameraCountdown()" class="flex-1 py-3 px-4 font-bold rounded-xl shadow-md transition duration-200 text-xs sm:text-sm flex items-center justify-center gap-2 border-0 cursor-pointer hover:opacity-90 active:scale-[0.99]" style="background-color: var(--accent); color: white;">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    3s Countdown
+                </button>
+                <button type="button" onclick="captureCameraPhoto()" class="py-3 px-4 font-semibold rounded-xl transition duration-200 text-xs sm:text-sm cursor-pointer border hover:opacity-90 active:scale-[0.99]" style="background-color: var(--input); color: var(--text); border-color: var(--border);">
+                    Snap Now
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

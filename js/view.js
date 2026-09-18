@@ -353,6 +353,7 @@ export const ViewModule = {
                     mouseStrength: 1.2     // ripple bulge height
                 });
             }
+
         } catch (e) {
             console.error("ViewModule: LiquidGlassEffect error:", e);
         }
@@ -1014,6 +1015,12 @@ export const ViewModule = {
             if (toolsTab) {
                 toolsTab.className = 'text-2xl font-bold tracking-tight text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white tab-transition leading-none scale-100 origin-bottom mb-0.5';
             }
+            const subTabs = document.getElementById('newsSubTabsWrapper');
+            if (subTabs) {
+                subTabs.style.height = '36px';
+                subTabs.style.opacity = '1';
+                subTabs.style.marginTop = '0.75rem';
+            }
         } else {
             toolsSec.classList.add('hidden');
             toolsSec.classList.remove('flex');
@@ -1390,11 +1397,14 @@ export const ViewModule = {
             }
         });
 
-        // 处理新闻子标签显�?       
+        // 处理新闻子标签显示
         const subTabs = document.getElementById('newsSubTabsWrapper');
         const addBtn = document.getElementById('addAnnouncementBtn');
+        const isMultiPanel = document.body.classList.contains('four-panel-layout') ||
+            document.body.classList.contains('is-guest-three-panel') ||
+            (window.innerWidth >= 1280 && !document.body.classList.contains('compact-four-panel-layout'));
         if (subTabs) {
-            if (tab === 'news') {
+            if (tab === 'news' || isMultiPanel) {
                 subTabs.style.height = '36px'; subTabs.style.opacity = '1'; subTabs.style.marginTop = '0.75rem';
                 if (typeof window.toggleNewsTab === 'function') {
                     const rawNewsTab = (window.AppModules && window.AppModules.News && typeof window.AppModules.News.getCurrentNewsTab === 'function')

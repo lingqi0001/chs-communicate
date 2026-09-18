@@ -8,27 +8,170 @@
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #EDEFFA; /* Google NotebookLM light blue background matching Face */
+            --panel: #FFFFFF; /* Pure white panel */
+            --border: #E2E5EE;
+            --input: #F8F9FD;
+            --text: #09090B;
+            --muted: #71717A;
+            --accent: #007AFF;
+            --transition: 0.25s ease;
+        }
+
+        .dark {
+            --bg: #1A1D22; /* Google NotebookLM / Gemini deep slate dark background matching Face */
+            --panel: #22262B; /* Google NotebookLM panel color */
+            --border: #32363C;
+            --input: #1A1D22;
+            --text: #F4F4F5;
+            --muted: #9AA0A6;
+            --accent: #38BDF8;
+        }
+
         body { 
-            background: transparent; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            transition: background var(--transition), color var(--transition);
         }
         select { -webkit-appearance: none; appearance: none; }
+
+        /* Google NotebookLM / Gemini style floating overlay scrollbar */
+        html, body {
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar {
+            width: 8px !important;
+            height: 8px !important;
+            background: transparent !important;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-track-piece,
+        ::-webkit-scrollbar-corner {
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+        }
+        ::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(120, 120, 128, 0.4) !important;
+            border-radius: 9999px !important;
+            border: 2px solid transparent !important;
+            background-clip: padding-box !important;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(120, 120, 128, 0.7) !important;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.28) !important;
+            border: 2px solid transparent !important;
+            background-clip: padding-box !important;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(120, 120, 128, 0.4) transparent !important;
+        }
+        .dark * {
+            scrollbar-color: rgba(255, 255, 255, 0.28) transparent !important;
+        }
+
+        .gold-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            transition: background var(--transition), border-color var(--transition);
+        }
+        .gold-input {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            outline: none !important;
+            box-shadow: none !important;
+            transition: background var(--transition), border-color var(--transition), color var(--transition);
+        }
+        .gold-input:focus, select:focus, input:focus {
+            outline: none !important;
+            box-shadow: none !important;
+            border-color: var(--border) !important;
+        }
+
+        /* iOS-style toggle switch */
+        .switch-track {
+            width: 44px;
+            height: 26px;
+            background-color: var(--border);
+            border-radius: 9999px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        .switch-thumb {
+            width: 22px;
+            height: 22px;
+            background-color: #FFFFFF;
+            border-radius: 9999px;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input:checked + .switch-track {
+            background-color: #007AFF;
+        }
+        input:checked + .switch-track .switch-thumb {
+            transform: translateX(18px);
+        }
     </style>
-    <!-- 引入 SDK：一行代码解决深浅色适配 -->
+    <!-- 引入 SDK -->
     <script src="/js/app-bridge.js"></script>
     <script>
         (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isExplicitStandalone = urlParams.get('standalone') === 'true';
+            if (window.self === window.top && !isExplicitStandalone) {
+                // 如果用户直接输入链接访问，自动重定向到主站框架下（保留顶部导航栏和完整框架）
+                window.location.replace('/?open=grade_calculator&tab=tools');
+                return;
+            }
             const savedTheme = localStorage.getItem('theme');
             const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
             if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
                 document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
             }
         })();
+
+        // 监听主程序导航栏实时推送的深浅色切换事件
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'THEME_UPDATE') {
+                const isDark = !!event.data.isDarkMode;
+                if (isDark) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+        });
+
         window.onload = () => {
-            // 仅在初始化时询问一次主程序
-            if (window.AppBridge && typeof AppBridge.isDark === 'function' && AppBridge.isDark()) {
-                document.documentElement.classList.add('dark');
+            if (window.AppBridge && typeof AppBridge.isDark === 'function') {
+                if (AppBridge.isDark()) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             }
             if (window.self === window.top) {
                 document.getElementById('standaloneHeader')?.classList.remove('hidden');
@@ -37,145 +180,364 @@
         };
     </script>
 </head>
-<body class="bg-[#F2F2F7] dark:bg-black text-black dark:text-white pb-10">
+<body class="pb-10 transition-colors duration-200">
     <div class="px-5 pt-4 pb-20 max-w-2xl mx-auto">
-        <header id="standaloneHeader" class="hidden flex items-center justify-between pb-3 mb-4 border-b border-gray-200 dark:border-white/10">
+        <header id="standaloneHeader" class="hidden flex items-center justify-between pb-3 mb-4 border-b border-[var(--border)]">
             <a href="/?tab=tools" title="Back to CHSchat" class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all cursor-pointer">
                 <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                 </svg>
             </a>
-            <h1 class="text-base font-bold text-black dark:text-white">Grade Calculator</h1>
+            <h1 class="text-base font-bold" style="color: var(--text);">Grade Calculator</h1>
             <div class="w-9"></div>
         </header>
-        <div class="bg-[#E9E9EB] dark:bg-white/10 rounded-2xl p-1 h-10 flex mb-6">
+        <div class="p-1 h-11 flex mb-6 rounded-2xl border border-[var(--border)]" style="background: var(--border);">
             <button id="calcTabYear" onclick="switchCalcType('year')"
-                class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all">Year-Long</button>
+                class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center rounded-xl transition-all"
+                style="background: var(--panel); color: var(--text);">Year-Long</button>
             <button id="calcTabSem" onclick="switchCalcType('semester')"
-                class="flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all">Semester</button>
+                class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center rounded-xl transition-all text-gray-400">Semester</button>
+            <button id="calcTabGpa" onclick="switchCalcType('gpa')"
+                class="flex-1 text-center text-xs sm:text-sm font-semibold h-full flex items-center justify-center rounded-xl transition-all text-gray-400">Total GPA</button>
         </div>
 
+        <!-- Year-Long View -->
         <div id="calcYearView" class="space-y-4">
+            <!-- No Midterm Toggle -->
+            <label class="flex items-center justify-between p-4 gold-panel rounded-2xl cursor-pointer select-none">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-sm font-semibold" style="color: var(--text);">I do not have a Midterm Exam</span>
+                    <span class="text-xs" style="color: var(--muted);">(Final Exam counts 20%)</span>
+                </div>
+                <div class="relative flex items-center">
+                    <input type="checkbox" id="y-no-mid" onchange="toggleNoMidterm()" class="sr-only">
+                    <div class="switch-track">
+                        <div class="switch-thumb"></div>
+                    </div>
+                </div>
+            </label>
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 1</label>
                     <select id="y-q1" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 2</label>
                     <select id="y-q2" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 3</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 3</label>
                     <select id="y-q3" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 4</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 4</label>
                     <select id="y-q4" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Midterm Exam</label>
+                <div id="y-mid-wrap" class="space-y-1">
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Midterm Exam</label>
                     <select id="y-mid" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
+                <div id="y-fin-wrap" class="space-y-1">
+                    <label id="y-fin-label" class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Final Exam</label>
                     <select id="y-fin" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
             </div>
         </div>
 
+        <!-- Semester View -->
         <div id="calcSemView" class="hidden space-y-4">
             <div class="grid grid-cols-1 gap-4">
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 1</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 1</label>
                     <select id="s-q1" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Quarter 2</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Quarter 2</label>
                     <select id="s-q2" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Final Exam</label>
+                    <label class="text-xs font-bold uppercase ml-1" style="color: var(--muted);">Final Exam</label>
                     <select id="s-exam" onchange="calculateGrade()"
-                        class="w-full bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-gray-100 dark:border-white/5 outline-none font-bold text-center">
+                        class="w-full gold-input p-3.5 rounded-xl outline-none font-bold text-center">
                         <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 bg-white dark:bg-[#1C1C1E] rounded-3xl p-8 border border-gray-100 dark:border-white/5 shadow-sm text-center space-y-2">
-            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Final Estimated Grade</p>
+        <!-- Grade Result Card (for Year-Long & Semester) -->
+        <div id="gradeResultCard" class="mt-8 gold-panel rounded-3xl p-8 text-center space-y-2">
+            <p class="text-xs font-bold uppercase tracking-widest" style="color: var(--muted);">Final Estimated Grade</p>
             <div id="calcFinalGrade" class="text-5xl font-black">--</div>
             <div class="flex justify-center gap-4 text-sm">
-                <span class="text-gray-500">Total Points: <span id="calcTotalPoints"
-                        class="font-bold text-black dark:text-white">0</span></span>
+                <span style="color: var(--muted);">Total Points: <span id="calcTotalPoints"
+                        class="font-bold" style="color: var(--text);">0</span></span>
             </div>
             <p id="calcNote" class="text-xs text-red-500 font-medium mt-4 h-8"></p>
         </div>
 
-        <div class="mt-6 bg-gray-100 dark:bg-white/5 rounded-2xl p-4 space-y-2">
-            <p class="text-xs font-bold text-gray-400 uppercase">Grading Scale Reference</p>
-            <div class="grid grid-cols-5 text-xs font-bold text-center">
-                <div class="text-green-500">A<br><span class="text-gray-400 font-normal">35-40</span></div>
-                <div class="text-blue-500">B<br><span class="text-gray-400 font-normal">25-34</span></div>
-                <div class="text-orange-500">C<br><span class="text-gray-400 font-normal">15-24</span></div>
-                <div class="text-yellow-600">D<br><span class="text-gray-400 font-normal">7.5-14</span></div>
-                <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-7.4</span></div>
+        <!-- Grading Scale Reference -->
+        <div id="gradingScaleRef" class="mt-6 gold-panel rounded-2xl p-4 space-y-2">
+            <p id="gradingScaleTitle" class="text-xs font-bold uppercase" style="color: var(--muted);">Grading Scale Reference (40 Pts Scale)</p>
+            <div id="gradingScaleValues" class="grid grid-cols-5 text-xs font-bold text-center">
+                <div class="text-green-500">A<br><span class="font-normal" style="color: var(--muted);">35-40</span></div>
+                <div class="text-blue-500">B<br><span class="font-normal" style="color: var(--muted);">25-34</span></div>
+                <div class="text-orange-500">C<br><span class="font-normal" style="color: var(--muted);">15-24</span></div>
+                <div class="text-yellow-600 dark:text-yellow-500">D<br><span class="font-normal" style="color: var(--muted);">7.5-14</span></div>
+                <div class="text-red-500">E<br><span class="font-normal" style="color: var(--muted);">0-7.4</span></div>
+            </div>
+        </div>
+
+        <!-- GPA Calculator View -->
+        <div id="calcGpaView" class="hidden space-y-6">
+            <!-- GPA Result Card -->
+            <div class="gold-panel rounded-3xl p-6 text-center">
+                <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color: var(--muted);">Total GPA</p>
+                <div class="grid grid-cols-2 divide-x divide-[var(--border)]">
+                    <div>
+                        <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Weighted</div>
+                        <div id="gpaWeighted" class="text-4xl font-black text-[#007AFF] dark:text-[#38BDF8]">0.00</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Unweighted</div>
+                        <div id="gpaUnweighted" class="text-4xl font-black" style="color: var(--text);">0.00</div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-[var(--border)] text-xs" style="color: var(--muted);">
+                    Total Courses Counted: <span id="gpaTotalCourses" class="font-bold" style="color: var(--text);">0</span>
+                </div>
+            </div>
+
+            <!-- Grade Count Inputs by Course Level -->
+            <div class="space-y-4">
+                <!-- AP / GT Section -->
+                <div class="gold-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-[#007AFF] dark:text-[#38BDF8]">AP / GT Courses</span>
+                        <span class="text-[11px]" style="color: var(--muted);">A=5.0 · B=4.0 · C=3.0</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                            <input type="number" min="0" value="0" id="gpa-ap-a" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                            <input type="number" min="0" value="0" id="gpa-ap-b" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                            <input type="number" min="0" value="0" id="gpa-ap-c" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Honors Section -->
+                <div class="gold-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Honors Courses</span>
+                        <span class="text-[11px]" style="color: var(--muted);">A=4.5 · B=3.5 · C=2.5</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                            <input type="number" min="0" value="0" id="gpa-hon-a" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                            <input type="number" min="0" value="0" id="gpa-hon-b" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                            <input type="number" min="0" value="0" id="gpa-hon-c" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Regular Section -->
+                <div class="gold-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Regular Courses</span>
+                        <span class="text-[11px]" style="color: var(--muted);">A=4.0 · B=3.0 · C=2.0</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
+                            <input type="number" min="0" value="0" id="gpa-reg-a" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
+                            <input type="number" min="0" value="0" id="gpa-reg-b" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
+                            <input type="number" min="0" value="0" id="gpa-reg-c" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Courses D & E -->
+                <div class="gold-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--muted);">All Courses (Standard)</span>
+                        <span class="text-[11px]" style="color: var(--muted);">D=1.0 · E=0.0</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of D's</label>
+                            <input type="number" min="0" value="0" id="gpa-all-d" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of E's</label>
+                            <input type="number" min="0" value="0" id="gpa-all-e" oninput="calculateGpa()"
+                                class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         let currentCalcType = 'year';
-        window.switchCalcType = (type) => {
-            currentCalcType = type;
-            const btnYear = document.getElementById('calcTabYear');
-            const btnSem = document.getElementById('calcTabSem');
-            const yearView = document.getElementById('calcYearView');
-            const semView = document.getElementById('calcSemView');
+        let noMidterm = false;
 
-            if (type === 'year') {
-                btnYear.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all";
-                btnSem.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all";
-                yearView.classList.remove('hidden');
-                semView.classList.add('hidden');
+        window.toggleNoMidterm = () => {
+            const check = document.getElementById('y-no-mid');
+            noMidterm = check.checked;
+            const midWrap = document.getElementById('y-mid-wrap');
+            const finWrap = document.getElementById('y-fin-wrap');
+            const finLabel = document.getElementById('y-fin-label');
+
+            if (noMidterm) {
+                midWrap.classList.add('hidden');
+                finWrap.classList.remove('col-span-1');
+                finWrap.classList.add('col-span-2');
+                finLabel.innerText = 'Final Exam (Counts 20%)';
             } else {
-                btnSem.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm text-black dark:text-white transition-all";
-                btnYear.className = "flex-1 text-center text-sm font-semibold h-full flex items-center justify-center text-gray-500 rounded-xl transition-all";
-                semView.classList.remove('hidden');
-                yearView.classList.add('hidden');
+                midWrap.classList.remove('hidden');
+                finWrap.classList.remove('col-span-2');
+                finWrap.classList.add('col-span-1');
+                finLabel.innerText = 'Final Exam';
             }
             calculateGrade();
         };
 
+        window.switchCalcType = (type) => {
+            currentCalcType = type;
+            const btnYear = document.getElementById('calcTabYear');
+            const btnSem = document.getElementById('calcTabSem');
+            const btnGpa = document.getElementById('calcTabGpa');
+
+            const yearView = document.getElementById('calcYearView');
+            const semView = document.getElementById('calcSemView');
+            const gpaView = document.getElementById('calcGpaView');
+            const gradeResultCard = document.getElementById('gradeResultCard');
+            const gradingScaleRef = document.getElementById('gradingScaleRef');
+
+            const resetBtn = (btn) => {
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--muted)';
+            };
+            const setBtnActive = (btn) => {
+                btn.style.background = 'var(--panel)';
+                btn.style.color = 'var(--text)';
+            };
+
+            resetBtn(btnYear);
+            resetBtn(btnSem);
+            resetBtn(btnGpa);
+
+            yearView.classList.add('hidden');
+            semView.classList.add('hidden');
+            gpaView.classList.add('hidden');
+
+            if (type === 'year') {
+                setBtnActive(btnYear);
+                yearView.classList.remove('hidden');
+                gradeResultCard.classList.remove('hidden');
+                gradingScaleRef.classList.remove('hidden');
+                updateGradingScaleUI(false);
+                calculateGrade();
+            } else if (type === 'semester') {
+                setBtnActive(btnSem);
+                semView.classList.remove('hidden');
+                gradeResultCard.classList.remove('hidden');
+                gradingScaleRef.classList.remove('hidden');
+                updateGradingScaleUI(true);
+                calculateGrade();
+            } else if (type === 'gpa') {
+                setBtnActive(btnGpa);
+                gpaView.classList.remove('hidden');
+                gradeResultCard.classList.add('hidden');
+                gradingScaleRef.classList.add('hidden');
+                calculateGpa();
+            }
+        };
+
+        function updateGradingScaleUI(isSemester) {
+            const title = document.getElementById('gradingScaleTitle');
+            const values = document.getElementById('gradingScaleValues');
+            if (isSemester) {
+                title.innerText = "Grading Scale Reference (Semester / 20 Pts Scale)";
+                values.innerHTML = `
+                    <div class="text-green-500">A<br><span class="text-gray-400 font-normal">17.5-20</span></div>
+                    <div class="text-blue-500">B<br><span class="text-gray-400 font-normal">12.5-17.4</span></div>
+                    <div class="text-orange-500">C<br><span class="text-gray-400 font-normal">7.5-12.4</span></div>
+                    <div class="text-yellow-600">D<br><span class="text-gray-400 font-normal">3.75-7.4</span></div>
+                    <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-3.74</span></div>
+                `;
+            } else {
+                title.innerText = "Grading Scale Reference (Full Year / 40 Pts Scale)";
+                values.innerHTML = `
+                    <div class="text-green-500">A<br><span class="text-gray-400 font-normal">35-40</span></div>
+                    <div class="text-blue-500">B<br><span class="text-gray-400 font-normal">25-34</span></div>
+                    <div class="text-orange-500">C<br><span class="text-gray-400 font-normal">15-24</span></div>
+                    <div class="text-yellow-600">D<br><span class="text-gray-400 font-normal">7.5-14</span></div>
+                    <div class="text-red-500">E<br><span class="text-gray-400 font-normal">0-7.4</span></div>
+                `;
+            }
+        }
+
         window.calculateGrade = () => {
             const qPoints = { 'A': 8, 'B': 6, 'C': 4, 'D': 2, 'E': 0 };
             const ePoints = { 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'E': 0 };
+            const eDoublePoints = { 'A': 8, 'B': 6, 'C': 4, 'D': 2, 'E': 0 };
 
             let total = 0;
             let resultGrade = '';
@@ -188,10 +550,16 @@
                     document.getElementById('y-q3').value,
                     document.getElementById('y-q4').value
                 ];
-                const mid = document.getElementById('y-mid').value;
                 const fin = document.getElementById('y-fin').value;
 
-                total = qs.reduce((acc, q) => acc + qPoints[q], 0) + ePoints[mid] + ePoints[fin];
+                if (noMidterm) {
+                    // No Midterm: 4 Quarters (8 pts each = 32 max) + Final Exam (8 pts = 20% weight, total 40 pts)
+                    total = qs.reduce((acc, q) => acc + qPoints[q], 0) + eDoublePoints[fin];
+                } else {
+                    // Standard Year-Long: 4 Quarters (8 pts each) + Midterm (4 pts) + Final (4 pts) = 40 pts
+                    const mid = document.getElementById('y-mid').value;
+                    total = qs.reduce((acc, q) => acc + qPoints[q], 0) + ePoints[mid] + ePoints[fin];
+                }
 
                 if (total >= 35) resultGrade = 'A';
                 else if (total >= 25) resultGrade = 'B';
@@ -199,13 +567,13 @@
                 else if (total >= 7.5) resultGrade = 'D';
                 else resultGrade = 'E';
 
-                // Core Fix: Count total 'E's across all 4 quarters
+                // Core Rule: Two or more 'E's in any quarters results in a final 'E'
                 const eCount = qs.filter(q => q === 'E').length;
                 if (eCount >= 2) {
                     resultGrade = 'E';
-                    note = 'Note: Two or more "E"s in any quarters results in a final "E".';
+                    note = 'Note: Two or more "E"s in quarters results in an automatic "E".';
                 }
-            } else {
+            } else if (currentCalcType === 'semester') {
                 const qs = [
                     document.getElementById('s-q1').value,
                     document.getElementById('s-q2').value
@@ -235,8 +603,58 @@
             const gradeColors = { 'A': 'text-green-500', 'B': 'text-blue-500', 'C': 'text-orange-500', 'D': 'text-yellow-600', 'E': 'text-red-500' };
             document.getElementById('calcFinalGrade').className = `text-5xl font-black ${gradeColors[resultGrade] || 'text-black dark:text-white'}`;
         };
-        
-        // Initial Calculation
+
+        window.calculateGpa = () => {
+            const parseVal = (id) => Math.max(0, parseInt(document.getElementById(id).value) || 0);
+
+            const apA = parseVal('gpa-ap-a');
+            const apB = parseVal('gpa-ap-b');
+            const apC = parseVal('gpa-ap-c');
+
+            const honA = parseVal('gpa-hon-a');
+            const honB = parseVal('gpa-hon-b');
+            const honC = parseVal('gpa-hon-c');
+
+            const regA = parseVal('gpa-reg-a');
+            const regB = parseVal('gpa-reg-b');
+            const regC = parseVal('gpa-reg-c');
+
+            const allD = parseVal('gpa-all-d');
+            const allE = parseVal('gpa-all-e');
+
+            const totalCourses = apA + apB + apC + honA + honB + honC + regA + regB + regC + allD + allE;
+            document.getElementById('gpaTotalCourses').innerText = totalCourses;
+
+            if (totalCourses === 0) {
+                document.getElementById('gpaWeighted').innerText = '0.00';
+                document.getElementById('gpaUnweighted').innerText = '0.00';
+                return;
+            }
+
+            // HCPSS Policy 8020 Quality Points:
+            // AP/GT: A=5.0, B=4.0, C=3.0
+            // Honors: A=4.5, B=3.5, C=2.5
+            // Regular: A=4.0, B=3.0, C=2.0
+            // All: D=1.0, E=0.0
+            const weightedSum = (apA * 5.0) + (apB * 4.0) + (apC * 3.0) +
+                                (honA * 4.5) + (honB * 3.5) + (honC * 2.5) +
+                                (regA * 4.0) + (regB * 3.0) + (regC * 2.0) +
+                                (allD * 1.0) + (allE * 0.0);
+
+            // Unweighted Scale: A=4.0, B=3.0, C=2.0, D=1.0, E=0.0 across all courses
+            const totalA = apA + honA + regA;
+            const totalB = apB + honB + regB;
+            const totalC = apC + honC + regC;
+            const unweightedSum = (totalA * 4.0) + (totalB * 3.0) + (totalC * 2.0) + (allD * 1.0) + (allE * 0.0);
+
+            const weightedGpa = (weightedSum / totalCourses).toFixed(2);
+            const unweightedGpa = (unweightedSum / totalCourses).toFixed(2);
+
+            document.getElementById('gpaWeighted').innerText = weightedGpa;
+            document.getElementById('gpaUnweighted').innerText = unweightedGpa;
+        };
+
+        // Initial Calculations
         calculateGrade();
     </script>
 </body>
