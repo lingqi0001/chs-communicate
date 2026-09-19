@@ -267,26 +267,111 @@ export const UIComponents = {
     },
 
     /**
+     * [Doc Sync State Helpers] 统一解析后端 writing_doc_state 状态机输出，
+     * 前端只展示，不自行推断 access lost。
+     */
+    docLiveComments: function (comments) {
+        return (comments || []).filter(c => c && !c.deleted && c.status !== 'deleted_on_google');
+    },
+
+    docBadgeLabel: function (docData) {
+        const live = UIComponents.docLiveComments(docData?.comments);
+        const openCount = live.filter(c => !c.resolved).length;
+        const count = live.length;
+        let label;
+        if (count > 0) {
+            if (openCount > 0) {
+                label = count === 1 ? `1 comment (${openCount} open)` : `${count} comments (${openCount} open)`;
+            } else {
+                label = count === 1 ? `1 comment (resolved)` : `${count} comments (all resolved)`;
+            }
+        } else {
+            label = 'Google Doc';
+        }
+        const suffixMap = {
+            access_lost: ' · Access lost',
+            access_lost_or_file_unavailable: ' · Access lost',
+            file_unavailable: ' · Unavailable',
+            comments_access_lost: ' · Comment access lost',
+            comments_unavailable: ' · Comments unavailable',
+            comments_unavailable_or_empty: ' · Comments unavailable',
+            auth_required: ' · Reconnect Google',
+            sync_failed_retryable: ' · Sync delayed'
+        };
+        const status = docData?.syncStatus;
+        if (status && suffixMap[status]) label += suffixMap[status];
+        return label;
+    },
+
+    renderDocStatusNoticeHtml: function (docData, key) {
+        if (!docData) return '';
+        const status = docData.syncStatus || (docData.accessLost ? 'access_lost' : '');
+        if (!status || status === 'synced') return '';
+
+        const syncedAt = docData.lastSuccessfulSyncAt || docData.lastSyncedAt || null;
+        const lastSyncedText = syncedAt
+            ? new Date(syncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'an earlier date';
+        const liveCount = typeof docData.lastKnownCommentCount === 'number'
+            ? docData.lastKnownCommentCount
+            : UIComponents.docLiveComments(docData.comments).length;
+        const snapshotClause = liveCount > 0
+            ? ` Showing saved snapshot: ${liveCount} comment${liveCount === 1 ? '' : 's'}.`
+            : '';
+
+        const noticeMap = {
+            access_lost: { t: 'Access lost', b: `Last synced ${lastSyncedText}.${snapshotClause} Reconnect access to retrieve newer comments.` },
+            access_lost_or_file_unavailable: { t: 'Access lost or file unavailable', b: `Last synced ${lastSyncedText}.${snapshotClause} Reconnect access or check whether the file still exists.` },
+            file_unavailable: { t: 'File unavailable', b: `We could not access this Google Doc.` },
+            comments_access_lost: { t: 'Comment access lost', b: `The document is still accessible, but comments are no longer readable by CHSchat.${snapshotClause} Grant the bot Commenter access to retrieve newer comments.` },
+            comments_unavailable: { t: 'Comments unavailable', b: `Last synced ${lastSyncedText}.${snapshotClause} Showing saved snapshot.` },
+            comments_unavailable_or_empty: { t: 'No comments available from Google', b: liveCount > 0 ? `Previously synced ${liveCount} comment${liveCount === 1 ? '' : 's'} on ${lastSyncedText}. Showing saved snapshot.` : `Last synced ${lastSyncedText}.` },
+            auth_required: { t: 'Google connection expired', b: `Last synced ${lastSyncedText}.${snapshotClause} Reconnect Google to retrieve newer comments.` },
+            sync_failed_retryable: { t: 'Sync delayed', b: `Last synced ${lastSyncedText}.${snapshotClause} We'll try again shortly.` }
+        };
+        const cfg = noticeMap[status];
+        if (!cfg) return '';
+
+        const isSoft = status === 'sync_failed_retryable';
+        const tone = isSoft
+            ? 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300'
+            : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-400/20 text-amber-800 dark:text-amber-200';
+        const subTone = isSoft
+            ? 'text-gray-500 dark:text-gray-400'
+            : 'text-amber-700/80 dark:text-amber-200/75';
+        return `<div id="docStatusNotice-${key}" class="mx-3.5 mb-3 px-3 py-2 rounded-xl border ${tone} text-[11px] leading-relaxed"><span class="font-bold">${cfg.t}</span><span class="${subTone}"> · ${UIUtils.escape(cfg.b)}</span></div>`;
+    },
+
+    /**
      * [Google Doc Comments HTML Builder] 统一的评论列表渲染引擎（保证首次渲染和点击 Sync 后的 UI 100% 绝对一致）
      */
-    renderDocCommentsHtml: function (key, comments, count, openCount, resolvedCount, docId, docUrl) {
-        if (!comments || comments.length === 0) {
+    renderDocCommentsHtml: function (key, comments, count, openCount, resolvedCount, docId, docUrl, docData) {
+        const list = comments || [];
+        if (list.length === 0) {
+            const status = docData?.syncStatus;
+            const emptyText = (status === 'no_comments_yet' || status === 'synced')
+                ? 'No comments yet. This document has no feedback recorded.'
+                : 'No comments found. Click sync to load latest comments.';
             return `
                 <div class="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                    No comments found. Click sync to load latest comments.
+                    ${emptyText}
                 </div>
             `;
         }
 
+        const liveList = UIComponents.docLiveComments(list);
+        const liveOpen = liveList.filter(c => !c.resolved).length;
+        const liveResolved = liveList.length - liveOpen;
+
         const filterBarHtml = `
             <div class="doc-filter-bar flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-white/5">
-                <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${count})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${openCount})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${resolvedCount})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${list.length})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${liveOpen})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${liveResolved})</button>
             </div>
         `;
 
-        const itemsHtml = comments.map((c, i) => {
+        const itemsHtml = list.map((c, i) => {
             const quoteVal = c.quotedFileContent?.value || '';
             let quoteHtml = '';
             if (quoteVal) {
@@ -300,11 +385,18 @@ export const UIComponents = {
                 `;
             }
 
+            const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
+            const isMissing = c.status === 'missing_from_latest_sync' && !isDeleted;
             const author = c.author?.displayName || 'Reviewer';
-            // Only show badge if Resolved; omit redundant Open pill tag
-            const statusTag = c.resolved 
-                ? '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' 
-                : '';
+
+            let statusTag = '';
+            if (isDeleted) {
+                statusTag = '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Deleted in Google Docs</span>';
+            } else if (isMissing) {
+                statusTag = `<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium" title="Google has not returned this comment in the last ${c.missingCount || 1} full sync${(c.missingCount || 1) === 1 ? '' : 's'}">Not in latest sync</span>`;
+            } else if (c.resolved) {
+                statusTag = '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>';
+            }
             
             // Deep-link to comment in Google Docs
             const commentId = c.id || '';
@@ -322,8 +414,15 @@ export const UIComponents = {
                 `).join('');
             }
 
+            const rowOpacity = (isDeleted || isMissing) ? ' opacity-60' : '';
+            const contentHtml = isDeleted
+                ? (c.content
+                    ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${UIUtils.escape(c.content)}</div>`
+                    : `<div class="text-[13px] italic text-gray-400 dark:text-gray-500">Comment deleted in Google Docs (no snapshot content was saved for it).</div>`)
+                : `<div class="text-[14px] text-gray-800 dark:text-gray-100 leading-relaxed">${UIUtils.escape(c.content || '')}</div>`;
+
             return `
-                <div class="comment-item-row py-3 border-b border-gray-100 dark:border-white/5 last:border-b-0 text-left transition-opacity duration-150" data-card-key="${key}" data-resolved="${c.resolved ? 'true' : 'false'}">
+                <div class="comment-item-row py-3 border-b border-gray-100 dark:border-white/5 last:border-b-0 text-left transition-opacity duration-150${rowOpacity}" data-card-key="${key}" data-resolved="${(c.resolved && !isDeleted && !isMissing) ? 'true' : 'false'}" data-comment-deleted="${isDeleted ? 'true' : 'false'}">
                     ${quoteHtml}
                     <div class="flex items-center justify-between gap-2 mb-1.5">
                         <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
@@ -339,7 +438,7 @@ export const UIComponents = {
                             </a>
                         </div>
                     </div>
-                    <div class="text-[14px] text-gray-800 dark:text-gray-100 leading-relaxed">${UIUtils.escape(c.content || '')}</div>
+                    ${contentHtml}
                     ${repliesHtml}
                 </div>
             `;
@@ -363,39 +462,35 @@ export const UIComponents = {
         const docId = msg.docData?.fileId || (match ? match[1] : '');
         const docUrl = msg.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
 
-        // 取出已保存的评论缓存（如果已有）
-        const docData = msg.docData || window._docCache?.[docId] || null;
+        // 取出已保存的评论缓存：writing_doc_state 驱动的会话缓存优先，
+        // message.docData 只作 lightweight fallback（谁同步得更近谁赢）
+        const docData = (window.resolveDocViewData && docId)
+            ? window.resolveDocViewData(docId, msg.docData)
+            : (msg.docData || (docId && window._docCache?.[docId]) || null);
         const docTitle = docData?.title || 'Google Document';
         const comments = docData?.comments || [];
-        const count = comments.length || docData?.commentsCount || 0;
+        const liveComments = UIComponents.docLiveComments(comments);
+        const count = liveComments.length || docData?.commentsCount || 0;
 
-        // Open vs Resolved count breakdown
+        // Open vs Resolved count breakdown (deleted snapshot comments excluded)
         let openCount = 0;
         let resolvedCount = 0;
-        comments.forEach(c => {
+        liveComments.forEach(c => {
             if (c.resolved) resolvedCount++;
             else openCount++;
         });
 
-        // Dynamic badge label highlighting open feedback
-        let badgeLabel = 'Google Doc';
-        if (count > 0) {
-            if (openCount > 0) {
-                badgeLabel = count === 1 ? `1 comment (${openCount} open)` : `${count} comments (${openCount} open)`;
-            } else {
-                badgeLabel = count === 1 ? `1 comment (resolved)` : `${count} comments (all resolved)`;
-            }
-        }
+        // Dynamic badge label highlighting open feedback + sync status
+        const badgeLabel = UIComponents.docBadgeLabel(docData);
         const createdTime = docData?.createdTime;
         const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         const createdDateTag = createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight"></span>`;
-        const lastSyncedText = docData?.lastSyncedAt ? new Date(docData.lastSyncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'an earlier date';
-        const accessLostNotice = docData?.accessLost
-            ? `<div class="mx-3.5 mb-3 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/20 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200"><span class="font-bold">Access lost</span><span class="text-amber-700/80 dark:text-amber-200/75"> · Last synced ${lastSyncedText}. Reconnect access to retrieve newer comments.</span></div>`
-            : '';
+
+        // Two-level access/sync status notice (access lost / comment access lost / snapshot…)
+        const statusNoticeHtml = UIComponents.renderDocStatusNoticeHtml(docData, key);
 
         // 构建评论列表 HTML (统一复用 UIComponents.renderDocCommentsHtml)
-        const commentsListHtml = UIComponents.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl);
+        const commentsListHtml = UIComponents.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl, docData);
 
 
 
@@ -455,7 +550,7 @@ export const UIComponents = {
                     </div>
                 </div>
 
-                ${accessLostNotice}
+                ${statusNoticeHtml}
 
                 <!-- Expandable Comments Drawer Area with Smooth Accordion -->
                 <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">

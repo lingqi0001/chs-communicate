@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260612-1800">
+    <link rel="stylesheet" href="style.css?v=20260918-liquid-glass-v2">
 
     <script type="importmap">
     {
@@ -155,7 +155,7 @@
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
         "./js/modal.js": "./js/modal.js?v=20260516-2380",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260918-portfolio-v8",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260919-docstate-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
@@ -165,10 +165,10 @@
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260522-structsplit-1",
+        "./js/search.js": "./js/search.js?v=20260919-docstate-v1",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260918-portfolio-v11"
+        "./js/chat.js": "./js/chat.js?v=20260919-docstate-v2"
       }
     }
     </script>
@@ -3375,7 +3375,7 @@
                     </div>
 
                     <div id="searchResults"
-                        class="hidden absolute top-full right-0 w-[80vw] lg:w-64 max-h-80 overflow-y-auto no-scrollbar ios26-liquid-glass shadow-2xl rounded-b-2xl border border-gray-200 dark:border-white/10 border-t-0 fade-in overscroll-contain z-50">
+                        class="hidden absolute top-full right-0 w-[80vw] lg:w-64 max-h-80 overflow-y-auto no-scrollbar shadow-2xl rounded-b-2xl border border-gray-200 dark:border-white/10 border-t-0 fade-in overscroll-contain z-50">
                     </div>
                 </div>
             </header>
@@ -3466,7 +3466,7 @@
                     <div id="chatInputPill"
                         class="flex-1 flex items-center rounded-[24px] pl-[14px] pr-[4px] min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-base text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
+                            class="flex-1 bg-transparent outline-none text-[14.5px] text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         <button onclick="sendMsg()"
                             class="ml-2 w-[30px] h-[30px] chat-accent-bg bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
                             <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"

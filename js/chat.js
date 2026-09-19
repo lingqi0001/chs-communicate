@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260612-1741';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260918-liquid-glass-v2';
 
 export function initChatEngine(deps) {
     const {
@@ -903,6 +903,9 @@ export function initChatEngine(deps) {
 
         if (matches.length > 0) {
             resultsBox.classList.remove('hidden');
+            if (resultsBox._liquidGlass) {
+                resultsBox._liquidGlass.refresh();
+            }
             matches.forEach(m => {
                 const item = document.createElement('div');
                 item.className = "p-3 pl-5 pr-10 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-white/5 transition-all group hover:bg-black/5 dark:hover:bg-white/10";
@@ -946,9 +949,15 @@ export function initChatEngine(deps) {
                 };
                 resultsBox.appendChild(item);
             });
+            if (resultsBox._liquidGlass) {
+                resultsBox._liquidGlass.refresh();
+            }
         } else {
             resultsBox.innerHTML = '<div class="p-4 text-[14px] text-gray-500 text-center font-medium">No Results Found</div>';
             resultsBox.classList.remove('hidden');
+            if (resultsBox._liquidGlass) {
+                resultsBox._liquidGlass.refresh();
+            }
         }
     }
 
@@ -1283,11 +1292,18 @@ export function initChatEngine(deps) {
             menu.classList.add('menu-hidden');
             if (btn) btn.classList.add('attach-open');
 
+            if (menu._liquidGlass) {
+                menu._liquidGlass.refresh();
+            }
+
             // Force layout reflow then pop in with spring
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     menu.classList.remove('menu-hidden');
                     menu.classList.add('menu-visible');
+                    if (menu._liquidGlass) {
+                        menu._liquidGlass.refresh();
+                    }
                 });
             });
         } else {
@@ -1370,7 +1386,11 @@ export function initChatEngine(deps) {
                     const lastSynced = cached?.lastSyncedAt || 0;
                     const now = Date.now();
                     const THREE_MINUTES = 3 * 60 * 1000;
-                    if (now - lastSynced > THREE_MINUTES) {
+                    // Backoff: transient Google failures (429/5xx) retry at most every 15 min
+                    const RETRY_BACKOFF = 15 * 60 * 1000;
+                    const inBackoff = cached?.syncStatus === 'sync_failed_retryable'
+                        && (now - (cached.lastSyncAttemptAt || cached.lastSyncedAt || 0)) < RETRY_BACKOFF;
+                    if (!inBackoff && now - lastSynced > THREE_MINUTES) {
                         // Trigger background silent sync
                         syncDocCardComments(key, docUrl, null, null, true);
                     }
@@ -1422,9 +1442,10 @@ export function initChatEngine(deps) {
         let visibleCount = 0;
         rows.forEach(row => {
             const isResolved = row.getAttribute('data-resolved') === 'true';
+            const isDeleted = row.getAttribute('data-comment-deleted') === 'true';
             let show = true;
-            if (filterType === 'open' && isResolved) show = false;
-            if (filterType === 'resolved' && !isResolved) show = false;
+            if (filterType === 'open' && (isResolved || isDeleted)) show = false;
+            if (filterType === 'resolved' && (!isResolved || isDeleted)) show = false;
 
             if (show) {
                 row.classList.remove('hidden');
@@ -1445,36 +1466,38 @@ export function initChatEngine(deps) {
         }
     }
 
-    // Google Doc Card Comments Synchronization (supports silent auto-sync)
+    // Google Doc Card Comments Synchronization (supports silent auto-sync).
+    // The Cloud Function owns the access state machine and snapshot merge;
+    // the frontend only renders the normalized status it receives back.
     async function syncDocCardComments(key, docUrl, e, explicitChatId = null, isSilent = false) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         const badge = document.getElementById(`docBadge-${key}`);
-        const list = document.getElementById(`docList-${key}`);
-        const drawer = document.getElementById(`docDrawer-${key}`);
-        const arrow = document.getElementById(`docArrow-${key}`);
 
         const prevBadgeText = badge ? badge.innerText : '';
         if (!isSilent && badge) badge.innerText = "Syncing...";
 
+        const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const docId = match ? match[1] : null;
+
+        const currentUser = getCurrentUser();
+        const activeTargetId = getActiveTargetId();
+        const computedChatId = explicitChatId || lastChatId || (activeTargetId ? (activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId)) : null);
+
         try {
-            // Call Cloud Function or fallback to local fetch
-            const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-            const docId = match ? match[1] : null;
             if (!docId) throw new Error("Invalid document ID");
 
-            // Determine active chatId
-            const currentUser = getCurrentUser();
-            const activeTargetId = getActiveTargetId();
-            const computedChatId = explicitChatId || lastChatId || (activeTargetId ? (activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId)) : null);
-
             let resData = null;
-            const payload = { 
+            const knownTitle = (window._docCache?.[docId]?.title && window._docCache[docId].title !== 'Google Document')
+                ? window._docCache[docId].title
+                : (document.getElementById(`docTitle-${key}`)?.innerText || null);
+            const payload = {
                 url: docUrl,
                 chatId: computedChatId,
-                messageKey: key
+                messageKey: key,
+                knownTitle: (knownTitle && knownTitle !== 'Google Document') ? knownTitle : null
             };
 
             if (window.httpsCallable && window.firebaseFunctions) {
@@ -1487,50 +1510,38 @@ export function initChatEngine(deps) {
                 resData = res.data;
             }
 
-            if (!resData || !resData.success) {
-                const errDetail = resData?.error || 'Cloud function returned no data';
+            if (!resData || !resData.syncStatus) {
+                // Transport-level failure: keep snapshot and previous badge untouched, record retryable failure.
+                if (docId && window._docCache && window._docCache[docId]) {
+                    window._docCache[docId] = { ...window._docCache[docId], syncStatus: 'sync_failed_retryable', lastSyncAttemptAt: Date.now() };
+                }
                 if (!isSilent) {
-                    if (badge) badge.innerText = "Error";
-                    AppModules.Modal.alert("Sync Notice", `Unable to sync comments: ${errDetail}`);
-                } else if (badge && prevBadgeText) {
-                    badge.innerText = prevBadgeText;
+                    if (badge && prevBadgeText) badge.innerText = prevBadgeText;
+                    AppModules.Modal.alert("Sync Notice", `We could not reach the comment sync service. Your last saved comments are still shown.`);
                 }
                 return;
             }
 
-            // Ensure lastSyncedAt is stamped
-            resData.lastSyncedAt = resData.lastSyncedAt || Date.now();
+            const syncStatus = resData.syncStatus;
 
-            // Store in global memory cache
+            // Merge into global memory cache (backend already merged the snapshot;
+            // comments here can only grow or carry status flags, never silently shrink)
             window._docCache = window._docCache || {};
-            window._docCache[docId] = resData;
+            window._docCache[docId] = { ...(window._docCache[docId] || {}), ...resData, lastSyncAttemptAt: Date.now() };
 
-            // Update badge & title and drawer for ALL cards in current view sharing the same docId
-            const count = resData.commentsCount || 0;
             const comments = resData.comments || [];
+            const liveComments = UIComponents.docLiveComments(comments);
             let openCount = 0;
-            let resolvedCount = 0;
-            comments.forEach(c => {
-                if (c.resolved) resolvedCount++;
-                else openCount++;
-            });
+            liveComments.forEach(c => { if (!c.resolved) openCount++; });
+            const resolvedCount = liveComments.length - openCount;
+            const badgeText = UIComponents.docBadgeLabel(resData);
 
-            let badgeText = 'Google Doc';
-            if (count > 0) {
-                if (openCount > 0) {
-                    badgeText = count === 1 ? `1 comment (${openCount} open)` : `${count} comments (${openCount} open)`;
-                } else {
-                    badgeText = count === 1 ? `1 comment (resolved)` : `${count} comments (all resolved)`;
-                }
-            }
-            
-            // Query all doc cards on screen matching this docId
+            // Update every doc card on screen sharing this docId
             const docCards = document.querySelectorAll(`[data-doc-id="${docId}"]`);
             docCards.forEach(cardEl => {
                 cardEl.setAttribute('data-open-count', openCount);
-                cardEl.setAttribute('data-total-comments', count);
+                cardEl.setAttribute('data-total-comments', liveComments.length);
 
-                // Find message key from parent container or inner elements
                 const cardBadge = cardEl.querySelector('[id^="docBadge-"]');
                 const cardTitle = cardEl.querySelector('[id^="docTitle-"]');
                 const cardList = cardEl.querySelector('[id^="docList-"]');
@@ -1546,13 +1557,26 @@ export function initChatEngine(deps) {
 
                 if (cardBadge) cardBadge.innerText = badgeText;
                 if (cardTitle && resData.title) {
-                    cardTitle.innerText = resData.title;
-                    cardTitle.title = resData.title;
+                    const curTitle = cardTitle.innerText;
+                    if (!(resData.title === 'Google Document' && curTitle && curTitle !== 'Google Document')) {
+                        cardTitle.innerText = resData.title;
+                        cardTitle.title = resData.title;
+                    }
                 }
 
-                if (cardList && resData.comments) {
-                    const cKey = cardList.id.replace('docList-', '');
-                    cardList.innerHTML = UIComponents.renderDocCommentsHtml(cKey, resData.comments, count, openCount, resolvedCount, docId, docUrl);
+                // Swap the two-level status notice bar for this card
+                const cardKey = cardList ? cardList.id.replace('docList-', '') : key;
+                const existingNotice = cardEl.querySelector('[id^="docStatusNotice-"]');
+                const noticeHtml = UIComponents.renderDocStatusNoticeHtml(resData, cardKey);
+                if (existingNotice) {
+                    if (noticeHtml) existingNotice.outerHTML = noticeHtml;
+                    else existingNotice.remove();
+                } else if (noticeHtml && cardDrawer) {
+                    cardDrawer.insertAdjacentHTML('beforebegin', noticeHtml);
+                }
+
+                if (cardList) {
+                    cardList.innerHTML = UIComponents.renderDocCommentsHtml(cardKey, comments, liveComments.length, openCount, resolvedCount, docId, docUrl, resData);
 
                     // For the clicked card specifically, automatically open drawer to show results
                     if (cardDrawer && cardList.id === `docList-${key}` && (!cardDrawer.classList.contains('expanded') || cardDrawer.classList.contains('hidden'))) {
@@ -1573,22 +1597,22 @@ export function initChatEngine(deps) {
                 });
             }
 
-            // Also persist to all matching messages in local IndexedDB
+            // Persist merged state to local IndexedDB copies (client-side guard:
+            // an empty response never replaces comments we already have locally)
             if (computedChatId) {
                 try {
+                    const persistData = { ...resData, lastSyncAttemptAt: Date.now() };
+                    delete persistData.success;
+                    delete persistData.error;
                     const localMessages = await getLocalMessages(computedChatId);
                     for (const targetMsg of localMessages) {
                         if (targetMsg && targetMsg.text && targetMsg.text.includes(docId)) {
-                            targetMsg.docData = {
-                                title: resData.title,
-                                fileId: resData.fileId,
-                                docUrl: resData.docUrl,
-                                commentsCount: resData.commentsCount,
-                                comments: resData.comments,
-                                createdTime: resData.createdTime || null,
-                                modifiedTime: resData.modifiedTime || null,
-                                lastSyncedAt: resData.lastSyncedAt || Date.now()
-                            };
+                            const prevLocal = targetMsg.docData || {};
+                            const nextDocData = mergeDocViews(prevLocal, persistData);
+                            if (comments.length === 0 && (prevLocal.comments || []).length > 0) {
+                                nextDocData.comments = prevLocal.comments;
+                            }
+                            targetMsg.docData = nextDocData;
                             await saveMessageLocal(computedChatId, targetMsg.key, targetMsg);
                         }
                     }
@@ -1597,21 +1621,43 @@ export function initChatEngine(deps) {
                 }
             }
 
+            // Friendly, human status line for manual syncs on non-ok outcomes
+            if (!isSilent) {
+                const actionStatuses = ['access_lost', 'access_lost_or_file_unavailable', 'file_unavailable', 'comments_access_lost', 'comments_unavailable', 'comments_unavailable_or_empty', 'auth_required', 'sync_failed_retryable'];
+                if (actionStatuses.includes(syncStatus)) {
+                    const plainNotice = UIComponents.renderDocStatusNoticeHtml(resData, 'modal')
+                        .replace(/<div[^>]*>/, '<div>').replace(/<\/div>/, '</div>');
+                    let extra = '';
+                    if (syncStatus === 'file_unavailable' || syncStatus === 'comments_access_lost' || syncStatus === 'access_lost_or_file_unavailable') {
+                        const botEmail = "chscommunication@appspot.gserviceaccount.com";
+                        extra = `
+                            <div class="mt-3 text-left text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed space-y-2.5">
+                                <div>To restore live sync, set doc sharing to <b>"Anyone with the link can comment"</b>, or add the bot as a <b>Commenter</b>:</div>
+                                <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
+                                    <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</span>
+                                    <button type="button" onclick="navigator.clipboard.writeText('${botEmail}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    if (resData.lastSyncErrorMessage) {
+                        extra += `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(String(resData.lastSyncErrorMessage).slice(0, 300))}</div>`;
+                    }
+                    AppModules.Modal.alert("Sync status", `${plainNotice}${extra}`);
+                }
+            }
         } catch (err) {
             console.error("Sync comments error:", err);
-            if (badge) badge.innerText = "Check access";
-            
-            const botEmail = "chscommunication@appspot.gserviceaccount.com";
-            const noticeHtml = `
-                <div class="text-left text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed space-y-2.5">
-                    <div>To load comments, please set doc sharing to <b>"Anyone with the link can comment"</b>, or add the bot as a <b>Commenter</b>:</div>
-                    <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
-                        <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</span>
-                        <button type="button" onclick="navigator.clipboard.writeText('${botEmail}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
-                    </div>
-                </div>
-            `;
-            AppModules.Modal.alert("Sync Notice", noticeHtml);
+            // Transport/callable failure is always retryable — never wipe data, never blame the doc.
+            if (docId && window._docCache && window._docCache[docId]) {
+                window._docCache[docId] = { ...window._docCache[docId], syncStatus: 'sync_failed_retryable', lastSyncAttemptAt: Date.now() };
+            }
+            if (!isSilent) {
+                if (badge && prevBadgeText) badge.innerText = prevBadgeText;
+                AppModules.Modal.alert("Sync Notice", `We couldn't reach Google Docs right now. This is a temporary sync issue — your last saved comments are untouched.`);
+            } else if (badge && prevBadgeText) {
+                badge.innerText = prevBadgeText;
+            }
         }
     }
 
@@ -1659,11 +1705,23 @@ export function initChatEngine(deps) {
         const attachMenu = document.getElementById('attachMenu');
         if (attachMenu) {
             new LiquidGlassEffect(attachMenu, {
-                radius: 22,
-                refractionWidth: 10,
-                maxDisplacement: 6,
-                mouseRadius: 50,
-                mouseStrength: 5
+                radius: 22,            // matches rounded-[22px]
+                refractionWidth: 12,   // matches chatInputPill bevel width
+                maxDisplacement: 8,    // matches chatInputPill refraction strength
+                mouseRadius: 55,       // matches chatInputPill hover ripple
+                mouseStrength: 6       // matches chatInputPill ripple strength
+            });
+        }
+
+        // Initialize Liquid Glass effect on the in-chat search results box
+        const searchResults = document.getElementById('searchResults');
+        if (searchResults) {
+            new LiquidGlassEffect(searchResults, {
+                radius: 16,            // matches rounded-b-2xl (16px)
+                refractionWidth: 12,   // matches chatInputPill bevel width
+                maxDisplacement: 8,    // matches chatInputPill refraction strength
+                mouseRadius: 55,       // matches chatInputPill hover ripple
+                mouseStrength: 6       // matches chatInputPill ripple strength
             });
         }
     }
@@ -1683,6 +1741,79 @@ export function initChatEngine(deps) {
             box.classList.add('line-clamp-2');
             if (btn) btn.innerText = "Expand";
         }
+    }
+
+    // ============================================================
+    // [Doc Sync State Layer] writing_doc_state is the single snapshot
+    // source of truth; message.docData is only a lightweight fallback.
+    // ============================================================
+    function normalizeDocSyncState(state) {
+        if (!state) return null;
+        const comments = state.snapshotComments || [];
+        const liveCount = typeof state.lastKnownCommentCount === 'number'
+            ? state.lastKnownCommentCount : comments.length;
+        return {
+            fileId: state.fileId,
+            docUrl: state.docUrl,
+            title: state.title || 'Google Document',
+            webViewLink: state.webViewLink || state.docUrl,
+            createdTime: state.createdTime || null,
+            modifiedTime: state.modifiedTime || null,
+            comments: comments,
+            commentsCount: liveCount,
+            lastKnownCommentCount: liveCount,
+            lastSyncedAt: state.lastSyncAttemptAt || null,
+            lastSyncAttemptAt: state.lastSyncAttemptAt || null,
+            lastSuccessfulSyncAt: state.lastSuccessfulSyncAt || null,
+            syncStatus: state.lastSyncStatus || null,
+            fileAccessStatus: state.fileAccessStatus || null,
+            commentAccessStatus: state.commentAccessStatus || null,
+            accessLostAt: state.accessLostAt || null,
+            commentsAccessLostAt: state.commentsAccessLostAt || null,
+            warnings: state.warnings || [],
+            accessLost: ['access_lost', 'access_lost_or_file_unavailable'].includes(state.fileAccessStatus),
+            _stateTs: Math.max(Number(state.lastSyncAttemptAt) || 0, Number(state.lastSuccessfulSyncAt) || 0)
+        };
+    }
+
+    function docViewTimestamp(view) {
+        return Number(view?.lastSyncAttemptAt || view?.lastSyncedAt || view?._stateTs) || 0;
+    }
+
+    // Spread-merge two doc views, but never let a placeholder title ("Google
+    // Document", produced by a failed file read) erase a real known title.
+    function mergeDocViews(base, winner) {
+        const out = { ...(base || {}), ...(winner || {}) };
+        const isPlaceholder = t => !t || t === 'Google Document';
+        if (isPlaceholder(out.title)) {
+            out.title = (base && !isPlaceholder(base.title) && base.title)
+                || (winner && !isPlaceholder(winner.title) && winner.title)
+                || out.title;
+        }
+        return out;
+    }
+
+    // Merge a fresher doc view (state or sync response) into the session cache.
+    function mergeDocViewIntoCache(docId, incoming) {
+        if (!docId || !incoming) return incoming;
+        window._docCache = window._docCache || {};
+        const cur = window._docCache[docId];
+        if (!cur || docViewTimestamp(incoming) >= docViewTimestamp(cur)) {
+            window._docCache[docId] = mergeDocViews(cur, incoming);
+        }
+        return window._docCache[docId];
+    }
+
+    // Resolve the best doc view for rendering: whichever source synced more
+    // recently wins; a stale message copy can never hide state-backed comments.
+    function resolveDocViewData(docId, msgDocData) {
+        const cached = (docId && window._docCache?.[docId]) || null;
+        if (!cached) return msgDocData || null;
+        if (!msgDocData) return cached;
+        if (docViewTimestamp(cached) >= docViewTimestamp(msgDocData)) {
+            return mergeDocViews(msgDocData, cached);
+        }
+        return mergeDocViews(cached, msgDocData);
     }
 
     async function openWritingPortfolio(targetMsgKey = null) {
@@ -1833,6 +1964,24 @@ export function initChatEngine(deps) {
             window._writingProjectsCache = window._writingProjectsCache || {};
             window._writingProjectsCache[chatId] = assignedProjects;
 
+            // Load the snapshot state (single source of truth) and seed the session cache,
+            // so docs wiped by the legacy empty-overwrite bug recover from RTDB state.
+            try {
+                const stSnap = await get(ref(db, `writing_doc_state/${chatId}`));
+                if (stSnap.exists()) {
+                    const docStates = stSnap.val() || {};
+                    Object.entries(docStates).forEach(([fid, st]) => {
+                        const view = normalizeDocSyncState(st);
+                        if (view) {
+                            view.fileId = view.fileId || fid;
+                            mergeDocViewIntoCache(fid, view);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('[WritingPortfolio] Failed to load writing_doc_state (falling back to docData):', e);
+            }
+
 
             // 2. Separate into manually grouped projects and standalone docs
             const projectMap = new Map();
@@ -1842,13 +1991,15 @@ export function initChatEngine(deps) {
             activeDocMessages.forEach((m, idx) => {
                 const key = m.key || `doc-${idx}`;
                 const docId = m._portfolioDocId || key;
-                const cachedDoc = (docId && window._docCache?.[docId]) || m.docData || null;
+                const cachedDoc = resolveDocViewData(docId, m.docData);
                 const rawTitle = cachedDoc?.title || 'Google Document';
 
                 const comments = cachedDoc?.comments || [];
+                // Deleted / not-returned snapshot comments never inflate the counts.
+                const liveComments = UIComponents.docLiveComments(comments);
                 let openCount = 0;
                 let resolvedCount = 0;
-                comments.forEach(c => {
+                liveComments.forEach(c => {
                     if (c.resolved) resolvedCount++;
                     else openCount++;
                 });
@@ -1879,6 +2030,8 @@ export function initChatEngine(deps) {
                     versionOrder: versionOrder,
                     openCount: openCount,
                     resolvedCount: resolvedCount,
+                    deletedCount: comments.length - liveComments.length,
+                    syncStatus: cachedDoc?.syncStatus || null,
                     itemTime: itemTime,
                     writingDate: writingDate,
                     firstSharedAt: firstSharedAt,
@@ -2291,7 +2444,7 @@ export function initChatEngine(deps) {
         docMessages.forEach(m => {
             const match = (m.text || '').match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
             const docId = m.docData?.fileId || (match ? match[1] : null);
-            const cachedDoc = (docId && window._docCache?.[docId]) || m.docData || null;
+            const cachedDoc = resolveDocViewData(docId, m.docData);
             const docTitle = cachedDoc?.title || 'Google Document';
             const docUrl = m.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
             const comments = cachedDoc?.comments || [];
@@ -2301,6 +2454,8 @@ export function initChatEngine(deps) {
                 const aName = c.author?.displayName || 'Reviewer';
                 const aEmail = c.author?.emailAddress || '';
                 const { role, label } = classifyCommentAuthor(aName, aEmail, currentUserId);
+                const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
+                const isMissing = !isDeleted && c.status === 'missing_from_latest_sync';
 
                 allComments.push({
                     comment: c,
@@ -2312,7 +2467,9 @@ export function initChatEngine(deps) {
                     authorRole: role,
                     roleLabel: label,
                     time: cTime,
-                    resolved: !!c.resolved
+                    isDeleted: isDeleted,
+                    isMissing: isMissing,
+                    resolved: !!c.resolved && !isDeleted
                 });
             });
         });
@@ -2325,8 +2482,8 @@ export function initChatEngine(deps) {
 
         const filtered = allComments.filter(item => {
             if (currentAuthor !== 'all' && item.authorRole !== currentAuthor) return false;
-            if (currentStatus === 'open' && item.resolved) return false;
-            if (currentStatus === 'resolved' && !item.resolved) return false;
+            if (currentStatus === 'open' && (item.resolved || item.isDeleted)) return false;
+            if (currentStatus === 'resolved' && (!item.resolved || item.isDeleted)) return false;
             return true;
         });
 
@@ -2347,6 +2504,7 @@ export function initChatEngine(deps) {
             const c = item.comment;
             const quoteVal = c.quotedFileContent?.value || '';
             const isResolved = item.resolved;
+            const dimRow = item.isDeleted || item.isMissing;
             const formattedDate = item.time ? new Date(item.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
             const commentDirectUrl = (item.docId && c.id)
                 ? `https://docs.google.com/document/d/${item.docId}/edit?disco=${encodeURIComponent(c.id)}`
@@ -2380,7 +2538,7 @@ export function initChatEngine(deps) {
             }
 
             return `
-                <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left">
+                <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left${dimRow ? ' opacity-60' : ''}">
                     <!-- Doc Reference & Date -->
                     <div class="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-gray-100 dark:border-white/5">
                         <div class="flex items-center gap-2 min-w-0">
@@ -2394,10 +2552,12 @@ export function initChatEngine(deps) {
 
                     <!-- Author Info & Direct Google Doc link -->
                     <div class="flex items-center justify-between gap-2 mb-1.5">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(item.authorName)}</span>
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${roleBadgeClass}">${item.roleLabel}</span>
-                            ${isResolved ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' : ''}
+                            ${item.isDeleted ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Deleted in Google Docs</span>' : ''}
+                            ${item.isMissing ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium" title="Google has not returned this comment in recent full syncs">Not in latest sync</span>' : ''}
+                            ${isResolved && !item.isDeleted ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' : ''}
                         </div>
                         <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline" title="Jump to this comment in Google Doc">
                             <span>View Doc</span>
@@ -2405,7 +2565,7 @@ export function initChatEngine(deps) {
                         </a>
                     </div>
 
-                    <div class="text-[13px] text-gray-800 dark:text-gray-200 leading-relaxed">${UIUtils.escape(c.content || '')}</div>
+                    <div class="text-[13px] ${dimRow ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${UIUtils.escape(c.content || '')}</div>
                     ${repliesHtml}
                 </div>
             `;
@@ -2470,6 +2630,7 @@ export function initChatEngine(deps) {
                     openCount: item.openCount,
                     resolvedCount: item.resolvedCount,
                     totalComments: item.openCount + item.resolvedCount,
+                    syncStatus: item.syncStatus || null,
                     key: item.key,
                     msg: item.msg
                 });
@@ -2491,6 +2652,7 @@ export function initChatEngine(deps) {
                 openCount: item.openCount,
                 resolvedCount: item.resolvedCount,
                 totalComments: item.openCount + item.resolvedCount,
+                syncStatus: item.syncStatus || null,
                 key: item.key,
                 msg: item.msg
             });
@@ -2563,6 +2725,7 @@ export function initChatEngine(deps) {
                                                     <span>${entry.totalComments}</span>
                                                 </span>
                                                 ${entry.openCount > 0 ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#0A84FF]/25 dark:text-[#0A84FF]">${entry.openCount} open</span>` : ''}
+                                                ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Showing saved snapshot — sync status: ${UIUtils.escape(entry.syncStatus)}">snapshot</span>` : ''}
                                             </div>
                                             <span class="text-[11px] text-gray-400 whitespace-nowrap" title="${entry.dateSource}; last feedback is tracked separately">${entry.dateSource} · ${dateStr}</span>
                                             <button type="button" onclick="window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="text-[#007AFF] dark:text-[#0A84FF] hover:underline text-[12px] font-semibold ml-1">
@@ -2620,10 +2783,14 @@ export function initChatEngine(deps) {
         pData.docMessages.forEach((m, idx) => {
             const match = (m.text || '').match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
             const docId = m.docData?.fileId || (match ? match[1] : null);
-            const cachedDoc = (docId && window._docCache?.[docId]) || m.docData || null;
+            const cachedDoc = resolveDocViewData(docId, m.docData);
             const docTitle = cachedDoc?.title || 'Google Document';
             const docUrl = m.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
             const comments = cachedDoc?.comments || [];
+            const liveComments = UIComponents.docLiveComments(comments);
+            const dossierStatus = cachedDoc?.syncStatus || '';
+            const isSnapshotView = !!dossierStatus && dossierStatus !== 'synced' && dossierStatus !== 'no_comments_yet';
+            const dossierSyncedAt = cachedDoc?.lastSuccessfulSyncAt || cachedDoc?.lastSyncedAt || null;
 
             const manualAssign = (window._writingProjectsCache && window._writingProjectsCache[pData.chatId]?.[docId]) || null;
             const projectName = manualAssign?.projectName || docTitle;
@@ -2654,8 +2821,9 @@ export function initChatEngine(deps) {
                     <!-- Comments Section -->
                     <div class="space-y-2 pt-1">
                         <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Feedback & Comments (${comments.length})
+                            Feedback & Comments (${liveComments.length})
                         </div>
+                        ${isSnapshotView ? `<div class="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Snapshot record (${UIUtils.escape(dossierStatus)})${dossierSyncedAt ? ' as of ' + new Date(dossierSyncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''} — newer comments may exist in Google Docs.</div>` : ''}
             `;
 
             if (comments.length === 0) {
@@ -2666,7 +2834,9 @@ export function initChatEngine(deps) {
                 dossierHtml += comments.map(c => {
                     const quoteVal = c.quotedFileContent?.value || '';
                     const aName = c.author?.displayName || 'Instructor';
-                    const isResolved = !!c.resolved;
+                    const cDeleted = !!(c.deleted || c.status === 'deleted_on_google');
+                    const cMissing = !cDeleted && c.status === 'missing_from_latest_sync';
+                    const isResolved = !!c.resolved && !cDeleted;
                     const cDate = c.createdTime ? new Date(c.createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
                     let quoteBlock = '';
@@ -2689,16 +2859,20 @@ export function initChatEngine(deps) {
                     }
 
                     return `
-                        <div class="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 rounded-lg p-2.5 text-left">
+                        <div class="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/5 rounded-lg p-2.5 text-left${cDeleted || cMissing ? ' opacity-60' : ''}">
                             ${quoteBlock}
                             <div class="flex items-center justify-between text-[11px] mb-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="font-semibold text-black dark:text-white">${UIUtils.escape(aName)}</span>
-                                    <span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${isResolved ? 'bg-gray-100 dark:bg-white/10 text-gray-400' : 'bg-[#007AFF]/10 text-[#007AFF]'}">${isResolved ? 'Resolved' : 'Open'}</span>
+                                    ${cDeleted
+                                        ? `<span class="text-[10px] px-1.5 py-0.2 rounded font-medium bg-gray-100 dark:bg-white/10 text-gray-400">Deleted in Google Docs</span>`
+                                        : cMissing
+                                            ? `<span class="text-[10px] px-1.5 py-0.2 rounded font-medium bg-gray-100 dark:bg-white/10 text-gray-400">Not in latest sync</span>`
+                                            : `<span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${isResolved ? 'bg-gray-100 dark:bg-white/10 text-gray-400' : 'bg-[#007AFF]/10 text-[#007AFF]'}">${isResolved ? 'Resolved' : 'Open'}</span>`}
                                 </div>
                                 <span class="text-[10px] text-gray-400">${cDate}</span>
                             </div>
-                            <div class="text-[12px] text-gray-800 dark:text-gray-200">${UIUtils.escape(c.content || '')}</div>
+                            <div class="text-[12px] ${cDeleted || cMissing ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}">${UIUtils.escape(c.content || '')}</div>
                             ${repliesBlock}
                         </div>
                     `;
@@ -3356,6 +3530,9 @@ export function initChatEngine(deps) {
     window.printPortfolioDossier = printPortfolioDossier;
     window.renderPortfolioCommentsContent = renderPortfolioCommentsContent;
     window.renderPortfolioTimelineContent = renderPortfolioTimelineContent;
+    window.resolveDocViewData = resolveDocViewData;
+    window.normalizeDocSyncState = normalizeDocSyncState;
+    window.mergeDocViewIntoCache = mergeDocViewIntoCache;
 
     window.toggleQuoteText = toggleQuoteText;
     window.toggleAttachMenu = toggleAttachMenu;

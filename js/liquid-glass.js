@@ -57,6 +57,7 @@ export class LiquidGlassEffect {
   constructor(element, options = {}) {
     if (!element) throw new Error("LiquidGlassEffect: Element is required.");
     this.element = element;
+    this.element._liquidGlass = this;
     
     // Core parameters
     this.options = {
@@ -199,8 +200,8 @@ export class LiquidGlassEffect {
     }
     
     // 3. Listen for size changes
-    this.resizeObserver = new ResizeObserver(() => {
-      this.handleResize();
+    this.resizeObserver = new ResizeObserver((entries) => {
+      this.handleResize(entries);
     });
     this.resizeObserver.observe(this.element);
     
@@ -215,6 +216,10 @@ export class LiquidGlassEffect {
     if (this.options.fragment || this.options.animate) {
       this.startAnimation();
     }
+  }
+  
+  refresh() {
+    this.handleResize();
   }
   
   setupInteraction() {
@@ -232,30 +237,54 @@ export class LiquidGlassEffect {
     });
   }
   
-  handleResize() {
-    const rect = this.element.getBoundingClientRect();
-    const w = Math.ceil(rect.width);
-    const h = Math.ceil(rect.height);
-    
+  handleResize(entries) {
+    let w = 0;
+    let h = 0;
+
+    if (entries && entries[0]) {
+      const entry = entries[0];
+      const box = Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0] : entry.borderBoxSize;
+      if (box && box.inlineSize && box.blockSize) {
+        w = Math.ceil(box.inlineSize);
+        h = Math.ceil(box.blockSize);
+      }
+    }
+
+    if (!w || !h) {
+      w = Math.ceil(this.element.offsetWidth || 0);
+      h = Math.ceil(this.element.offsetHeight || 0);
+    }
+
+    if (!w || !h) {
+      const rect = this.element.getBoundingClientRect();
+      w = Math.ceil(rect.width || 0);
+      h = Math.ceil(rect.height || 0);
+    }
+
+    if (w <= 0 || h <= 0) return;
     if (w === this.width && h === this.height) return;
-    
+
     this.width = w;
     this.height = h;
-    
+
     // Set SVG filter bounds to cover the element
     const filter = this.svgElement.querySelector('filter');
-    filter.setAttribute('x', '0');
-    filter.setAttribute('y', '0');
-    filter.setAttribute('width', w.toString());
-    filter.setAttribute('height', h.toString());
-    
-    this.feImage.setAttribute('width', w.toString());
-    this.feImage.setAttribute('height', h.toString());
-    
+    if (filter) {
+      filter.setAttribute('x', '0');
+      filter.setAttribute('y', '0');
+      filter.setAttribute('width', w.toString());
+      filter.setAttribute('height', h.toString());
+    }
+
+    if (this.feImage) {
+      this.feImage.setAttribute('width', w.toString());
+      this.feImage.setAttribute('height', h.toString());
+    }
+
     // Resize canvas
     this.canvas.width = Math.ceil(w * this.options.dpi);
     this.canvas.height = Math.ceil(h * this.options.dpi);
-    
+
     this.queueUpdate();
   }
   

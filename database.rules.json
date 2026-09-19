@@ -114,6 +114,18 @@
       }
     },
 
+    "writing_doc_state": {
+      "$chatId": {
+        ".read": "auth != null && ((($chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || auth.token.email.endsWith('@inst.hcpss.org') || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists() || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.uid || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))) || ((!$chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && ($chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || auth.token.email.endsWith('@inst.hcpss.org') || $chatId === 'moss104088_safety_bot' || $chatId === 'advice_bot_moss104088')))"
+      }
+    },
+
+    "writing_sync_log": {
+      "$fileId": {
+        ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+      }
+    },
+
     "user_chats": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid.toLowerCase() === $uid.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $uid.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || auth.token.email.endsWith('@inst.hcpss.org'))",

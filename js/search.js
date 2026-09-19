@@ -8,6 +8,7 @@
 
 import { get, query, ref, orderByKey, limitToFirst, limitToLast } from './core.js';
 import { localDB, dbReady, saveMessageLocal } from './db.js';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260918-liquid-glass-v2';
 
 const HISTORY_KEY = 'chs_search_history';
 const MAX_HISTORY_LEN = 8;
@@ -57,7 +58,7 @@ export const SearchModule = {
         if (!host) return;
         host.insertAdjacentHTML('beforeend', `
                     <div id="globalSearchResults"
-                        class="ios-glass absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[520px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
+                        class="absolute top-full mt-1.5 left-0 right-0 rounded-2xl shadow-2xl max-h-[520px] overflow-hidden z-[120] flex flex-col transition-all duration-200 ease-out origin-top opacity-0 scale-95 pointer-events-none">
                         <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
                         <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
                             <button onclick="setSearchCategory('messages')" id="searchCat-messages"
@@ -78,6 +79,16 @@ export const SearchModule = {
                     <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
                     </div>
         `);
+        const results = document.getElementById('globalSearchResults');
+        if (results && !results._liquidGlass) {
+            new LiquidGlassEffect(results, {
+                radius: 16,            // matches rounded-2xl (16px)
+                refractionWidth: 12,   // matches chatInputPill bevel width
+                maxDisplacement: 8,    // matches chatInputPill refraction strength
+                mouseRadius: 60,       // hover ripple size
+                mouseStrength: 6       // hover ripple bulge size
+            });
+        }
         const resultList = document.getElementById('searchResultList');
         if (resultList && typeof window.setupCustomScrollbar === 'function') {
             window.setupCustomScrollbar(resultList);
@@ -479,10 +490,18 @@ export const SearchModule = {
                     }
                 }
 
-                const docData = m.docData;
+                const docUrl = m.docData?.docUrl || (m.text.match(/https:\/\/docs\.google\.com\/document\/d\/[a-zA-Z0-9-_]+[^\s<>"']*/)?.[0] || '');
+                const docIdForView = m.docData?.fileId || (docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1] || null);
+                // Same state-aware resolution as chat cards & Portfolio — message.docData
+                // is only a lightweight fallback, never the sole source of comments.
+                const docData = (window.resolveDocViewData && docIdForView)
+                    ? window.resolveDocViewData(docIdForView, m.docData)
+                    : m.docData;
                 const docTitle = docData?.title || 'Google Doc';
-                const docUrl = docData?.docUrl || (m.text.match(/https:\/\/docs\.google\.com\/document\/d\/[a-zA-Z0-9-_]+[^\s<>"']*/)?.[0] || '');
                 const comments = docData?.comments || [];
+                const liveCommentCount = (window.UIComponents?.docLiveComments)
+                    ? window.UIComponents.docLiveComments(comments).length
+                    : comments.filter(c => c && !c.deleted && c.status !== 'deleted_on_google').length;
 
                 // Check title match
                 if (docTitle.toLowerCase().includes(termLower)) {
@@ -495,7 +514,7 @@ export const SearchModule = {
                         docTitle,
                         docUrl,
                         quotedText: '',
-                        commentText: `${comments.length} comment(s) attached`,
+                        commentText: `${liveCommentCount} comment(s) attached`,
                         author: 'Document Title'
                     });
                 }
@@ -620,6 +639,9 @@ export const SearchModule = {
             if (results) {
                 results.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
                 results.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+                if (results._liquidGlass) {
+                    results._liquidGlass.refresh();
+                }
             }
         };
 
