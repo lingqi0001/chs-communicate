@@ -295,6 +295,46 @@ async function appendSyncLog(fileId, entry) {
     }
 }
 
+// Preferred path: the whole service-account JSON injected via Secret Manager.
+// firebase deploy strips files matched by .gitignore (incl. *service-account*.json)
+// from the upload, so the keyFile fallback silently breaks on fresh deploys.
+function getDriveReadonlyClient() {
+    const scopes = ['https://www.googleapis.com/auth/drive.readonly'];
+    let auth = null;
+    if (process.env.GOOGLE_SA_JSON) {
+        try {
+            const sa = JSON.parse(process.env.GOOGLE_SA_JSON);
+            if (!sa.client_email || !sa.private_key) throw new Error('missing client_email/private_key');
+            // Same code path as the proven-working keyFile flow, just in-memory.
+            // (A raw google.auth.JWT client was observed sending requests Drive
+            // rejects as "unregistered callers" — do not use it here.)
+            auth = new google.auth.GoogleAuth({ credentials: sa, scopes });
+        } catch (e) {
+            console.warn('[GoogleDoc] GOOGLE_SA_JSON parse failed, falling back to keyFile:', e.message);
+            auth = null;
+        }
+    }
+    if (!auth) {
+        try {
+            auth = new google.auth.GoogleAuth({
+                keyFile: path.join(__dirname, 'service-account.json'),
+                scopes
+            });
+        } catch (e) {
+            auth = new google.auth.GoogleAuth({ scopes });
+        }
+    }
+    return google.drive({ version: 'v3', auth });
+}
+
+function getBotEmail() {
+    try {
+        const email = JSON.parse(process.env.GOOGLE_SA_JSON).client_email;
+        if (email) return email;
+    } catch (e) {}
+    return 'chscommunication@appspot.gserviceaccount.com';
+}
+
 // ==========================================
 // Bot Comment Posting (via / on Google Docs)
 // The service account is only a courier: the real author is embedded as a
@@ -433,7 +473,9 @@ exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }
     };
 });
 
-exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
+// Shared by the fetchGoogleDocComments callable and the public doc-request
+// submission flow, which must sync a doc without a chat message driving it.
+async function runGoogleDocSync(data) {
     const startedAt = Date.now();
     const docUrl = data.url;
     const fileId = extractGoogleDocId(docUrl);
@@ -461,38 +503,7 @@ exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON']
         : countLiveComments(prevSnapshot);
     const hasSnapshot = !!(prevState && prevState.lastSuccessfulSyncAt);
 
-    const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
-    let auth = null;
-    // Preferred path: the whole service-account JSON injected via Secret Manager.
-    // firebase deploy strips files matched by .gitignore (incl. *service-account*.json)
-    // from the upload, so the keyFile fallback silently breaks on fresh deploys.
-    if (process.env.GOOGLE_SA_JSON) {
-        try {
-            const sa = JSON.parse(process.env.GOOGLE_SA_JSON);
-            if (!sa.client_email || !sa.private_key) throw new Error('missing client_email/private_key');
-            // Same code path as the proven-working keyFile flow, just in-memory.
-            // (A raw google.auth.JWT client was observed sending requests Drive
-            // rejects as "unregistered callers" — do not use it here.)
-            auth = new google.auth.GoogleAuth({ credentials: sa, scopes: DRIVE_SCOPES });
-        } catch (e) {
-            console.warn('[GoogleDoc] GOOGLE_SA_JSON parse failed, falling back to keyFile:', e.message);
-            auth = null;
-        }
-    }
-    if (!auth) {
-        const keyPath = path.join(__dirname, 'service-account.json');
-        try {
-            auth = new google.auth.GoogleAuth({
-                keyFile: keyPath,
-                scopes: DRIVE_SCOPES
-            });
-        } catch (e) {
-            auth = new google.auth.GoogleAuth({
-                scopes: DRIVE_SCOPES
-            });
-        }
-    }
-    const drive = google.drive({ version: 'v3', auth });
+    const drive = getDriveReadonlyClient();
 
     // ---- LEVEL 1: can the bot still read the file at all? ----
     let fileInfo = null;
@@ -734,4 +745,209 @@ exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON']
         error: isSyncedResult ? null : (nextState.lastSyncErrorMessage || syncStatus),
         ...docData
     };
+}
+
+exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
+    return runGoogleDocSync(data);
+});
+
+// ==========================================
+// DOC REQUESTS
+// A signed-in user mints a single-use link; whoever holds it can drop a Google
+// Doc into that user's writing portfolio without ever signing in. The link is
+// the only credential, so it is random, one-shot, and checked for a real
+// comment-level grant before anything is written.
+// ==========================================
+const REQUEST_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
+const REQUEST_MAX_TRIES = 10;
+const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
+
+function authIdentityIds(auth) {
+    const token = (auth && auth.token) || {};
+    const uid = String(token.uid || '');
+    const fromEmail = String(token.email || '')
+        .replace('@gmail.com', '')
+        .replace('@hcpss.org', '')
+        .replace('@inst.hcpss.org', '')
+        .replace('.', '_');
+    return [uid, fromEmail].filter(Boolean);
+}
+
+async function groupHasUser(chatId, userId) {
+    const classId = chatId.replace('group_', '');
+    const snap = await admin.database().ref(`classes/${classId}`).once('value');
+    const cls = snap.val() || {};
+    const students = cls.students || {};
+    const teacherId = String(cls.teacherId || '').toLowerCase();
+    const id = String(userId || '').toLowerCase();
+    return teacherId === id || !!students[id] || !!students[userId];
+}
+
+exports.createDocRequest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in to request a document.');
+    }
+    const payload = data || {};
+    const chatId = String(payload.chatId || '');
+    const requesterId = String(payload.requesterId || '').trim();
+    const requesterName = String(payload.requesterName || '').trim().slice(0, 80);
+    const recipientId = String(payload.recipientId || '').trim();
+    if (!chatId || !requesterId || !requesterName) {
+        throw new functions.https.HttpsError('invalid-argument', 'A chat, an id and a display name are required.');
+    }
+
+    // The link writes into messages/<chatId> as the requester, so prove both
+    // halves of that claim: the caller owns requesterId, and requesterId is in chatId.
+    const ownsIdentity = authIdentityIds(context.auth)
+        .some(id => id.toLowerCase() === requesterId.toLowerCase());
+    const isGroup = chatId.startsWith('group_');
+    const inChat = isGroup
+        ? await groupHasUser(chatId, requesterId)
+        : chatId.toLowerCase().includes(requesterId.toLowerCase());
+    if (!ownsIdentity || !inChat) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only request documents into your own chats.');
+    }
+
+    const requestRef = admin.database().ref('writing_doc_requests').push();
+    await requestRef.set({
+        chatId,
+        requesterId,
+        requesterName,
+        recipientId: isGroup ? '' : recipientId,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + REQUEST_LIFE_MS,
+        attempts: 0,
+        status: 'open'
+    });
+
+    return { requestId: requestRef.key };
+});
+
+async function readOpenRequest(requestId) {
+    // The key is the only credential the link carries, so it has to be a plain
+    // RTDB push key: dots and slashes would let it walk to another path.
+    if (!/^[A-Za-z0-9_-]{8,40}$/.test(requestId)) {
+        return { error: 'This request link is not valid.' };
+    }
+    const requestRef = admin.database().ref(`writing_doc_requests/${requestId}`);
+    const req = (await requestRef.once('value')).val();
+    if (!req || !req.chatId) return { error: 'This request link is not valid.' };
+    if (req.status !== 'open') return { error: 'This request link has already been used.' };
+    if (req.expiresAt && Date.now() > req.expiresAt) return { error: 'This request link has expired.' };
+    if (Number(req.attempts || 0) >= REQUEST_MAX_TRIES) {
+        return { error: 'Too many attempts on this link. Please ask for a new one.' };
+    }
+    return { requestRef, req };
+}
+
+exports.readDocRequest = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data) => {
+    const { req, error } = await readOpenRequest(String((data && data.requestId) || ''));
+    if (error) throw new functions.https.HttpsError('not-found', error);
+    return { requesterName: req.requesterName, botEmail: getBotEmail() };
+});
+
+exports.submitDocRequest = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data) => {
+    const payload = data || {};
+    const { requestRef, req, error } = await readOpenRequest(String(payload.requestId || ''));
+    if (error) {
+        return { ok: false, reason: 'invalid_request', message: error };
+    }
+
+    const docUrl = String(payload.url || '').trim();
+    const fileId = extractGoogleDocId(docUrl);
+    if (!fileId || !docUrl.includes('docs.google.com/document/d/')) {
+        return { ok: false, reason: 'bad_url', message: 'Use a Google Doc link that looks like https://docs.google.com/document/d/...' };
+    }
+
+    // Every verification costs a Drive call against the link's single credential.
+    await requestRef.child('attempts').set(Number(req.attempts || 0) + 1);
+
+    const drive = getDriveReadonlyClient();
+    let fileInfo = null;
+    let accessError = null;
+    try {
+        const res = await drive.files.get({
+            fileId,
+            supportsAllDrives: true,
+            fields: FILE_GET_FIELDS
+        });
+        fileInfo = res.data || null;
+    } catch (err) {
+        accessError = classifyGoogleError(err);
+        console.warn(`[DocRequest] files.get failed (${accessError.status} ${accessError.reason})`);
+    }
+
+    if (!fileInfo) {
+        // Never blame the uploader's sharing settings for our own broken
+        // credentials or a Google-side hiccup.
+        const status = (accessError && accessError.status) || 0;
+        if (!accessError || status === 401 || status === 429 || status >= 500 || looksLikeCredentialFailure(accessError)) {
+            return { ok: false, reason: 'retry', message: 'We could not check this document right now. Please try again in a moment.' };
+        }
+        return {
+            ok: false,
+            reason: 'no_access',
+            message: `We cannot open this document yet. Please set access to "Anyone with the link can comment", or share it with ${getBotEmail()} as a Commenter, then try again.`
+        };
+    }
+    if (fileInfo.mimeType && fileInfo.mimeType !== GOOGLE_DOC_MIME) {
+        return { ok: false, reason: 'not_a_doc', message: 'That link is not a Google Doc.' };
+    }
+
+    // The portfolio needs to read and post comment threads, so a view-only
+    // grant is not enough even though files.get succeeded.
+    const caps = fileInfo.capabilities || {};
+    const commentVerified = caps.canComment === true || caps.canEdit === true;
+    const capsUnknown = caps.canComment === undefined && caps.canEdit === undefined;
+    if (!commentVerified && !capsUnknown) {
+        return {
+            ok: false,
+            reason: 'needs_comment',
+            message: `We can open "${fileInfo.name || 'this document'}", but only at a viewer level. Change the access to "Anyone with the link can comment" and submit again.`
+        };
+    }
+
+    const db = admin.database();
+    const chatId = req.chatId;
+    const isGroup = chatId.startsWith('group_');
+    const msgRef = db.ref(`messages/${chatId}`).push();
+    const messageKey = msgRef.key;
+
+    await msgRef.set({
+        senderId: req.requesterId,
+        senderName: req.requesterName,
+        ...(isGroup || !req.recipientId ? {} : { recipientId: String(req.recipientId).toLowerCase() }),
+        timestamp: Date.now(),
+        text: docUrl,
+        type: 'text'
+    });
+
+    // Spend the link as soon as the message exists: a later failure must not
+    // leave it open for a second upload into the same portfolio.
+    await requestRef.update({
+        status: 'submitted',
+        usedAt: Date.now(),
+        fileId,
+        docUrl
+    });
+
+    const sync = await runGoogleDocSync({ url: docUrl, chatId, messageKey });
+
+    // Surface the conversation the way a client-sent message would.
+    const stamp = Date.now();
+    const me = String(req.requesterId || '').toLowerCase();
+    const other = String(req.recipientId || '').toLowerCase();
+    const touches = isGroup
+        ? {
+            [`classes/${chatId.replace('group_', '')}/lastActivity`]: stamp,
+            [`user_chats/${me}/${chatId}`]: stamp
+        }
+        : (other ? { [`user_chats/${me}/${other}`]: stamp, [`user_chats/${other}/${me}`]: stamp } : {});
+    if (Object.keys(touches).length) {
+        await db.ref().update(touches);
+    }
+
+    const title = sync.title || fileInfo.name || 'Google Document';
+    await requestRef.child('docTitle').set(title);
+    return { ok: true, title };
 });

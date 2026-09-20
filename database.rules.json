@@ -120,6 +120,14 @@
       }
     },
 
+    "writing_doc_requests": {
+      "$requestId": {
+        "status": {
+          ".read": true
+        }
+      }
+    },
+
     "writing_sync_log": {
       "$fileId": {
         ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"

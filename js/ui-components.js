@@ -350,12 +350,12 @@ export const UIComponents = {
 
         const isSoft = status === 'sync_failed_retryable';
         const tone = isSoft
-            ? 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300'
-            : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-400/20 text-amber-800 dark:text-amber-200';
+            ? 'bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-300'
+            : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-black dark:text-white';
         const subTone = isSoft
             ? 'text-gray-500 dark:text-gray-400'
-            : 'text-amber-700/80 dark:text-amber-200/75';
-        return `<div id="docStatusNotice-${key}" class="mx-3.5 mb-3 px-3 py-2 rounded-xl border ${tone} text-[11px] leading-relaxed"><span class="font-bold">${cfg.t}</span><span class="${subTone}"> · ${UIUtils.escape(cfg.b)}</span></div>`;
+            : 'text-black dark:text-white';
+        return `<div id="docStatusNotice-${key}" class="mx-3.5 mb-3 px-3 py-2 rounded-xl ${tone} text-[11px] leading-relaxed"><span class="font-bold">${cfg.t}</span><span class="${subTone}"> · ${UIUtils.escape(cfg.b)}</span></div>`;
     },
 
     /**

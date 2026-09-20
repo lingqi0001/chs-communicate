@@ -1519,6 +1519,7 @@ export function initChatEngine(deps) {
         }
         // Invalidate any in-flight doc list load and reset to the main view
         attachDocListToken++;
+        stopDocRequestStatusWatch();
         setAttachView('main');
         if (menu && !menu.classList.contains('hidden') && !menu.classList.contains('menu-hidden')) {
             menu.classList.remove('menu-visible');
@@ -1546,7 +1547,7 @@ export function initChatEngine(deps) {
 
     // dir: +1 push forward (slide from right), -1 back (slide from left), 0 silent swap
     function setAttachView(view, dir = 0) {
-        const views = { main: 'attachViewMain', gdoc: 'attachViewGdoc', input: 'attachViewInput', docs: 'attachViewDocs' };
+        const views = { main: 'attachViewMain', gdoc: 'attachViewGdoc', input: 'attachViewInput', docs: 'attachViewDocs', request: 'attachViewRequest' };
         const menu = document.getElementById('attachMenu');
         const newEl = document.getElementById(views[view]);
         if (!menu || !newEl) return;
@@ -1601,11 +1602,43 @@ export function initChatEngine(deps) {
         setAttachView('gdoc', 1);
     }
 
+    // Same height easing setAttachView uses, but for swapping content inside the
+    // view that is already on screen.
+    function animateMenuSwap(mutate) {
+        const menu = document.getElementById('attachMenu');
+        if (!menu) { mutate(); return; }
+        const glassRefresh = () => {
+            if (menu._liquidGlass && typeof menu._liquidGlass.refresh === 'function') menu._liquidGlass.refresh();
+        };
+        menu.classList.remove('attach-animating');
+        menu.style.height = '';
+        const startH = menu.offsetHeight;
+        mutate();
+        const endH = menu.offsetHeight;
+        if (startH === endH) { glassRefresh(); return; }
+        menu.style.height = startH + 'px';
+        void menu.offsetHeight;
+        menu.classList.add('attach-animating');
+        requestAnimationFrame(() => { menu.style.height = endH + 'px'; });
+        const tick = () => {
+            if (!menu.classList.contains('attach-animating')) return;
+            glassRefresh();
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        setTimeout(() => {
+            menu.classList.remove('attach-animating');
+            menu.style.height = '';
+            glassRefresh();
+        }, 280);
+    }
+
     function backToAttachMain() {
         setAttachView('main', -1);
     }
 
     function backToGdocMenu() {
+        stopDocRequestStatusWatch();
         setAttachView('gdoc', -1);
     }
 
@@ -1715,23 +1748,112 @@ export function initChatEngine(deps) {
         });
     }
 
-    function copyAttachBotEmail(btn) {
-        const email = document.getElementById('attachBotEmail')?.innerText?.trim() || '';
+    function copyTextToPanel(text, btn) {
         const done = () => {
             if (!btn) return;
             btn.innerText = 'Copied!';
             setTimeout(() => { btn.innerText = 'Copy'; }, 1500);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(email).then(done).catch(done);
+            navigator.clipboard.writeText(text).then(done).catch(done);
         } else {
             const ta = document.createElement('textarea');
-            ta.value = email;
+            ta.value = text;
             document.body.appendChild(ta);
             ta.select();
             try { document.execCommand('copy'); } catch (e) {}
             ta.remove();
             done();
+        }
+    }
+
+    function copyAttachBotEmail(btn) {
+        copyTextToPanel(document.getElementById('attachBotEmail')?.innerText?.trim() || '', btn);
+    }
+
+    function copyDocRequestLink(btn) {
+        copyTextToPanel(document.getElementById('docRequestLink')?.value || '', btn);
+    }
+
+    let docRequestStatusUnsub = null;
+
+    function stopDocRequestStatusWatch() {
+        if (docRequestStatusUnsub) {
+            docRequestStatusUnsub();
+            docRequestStatusUnsub = null;
+        }
+    }
+
+    // Only the request's status node is readable by clients, so the panel can
+    // flip to "Submitted" the moment someone uploads through the link.
+    function watchDocRequestStatus(requestId) {
+        stopDocRequestStatusWatch();
+        const dot = document.getElementById('docRequestStatusDot');
+        const label = document.getElementById('docRequestStatusLabel');
+        if (!dot || !label) return;
+        const paint = (submitted) => {
+            dot.className = submitted
+                ? 'w-1.5 h-1.5 rounded-full bg-[#34C759] flex-shrink-0'
+                : 'w-1.5 h-1.5 rounded-full bg-[#007AFF] animate-pulse flex-shrink-0';
+            label.innerText = submitted ? 'Submitted' : 'Awaiting submission...';
+        };
+        paint(false);
+        docRequestStatusUnsub = onValue(
+            ref(db, `writing_doc_requests/${requestId}/status`),
+            (snap) => paint(snap.val() === 'submitted'),
+            () => paint(false)
+        );
+    }
+
+    async function chooseGdocRequest() {
+        const currentUser = getCurrentUser();
+        const activeTargetId = getActiveTargetId();
+        if (!currentUser || !activeTargetId) return;
+
+        const loadingEl = document.getElementById('docRequestLoading');
+        const readyEl = document.getElementById('docRequestReady');
+        const showLoading = () => {
+            if (loadingEl) loadingEl.classList.remove('hidden');
+            if (readyEl) readyEl.classList.add('hidden');
+        };
+
+        // Enter the loading screen first: the request round-trip should not
+        // freeze the menu on the previous view.
+        stopDocRequestStatusWatch();
+        showLoading();
+        setAttachView('request', 1);
+
+        const isGroup = activeTargetId.startsWith('group_');
+        const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
+        const payload = {
+            chatId,
+            requesterId: currentUser.id,
+            requesterName: currentUser.name || 'A CHSchat user',
+            recipientId: isGroup ? '' : activeTargetId
+        };
+
+        try {
+            let resData = null;
+            if (window.httpsCallable && window.firebaseFunctions) {
+                const createFn = window.httpsCallable(window.firebaseFunctions, 'createDocRequest');
+                resData = (await createFn(payload)).data;
+            } else if (window.firebase && window.firebase.functions) {
+                const createFn = window.firebase.functions().httpsCallable('createDocRequest');
+                resData = (await createFn(payload)).data;
+            }
+            if (!resData || !resData.requestId) throw new Error('No request id returned');
+
+            const linkEl = document.getElementById('docRequestLink');
+            if (linkEl) linkEl.value = `${location.origin}/request.html?id=${resData.requestId}`;
+            animateMenuSwap(() => {
+                if (loadingEl) loadingEl.classList.add('hidden');
+                if (readyEl) readyEl.classList.remove('hidden');
+            });
+            watchDocRequestStatus(resData.requestId);
+        } catch (e) {
+            console.warn('[DocRequest] Could not create the request link:', e);
+            setAttachView('gdoc', -1);
+            AppModules.Modal.alert("Request Failed", "Could not create the request link. Please try again in a moment.");
         }
     }
 
@@ -4315,6 +4437,8 @@ export function initChatEngine(deps) {
     window.chooseGdocNew = chooseGdocNew;
     window.submitAttachNewDoc = submitAttachNewDoc;
     window.copyAttachBotEmail = copyAttachBotEmail;
+    window.copyDocRequestLink = copyDocRequestLink;
+    window.chooseGdocRequest = chooseGdocRequest;
     window.chooseGdocExisting = chooseGdocExisting;
     window.backToGdocMenu = backToGdocMenu;
     window.closeAttachMenu = closeAttachMenu;
