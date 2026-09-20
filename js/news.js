@@ -48,10 +48,70 @@ export function createNewsModule(deps) {
 
         if (sortedPosts.length === 0) {
             container.innerHTML = '<div class="text-center text-gray-400 py-10 font-semibold">No announcements yet.</div>';
-            return;
+        } else {
+            container.innerHTML = sortedPosts.map(post => renderCard(post, tabType)).join('');
         }
 
-        container.innerHTML = sortedPosts.map(post => renderCard(post, tabType)).join('');
+        if (containerId === 'schoolNewsContent') renderCafeteriaHighlight(containerId);
+    }
+
+    // ===== Pinned Cafeteria Teaser (top of School News) =====
+    function cafeteriaLocalDate(offset) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + offset);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return { key: `${y}-${m}-${day}`, date: d };
+    }
+
+    function resolveNextCafeteriaOffering(menus, pool) {
+        for (let i = 0; i < 30; i++) {
+            const { key, date } = cafeteriaLocalDate(i);
+            const ids = menus[key];
+            if (Array.isArray(ids) && ids.length) {
+                const firstId = ids.find((id) => pool[id] && pool[id].name);
+                if (firstId) return { name: pool[firstId].name, date };
+            }
+        }
+        return null;
+    }
+
+    function buildCafeteriaHighlightHTML(info) {
+        const esc = window.escapeHTML || ((s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        const dateLabel = info.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        const name = esc(info.name);
+        return `
+            <div id="cafeteriaNewsHighlight" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div class="flex items-center gap-2 mb-1">
+                    <h3 class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF] leading-snug">Cafeteria</h3>
+                </div>
+                <p class="text-[15px] font-bold text-gray-700 dark:text-gray-200 leading-relaxed mt-1">
+                    We're serving <span class="text-black dark:text-white">${name}</span> on <span class="text-black dark:text-white">${dateLabel}</span>.
+                    <button onclick="openCafeteria()" class="text-[#007AFF] dark:text-[#0A84FF] font-bold hover:underline active:opacity-60 transition-opacity">Check it out</button>
+                </p>
+            </div>`;
+    }
+
+    async function renderCafeteriaHighlight(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        try {
+            const [menusSnap, poolSnap] = await Promise.all([
+                get(ref(db, 'cafeteria/menus')),
+                get(ref(db, 'cafeteria/pool'))
+            ]);
+            const info = resolveNextCafeteriaOffering(menusSnap.val() || {}, poolSnap.val() || {});
+            const existing = document.getElementById('cafeteriaNewsHighlight');
+            if (existing) existing.remove();
+            if (!info) return;
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = buildCafeteriaHighlightHTML(info).trim();
+            container.insertBefore(wrapper.firstChild, container.firstChild);
+        } catch (e) {
+            console.error('Cafeteria highlight failed:', e);
+        }
     }
 
     async function deleteNews(id, tabType) {

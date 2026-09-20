@@ -143,10 +143,10 @@ export const SidebarModule = {
                     </svg>
                 </div>
                 <h3 class="text-xl font-bold text-black dark:text-white tracking-tight mb-1.5">
-                    Sign in to Messages
+                    Sign in to CHShub
                 </h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 whitespace-nowrap leading-relaxed">
-                    Connect With Your Class, Clubs, Chat in real-time
+                    Connect With Your Class, Clubs<br>Develop your skills in real time
                 </p>
 
                 <div class="w-full space-y-2.5 max-w-[260px]">
@@ -401,9 +401,8 @@ export const SidebarModule = {
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="class" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
-                                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                                    Back
+                                <button data-sidebar-back="class" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
                                 </button>
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <div id="sidebarLevel2Title" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest truncate max-w-[150px] text-center">${window.escapeHTML(cachedName)}</div>
@@ -653,9 +652,8 @@ export const SidebarModule = {
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="recent" class="text-[#007AFF] flex items-center text-sm font-bold z-10">
-                                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                                    Back
+                                <button data-sidebar-back="recent" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
                                 </button>
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>

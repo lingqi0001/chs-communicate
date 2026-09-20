@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260918-liquid-glass-v2';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
 
 export function initChatEngine(deps) {
     const {
@@ -74,21 +74,113 @@ export function initChatEngine(deps) {
     function ensureForwardPicker() {
         if (document.getElementById('forwardPicker')) return;
         document.body.insertAdjacentHTML('beforeend', `
-    <div id="forwardPicker" class="hidden fixed inset-0 z-[260] flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeForwardPicker()"></div>
-        <div
-            class="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div id="forwardPicker" class="hidden fixed z-[260] flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/40" onclick="closeForwardPicker()"></div>
+        <div id="forwardPickerCard"
+            class="menu-hidden relative w-full max-w-sm max-h-full rounded-3xl flex flex-col overflow-hidden">
             <div class="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-white/5">
                 <h3 class="text-lg font-bold">Forward to...</h3>
             </div>
-            <div id="forwardUserList" class="flex-1 overflow-y-auto max-h-[60vh] p-2"></div>
-            <div class="p-4 bg-gray-50 dark:bg-white/5 flex justify-end">
+            <div id="forwardUserList" class="flex-1 min-h-0 overflow-y-auto p-2"></div>
+            <div class="p-4 flex justify-end">
                 <button onclick="closeForwardPicker()"
                     class="px-5 py-2 text-[15px] font-semibold text-gray-500 hover:text-gray-700 transition-colors">Cancel</button>
             </div>
         </div>
     </div>
         `);
+        window.addEventListener('resize', positionForwardPicker);
+
+        // Match the attachMenu liquid glass effect exactly (same bevel/refraction/ripple parameters)
+        const pickerCard = document.getElementById('forwardPickerCard');
+        if (pickerCard) {
+            new LiquidGlassEffect(pickerCard, {
+                radius: 24,            // matches rounded-3xl
+                refractionWidth: 12,   // matches attachMenu bevel width
+                maxDisplacement: 8,    // matches attachMenu refraction strength
+                mouseRadius: 55,       // matches attachMenu hover ripple
+                mouseStrength: 6       // matches attachMenu ripple strength
+            });
+        }
+    }
+
+    // Dim everything below the panel header down to the bottom of the panel
+    // (including the composer), while keeping the chat header — or the Writing
+    // Portfolio drawer header when open — and the global top bar visible.
+    function positionForwardPicker() {
+        const picker = document.getElementById('forwardPicker');
+        if (!picker || picker.classList.contains('hidden')) return;
+        let r = null;
+        const chatBox = document.getElementById('chatBox');
+        if (chatBox && chatBox.offsetWidth > 0 && chatBox.offsetHeight > 0) {
+            const b = chatBox.getBoundingClientRect();
+            let top = b.top;
+            const drawer = document.getElementById('writingPortfolioDrawer');
+            const drawerOpen = drawer && !drawer.classList.contains('hidden');
+            const headerEl = drawerOpen
+                ? document.getElementById('writingPortfolioHeader')
+                : document.querySelector('#chatSection > header');
+            if (headerEl) top = Math.max(top, headerEl.getBoundingClientRect().bottom);
+            if (b.bottom - top > 80) {
+                r = { left: b.left, top: top, width: b.width, height: b.bottom - top, scoped: true };
+            }
+        }
+        if (!r) {
+            const chatSec = document.getElementById('chatSection');
+            if (chatSec && chatSec.offsetWidth > 0 && chatSec.offsetHeight > 0) {
+                const b = chatSec.getBoundingClientRect();
+                r = { left: b.left, top: b.top, width: b.width, height: b.height, scoped: true };
+            }
+        }
+        if (!r) {
+            r = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, scoped: false };
+        }
+        picker.style.left = `${r.left}px`;
+        picker.style.top = `${r.top}px`;
+        picker.style.width = `${r.width}px`;
+        picker.style.height = `${r.height}px`;
+        picker.style.padding = r.scoped ? '12px' : '24px';
+        const card = document.getElementById('forwardPickerCard');
+        if (card && card._liquidGlass) card._liquidGlass.refresh();
+    }
+
+    let forwardPickerCloseTimer = null;
+
+    // Same pop-in mechanics as #attachMenu: show collapsed, then spring open on the next frames
+    function openForwardPicker() {
+        const picker = document.getElementById('forwardPicker');
+        const card = document.getElementById('forwardPickerCard');
+        if (!picker) return;
+        clearTimeout(forwardPickerCloseTimer);
+        picker.classList.remove('hidden');
+        if (card) {
+            card.classList.remove('menu-visible');
+            card.classList.add('menu-hidden');
+        }
+        positionForwardPicker();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (card) {
+                    card.classList.remove('menu-hidden');
+                    card.classList.add('menu-visible');
+                }
+                positionForwardPicker();
+            });
+        });
+    }
+
+    function closeForwardPicker() {
+        const picker = document.getElementById('forwardPicker');
+        const card = document.getElementById('forwardPickerCard');
+        if (!picker || picker.classList.contains('hidden')) return;
+        if (card) {
+            card.classList.remove('menu-visible');
+            card.classList.add('menu-hidden');
+        }
+        clearTimeout(forwardPickerCloseTimer);
+        forwardPickerCloseTimer = setTimeout(() => {
+            picker.classList.add('hidden');
+        }, 230);
     }
 
     function clearChatPlaceholders(chatBox) {
@@ -395,6 +487,25 @@ export function initChatEngine(deps) {
         }
     }
 
+    let quoteAreaCloseTimer = null;
+
+    // Same pop-in mechanics as #attachMenu, growing from the bottom-right
+    function showQuoteArea() {
+        const quoteArea = document.getElementById('quoteArea');
+        if (!quoteArea) return;
+        clearTimeout(quoteAreaCloseTimer);
+        quoteArea.classList.remove('hidden');
+        quoteArea.classList.remove('menu-visible');
+        quoteArea.classList.add('menu-hidden');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                quoteArea.classList.remove('menu-hidden');
+                quoteArea.classList.add('menu-visible');
+                if (quoteArea._liquidGlass) quoteArea._liquidGlass.refresh();
+            });
+        });
+    }
+
     function handleMsgQuote() {
         if (!selectedMsgData) return;
         currentQuote = { 
@@ -404,7 +515,7 @@ export function initChatEngine(deps) {
         };
         document.getElementById('quoteUser').innerText = currentQuote.senderName;
         document.getElementById('quoteText').innerText = (currentQuote.text || '').replace(/\r?\n/g, ' ');
-        document.getElementById('quoteArea').classList.remove('hidden');
+        showQuoteArea();
         const menu = document.getElementById('messageContextMenu');
         menu.classList.add('hidden');
         if (menu._hideListener) {
@@ -416,12 +527,21 @@ export function initChatEngine(deps) {
 
     function clearQuote() {
         currentQuote = null;
-        document.getElementById('quoteArea').classList.add('hidden');
+        const quoteArea = document.getElementById('quoteArea');
+        if (!quoteArea || quoteArea.classList.contains('hidden')) return;
+        quoteArea.classList.remove('menu-visible');
+        quoteArea.classList.add('menu-hidden');
+        clearTimeout(quoteAreaCloseTimer);
+        quoteAreaCloseTimer = setTimeout(() => {
+            quoteArea.classList.add('hidden');
+        }, 230);
     }
 
     function handleMsgForward() {
         if (!selectedMsgData) return;
         ensureForwardPicker();
+        const pickerTitle = document.querySelector('#forwardPicker h3');
+        if (pickerTitle) pickerTitle.innerText = 'Forward to...';
         const menu = document.getElementById('messageContextMenu');
         menu.classList.add('hidden');
         if (menu._hideListener) {
@@ -443,11 +563,7 @@ export function initChatEngine(deps) {
                 <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>`;
             list.appendChild(div);
         });
-        document.getElementById('forwardPicker').classList.remove('hidden');
-    }
-
-    function closeForwardPicker() {
-        document.getElementById('forwardPicker')?.classList.add('hidden');
+        openForwardPicker();
     }
 
     async function handleMsgReport() {
@@ -477,6 +593,79 @@ export function initChatEngine(deps) {
         closeForwardPicker();
     }
 
+    // Send a single comment as a comment card to a chosen person (reuses the Forward picker UI)
+    function showSendToPicker(payload) {
+        ensureForwardPicker();
+        const pickerTitle = document.querySelector('#forwardPicker h3');
+        if (pickerTitle) pickerTitle.innerText = 'Send to...';
+        const list = document.getElementById('forwardUserList');
+        list.innerHTML = '';
+        const allUsers = getAllUsers() || {};
+        const currentUser = getCurrentUser();
+        Object.keys(allUsers).forEach(id => {
+            if (id === currentUser.id) return;
+            if (isSafetyBotTarget(id)) return;
+            const u = allUsers[id];
+            const div = document.createElement('div');
+            div.className = "flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-xl transition-colors";
+            div.onclick = () => sendCommentCardTo(id, payload);
+            div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random" class="w-9 h-9 rounded-full shadow-sm">
+                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>`;
+            list.appendChild(div);
+        });
+        openForwardPicker();
+    }
+
+    function openCommentSendPicker(key, index, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const entry = (window._docCommentPayloads || {})[key];
+        const comment = entry && entry.comments ? entry.comments[index] : null;
+        if (!entry || !comment) return;
+        showSendToPicker({ docId: entry.docId, docUrl: entry.docUrl, docTitle: entry.docTitle, comment });
+    }
+
+    function forwardCommentCardMsg(key, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const card = (window._commentCardMsgPayloads || {})[key];
+        if (!card || !card.comment) return;
+        showSendToPicker({ docId: card.docId, docUrl: card.docUrl, docTitle: card.docTitle, comment: card.comment });
+    }
+
+    async function sendCommentCardTo(targetId, payload) {
+        if (!payload || payload._sending) return;
+        if (await blockIfRestrictedDirectTarget(targetId)) return;
+        payload._sending = true;
+        try {
+            const currentUser = getCurrentUser();
+            const chatId = getChatId(currentUser.id, targetId);
+            const card = JSON.parse(JSON.stringify({
+                docId: payload.docId,
+                docUrl: payload.docUrl,
+                docTitle: payload.docTitle,
+                comment: payload.comment
+            }));
+            await push(ref(db, `messages/${chatId}`), {
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                text: `Comment on "${card.docTitle}"`,
+                type: 'comment_card',
+                commentCard: card,
+                timestamp: serverTimestamp()
+            });
+            await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [targetId.toLowerCase()]: serverTimestamp() });
+            await update(ref(db, `user_chats/${targetId.toLowerCase()}`), { [currentUser.id.toLowerCase()]: serverTimestamp() });
+            closeForwardPicker();
+        } finally {
+            delete payload._sending;
+        }
+    }
+
     function setupLongPress(el, msg) {
         const start = (e) => {
             selectedMsgData = msg;
@@ -484,8 +673,8 @@ export function initChatEngine(deps) {
                 const menu = document.getElementById('messageContextMenu');
                 const touch = e.touches ? e.touches[0] : e;
 
-                menu.style.transition = 'none';
-                menu.style.opacity = '0';
+                menu.classList.remove('menu-visible');
+                menu.classList.add('menu-hidden');
                 menu.classList.remove('hidden');
 
                 const menuHeight = menu.offsetHeight || 200;
@@ -504,12 +693,23 @@ export function initChatEngine(deps) {
                 let left = touch.clientX;
                 if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 15;
                 if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 15;
-                menu.style.top = `${Math.max(15, top)}px`;
-                menu.style.left = `${Math.max(15, left)}px`;
+                top = Math.max(15, top);
+                left = Math.max(15, left);
+                menu.style.top = `${top}px`;
+                menu.style.left = `${left}px`;
 
-                void menu.offsetHeight;
-                menu.style.transition = '';
-                menu.style.opacity = '';
+                // Spring out of the corner nearest the press point, toward the menu body
+                const originY = touch.clientY > top + menuHeight / 2 ? 'bottom' : 'top';
+                const originX = touch.clientX > left + menuWidth / 2 ? 'right' : 'left';
+                menu.style.transformOrigin = `${originY} ${originX}`;
+
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        menu.classList.remove('menu-hidden');
+                        menu.classList.add('menu-visible');
+                        if (menu._liquidGlass) menu._liquidGlass.refresh();
+                    });
+                });
                 if (menu._hideListener) {
                     document.removeEventListener('mousedown', menu._hideListener);
                     document.removeEventListener('touchstart', menu._hideListener);
@@ -1317,6 +1517,9 @@ export function initChatEngine(deps) {
         if (btn) {
             btn.classList.remove('attach-open');
         }
+        // Invalidate any in-flight doc list load and reset to the main view
+        attachDocListToken++;
+        setAttachView('main');
         if (menu && !menu.classList.contains('hidden') && !menu.classList.contains('menu-hidden')) {
             menu.classList.remove('menu-visible');
             menu.classList.add('menu-hidden');
@@ -1337,23 +1540,204 @@ export function initChatEngine(deps) {
         if (fileInput) fileInput.click();
     }
 
-    async function openAddGoogleDocDialog() {
-        closeAttachMenu();
-        const url = await AppModules.Modal.prompt(
-            "Add Google Doc",
-            "Paste your Google Doc sharing link below.<br><span class='text-xs text-gray-400'>Make sure link access is set to 'Anyone with the link can comment'</span>",
-            ""
-        );
-        if (!url || !url.trim()) return;
+    // --- Attachment panel Google Doc sub-views (all in-place inside #attachMenu) ---
+    let attachCurrentView = 'main';
+    let attachAnimTimer = null;
 
-        const trimmed = url.trim();
-        if (!trimmed.includes('docs.google.com/document/d/')) {
-            AppModules.Modal.alert("Invalid Link", "Please provide a valid Google Doc URL (e.g. https://docs.google.com/document/d/...)");
+    // dir: +1 push forward (slide from right), -1 back (slide from left), 0 silent swap
+    function setAttachView(view, dir = 0) {
+        const views = { main: 'attachViewMain', gdoc: 'attachViewGdoc', input: 'attachViewInput', docs: 'attachViewDocs' };
+        const menu = document.getElementById('attachMenu');
+        const newEl = document.getElementById(views[view]);
+        if (!menu || !newEl) return;
+
+        const oldEl = document.getElementById(views[attachCurrentView]);
+        const glassRefresh = () => {
+            if (menu._liquidGlass && typeof menu._liquidGlass.refresh === 'function') menu._liquidGlass.refresh();
+        };
+
+        // Finish any in-flight transition before swapping again
+        if (attachAnimTimer) { clearTimeout(attachAnimTimer); attachAnimTimer = null; }
+        menu.classList.remove('attach-animating');
+        menu.style.height = '';
+
+        const startH = menu.offsetHeight;
+        if (oldEl && oldEl !== newEl) oldEl.classList.add('hidden');
+        newEl.classList.remove('hidden', 'attach-view-enter');
+        attachCurrentView = view;
+
+        if (!dir || !oldEl || oldEl === newEl) {
+            glassRefresh();
             return;
         }
 
-        // Send Google Doc link directly to chat
-        await sendMsg('text', trimmed);
+        const endH = menu.offsetHeight;
+        // All view swaps enter the same way as the menu itself: growing out from the bottom-left
+        void newEl.offsetWidth;
+        newEl.classList.add('attach-view-enter');
+        menu.style.height = startH + 'px';
+        void menu.offsetHeight; // commit start height before easing to end height
+        menu.classList.add('attach-animating');
+        requestAnimationFrame(() => { menu.style.height = endH + 'px'; });
+
+        // Keep the liquid-glass backdrop in sync with the animating height
+        const tick = () => {
+            if (!menu.classList.contains('attach-animating')) return;
+            glassRefresh();
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+
+        attachAnimTimer = setTimeout(() => {
+            attachAnimTimer = null;
+            menu.classList.remove('attach-animating');
+            menu.style.height = '';
+            newEl.classList.remove('attach-view-enter');
+            glassRefresh();
+        }, 280);
+    }
+
+    function openGdocMenu() {
+        setAttachView('gdoc', 1);
+    }
+
+    function backToAttachMain() {
+        setAttachView('main', -1);
+    }
+
+    function backToGdocMenu() {
+        setAttachView('gdoc', -1);
+    }
+
+    function chooseGdocNew() {
+        setAttachView('input', 1);
+        const input = document.getElementById('attachDocUrlInput');
+        const err = document.getElementById('attachDocUrlError');
+        if (err) { err.classList.add('hidden'); err.innerText = ''; }
+        if (input) {
+            input.value = '';
+            setTimeout(() => input.focus(), 60);
+        }
+    }
+
+    function submitAttachNewDoc() {
+        const input = document.getElementById('attachDocUrlInput');
+        const err = document.getElementById('attachDocUrlError');
+        const val = (input ? input.value : '').trim();
+        if (!val) return;
+        if (!val.includes('docs.google.com/document/d/')) {
+            if (err) {
+                err.innerText = "Invalid link. Use a https://docs.google.com/document/d/... URL";
+                err.classList.remove('hidden');
+            }
+            return;
+        }
+        closeAttachMenu();
+        sendMsg('text', val);
+    }
+
+    let attachDocListToken = 0;
+
+    async function loadSavedDocs() {
+        const currentUser = getCurrentUser();
+        const activeTargetId = getActiveTargetId();
+        if (!currentUser || !activeTargetId) return { ok: false, docs: [] };
+        const chatId = activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId);
+        try {
+            const snap = await get(ref(db, `writing_doc_state/${chatId}`));
+            if (!snap.exists()) return { ok: true, docs: [] };
+            const docs = Object.entries(snap.val() || {}).map(([fid, st]) => {
+                const view = normalizeDocSyncState(st) || {};
+                const count = view.lastKnownCommentCount || 0;
+                return {
+                    docUrl: view.docUrl || `https://docs.google.com/document/d/${fid}/edit`,
+                    title: view.title || 'Google Document',
+                    sub: `${count} comment${count === 1 ? '' : 's'}`,
+                    ts: docViewTimestamp(view)
+                };
+            }).sort((a, b) => b.ts - a.ts);
+            return { ok: true, docs };
+        } catch (e) {
+            console.warn('[GoogleDoc] Failed to load saved doc states:', e);
+            return { ok: false, docs: [] };
+        }
+    }
+
+    async function chooseGdocExisting() {
+        const listEl = document.getElementById('attachDocList');
+        const btn = document.getElementById('gdocExistingBtn');
+        if (!listEl) return;
+        const myToken = ++attachDocListToken;
+
+        // Stay on the level-2 view (panel keeps its size) while fetching;
+        // the sub-label is the only loading feedback, so there is no
+        // shrink-then-expand jump when the list finally renders.
+        const subEl = btn ? btn.querySelector('.gdoc-row-sub') : null;
+        if (btn) btn.disabled = true;
+        if (subEl) subEl.innerText = 'Loading saved docs...';
+
+        const { ok, docs } = await loadSavedDocs();
+
+        if (btn) btn.disabled = false;
+        if (subEl) subEl.innerText = 'Re-send a synced doc';
+        // Menu closed or navigated away while fetching
+        if (myToken !== attachDocListToken || attachCurrentView !== 'gdoc') return;
+
+        const notice = (html) => `<div class="px-3 py-4 text-center text-[12px] text-gray-400 leading-relaxed">${html}</div>`;
+
+        if (!ok) {
+            listEl.innerHTML = notice("Could not load saved docs.<br>Check your connection and try again.");
+        } else if (!docs.length) {
+            listEl.innerHTML = notice("No Google Docs synced<br>in this chat yet.");
+        } else {
+            listEl.innerHTML = docs.map(d => `
+                <button type="button" class="attach-doc-row w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all" data-doc-url="${escapeHTML(d.docUrl).replace(/"/g, '&quot;')}">
+                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <span class="text-[13px] font-semibold text-black dark:text-white leading-tight truncate">${escapeHTML(d.title)}</span>
+                        <span class="text-[11px] text-black dark:text-white mt-0.5">${d.sub}</span>
+                    </div>
+                </button>`).join('');
+        }
+
+        // Content is already laid out, so the panel expands to its final height in one motion
+        setAttachView('docs', 1);
+        listEl.querySelectorAll('.attach-doc-row').forEach(row => {
+            row.onclick = () => sendExistingDoc(row.getAttribute('data-doc-url'));
+        });
+    }
+
+    function copyAttachBotEmail(btn) {
+        const email = document.getElementById('attachBotEmail')?.innerText?.trim() || '';
+        const done = () => {
+            if (!btn) return;
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = 'Copy'; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(email).then(done).catch(done);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = email;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            ta.remove();
+            done();
+        }
+    }
+
+    async function sendExistingDoc(url) {
+        closeAttachMenu();
+        await sendMsg('text', url);
     }
 
     // Google Doc Card Expand / Collapse with Smooth Transition
@@ -1421,18 +1805,19 @@ export function initChatEngine(deps) {
         const btnAll = container.querySelector(`#filterBtn-${key}-all`);
         const btnOpen = container.querySelector(`#filterBtn-${key}-open`);
         const btnResolved = container.querySelector(`#filterBtn-${key}-resolved`);
+        const btnDeleted = container.querySelector(`#filterBtn-${key}-deleted`);
 
         const activeClasses = ['bg-[#007AFF]', 'text-white', 'shadow-sm'];
-        const inactiveClasses = ['text-gray-500', 'dark:text-gray-400', 'hover:bg-gray-100', 'dark:hover:bg-white/5'];
+        const inactiveClasses = ['text-black', 'dark:text-white', 'hover:bg-gray-100', 'dark:hover:bg-white/5'];
 
-        [btnAll, btnOpen, btnResolved].forEach(b => {
+        [btnAll, btnOpen, btnResolved, btnDeleted].forEach(b => {
             if (b) {
                 b.classList.remove(...activeClasses);
                 b.classList.add(...inactiveClasses);
             }
         });
 
-        const targetBtn = filterType === 'open' ? btnOpen : (filterType === 'resolved' ? btnResolved : btnAll);
+        const targetBtn = filterType === 'open' ? btnOpen : (filterType === 'resolved' ? btnResolved : (filterType === 'deleted' ? btnDeleted : btnAll));
         if (targetBtn) {
             targetBtn.classList.remove(...inactiveClasses);
             targetBtn.classList.add(...activeClasses);
@@ -1446,6 +1831,7 @@ export function initChatEngine(deps) {
             let show = true;
             if (filterType === 'open' && (isResolved || isDeleted)) show = false;
             if (filterType === 'resolved' && (!isResolved || isDeleted)) show = false;
+            if (filterType === 'deleted' && !isDeleted) show = false;
 
             if (show) {
                 row.classList.remove('hidden');
@@ -1459,7 +1845,7 @@ export function initChatEngine(deps) {
         if (emptyEl) {
             if (visibleCount === 0) {
                 emptyEl.classList.remove('hidden');
-                emptyEl.innerText = filterType === 'open' ? '🎉 All comments have been resolved!' : (filterType === 'resolved' ? 'No resolved comments yet.' : 'No comments found.');
+                emptyEl.innerText = filterType === 'open' ? '🎉 All comments have been resolved!' : (filterType === 'resolved' ? 'No resolved comments yet.' : (filterType === 'deleted' ? 'No deleted comments.' : 'No comments found.'));
             } else {
                 emptyEl.classList.add('hidden');
             }
@@ -1550,7 +1936,7 @@ export function initChatEngine(deps) {
 
                 const cardDate = cardEl.querySelector('[id^="docDate-"]');
                 if (cardDate && resData.createdTime) {
-                    const cStr = new Date(resData.createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                    const cStr = new Date(resData.createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                     cardDate.innerText = `Created ${cStr}`;
                     cardDate.classList.remove('hidden');
                 }
@@ -1661,6 +2047,198 @@ export function initChatEngine(deps) {
         }
     }
 
+    // ============================================================
+    // [Bot Comment Post] Inline composer on Google Doc cards.
+    // The bot is only the courier: content is posted as
+    // "Created by <platform user>: <text>" so real attribution survives
+    // the round trip (UIComponents.docCommentDisplay strips it back out).
+    // ============================================================
+    const BOT_DOCS_EMAIL = 'chscommunication@appspot.gserviceaccount.com';
+
+    // Shared send path for both the whole-doc note composer and per-comment
+    // reply boxes. Returns true when the comment was posted.
+    async function submitDocCommentPost(key, docUrl, commentId, content, sendBtn) {
+        const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match) {
+            AppModules.Modal.alert("Comment not posted", "This card is not linked to a valid Google Doc URL.");
+            return false;
+        }
+
+        const currentUser = getCurrentUser();
+        const activeTargetId = getActiveTargetId();
+        const chatId = lastChatId || (activeTargetId
+            ? (activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId))
+            : null);
+
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerText = 'Posting...';
+            sendBtn.classList.add('opacity-60', 'pointer-events-none');
+        }
+        const restoreBtn = () => {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerText = 'Post';
+                sendBtn.classList.remove('opacity-60', 'pointer-events-none');
+            }
+        };
+
+        try {
+            const payload = {
+                url: docUrl,
+                chatId: chatId,
+                messageKey: key,
+                commentId: commentId,
+                content: content,
+                userName: (currentUser && (currentUser.name || currentUser.id)) || 'Anonymous'
+            };
+            let resData = null;
+            if (window.httpsCallable && window.firebaseFunctions) {
+                const postFn = window.httpsCallable(window.firebaseFunctions, 'postGoogleDocComment');
+                resData = (await postFn(payload)).data;
+            } else if (window.firebase && window.firebase.functions) {
+                const postFn = window.firebase.functions().httpsCallable('postGoogleDocComment');
+                resData = (await postFn(payload)).data;
+            }
+
+            if (!resData || !resData.success) {
+                restoreBtn();
+                const failKind = (resData && resData.failKind) || 'unknown';
+                const detail = (resData && resData.error)
+                    ? `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(String(resData.error).slice(0, 300))}</div>`
+                    : '';
+                if (failKind === 'permission' || failKind === 'not_found') {
+                    const bodyHtml = `
+                        <div class="text-left leading-relaxed space-y-2.5">
+                            <div>${failKind === 'permission'
+                                ? 'The bot is not allowed to comment on this document. Open the doc and share it with the bot as <b>Commenter</b> (or set link sharing to <b>"Anyone with the link can comment"</b>), then post again.'
+                                : 'Google cannot find this document for the bot. It may have been deleted, moved, or not shared with the bot yet. Open the doc to check its sharing settings, then post again.'}</div>
+                            <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
+                                <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${BOT_DOCS_EMAIL}</span>
+                                <button type="button" onclick="navigator.clipboard.writeText('${BOT_DOCS_EMAIL}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
+                            </div>
+                            ${detail}
+                        </div>
+                    `;
+                    const goDoc = await AppModules.Modal.confirm("Comment not posted", bodyHtml, "Open Doc", "OK");
+                    if (goDoc) window.open(docUrl, '_blank', 'noopener');
+                } else if (failKind === 'bad_request') {
+                    await AppModules.Modal.alert("Comment not posted", `Google rejected this comment — the target comment may have been deleted on Google Docs. Sync the card first, then post again.${detail}`);
+                } else if (failKind === 'auth') {
+                    await AppModules.Modal.alert("Comment not posted", "The bot's Google credentials are not configured on the server yet. Please contact the administrator.");
+                } else {
+                    const statusTag = (resData && resData.httpStatus) ? ` (HTTP ${resData.httpStatus}, kind: ${failKind})` : ` (kind: ${failKind || 'unknown'})`;
+                    await AppModules.Modal.alert("Comment not posted", `We couldn't reach Google Docs right now. Your text is still in the box — please try again in a moment.${statusTag}${detail}`);
+                }
+                return false;
+            }
+
+            // Posted: pull the bot's comment back through the normal snapshot sync.
+            restoreBtn();
+            await syncDocCardComments(key, docUrl, null, chatId, true);
+            return true;
+        } catch (err) {
+            console.error('Post comment error:', err);
+            restoreBtn();
+            const fbErr = err && err.message ? String(err.message) : '';
+            if (fbErr.includes('permission-denied') || fbErr.includes('Error 7')) {
+                await AppModules.Modal.alert("Comment not posted", "Sign-in is required to post comments. Please sign in again and retry.");
+            } else {
+                const errDetail = fbErr ? `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(fbErr.slice(0, 300))}</div>` : '';
+                await AppModules.Modal.alert("Comment not posted", `We couldn't reach the comment posting service right now. Your text is still in the box — please try again shortly.${errDetail}`);
+            }
+            return false;
+        }
+    }
+
+    // Whole-doc note composer (header bubble button)
+    function openDocCommentComposer(key, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const composer = document.getElementById(`docComposer-${key}`);
+        if (!composer) return;
+        const wasHidden = composer.classList.contains('hidden');
+        composer.classList.toggle('hidden');
+        if (wasHidden) {
+            const ta = document.getElementById(`docComposerText-${key}`);
+            if (ta) setTimeout(() => ta.focus(), 60);
+        }
+    }
+
+    function closeDocCommentComposer(key, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const composer = document.getElementById(`docComposer-${key}`);
+        if (composer) composer.classList.add('hidden');
+    }
+
+    async function sendDocCommentFromComposer(key, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const composer = document.getElementById(`docComposer-${key}`);
+        const container = composer ? composer.closest('.doc-card-container') : null;
+        const docUrl = container ? (container.getAttribute('data-doc-url') || '') : '';
+        const textEl = document.getElementById(`docComposerText-${key}`);
+        const sendBtn = document.getElementById(`docComposerSend-${key}`);
+        const content = (textEl ? textEl.value : '').trim();
+
+        if (!content) {
+            return AppModules.Modal.alert("Empty comment", "Type your comment before posting.");
+        }
+
+        const posted = await submitDocCommentPost(key, docUrl, null, content, sendBtn);
+        if (posted) {
+            if (textEl) textEl.value = '';
+            composer.classList.add('hidden');
+        }
+    }
+
+    // Per-comment inline reply box, rendered directly under its comment row.
+    function replyToDocComment(key, idx, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
+        if (!box) {
+            console.warn('[DocComment] reply box missing for', key, idx, '— stale card render, sync the card.');
+            return;
+        }
+        const wasHidden = box.classList.contains('hidden');
+        box.classList.toggle('hidden');
+        if (wasHidden) {
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const ta = document.getElementById(`docReplyText-${key}-${idx}`);
+            if (ta) setTimeout(() => ta.focus(), 120);
+        }
+    }
+
+    function closeDocCommentReply(key, idx, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
+        if (box) box.classList.add('hidden');
+    }
+
+    async function sendDocCommentReply(key, idx, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
+        if (!box) return;
+        const container = box.closest('.doc-card-container');
+        const docUrl = container ? (container.getAttribute('data-doc-url') || '') : '';
+        const payloadData = (window._docCommentPayloads || {})[key];
+        const c = payloadData && payloadData.comments ? payloadData.comments[idx] : null;
+        const textEl = document.getElementById(`docReplyText-${key}-${idx}`);
+        const sendBtn = document.getElementById(`docReplySend-${key}-${idx}`);
+        const content = (textEl ? textEl.value : '').trim();
+
+        if (!c || !c.id) {
+            return AppModules.Modal.alert("Reply not posted", "This comment is no longer available. Sync the card and try again.");
+        }
+        if (!content) {
+            return AppModules.Modal.alert("Empty reply", "Type your reply before posting.");
+        }
+
+        const posted = await submitDocCommentPost(key, docUrl, c.id, content, sendBtn);
+        if (posted) {
+            if (textEl) textEl.value = '';
+            box.classList.add('hidden');
+        }
+    }
+
     // Close attach menu on outside click
     document.addEventListener('click', (e) => {
         const menu = document.getElementById('attachMenu');
@@ -1713,6 +2291,18 @@ export function initChatEngine(deps) {
             });
         }
 
+        // Initialize Liquid Glass effect on the portfolio project/version modal
+        const projectModalCard = document.getElementById('portfolioProjectCard');
+        if (projectModalCard) {
+            new LiquidGlassEffect(projectModalCard, {
+                radius: 24,            // matches rounded-3xl
+                refractionWidth: 12,   // matches attachMenu bevel width
+                maxDisplacement: 8,    // matches attachMenu refraction strength
+                mouseRadius: 55,       // matches attachMenu hover ripple
+                mouseStrength: 6       // matches attachMenu ripple strength
+            });
+        }
+
         // Initialize Liquid Glass effect on the in-chat search results box
         const searchResults = document.getElementById('searchResults');
         if (searchResults) {
@@ -1722,6 +2312,30 @@ export function initChatEngine(deps) {
                 maxDisplacement: 8,    // matches chatInputPill refraction strength
                 mouseRadius: 55,       // matches chatInputPill hover ripple
                 mouseStrength: 6       // matches chatInputPill ripple strength
+            });
+        }
+
+        // Initialize Liquid Glass effect on the reply quote bar (same parameters as attachMenu)
+        const quoteArea = document.getElementById('quoteArea');
+        if (quoteArea) {
+            new LiquidGlassEffect(quoteArea, {
+                radius: 24,            // matches rounded-[24px]
+                refractionWidth: 12,
+                maxDisplacement: 8,
+                mouseRadius: 55,
+                mouseStrength: 6
+            });
+        }
+
+        // Initialize Liquid Glass effect on the message context menu (same parameters as attachMenu)
+        const messageContextMenu = document.getElementById('messageContextMenu');
+        if (messageContextMenu) {
+            new LiquidGlassEffect(messageContextMenu, {
+                radius: 16,            // matches rounded-2xl (16px)
+                refractionWidth: 12,
+                maxDisplacement: 8,
+                mouseRadius: 55,
+                mouseStrength: 6
             });
         }
     }
@@ -1823,7 +2437,16 @@ export function initChatEngine(deps) {
 
         if (!drawer || !content) return;
 
+        // While open, the drawer lives under <body> and is viewport-fixed so its
+        // left edge can animate smoothly and it is never clipped or z-trapped by
+        // #chatSection. It returns to its original parent once fully closed.
+        if (drawer.parentElement !== document.body) {
+            window._wpDrawerHome = drawer.parentElement;
+            document.body.appendChild(drawer);
+        }
         drawer.classList.remove('hidden');
+        drawer.classList.add('wp-drawer-open');
+        setWritingPortfolioExpanded(false);
         requestAnimationFrame(() => {
             drawer.classList.remove('translate-x-full');
         });
@@ -1939,12 +2562,28 @@ export function initChatEngine(deps) {
 
             if (activeDocMessages.length === 0) {
                 content.innerHTML = `
-                    <div class="h-64 flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                    <div class="min-h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
                         <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-2 text-gray-400">
-                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                         </div>
                         <div class="font-semibold text-sm text-black dark:text-white">No Google Docs Found</div>
-                        <div class="text-xs mt-1 text-gray-400">Documents shared with ${UIUtils.escape(chatPartnerName)} will appear here in chronological order.</div>
+                        <div class="text-xs mt-1 text-gray-400">Documents shared with ${UIUtils.escape(chatPartnerName)} will appear here.</div>
+                        <div class="text-xs mt-3 text-gray-400 max-w-md mx-auto leading-relaxed">Writing Portfolio is an automatically built record of a student’s writing growth, collecting shared Google Docs, draft versions, teacher feedback, comment history, and reflections from the chat into one organized view so teachers can review progress, track revisions, and export a clear writing dossier without manually organizing every document.</div>
+                        <div class="text-xs mt-3 text-gray-400 max-w-md mx-auto leading-relaxed">We do not use any kind of AI to analyse or summarize your documents.</div>
+                        <button type="button" onclick="portfolioOpenAttachGdocMenu()" class="mt-5 w-full max-w-xs mx-auto self-center px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left bg-black/5 dark:bg-white/10 transition-colors duration-150 hover:bg-black/10 dark:hover:bg-white/[0.16]">
+                            <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="12" y1="18" x2="12" y2="12"/>
+                                    <line x1="9" y1="15" x2="15" y2="15"/>
+                                </svg>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Add New Doc</span>
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Paste sharing link</span>
+                            </div>
+                        </button>
                     </div>
                 `;
                 return;
@@ -2077,6 +2716,8 @@ export function initChatEngine(deps) {
             // Sort projects by most recent activity
             const sortedProjects = Array.from(projectMap.values()).sort((a, b) => b.latestTime - a.latestTime);
             const totalCount = sortedProjects.length + standaloneItems.length;
+            const totalPortfolioDeleted = [...sortedProjects.flatMap(p => p.items), ...standaloneItems]
+                .reduce((sum, item) => sum + (item.deletedCount || 0), 0);
 
             // Cache active portfolio data globally for seamless tab switching and export
             window._activePortfolioData = {
@@ -2084,6 +2725,7 @@ export function initChatEngine(deps) {
                 chatPartnerName: chatPartnerName,
                 totalCount: totalCount,
                 totalPortfolioOpen: totalPortfolioOpen,
+                totalPortfolioDeleted: totalPortfolioDeleted,
                 sortedProjects: sortedProjects,
                 standaloneItems: standaloneItems,
                 groupingSuggestions: groupingSuggestions,
@@ -2104,11 +2746,11 @@ export function initChatEngine(deps) {
                                 <svg class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                 <span>Cards</span>
                             </button>
-                            <button type="button" onclick="window.switchPortfolioView('comments', this)" id="portfolioViewTab-comments" class="px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
+                            <button type="button" onclick="window.switchPortfolioView('comments', this)" id="portfolioViewTab-comments" class="px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
                                 <svg class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 <span>Comments</span>
                             </button>
-                            <button type="button" onclick="window.switchPortfolioView('timeline', this)" id="portfolioViewTab-timeline" class="px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
+                            <button type="button" onclick="window.switchPortfolioView('timeline', this)" id="portfolioViewTab-timeline" class="px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
                                 <svg class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                 <span>Timeline</span>
                             </button>
@@ -2131,11 +2773,11 @@ export function initChatEngine(deps) {
                     <div id="portfolioFilterBarCards" class="flex flex-wrap items-center justify-between gap-2 px-0.5">
                         <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl flex-shrink-0">
                             <button type="button" onclick="window.filterPortfolioFeedback('all', this)" class="px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All Documents</button>
-                            <button type="button" onclick="window.filterPortfolioFeedback('open', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
+                            <button type="button" onclick="window.filterPortfolioFeedback('open', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
                                 <span>Opened</span>
                                 ${totalPortfolioOpen > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#0A84FF]/25 dark:text-[#0A84FF] leading-none">${totalPortfolioOpen}</span>` : ''}
                             </button>
-                            <button type="button" onclick="window.filterPortfolioFeedback('resolved', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all">Resolved</button>
+                            <button type="button" onclick="window.filterPortfolioFeedback('resolved', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Resolved</button>
                         </div>
                     </div>
 
@@ -2144,13 +2786,13 @@ export function initChatEngine(deps) {
                         <!-- Author Filter Chips -->
                         <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl">
                             <button type="button" onclick="window.filterPortfolioAuthor('all', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All Feedback</button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('teacher', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
+                            <button type="button" onclick="window.filterPortfolioAuthor('teacher', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
                                 <span>Teachers</span>
                             </button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('student', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
+                            <button type="button" onclick="window.filterPortfolioAuthor('student', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
                                 <span>Students</span>
                             </button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('peer', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
+                            <button type="button" onclick="window.filterPortfolioAuthor('peer', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
                                 <span>Peer Review</span>
                             </button>
                         </div>
@@ -2158,8 +2800,9 @@ export function initChatEngine(deps) {
                         <!-- Status Filter Chips -->
                         <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl">
                             <button type="button" onclick="window.filterPortfolioCommentStatus('all', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All</button>
-                            <button type="button" onclick="window.filterPortfolioCommentStatus('open', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all">Open</button>
-                            <button type="button" onclick="window.filterPortfolioCommentStatus('resolved', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all">Resolved</button>
+                            <button type="button" onclick="window.filterPortfolioCommentStatus('open', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Open</button>
+                            <button type="button" onclick="window.filterPortfolioCommentStatus('resolved', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Resolved</button>
+                            ${totalPortfolioDeleted > 0 ? `<button type="button" onclick="window.filterPortfolioCommentStatus('deleted', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Deleted</button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -2168,14 +2811,14 @@ export function initChatEngine(deps) {
                     <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#007AFF]/[0.06] dark:bg-[#0A84FF]/10 border border-[#007AFF]/15 dark:border-[#0A84FF]/20">
                         <div class="min-w-0">
                             <div class="text-[12px] font-bold text-[#007AFF] dark:text-[#0A84FF]">Possible versions of ${UIUtils.escape(suggestion.projectName)}</div>
-                            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">${suggestion.items.map(item => UIUtils.escape(item.parsed.versionLabel)).join(' · ')} — group these ${suggestion.items.length} documents?</div>
+                            <div class="text-[11px] text-black dark:text-white mt-0.5">${suggestion.items.map(item => UIUtils.escape(item.parsed.versionLabel)).join(' · ')} — group these ${suggestion.items.length} documents?</div>
                         </div>
                         <button type="button" onclick="window.acceptPortfolioGroupingSuggestion(${index})" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#007AFF] hover:bg-[#0062cc] text-white transition-colors">Group</button>
                     </div>
                 `).join('')}
 
                 <!-- VIEW 1: CARDS VIEW (Standard Grouped / Versioned Documents) -->
-                <div id="portfolioCardsView" class="space-y-4">
+                <div id="portfolioCardsView">
             `;
 
             // Render Manually Grouped Writing Projects
@@ -2187,7 +2830,7 @@ export function initChatEngine(deps) {
                 const lastIdx = proj.items.length - 1; // Default to latest version
 
                 html += `
-                    <div id="${projId}" data-has-open="${proj.hasOpen ? 'true' : 'false'}" data-has-resolved="${proj.hasResolved ? 'true' : 'false'}" class="portfolio-group-item bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 sm:p-5 text-left">
+                    <div id="${projId}" data-has-open="${proj.hasOpen ? 'true' : 'false'}" data-has-resolved="${proj.hasResolved ? 'true' : 'false'}" class="portfolio-group-item bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left">
                         <!-- Project Header & Version Stepper -->
                         <div id="projHeader-${projId}" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-white/5">
                             <div class="flex items-center gap-3 min-w-0">
@@ -2199,7 +2842,7 @@ export function initChatEngine(deps) {
                                 <div class="min-w-0">
                                     <h3 class="text-[16px] font-bold text-black dark:text-white truncate">${UIUtils.escape(proj.projectName)}</h3>
                                     <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="text-[12px] text-gray-400 font-medium">${proj.items.length} ${proj.items.length === 1 ? 'Version' : 'Versions'}</span>
+                                        <span class="text-[12px] text-black dark:text-white font-medium">${proj.items.length} ${proj.items.length === 1 ? 'Version' : 'Versions'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -2209,7 +2852,7 @@ export function initChatEngine(deps) {
                                 ${proj.items.map((item, vIdx) => {
                                     const isActive = vIdx === lastIdx;
                                     return `
-                                        <button type="button" onclick="window.switchProjectVersion('${projId}', ${vIdx}, event)" id="projTab-${projId}-${vIdx}" class="px-3 py-1 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'}">
+                                        <button type="button" onclick="window.switchProjectVersion('${projId}', ${vIdx}, event)" id="projTab-${projId}-${vIdx}" class="px-3 py-1 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:text-black dark:hover:text-white'}">
                                             ${UIUtils.escape(item.versionLabel)}
                                         </button>
                                     `;
@@ -2235,24 +2878,22 @@ export function initChatEngine(deps) {
 
                                 return `
                                     <div id="projVer-${projId}-${vIdx}" data-item-key="${item.key}" class="${isVisible ? '' : 'hidden'}">
-                                        <div class="flex items-center justify-between text-[12px] font-medium text-gray-400 px-1 mb-1.5">
-                                            <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}">${dateDisplay}</span>
-                                            <div class="flex items-center gap-2.5">
-                                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline transition-colors" title="Edit version or ungroup">
+                                        <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-1 mb-1.5">
+                                            <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
+                                            <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
+                                            <div class="flex items-center gap-1 flex-shrink-0">
+                                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Edit version or ungroup">
                                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                                     </svg>
-                                                    <span>Edit Project / Version</span>
                                                 </button>
-                                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-400 hover:text-red-500 transition-colors" title="Delete card from writing portfolio">
+                                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
                                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                         <polyline points="3 6 5 6 21 6"></polyline>
                                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                                     </svg>
-                                                    <span>Delete</span>
                                                 </button>
-                                                <span class="text-[12px] text-gray-400">${UIUtils.escape(item.msg.senderName || '')}</span>
                                             </div>
                                         </div>
                                         <div id="portfolio-item-${item.key}">
@@ -2282,25 +2923,23 @@ export function initChatEngine(deps) {
 
                 html += `
                     <div id="portfolio-item-${item.key}" data-has-open="${item.openCount > 0 ? 'true' : 'false'}" data-has-resolved="${item.resolvedCount > 0 ? 'true' : 'false'}" class="portfolio-group-item w-full">
-                        <div class="flex items-center justify-between text-[12px] font-medium text-gray-400 px-1 mb-1.5">
-                            <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}">${dateDisplay}</span>
-                            <div class="flex items-center gap-2.5">
-                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline transition-colors" title="Add this document to a Writing Project">
+                        <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-1 mb-1.5">
+                            <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
+                            <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Add this document to a Writing Project">
                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                                         <line x1="12" y1="11" x2="12" y2="17"></line>
                                         <line x1="9" y1="14" x2="15" y2="14"></line>
                                     </svg>
-                                    <span>Add to Project</span>
                                 </button>
-                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-400 hover:text-red-500 transition-colors" title="Delete card from writing portfolio">
+                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <polyline points="3 6 5 6 21 6"></polyline>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                     </svg>
-                                    <span>Delete</span>
                                 </button>
-                                <span class="text-[12px] text-gray-400">${UIUtils.escape(item.msg.senderName || '')}</span>
                             </div>
                         </div>
                         ${cardHtml}
@@ -2371,12 +3010,12 @@ export function initChatEngine(deps) {
 
         allTabs.forEach(t => {
             t.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-            t.classList.add('text-gray-500', 'dark:text-gray-400');
+            t.classList.add('text-black', 'dark:text-white');
         });
 
         const activeBtn = btnEl || document.getElementById(`portfolioViewTab-${viewName}`);
         if (activeBtn) {
-            activeBtn.classList.remove('text-gray-500', 'dark:text-gray-400');
+            activeBtn.classList.remove('text-black', 'dark:text-white');
             activeBtn.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
         }
 
@@ -2414,9 +3053,23 @@ export function initChatEngine(deps) {
     }
 
     // Classify comment author into 'teacher', 'student', or 'peer'
-    function classifyCommentAuthor(authorName, authorEmail, currentUserId) {
+    function classifyCommentAuthor(authorName, authorEmail, currentUserId, currentUser) {
         const normName = (authorName || '').trim().toLowerCase();
         const normEmail = (authorEmail || '').trim().toLowerCase();
+
+        // A bot-delivered comment belongs to whoever the "Created by" line names
+        // (docCommentDisplay has already unwrapped the prefix into authorName).
+        if (normEmail.endsWith('.gserviceaccount.com')) {
+            const meNames = [currentUserId, currentUser && currentUser.name].filter(Boolean)
+                .map(s => String(s).toLowerCase());
+            if (normName && meNames.some(n => normName === n || normName.includes(n) || n.includes(normName))) {
+                return { role: 'student', label: 'Author' };
+            }
+            if (/^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
+                return { role: 'teacher', label: 'Teacher' };
+            }
+            return { role: 'peer', label: 'Peer Reviewer' };
+        }
 
         if (normEmail.endsWith('@hcpss.org') || /^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
             return { role: 'teacher', label: 'Teacher' };
@@ -2451,14 +3104,17 @@ export function initChatEngine(deps) {
 
             comments.forEach(c => {
                 const cTime = c.createdTime ? new Date(c.createdTime).getTime() : (m.timestamp || 0);
-                const aName = c.author?.displayName || 'Reviewer';
+                const disp = UIComponents.docCommentDisplay(c);
+                const aName = disp.author || 'Reviewer';
                 const aEmail = c.author?.emailAddress || '';
-                const { role, label } = classifyCommentAuthor(aName, aEmail, currentUserId);
+                const { role, label } = classifyCommentAuthor(aName, aEmail, currentUserId, currentUser);
                 const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
                 const isMissing = !isDeleted && c.status === 'missing_from_latest_sync';
 
                 allComments.push({
                     comment: c,
+                    displayContent: disp.content,
+                    viaBot: disp.viaBot,
                     docId: docId,
                     docTitle: docTitle,
                     docUrl: docUrl,
@@ -2484,6 +3140,7 @@ export function initChatEngine(deps) {
             if (currentAuthor !== 'all' && item.authorRole !== currentAuthor) return false;
             if (currentStatus === 'open' && (item.resolved || item.isDeleted)) return false;
             if (currentStatus === 'resolved' && (!item.resolved || item.isDeleted)) return false;
+            if (currentStatus === 'deleted' && !item.isDeleted) return false;
             return true;
         });
 
@@ -2528,13 +3185,18 @@ export function initChatEngine(deps) {
             }
 
             let repliesHtml = '';
-            if (c.replies && c.replies.length > 0) {
-                repliesHtml = c.replies.map(r => `
+            // Google inserts empty-content replies on resolve/reopen; skip them.
+            const visibleReplies = (c.replies || []).filter(r => r && String((UIComponents.docCommentDisplay(r).content) || '').trim());
+            if (visibleReplies.length > 0) {
+                repliesHtml = visibleReplies.map(r => {
+                    const rDisp = UIComponents.docCommentDisplay(r);
+                    return `
                     <div class="mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[12px]">
-                        <span class="font-semibold text-black dark:text-white">${UIUtils.escape(r.author?.displayName || 'User')}:</span>
-                        <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(r.content || '')}</span>
+                        <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'User')}:</span>
+                        <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(rDisp.content || '')}</span>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             }
 
             return `
@@ -2545,7 +3207,7 @@ export function initChatEngine(deps) {
                             <span class="w-2 h-2 rounded-full ${isResolved ? 'bg-gray-300 dark:bg-white/20' : 'bg-[#007AFF] dark:bg-[#0A84FF]'} flex-shrink-0"></span>
                             <span class="text-[13px] font-bold text-black dark:text-white truncate">${UIUtils.escape(item.docTitle)}</span>
                         </div>
-                        <span class="text-[11px] text-gray-400 whitespace-nowrap">${formattedDate}</span>
+                        <span class="text-[11px] text-black dark:text-white whitespace-nowrap">${formattedDate}</span>
                     </div>
 
                     ${quoteHtml}
@@ -2565,7 +3227,7 @@ export function initChatEngine(deps) {
                         </a>
                     </div>
 
-                    <div class="text-[13px] ${dimRow ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${UIUtils.escape(c.content || '')}</div>
+                    <div class="text-[13px] ${dimRow ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${UIUtils.escape(item.displayContent || '')}</div>
                     ${repliesHtml}
                 </div>
             `;
@@ -2581,9 +3243,9 @@ export function initChatEngine(deps) {
             const buttons = btnEl.parentElement.querySelectorAll('button');
             buttons.forEach(b => {
                 b.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-                b.classList.add('text-gray-500', 'dark:text-gray-400');
+                b.classList.add('text-black', 'dark:text-white');
             });
-            btnEl.classList.remove('text-gray-500', 'dark:text-gray-400');
+            btnEl.classList.remove('text-black', 'dark:text-white');
             btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
         }
         renderPortfolioCommentsContent();
@@ -2598,9 +3260,9 @@ export function initChatEngine(deps) {
             const buttons = btnEl.parentElement.querySelectorAll('button');
             buttons.forEach(b => {
                 b.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-                b.classList.add('text-gray-500', 'dark:text-gray-400');
+                b.classList.add('text-black', 'dark:text-white');
             });
-            btnEl.classList.remove('text-gray-500', 'dark:text-gray-400');
+            btnEl.classList.remove('text-black', 'dark:text-white');
             btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
         }
         renderPortfolioCommentsContent();
@@ -2727,7 +3389,7 @@ export function initChatEngine(deps) {
                                                 ${entry.openCount > 0 ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#0A84FF]/25 dark:text-[#0A84FF]">${entry.openCount} open</span>` : ''}
                                                 ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Showing saved snapshot — sync status: ${UIUtils.escape(entry.syncStatus)}">snapshot</span>` : ''}
                                             </div>
-                                            <span class="text-[11px] text-gray-400 whitespace-nowrap" title="${entry.dateSource}; last feedback is tracked separately">${entry.dateSource} · ${dateStr}</span>
+                                            <span class="text-[11px] text-black dark:text-white whitespace-nowrap" title="${entry.dateSource}; last feedback is tracked separately">${entry.dateSource} · ${dateStr}</span>
                                             <button type="button" onclick="window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="text-[#007AFF] dark:text-[#0A84FF] hover:underline text-[12px] font-semibold ml-1">
                                                 View
                                             </button>
@@ -2805,7 +3467,7 @@ export function initChatEngine(deps) {
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#007AFF]/10 text-[#007AFF] uppercase">${UIUtils.escape(versionLabel)}</span>
                                 <h3 class="text-sm font-bold text-black dark:text-white">${UIUtils.escape(projectName)}</h3>
                             </div>
-                            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                            <div class="text-[11px] text-black dark:text-white mt-1">
                                 <span><b>Document:</b> ${UIUtils.escape(docTitle)}</span>
                                 <span class="mx-2">•</span>
                                 <span><b>Date:</b> ${createdTime}</span>
@@ -2820,7 +3482,7 @@ export function initChatEngine(deps) {
 
                     <!-- Comments Section -->
                     <div class="space-y-2 pt-1">
-                        <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <div class="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">
                             Feedback & Comments (${liveComments.length})
                         </div>
                         ${isSnapshotView ? `<div class="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Snapshot record (${UIUtils.escape(dossierStatus)})${dossierSyncedAt ? ' as of ' + new Date(dossierSyncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''} — newer comments may exist in Google Docs.</div>` : ''}
@@ -2833,7 +3495,8 @@ export function initChatEngine(deps) {
             } else {
                 dossierHtml += comments.map(c => {
                     const quoteVal = c.quotedFileContent?.value || '';
-                    const aName = c.author?.displayName || 'Instructor';
+                    const cDisp = UIComponents.docCommentDisplay(c);
+                    const aName = cDisp.author || 'Instructor';
                     const cDeleted = !!(c.deleted || c.status === 'deleted_on_google');
                     const cMissing = !cDeleted && c.status === 'missing_from_latest_sync';
                     const isResolved = !!c.resolved && !cDeleted;
@@ -2849,13 +3512,18 @@ export function initChatEngine(deps) {
                     }
 
                     let repliesBlock = '';
-                    if (c.replies && c.replies.length > 0) {
-                        repliesBlock = c.replies.map(r => `
+                    // Google inserts empty-content replies on resolve/reopen; skip them.
+                    const dossierReplies = (c.replies || []).filter(r => r && String((UIComponents.docCommentDisplay(r).content) || '').trim());
+                    if (dossierReplies.length > 0) {
+                        repliesBlock = dossierReplies.map(r => {
+                            const rDisp = UIComponents.docCommentDisplay(r);
+                            return `
                             <div class="mt-1.5 pl-2.5 border-l-2 border-[#007AFF]/30 dark:border-[#0A84FF]/30 text-[11px]">
-                                <span class="font-semibold text-black dark:text-white">${UIUtils.escape(r.author?.displayName || 'Student')}:</span>
-                                <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(r.content || '')}</span>
+                                <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'Student')}:</span>
+                                <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(rDisp.content || '')}</span>
                             </div>
-                        `).join('');
+                        `;
+                        }).join('');
                     }
 
                     return `
@@ -2872,7 +3540,7 @@ export function initChatEngine(deps) {
                                 </div>
                                 <span class="text-[10px] text-gray-400">${cDate}</span>
                             </div>
-                            <div class="text-[12px] ${cDeleted || cMissing ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}">${UIUtils.escape(c.content || '')}</div>
+                            <div class="text-[12px] ${cDeleted || cMissing ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'}">${UIUtils.escape(cDisp.content || '')}</div>
                             ${repliesBlock}
                         </div>
                     `;
@@ -3047,11 +3715,11 @@ export function initChatEngine(deps) {
             const tabs = header.querySelectorAll(`[id^="projTab-${projId}-"]`);
             tabs.forEach((tab, idx) => {
                 if (idx === targetIndex) {
-                    tab.classList.remove('text-gray-500', 'dark:text-gray-400');
+                    tab.classList.remove('text-black', 'dark:text-white');
                     tab.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
                 } else {
                     tab.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-                    tab.classList.add('text-gray-500', 'dark:text-gray-400');
+                    tab.classList.add('text-black', 'dark:text-white');
                 }
             });
         }
@@ -3066,9 +3734,9 @@ export function initChatEngine(deps) {
             const buttons = btnEl.parentElement.querySelectorAll('button');
             buttons.forEach(b => {
                 b.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-                b.classList.add('text-gray-500', 'dark:text-gray-400');
+                b.classList.add('text-black', 'dark:text-white');
             });
-            btnEl.classList.remove('text-gray-500', 'dark:text-gray-400');
+            btnEl.classList.remove('text-black', 'dark:text-white');
             btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
         }
 
@@ -3197,15 +3865,105 @@ export function initChatEngine(deps) {
         };
     }
 
+    function wpCurrentLeft(expanded) {
+        const ref = document.getElementById(expanded ? 'sidePanel' : 'chatSection');
+        if (!ref) return 0;
+        return Math.max(0, Math.round(ref.getBoundingClientRect().left));
+    }
+
+    let _wpExpandAnimT = null;
+    function setWritingPortfolioExpanded(isExpanded, animate) {
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        if (!drawer) return;
+        const exp = !!isExpanded;
+        drawer.classList.toggle('wp-expanded', exp);
+        // Only position while the drawer is actually mounted as the open overlay.
+        if (drawer.classList.contains('wp-drawer-open')) {
+            const target = wpCurrentLeft(exp) + 'px';
+            if (animate) {
+                // Explicit expand/collapse click: enable a left transition just
+                // for this change, then revert so open / tracking stay instant.
+                drawer.style.transition = 'transform 400ms cubic-bezier(0.22, 1, 0.36, 1), left 440ms cubic-bezier(0.22, 1, 0.36, 1)';
+                drawer.style.left = target;
+                clearTimeout(_wpExpandAnimT);
+                _wpExpandAnimT = setTimeout(() => {
+                    const d = document.getElementById('writingPortfolioDrawer');
+                    if (d) d.style.transition = '';
+                }, 460);
+            } else {
+                drawer.style.left = target;
+            }
+        }
+        const expIcon = document.getElementById('wpExpandIcon');
+        const colIcon = document.getElementById('wpCollapseIcon');
+        const btn = document.getElementById('writingPortfolioExpandBtn');
+        if (expIcon) expIcon.classList.toggle('hidden', exp);
+        if (colIcon) colIcon.classList.toggle('hidden', !exp);
+        if (btn) btn.setAttribute('title', exp ? 'Collapse' : 'Expand');
+    }
+
+    // Restore the drawer to its resting state after the slide-out finishes.
+    function resetWritingPortfolioDrawer() {
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        if (!drawer) return;
+        drawer.classList.remove('wp-expanded', 'wp-drawer-open');
+        drawer.style.transition = '';
+        drawer.style.left = '';
+        if (window._wpDrawerHome && drawer.parentElement !== window._wpDrawerHome) {
+            window._wpDrawerHome.appendChild(drawer);
+        }
+        drawer.classList.add('translate-x-full');
+    }
+
+    // Track the panel edge in lockstep while #sidePanel / #chatSection animate
+    // their width (window resize or the Tools/Writing collapse toggle). left is
+    // not transitioned by default, so this repositions instantly on every tick.
+    function wpFollowPanelGeometry() {
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        if (!drawer || !drawer.classList.contains('wp-drawer-open')) return;
+        setWritingPortfolioExpanded(drawer.classList.contains('wp-expanded'), false);
+    }
+
+    function toggleWritingPortfolioExpand() {
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        if (!drawer) return;
+        setWritingPortfolioExpanded(!drawer.classList.contains('wp-expanded'), true);
+    }
+
     function closeWritingPortfolio() {
         const drawer = document.getElementById('writingPortfolioDrawer');
         if (!drawer) return;
 
+        // Any overlays anchored to portfolio views must not outlive the drawer.
+        const projModal = document.getElementById('portfolioProjectModal');
+        if (projModal && !projModal.classList.contains('hidden')) closePortfolioProjectModal();
+        const exportModal = document.getElementById('portfolioExportModal');
+        if (exportModal && !exportModal.classList.contains('hidden')) closePortfolioExportModal();
+        closeForwardPicker();
+
+        // Slide out to the right from wherever it is (collapsed or expanded),
+        // then reset geometry once the transition has finished.
         drawer.classList.add('translate-x-full');
         setTimeout(() => {
             drawer.classList.add('hidden');
-        }, 380);
+            resetWritingPortfolioDrawer();
+        }, 400);
     }
+
+    // Portfolio empty-state shortcut: close the drawer and pop open the chat
+    // attachment menu directly on the Google Doc sub-view (user still picks
+    // "Add New Doc" / "Send Existing Doc" themselves).
+    function portfolioOpenAttachGdocMenu() {
+        closeWritingPortfolio();
+        setTimeout(() => {
+            setAttachView('gdoc', 0);
+            const menu = document.getElementById('attachMenu');
+            if (!menu) return;
+            const isHidden = menu.classList.contains('hidden') || menu.classList.contains('menu-hidden');
+            if (isHidden) toggleAttachMenu(null);
+        }, 420);
+    }
+    window.portfolioOpenAttachGdocMenu = portfolioOpenAttachGdocMenu;
 
     async function acceptPortfolioGroupingSuggestion(suggestionIndex) {
         const portfolio = window._activePortfolioData;
@@ -3294,11 +4052,16 @@ export function initChatEngine(deps) {
         }
 
         modal.classList.remove('hidden');
+        card.classList.remove('menu-visible');
+        card.classList.add('menu-hidden');
+        void card.offsetHeight;
         requestAnimationFrame(() => {
-            modal.classList.remove('opacity-0');
-            card.classList.remove('translate-y-full', 'sm:scale-95');
-            card.classList.add('translate-y-0', 'sm:scale-100');
-            if (inputProj) inputProj.focus();
+            requestAnimationFrame(() => {
+                card.classList.remove('menu-hidden');
+                card.classList.add('menu-visible');
+                if (inputProj) inputProj.focus();
+                if (card._liquidGlass) card._liquidGlass.refresh();
+            });
         });
     }
 
@@ -3307,12 +4070,12 @@ export function initChatEngine(deps) {
         const card = document.getElementById('portfolioProjectCard');
         if (!modal || !card) return;
 
-        card.classList.remove('translate-y-0', 'sm:scale-100');
-        card.classList.add('translate-y-full', 'sm:scale-95');
+        card.classList.remove('menu-visible');
+        card.classList.add('menu-hidden');
         setTimeout(() => {
             modal.classList.add('hidden');
             _activeProjectAssignDoc = null;
-        }, 200);
+        }, 230);
     }
 
     function setPortfolioVersionPreset(preset) {
@@ -3512,6 +4275,16 @@ export function initChatEngine(deps) {
     window.deletePortfolioCard = deletePortfolioCard;
     window.openWritingPortfolio = openWritingPortfolio;
     window.closeWritingPortfolio = closeWritingPortfolio;
+    window.toggleWritingPortfolioExpand = toggleWritingPortfolioExpand;
+
+    window.addEventListener('resize', wpFollowPanelGeometry);
+    if (typeof ResizeObserver !== 'undefined') {
+        const _wpGeomRO = new ResizeObserver(() => wpFollowPanelGeometry());
+        ['sidePanel', 'chatSection'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) _wpGeomRO.observe(el);
+        });
+    }
     window.switchProjectVersion = switchProjectVersion;
     window.filterPortfolioFeedback = filterPortfolioFeedback;
     window.parseDocVersion = parseDocVersion;
@@ -3537,10 +4310,22 @@ export function initChatEngine(deps) {
     window.toggleQuoteText = toggleQuoteText;
     window.toggleAttachMenu = toggleAttachMenu;
     window.triggerPhotoUpload = triggerPhotoUpload;
-    window.openAddGoogleDocDialog = openAddGoogleDocDialog;
+    window.openGdocMenu = openGdocMenu;
+    window.backToAttachMain = backToAttachMain;
+    window.chooseGdocNew = chooseGdocNew;
+    window.submitAttachNewDoc = submitAttachNewDoc;
+    window.copyAttachBotEmail = copyAttachBotEmail;
+    window.chooseGdocExisting = chooseGdocExisting;
+    window.backToGdocMenu = backToGdocMenu;
     window.closeAttachMenu = closeAttachMenu;
     window.toggleDocCommentsExpand = toggleDocCommentsExpand;
     window.syncDocCardComments = syncDocCardComments;
+    window.openDocCommentComposer = openDocCommentComposer;
+    window.closeDocCommentComposer = closeDocCommentComposer;
+    window.replyToDocComment = replyToDocComment;
+    window.closeDocCommentReply = closeDocCommentReply;
+    window.sendDocCommentReply = sendDocCommentReply;
+    window.sendDocCommentFromComposer = sendDocCommentFromComposer;
     window.loadChatThread = loadChatThread;
     window.handleMsgCopy = handleMsgCopy;
     window.handleMsgQuote = handleMsgQuote;
@@ -3548,6 +4333,9 @@ export function initChatEngine(deps) {
     window.handleMsgForward = handleMsgForward;
     window.handleMsgReport = handleMsgReport;
     window.closeForwardPicker = closeForwardPicker;
+    window.openCommentSendPicker = openCommentSendPicker;
+    window.forwardCommentCardMsg = forwardCommentCardMsg;
+    window.sendCommentCardTo = sendCommentCardTo;
     window.handleImg = handleImg;
     window.switchChat = switchChat;
     window.deleteChatRecord = deleteChatRecord;

@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260918-liquid-glass-v2">
+    <link rel="stylesheet" href="style.css?v=20260919-divider-dark-v3">
 
     <script type="importmap">
     {
@@ -151,24 +151,24 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
         "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260612-1800",
+        "./js/view.js": "./js/view.js?v=20260919-iosglass-fb-v1",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
-        "./js/modal.js": "./js/modal.js?v=20260516-2380",
+        "./js/modal.js": "./js/modal.js?v=20260919-modalglass-v5",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260919-docstate-v1",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260919-botcomment-v12",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260612-1800",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260919-wpback-v2",
         "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260919-docstate-v1",
+        "./js/search.js": "./js/search.js?v=20260919-iosglass-fb-v1",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260919-docstate-v2"
+        "./js/chat.js": "./js/chat.js?v=20260919-wpdoc-v2"
       }
     }
     </script>
@@ -195,7 +195,7 @@
         import { SecurityModule } from './js/security.js';
         import { SearchModule } from './js/search.js';
         import { initChatEngine } from './js/chat.js';
-        import { createNewsModule } from './js/news.js?v=20260524-20';
+        import { createNewsModule } from './js/news.js?v=20260919-cafteaser-8';
         import { SettingsModule } from './js/settings.js';
         window.SettingsModule = SettingsModule;
         if (typeof SettingsModule.ensureSettingsModal === 'function') {
@@ -204,7 +204,7 @@
         import { AdminModule } from './js/admin.js';
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
-        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260522-1';
+        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260919-cafcalendar-7';
 
 
 
@@ -3250,7 +3250,7 @@
             <!-- Header synchronized with News panel -->
             <div id="sidePanelHeader" class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-30">
                 <div id="sidePanelHeaderTopRow" class="flex justify-between items-center h-9">
-                    <h2 class="text-2xl font-bold tracking-tight leading-none">Messages</h2>
+                    <h2 class="text-2xl font-bold tracking-tight leading-none">Writting</h2>
                     <div id="sidePanelActionBtns" class="flex items-center gap-3 mb-1">
                         <button id="portfolioBtn" onclick="openPortfolio()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
@@ -3345,7 +3345,7 @@
                     </button>
 
                     <div id="chatSearchWrap"
-                        class="hidden flex items-center relative transition-all duration-300 w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] overflow-hidden">
+                        class="hidden flex items-center relative transition-all duration-300 w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-white/20 overflow-hidden">
                         <button id="chatSearchIconBtn" onclick="toggleChatSearch()"
                             class="w-8 h-8 shrink-0 flex items-center justify-center text-gray-600 dark:text-white/80 active:scale-95 transition-transform"
                             title="Search">
@@ -3401,7 +3401,7 @@
                 <div class="flex flex-col gap-2 max-w-4xl mx-auto w-full">
                     <!-- Reply/Quote Area -->
                     <div id="quoteArea"
-                        class="hidden px-4 py-2.5 rounded-[24px] relative animate-in slide-in-from-bottom-2 duration-200 pointer-events-auto w-full mb-1.5 flex items-center">
+                        class="hidden menu-hidden px-4 py-2.5 rounded-[24px] relative pointer-events-auto w-full mb-1.5 flex items-center">
                         <div class="text-xs flex-1 min-w-0 pr-8 truncate">
                             <span class="text-gray-500 dark:text-gray-400 font-bold">Reply to </span><span class="text-gray-500 dark:text-gray-400 font-bold" id="quoteUser">User</span><span class="text-gray-500 dark:text-gray-400 font-bold">'s message: </span><span class="text-gray-500 dark:text-gray-400" id="quoteText">...</span>
                         </div>
@@ -3428,39 +3428,134 @@
 
                         <!-- Attachment Popover Menu -->
                         <div id="attachMenu" class="hidden menu-hidden absolute bottom-[54px] left-0 z-50 w-[210px] rounded-[22px] overflow-hidden p-1.5 pointer-events-auto">
-                            <!-- Photo Button -->
-                            <button type="button" onclick="triggerPhotoUpload()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                    </svg>
-                                </div>
-                                <div class="flex flex-col">
-                                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Photos</span>
-                                    <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Upload images</span>
-                                </div>
-                            </button>
+                            <!-- View 1: Main (Photos + Google Doc) -->
+                            <div id="attachViewMain">
+                                <!-- Photo Button -->
+                                <button type="button" onclick="triggerPhotoUpload()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                                            <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Photos</span>
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Upload images</span>
+                                    </div>
+                                </button>
 
-                            <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
 
-                            <!-- Google Doc Button -->
-                            <button type="button" onclick="openAddGoogleDocDialog()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                        <polyline points="14 2 14 8 20 8"/>
-                                        <line x1="16" y1="13" x2="8" y2="13"/>
-                                        <line x1="16" y1="17" x2="8" y2="17"/>
-                                        <polyline points="10 9 9 9 8 9"/>
-                                    </svg>
+                                <!-- Google Doc Button -->
+                                <button type="button" onclick="openGdocMenu()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                            <line x1="16" y1="13" x2="8" y2="13"/>
+                                            <line x1="16" y1="17" x2="8" y2="17"/>
+                                            <polyline points="10 9 9 9 8 9"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Google Doc</span>
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Add link & comments</span>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- View 2: Google Doc choice (in-place swap of View 1 rows) -->
+                            <div id="attachViewGdoc" class="hidden">
+                                <!-- Back Row -->
+                                <button type="button" onclick="backToAttachMain()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                                    <div class="w-7 h-7 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-black dark:text-white flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="15 18 9 12 15 6"/>
+                                        </svg>
+                                    </div>
+                                    <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
+                                </button>
+
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
+                                <!-- Add New Doc Button -->
+                                <button type="button" onclick="chooseGdocNew()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                            <line x1="12" y1="18" x2="12" y2="12"/>
+                                            <line x1="9" y1="15" x2="15" y2="15"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Add New Doc</span>
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Paste sharing link</span>
+                                    </div>
+                                </button>
+
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
+                                <!-- Send Existing Doc Button -->
+                                <button type="button" id="gdocExistingBtn" onclick="chooseGdocExisting()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="23 4 23 10 17 10"/>
+                                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Send Existing Doc</span>
+                                        <span class="gdoc-row-sub text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Re-send a synced doc</span>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- View 4: New doc URL input -->
+                            <div id="attachViewInput" class="hidden">
+                                <button type="button" onclick="backToGdocMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                                    <div class="w-7 h-7 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-black dark:text-white flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="15 18 9 12 15 6"/>
+                                        </svg>
+                                    </div>
+                                    <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
+                                </button>
+
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
+                                <div class="px-2 pb-2 pt-1 text-left">
+                                    <div class="text-[13px] text-black dark:text-white leading-snug mb-1.5">Paste your <span class="font-bold">sharing link</span>.<br>Set access to <span class="font-bold">'Anyone with the link can comment'</span>.</div>
+                                    <input type="text" id="attachDocUrlInput" placeholder="https://docs.google.com/..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" onkeydown="if(event.key==='Enter'){event.preventDefault();submitAttachNewDoc();}" class="w-full px-3 py-2 text-[13px] bg-white/70 dark:bg-black/30 rounded-[12px] border border-black/10 dark:border-white/15 text-black dark:text-white outline-none focus:border-[#007AFF] transition-all">
+                                    <div id="attachDocUrlError" class="hidden text-[11px] text-red-500 mt-1.5 leading-snug"></div>
+                                    <button type="button" onclick="submitAttachNewDoc()" class="w-full mt-2 py-2 rounded-[12px] bg-[#007AFF] text-white text-[13px] font-semibold active:scale-[0.98] transition-all">Send</button>
+
+                                    <div class="mt-2.5 pt-2 border-t border-black/5 dark:border-white/10">
+                                        <div class="text-[12px] text-black dark:text-white leading-snug mb-1.5">Or set the bot as a <span class="font-bold">Commenter</span>:</div>
+                                        <div class="flex items-center gap-1.5">
+                                            <span id="attachBotEmail" class="flex-1 min-w-0 px-2 py-1.5 text-[10px] font-mono bg-white/70 dark:bg-black/30 border border-black/10 dark:border-white/15 rounded-[10px] select-all break-all text-black dark:text-white leading-tight">chscommunication@appspot.gserviceaccount.com</span>
+                                            <button type="button" onclick="copyAttachBotEmail(this)" class="px-2.5 py-1.5 text-[11px] font-semibold bg-[#007AFF] text-white rounded-[10px] active:scale-95 transition-all flex-shrink-0">Copy</button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex flex-col">
-                                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight">Google Doc</span>
-                                    <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Add link & comments</span>
-                                </div>
-                            </button>
+                            </div>
+
+                            <!-- View 3: Existing doc list -->
+                            <div id="attachViewDocs" class="hidden">
+                                <button type="button" onclick="backToGdocMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                                    <div class="w-7 h-7 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-black dark:text-white flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="15 18 9 12 15 6"/>
+                                        </svg>
+                                    </div>
+                                    <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
+                                </button>
+
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
+                                <div id="attachDocList" class="max-h-[260px] overflow-y-auto"></div>
+                            </div>
                         </div>
                     </div>
                     <div id="chatInputPill"
@@ -3485,31 +3580,39 @@
                 class="hidden absolute inset-0 z-30 bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
                 <!-- Navigation Header (Synchronized with sidebar Level 2 header specifications) -->
                 <div id="writingPortfolioHeader" class="flex-shrink-0 flex items-center px-4 h-16 mt-safe bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 relative z-10">
-                    <button onclick="closeWritingPortfolio()"
-                        class="text-[#007AFF] flex items-center text-sm font-bold z-10 active:opacity-50 transition-opacity">
-                        <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    <button onclick="closeWritingPortfolio()" title="Back"
+                        class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                        <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                         </svg>
-                        Back
                     </button>
                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-16">
                         <div id="writingPortfolioTitle" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center truncate max-w-full">
                             Writing Portfolio
                         </div>
                     </div>
-                    <div class="ml-auto z-10 flex items-center">
+                    <div class="ml-auto z-10 flex items-center gap-1">
                         <span id="writingPortfolioSubtitle" class="text-[11px] text-gray-400 font-medium truncate text-right"></span>
+                        <button id="writingPortfolioExpandBtn" onclick="toggleWritingPortfolioExpand()" title="Expand"
+                            class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                            <svg id="wpExpandIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3" />
+                            </svg>
+                            <svg id="wpCollapseIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 4v3a2 2 0 0 1-2 2H4M15 4v3a2 2 0 0 0 2 2h3M9 20v-3a2 2 0 0 0-2-2H4M15 20v-3a2 2 0 0 1 2-2h3" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
                 <!-- Documents Timeline List -->
-                <div id="writingPortfolioContent" class="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-4">
+                <div id="writingPortfolioContent" class="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
                     <!-- Timeline items rendered here -->
                 </div>
 
                 <!-- Local In-Panel Project / Version Edit Dialog (Constrained to writing panel, not full-screen) -->
-                <div id="portfolioProjectModal" class="hidden absolute inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200">
-                    <div id="portfolioProjectCard" class="w-full sm:max-w-md bg-white dark:bg-[#1C1C1E] border-t sm:border border-gray-200 dark:border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 text-left transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-200 ease-out">
+                <div id="portfolioProjectModal" class="hidden absolute inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="if (event.target === this) closePortfolioProjectModal()">
+                    <div id="portfolioProjectCard" class="menu-hidden w-full sm:max-w-md rounded-3xl shadow-2xl p-5 text-left">
                         <!-- Header -->
                         <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5 mb-4">
                             <div>
@@ -3529,13 +3632,13 @@
                             <!-- Project Name Input -->
                             <div>
                                 <label class="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Project Name</label>
-                                <input type="text" id="portfolioInputProjectName" placeholder="e.g. Macbeth Essay, Research Paper" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:border-[#007AFF] dark:focus:border-[#0A84FF] focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
+                                <input type="text" id="portfolioInputProjectName" placeholder="e.g. Macbeth Essay, Research Paper" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
                             </div>
 
                             <!-- Version Label Input & Presets -->
                             <div>
                                 <label class="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Version Label</label>
-                                <input type="text" id="portfolioInputVersionLabel" placeholder="e.g. Draft 1, Draft 2, Final" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:border-[#007AFF] dark:focus:border-[#0A84FF] focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
+                                <input type="text" id="portfolioInputVersionLabel" placeholder="e.g. Draft 1, Draft 2, Final" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
                                 <!-- Quick Presets -->
                                 <div class="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-none py-0.5">
                                     <button type="button" onclick="window.setPortfolioVersionPreset('Draft 1')" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">Draft 1</button>
@@ -3611,10 +3714,10 @@
 
     <!-- Message Context Menu -->
     <div id="messageContextMenu"
-        class="hidden fixed z-[250] bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[150px] animate-in fade-in zoom-in-95 duration-150">
+        class="hidden menu-hidden fixed z-[250] rounded-2xl overflow-hidden min-w-[150px]">
         <button onclick="handleMsgCopy()"
             class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                     d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
             </svg>
@@ -3622,7 +3725,7 @@
         </button>
         <button onclick="handleMsgQuote()"
             class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                     d="M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5" />
             </svg>
@@ -3630,7 +3733,7 @@
         </button>
         <button onclick="handleMsgForward()"
             class="w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                     d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
@@ -3901,15 +4004,15 @@
 
     <!-- Cafeteria Menu Page -->
     <div id="cafeteriaPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#EDEFFA] dark:bg-[#1A1D22] flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
         <div
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
             <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
+                <button onclick="closeModule()" title="Back"
+                    class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
                 </button>
             </div>
             <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Cafeteria Menu
@@ -3920,25 +4023,16 @@
             </div>
         </div>
 
-        <div id="cafeteriaContent" class="flex-1 overflow-y-auto p-5 space-y-6 pb-[90px] lg:pb-safe">
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Today <span class="text-sm font-bold text-gray-400" id="cafeteriaTodayDate"></span>
-                </h2>
-                <div id="cafeteriaTodayList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
+        <div id="cafeteriaContent" class="flex-1 overflow-y-auto pb-[90px] lg:pb-safe">
+            <!-- Weekday menu calendar: weeks from this week onward, Mon -> Fri columns -->
+            <div class="sticky top-0 z-10 flex gap-2 px-2 pt-3 pb-2 bg-[#EDEFFA]/95 dark:bg-[#1A1D22]/95 backdrop-blur">
+                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-extrabold text-[#007AFF] dark:text-[#64B5F6] tracking-wide">Mon</div>
+                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Tue</div>
+                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Wed</div>
+                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Thu</div>
+                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Fri</div>
             </div>
-            <div class="space-y-3">
-                <h2 class="text-xl font-black text-black dark:text-white flex items-center gap-2">
-                    Tomorrow <span class="text-sm font-bold text-gray-400" id="cafeteriaTomorrowDate"></span>
-                </h2>
-                <div id="cafeteriaTomorrowList"
-                    class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-white/5 min-h-[100px] flex flex-col gap-3">
-                    <div class="text-center text-gray-400 mt-4">Loading...</div>
-                </div>
-            </div>
+            <div id="cafeteriaCalendar" class="px-2 pt-1 pb-5 space-y-2"></div>
         </div>
     </div>
 
@@ -3959,18 +4053,24 @@
                 class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
                 <button onclick="closeCafeteriaEdit()"
                     class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
-                <div class="font-bold text-base text-black dark:text-white flex-1 text-center">Edit Menu</div>
+                <div class="flex-1 text-center min-w-0">
+                    <div class="font-bold text-base text-black dark:text-white leading-tight">Edit Menu</div>
+                    <input type="date" id="cafeteriaEditDate" onchange="changeCafeteriaEditDate()"
+                        class="mt-0.5 bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-700 dark:text-gray-200 text-[13px] font-semibold rounded-lg px-2 py-1 outline-none border border-gray-200 dark:border-white/10">
+                </div>
                 <button onclick="saveCafeteriaMenu()"
                     class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Save</button>
             </div>
-            <!-- Day tabs -->
+            <!-- AI Import -->
             <div class="px-5 pb-3 flex-shrink-0">
-                <div class="flex bg-[#E9E9EB] dark:bg-gray-800 rounded-xl p-0.5 h-8">
-                    <button id="cafeteriaTabToday" onclick="switchCafeteriaTab('today')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center bg-white dark:bg-[#2C2C2E] rounded-lg shadow-sm text-black dark:text-white transition-all">Today</button>
-                    <button id="cafeteriaTabTomorrow" onclick="switchCafeteriaTab('tomorrow')"
-                        class="flex-1 text-center text-sm font-medium h-full flex items-center justify-center text-gray-500 rounded-lg transition-all">Tomorrow</button>
-                </div>
+                <button onclick="openCafeteriaBatchImport()"
+                    class="w-full py-2.5 text-[#007AFF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2 bg-[#007AFF]/5 dark:bg-[#007AFF]/10 rounded-2xl border border-[#007AFF]/15">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    AI Import (Batch Import Menu-JSON)
+                </button>
             </div>
             <!-- Add food input -->
             <div class="flex gap-2 px-5 pb-3 flex-shrink-0">
@@ -3996,11 +4096,11 @@
         <div
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
             <div class="w-20">
-                <button onclick="closeEagleTime()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
+                <button onclick="closeEagleTime()" title="Back"
+                    class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
                 </button>
             </div>
             <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Eagle Time

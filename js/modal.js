@@ -27,6 +27,8 @@
  *    - 【输入】：title (String) - 标题；body (String) - 正文；defaultValue (String) - 输入框默认值�? *    - 【返回】：Promise(String | null) - 返回用户输入的字符串，点取消返回 null�? *    - 【存在理由】：它会在弹窗正文动态插入一个输入框，是收集用户临时输入的最高效方式�? * ==================================================================================
  */
 
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
+
 // Private Helper: Escape HTML to prevent XSS in prompts/body
 // [Architectural Note]: This is implemented locally to keep ModalModule Zero-Dependency.
 // It ensures the module remains portable and independent of global utility functions.
@@ -43,16 +45,16 @@ const _escape = (str) => {
 // Private UI Template: The HTML structure for the custom modal
 const MODAL_HTML = `
     <div id="customModal"
-        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/40 backdrop-blur-md px-6 transition-all duration-300 opacity-0">
-        <div class="bg-white/90 dark:bg-gray-900/90 w-full max-w-[320px] rounded-2xl overflow-hidden shadow-2xl scale-90 transition-all duration-300 border border-white/20">
+        class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/25 backdrop-blur-[5px] px-6 transition-all duration-300 opacity-0">
+        <div id="modalCard" class="w-full max-w-[320px] rounded-2xl overflow-hidden scale-90 transition-all duration-300 border border-black/15 dark:border-white/10">
             <div class="p-5 text-center">
                 <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-2 leading-tight">Title</div>
                 <div id="modalBody" class="text-sm text-black/75 dark:text-white/70 leading-snug break-words">Body</div>
             </div>
-            <div class="flex border-t border-gray-200 dark:border-white/10 h-12">
-                <button id="modalCancel" class="flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
-                <button id="modalAlt" class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">No</button>
-                <button id="modalConfirm" class="flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Continue</button>
+            <div class="flex border-t border-black/10 dark:border-white/10 h-12">
+                <button id="modalCancel" class="flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
+                <button id="modalAlt" class="hidden flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">No</button>
+                <button id="modalConfirm" class="flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Continue</button>
             </div>
         </div>
     </div>
@@ -138,6 +140,26 @@ export const ModalModule = {
         }, 500);
     },
 
+    // The card only has a measurable size once the overlay is un-hidden,
+    // so the glass bevel is built on first open and re-measured on every open.
+    _attachGlass(inner) {
+        if (!inner) return;
+        if (!inner._liquidGlass) {
+            new LiquidGlassEffect(inner, {
+                radius: 16,            // matches rounded-2xl
+                refractionWidth: 13,   // slightly wider bevel ring than the composer pill
+                maxDisplacement: 8,    // matches chatInputPill refraction strength
+                frostBlur: 5.5,        // milkier frosted body
+                edgeBlur: 2.2,         // softly frosted bevel rim
+                mouseRadius: 60,
+                mouseStrength: 6
+            });
+        }
+        requestAnimationFrame(() => {
+            if (inner._liquidGlass) inner._liquidGlass.refresh();
+        });
+    },
+
     // Open with animation
     _open(layerId = 'customModal') {
         const els = this._getEls();
@@ -178,6 +200,8 @@ export const ModalModule = {
         modal.classList.remove('opacity-0');
         inner.classList.add('scale-100');
         inner.classList.remove('scale-90');
+
+        this._attachGlass(inner);
     },
 
     // --- Public API ---
@@ -193,7 +217,7 @@ export const ModalModule = {
             els.title.innerText = title;
             els.body.innerHTML = body;
             els.confirm.innerText = btnText;
-            els.confirm.className = "flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
+            els.confirm.className = "flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
 
             els.cancel.classList.add('hidden');
             els.alt.classList.add('hidden');
@@ -218,7 +242,7 @@ export const ModalModule = {
 
             els.cancel.classList.remove('hidden');
             els.alt.classList.add('hidden');
-            els.confirm.className = "flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
+            els.confirm.className = "flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
 
             els.cancel.onclick = () => this._close(false, resolve);
             els.confirm.onclick = () => this._close(true, resolve);
@@ -241,7 +265,7 @@ export const ModalModule = {
             els.alt.classList.add('hidden');
             els.cancel.innerText = "Cancel";
             els.confirm.innerText = "Save";
-            els.confirm.className = "flex-1 text-base text-[#007AFF] font-bold active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
+            els.confirm.className = "flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors";
 
             els.cancel.onclick = () => this._close(null, resolve);
             els.confirm.onclick = () => {
@@ -288,14 +312,14 @@ export const ModalModule = {
             if (buttons.length >= 1) {
                 els.confirm.classList.remove('hidden');
                 els.confirm.innerText = buttons[0].text;
-                els.confirm.className = `flex-1 text-base text-[#007AFF] ${buttons[0].primary ? 'font-bold' : 'font-normal'} active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
+                els.confirm.className = `flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
                 els.confirm.onclick = () => this._close(buttons[0].value, resolve);
             }
 
             if (buttons.length >= 2) {
                 els.cancel.classList.remove('hidden');
                 els.cancel.innerText = buttons[1].text;
-                els.cancel.className = `flex-1 text-base text-[#007AFF] ${buttons[1].primary ? 'font-bold' : 'font-normal'} border-r border-gray-200 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
+                els.cancel.className = `flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
                 els.cancel.onclick = () => this._close(buttons[1].value, resolve);
             }
 

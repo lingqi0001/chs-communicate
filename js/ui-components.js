@@ -74,7 +74,9 @@ export const UIComponents = {
             images = [msg.text];
         }
 
-        if (msg.isExpired || msg.text === 'Image Expired') {
+        if (msg.type === 'comment_card' && msg.commentCard) {
+            content = UIComponents.renderCommentCardMsg(msg, key, isMe);
+        } else if (msg.isExpired || msg.text === 'Image Expired') {
             content = `<div class="relative w-36 h-48 bg-gray-100 dark:bg-[#2C2C2E] rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-white/5 shadow-inner">
                         <svg class="w-8 h-8 mb-2 opacity-40 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
@@ -183,7 +185,7 @@ export const UIComponents = {
         const dateStr = UIUtils.formatTime(post.timestamp);
 
         return `
-            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider inline-block flex-shrink-0 max-w-[60%] break-words leading-none">${UIUtils.escape(badgeText)}</span>
                     <div class="flex items-center gap-2 ml-auto">
@@ -274,17 +276,31 @@ export const UIComponents = {
         return (comments || []).filter(c => c && !c.deleted && c.status !== 'deleted_on_google');
     },
 
+    // Service-account courier email; comments it posts carry a
+    // "Created by <platform user>: <text>" prefix that we strip for display.
+    BOT_DOCS_EMAIL: 'chscommunication@appspot.gserviceaccount.com',
+
+    docCommentDisplay: function (c) {
+        const email = String(c?.author?.emailAddress || '').toLowerCase();
+        const name = String(c?.author?.displayName || '');
+        const content = c?.content || '';
+        const isBot = email === UIComponents.BOT_DOCS_EMAIL
+            || email.endsWith('.gserviceaccount.com')
+            || name.toLowerCase().endsWith('.gserviceaccount.com');
+        if (isBot) {
+            const m = content.match(/^Created by ([^:\n]{1,80}):\s?([\s\S]*)$/);
+            if (m) return { author: m[1].trim() || name, content: m[2], viaBot: true };
+            return { author: 'Bot', content, viaBot: true };
+        }
+        return { author: name, content, viaBot: false };
+    },
+
     docBadgeLabel: function (docData) {
         const live = UIComponents.docLiveComments(docData?.comments);
-        const openCount = live.filter(c => !c.resolved).length;
         const count = live.length;
         let label;
         if (count > 0) {
-            if (openCount > 0) {
-                label = count === 1 ? `1 comment (${openCount} open)` : `${count} comments (${openCount} open)`;
-            } else {
-                label = count === 1 ? `1 comment (resolved)` : `${count} comments (all resolved)`;
-            }
+            label = count === 1 ? '1 comment' : `${count} comments`;
         } else {
             label = 'Google Doc';
         }
@@ -362,12 +378,23 @@ export const UIComponents = {
         const liveList = UIComponents.docLiveComments(list);
         const liveOpen = liveList.filter(c => !c.resolved).length;
         const liveResolved = liveList.length - liveOpen;
+        const liveDeleted = list.length - liveList.length;
+
+        // Per-comment payloads so each row's Send button can ship just that comment
+        window._docCommentPayloads = window._docCommentPayloads || {};
+        window._docCommentPayloads[key] = {
+            docId,
+            docUrl,
+            docTitle: docData?.title || 'Google Document',
+            comments: list
+        };
 
         const filterBarHtml = `
-            <div class="doc-filter-bar flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-white/5">
+            <div class="doc-filter-bar flex items-center gap-2 mb-3">
                 <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${list.length})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${liveOpen})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${liveResolved})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${liveOpen})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${liveResolved})</button>
+                ${liveDeleted > 0 ? `<button type="button" onclick="window.filterDocComments('${key}', 'deleted', event)" id="filterBtn-${key}-deleted" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Deleted (${liveDeleted})</button>` : ''}
             </div>
         `;
 
@@ -379,7 +406,7 @@ export const UIComponents = {
                 const isLong = quoteVal.length > 60;
                 quoteHtml = `
                     <div class="mb-2 pl-3 border-l-2 border-[#007AFF]/40 dark:border-[#0A84FF]/50 text-left py-0.5">
-                        <div id="${quoteId}" class="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed italic ${isLong ? 'line-clamp-2' : ''}">“${UIUtils.escape(quoteVal)}”</div>
+                        <div id="${quoteId}" class="text-[13px] text-black dark:text-white leading-relaxed italic ${isLong ? 'line-clamp-2' : ''}">“${UIUtils.escape(quoteVal)}”</div>
                         ${isLong ? `<button type="button" onclick="window.toggleQuoteText('${quoteId}', this, event)" class="mt-0.5 text-[11px] text-[#007AFF] dark:text-[#0A84FF] hover:underline font-medium transition-colors">Expand</button>` : ''}
                     </div>
                 `;
@@ -387,7 +414,8 @@ export const UIComponents = {
 
             const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
             const isMissing = c.status === 'missing_from_latest_sync' && !isDeleted;
-            const author = c.author?.displayName || 'Reviewer';
+            const disp = UIComponents.docCommentDisplay(c);
+            const author = disp.author || 'Reviewer';
 
             let statusTag = '';
             if (isDeleted) {
@@ -405,32 +433,67 @@ export const UIComponents = {
                 : (docUrl || '#');
 
             let repliesHtml = '';
-            if (c.replies && c.replies.length > 0) {
-                repliesHtml = c.replies.map(r => `
+            // Google inserts empty-content replies when someone resolves or
+            // reopens a comment; those are noise here (status is already tagged).
+            const visibleReplies = (c.replies || []).filter(r => r && String((UIComponents.docCommentDisplay(r).content) || '').trim());
+            if (visibleReplies.length > 0) {
+                repliesHtml = visibleReplies.map(r => {
+                    const rDisp = UIComponents.docCommentDisplay(r);
+                    return `
                     <div class="mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[13px]">
-                        <span class="font-semibold text-black dark:text-white">${UIUtils.escape(r.author?.displayName || 'User')}:</span>
-                        <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(r.content || '')}</span>
+                        <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'User')}:</span>
+                        <span class="text-black dark:text-white ml-1">${UIUtils.escape(rDisp.content || '')}</span>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             }
 
             const rowOpacity = (isDeleted || isMissing) ? ' opacity-60' : '';
+            const actionIconClass = isDeleted
+                ? 'w-7 h-7 rounded-full flex items-center justify-center text-gray-400 dark:text-white/25 pointer-events-none'
+                : 'w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors';
+            const replyBtnHtml = (commentId && !isDeleted) ? `
+                            <button type="button" onclick="window.replyToDocComment('${key}', ${i}, event)" class="${actionIconClass}" title="Reply to this comment in Google Doc">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                                </svg>
+                            </button>` : '';
+            // Inline reply box rendered directly under this comment row.
+            const replyBoxHtml = (commentId && !isDeleted) ? `
+                    <div id="docReplyBox-${key}-${i}" class="hidden mt-2.5 text-left">
+                        <textarea id="docReplyText-${key}-${i}" rows="3" maxlength="3000" placeholder="Write your reply…" class="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#2C2C2E] border border-gray-200 dark:border-white/10 text-[13px] text-black dark:text-white outline-none transition-colors resize-none leading-relaxed"></textarea>
+                        <div class="flex items-center justify-between gap-2 mt-1.5">
+                            <span class="text-[10px] text-black dark:text-white leading-tight">Delivered by the CHSchat bot, signed “Created by you”.</span>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <button type="button" onclick="window.closeDocCommentReply('${key}', ${i}, event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 transition-colors">Cancel</button>
+                                <button type="button" id="docReplySend-${key}-${i}" onclick="window.sendDocCommentReply('${key}', ${i}, event)" class="px-3.5 py-1.5 rounded-xl text-[12px] bg-[#007AFF] text-white hover:bg-[#0062CC] active:scale-95 transition-all shadow-sm">Post</button>
+                            </div>
+                        </div>
+                    </div>
+            ` : '';
+            const dispContent = UIComponents.docCommentDisplay(c).content;
             const contentHtml = isDeleted
-                ? (c.content
-                    ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${UIUtils.escape(c.content)}</div>`
+                ? (dispContent
+                    ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${UIUtils.escape(dispContent)}</div>`
                     : `<div class="text-[13px] italic text-gray-400 dark:text-gray-500">Comment deleted in Google Docs (no snapshot content was saved for it).</div>`)
-                : `<div class="text-[14px] text-gray-800 dark:text-gray-100 leading-relaxed">${UIUtils.escape(c.content || '')}</div>`;
+                : `<div class="text-[14px] text-gray-800 dark:text-white leading-relaxed">${UIUtils.escape(dispContent || '')}</div>`;
 
             return `
-                <div class="comment-item-row py-3 border-b border-gray-100 dark:border-white/5 last:border-b-0 text-left transition-opacity duration-150${rowOpacity}" data-card-key="${key}" data-resolved="${(c.resolved && !isDeleted && !isMissing) ? 'true' : 'false'}" data-comment-deleted="${isDeleted ? 'true' : 'false'}">
+                <div class="comment-item-row py-3 border-b border-gray-100 dark:border-white/[0.04] last:border-b-0 text-left transition-opacity duration-150${rowOpacity}" data-card-key="${key}" data-resolved="${(c.resolved && !isDeleted && !isMissing) ? 'true' : 'false'}" data-comment-deleted="${isDeleted ? 'true' : 'false'}">
                     ${quoteHtml}
                     <div class="flex items-center justify-between gap-2 mb-1.5">
                         <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
                         <div class="flex items-center gap-2">
                             ${statusTag}
-                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline transition-colors" title="Jump to this comment in Google Doc">
-                                <span>View</span>
-                                <svg class="w-3 h-3 inline-block opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            ${replyBtnHtml}
+                            <button type="button" onclick="window.openCommentSendPicker('${key}', ${i}, event)" class="${actionIconClass}" title="Send this comment">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                            </button>
+                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="${actionIconClass}" title="Jump to this comment in Google Doc">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                                     <polyline points="15 3 21 3 21 9"></polyline>
                                     <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -440,6 +503,7 @@ export const UIComponents = {
                     </div>
                     ${contentHtml}
                     ${repliesHtml}
+                    ${replyBoxHtml}
                 </div>
             `;
         }).join('');
@@ -467,6 +531,7 @@ export const UIComponents = {
         const docData = (window.resolveDocViewData && docId)
             ? window.resolveDocViewData(docId, msg.docData)
             : (msg.docData || (docId && window._docCache?.[docId]) || null);
+
         const docTitle = docData?.title || 'Google Document';
         const comments = docData?.comments || [];
         const liveComments = UIComponents.docLiveComments(comments);
@@ -483,14 +548,29 @@ export const UIComponents = {
         // Dynamic badge label highlighting open feedback + sync status
         const badgeLabel = UIComponents.docBadgeLabel(docData);
         const createdTime = docData?.createdTime;
-        const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-        const createdDateTag = createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 font-medium leading-tight"></span>`;
+        const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+        const createdDateTag = createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight"></span>`;
 
         // Two-level access/sync status notice (access lost / comment access lost / snapshot…)
         const statusNoticeHtml = UIComponents.renderDocStatusNoticeHtml(docData, key);
 
         // 构建评论列表 HTML (统一复用 UIComponents.renderDocCommentsHtml)
         const commentsListHtml = UIComponents.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl, docData);
+
+        // Whole-doc note composer (hidden until the header bubble button is tapped).
+        // Per-comment replies live inline under their own comment rows instead.
+        const composerHtml = docId ? `
+            <div id="docComposer-${key}" class="hidden border-t border-gray-100 dark:border-white/5 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02] px-3.5 py-3 text-left">
+                <textarea id="docComposerText-${key}" rows="3" maxlength="3000" placeholder="Write a note on the whole doc…" class="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#2C2C2E] border border-gray-200 dark:border-white/10 text-[13px] text-black dark:text-white outline-none transition-colors resize-none leading-relaxed"></textarea>
+                <div class="flex items-center justify-between gap-2 mt-2">
+                    <span class="text-[10px] text-black dark:text-white leading-tight">Delivered by the CHSchat bot, signed “Created by you”.</span>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onclick="window.closeDocCommentComposer('${key}', event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 transition-colors">Cancel</button>
+                        <button type="button" id="docComposerSend-${key}" onclick="window.sendDocCommentFromComposer('${key}', event)" class="px-3.5 py-1.5 rounded-xl text-[12px] bg-[#007AFF] text-white hover:bg-[#0062CC] active:scale-95 transition-all shadow-sm">Post</button>
+                    </div>
+                </div>
+            </div>
+        ` : '';
 
 
 
@@ -513,7 +593,7 @@ export const UIComponents = {
                             <h4 id="docTitle-${key}" class="text-[15px] font-semibold text-black dark:text-white truncate leading-snug" title="${UIUtils.escape(docTitle)}">${UIUtils.escape(docTitle)}</h4>
                             <div class="flex items-center gap-2 mt-0.5">
                                 <!-- Light Blue Pill Badge -->
-                                <span id="docBadge-${key}" class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF] leading-tight">
+                                <span id="docBadge-${key}" class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#007AFF]/10 text-black dark:text-white dark:bg-[#0A84FF]/20 leading-tight">
                                     ${badgeLabel}
                                 </span>
                                 ${createdDateTag}
@@ -524,7 +604,7 @@ export const UIComponents = {
                     <!-- Action Icons -->
                     <div class="flex items-center gap-1">
                         <!-- Sync Comments Action Button -->
-                        <button onclick="window.syncDocCardComments('${key}', '${docUrl}', event, '${msg.chatId || ''}')" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-[#007AFF] transition-colors" title="Sync comments">
+                        <button onclick="window.syncDocCardComments('${key}', '${docUrl}', event, '${msg.chatId || ''}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Sync comments">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="23 4 23 10 17 10"></polyline>
                                 <polyline points="1 20 1 14 7 14"></polyline>
@@ -532,8 +612,17 @@ export const UIComponents = {
                             </svg>
                         </button>
 
+                        <!-- Post Comment Composer Toggle (right of Sync) -->
+                        <button onclick="window.openDocCommentComposer('${key}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Post a comment to this doc">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                                <line x1="12" y1="8" x2="12" y2="14"></line>
+                                <line x1="9" y1="11" x2="15" y2="11"></line>
+                            </svg>
+                        </button>
+
                         <!-- Open Google Doc External Link -->
-                        <a href="${UIUtils.escape(docUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-[#007AFF] transition-colors" title="Open Google Doc">
+                        <a href="${UIUtils.escape(docUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Open Google Doc">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -542,7 +631,7 @@ export const UIComponents = {
                         </a>
 
                         <!-- Toggle Comments Collapse -->
-                        <button onclick="window.toggleDocCommentsExpand('${key}', event)" class="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-500 transition-colors" title="Toggle comments list">
+                        <button onclick="window.toggleDocCommentsExpand('${key}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Toggle comments list">
                             <svg id="docArrow-${key}" class="w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
@@ -551,16 +640,122 @@ export const UIComponents = {
                 </div>
 
                 ${statusNoticeHtml}
+                ${composerHtml}
 
                 <!-- Expandable Comments Drawer Area with Smooth Accordion -->
                 <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">
                     <div class="min-h-0 overflow-hidden border-t border-gray-100 dark:border-white/5">
-                        <div class="px-3.5 py-1.5">
+                        <div class="px-3.5 pt-3.5 pb-1.5">
                             <div id="docList-${key}">
                                 ${commentsListHtml}
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * [Comment Card Message] 单条 Google Doc 评论被转发后在聊天中生成的评论卡片
+     */
+    renderCommentCardMsg: function (msg, key, isMe) {
+        const card = msg.commentCard || {};
+        // Registry so this card can be forwarded on to another person
+        window._commentCardMsgPayloads = window._commentCardMsgPayloads || {};
+        window._commentCardMsgPayloads[key] = card;
+        const c = card.comment || {};
+        const docTitle = card.docTitle || 'Google Document';
+        const quoteVal = c.quotedFileContent?.value || '';
+        const cDisp = UIComponents.docCommentDisplay(c);
+        const author = cDisp.author || 'Reviewer';
+        const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
+        const createdTime = c.createdTime;
+        const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+        const commentDirectUrl = (card.docId && c.id)
+            ? `https://docs.google.com/document/d/${card.docId}/edit?disco=${encodeURIComponent(c.id)}`
+            : (card.docUrl || '#');
+
+        let quoteHtml = '';
+        if (quoteVal) {
+            quoteHtml = `
+                <div class="mb-2 pl-3 border-l-2 border-[#007AFF]/40 dark:border-[#0A84FF]/50 text-left py-0.5">
+                    <div class="text-[13px] text-black dark:text-white leading-relaxed italic">“${UIUtils.escape(quoteVal)}”</div>
+                </div>
+            `;
+        }
+
+        let statusTag = '';
+        if (isDeleted) {
+            statusTag = '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Deleted in Google Docs</span>';
+        } else if (c.resolved) {
+            statusTag = '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>';
+        }
+
+        let repliesHtml = '';
+        // Skip Google's empty resolve/reopen event replies (see renderDocCommentsHtml).
+        const visibleReplies = (c.replies || []).filter(r => r && String((UIComponents.docCommentDisplay(r).content) || '').trim());
+        if (visibleReplies.length > 0) {
+            repliesHtml = visibleReplies.map(r => {
+                const rDisp = UIComponents.docCommentDisplay(r);
+                return `
+                <div class="mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[13px]">
+                    <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'User')}:</span>
+                    <span class="text-black dark:text-white ml-1">${UIUtils.escape(rDisp.content || '')}</span>
+                </div>
+            `;
+            }).join('');
+        }
+
+        const contentHtml = isDeleted
+            ? (cDisp.content
+                ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${UIUtils.escape(cDisp.content)}</div>`
+                : `<div class="text-[13px] italic text-gray-400 dark:text-gray-500">Comment deleted in Google Docs (no snapshot content was saved for it).</div>`)
+            : `<div class="text-[14px] text-gray-800 dark:text-white leading-relaxed">${UIUtils.escape(cDisp.content || '')}</div>`;
+
+        return `
+            <div class="w-full max-w-[420px] bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden text-left my-1">
+                <!-- Card Header: source doc reference -->
+                <div class="px-3.5 py-2.5 flex items-center justify-between gap-2 border-b border-gray-100 dark:border-white/5 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02]">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-bold uppercase tracking-wide text-[#007AFF] dark:text-[#0A84FF] leading-tight">Google Doc Comment</div>
+                            <div class="text-[13px] font-semibold text-black dark:text-white truncate leading-snug" title="${UIUtils.escape(docTitle)}">${UIUtils.escape(docTitle)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <button type="button" onclick="window.forwardCommentCardMsg('${key}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Send this comment">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                        <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Jump to this comment in Google Doc">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="px-3.5 py-3">
+                    ${quoteHtml}
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
+                        <div class="flex items-center gap-2">
+                            ${statusTag}
+                            ${createdDateStr ? `<span class="text-[11px] text-gray-400 whitespace-nowrap">${createdDateStr}</span>` : ''}
+                        </div>
+                    </div>
+                    ${contentHtml}
+                    ${repliesHtml}
                 </div>
             </div>
         `;

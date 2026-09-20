@@ -295,6 +295,144 @@ async function appendSyncLog(fileId, entry) {
     }
 }
 
+// ==========================================
+// Bot Comment Posting (via / on Google Docs)
+// The service account is only a courier: the real author is embedded as a
+// "Created by <platform user>: <text>" prefix so the client can attribute it.
+// ==========================================
+const BOT_DISPLAY_PREFIX = 'Created by ';
+
+async function getBotWriteAuth() {
+    const scopes = [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents.readonly'
+    ];
+    if (process.env.GOOGLE_SA_JSON) {
+        const sa = JSON.parse(process.env.GOOGLE_SA_JSON);
+        if (!sa.client_email || !sa.private_key) throw new Error('missing client_email/private_key');
+        return new google.auth.GoogleAuth({ credentials: sa, scopes });
+    }
+    return new google.auth.GoogleAuth({
+        keyFile: path.join(__dirname, 'service-account.json'),
+        scopes
+    });
+}
+
+exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
+    const startedAt = Date.now();
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign-in required to post comments.');
+    }
+
+    const docUrl = data.url;
+    const fileId = extractGoogleDocId(docUrl);
+    if (!fileId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid document URL');
+    }
+    const chatId = data.chatId || null;
+    const messageKey = data.messageKey || null;
+    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_-]{8,}$/.test(data.commentId))
+        ? data.commentId : null;
+
+    const rawText = String(data.content || '').replace(/\r\n/g, '\n').trim();
+    if (!rawText) {
+        throw new functions.https.HttpsError('invalid-argument', 'Comment text is empty.');
+    }
+    if (rawText.length > 3000) {
+        throw new functions.https.HttpsError('invalid-argument', 'Comment text is too long (3000 character limit).');
+    }
+    const userName = String(data.userName || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Anonymous';
+    const postedText = `${BOT_DISPLAY_PREFIX}${userName}: ${rawText}`;
+
+    let failKind = 'unknown';
+    let errInfo = null;
+    let postedId = null;
+    try {
+        const auth = await getBotWriteAuth();
+        const drive = google.drive({ version: 'v3', auth });
+
+        // Google Docs renders floating (unanchored) API comments as
+        // "Original content deleted", so doc-wide notes anchor to the first
+        // non-empty paragraph of the document body instead.
+        let rangeAnchor = null;
+        if (!commentId) {
+            try {
+                const docs = google.docs({ version: 'v3', auth });
+                const dres = await docs.documents.get({
+                    documentId: fileId,
+                    fields: 'body/content(startIndex,endIndex,paragraph(elements(textRun(content))))'
+                });
+                const segs = (dres.data.body && dres.data.body.content) || [];
+                for (const seg of segs) {
+                    const els = (seg.paragraph && seg.paragraph.elements) || [];
+                    const text = els.map(e => (e.textRun && e.textRun.content) || '').join('');
+                    if (text.trim()) {
+                        rangeAnchor = { startIndex: seg.startIndex, endIndex: seg.endIndex };
+                        break;
+                    }
+                }
+            } catch (anchorErr) {
+                console.warn('[GoogleDoc] first-paragraph anchor lookup failed, posting unanchored:', anchorErr.message);
+            }
+        }
+
+        const requestBody = { content: postedText };
+        if (rangeAnchor) requestBody.rangeAnchor = rangeAnchor;
+
+        let res;
+        if (commentId) {
+            res = await drive.replies.create({
+                fileId,
+                commentId,
+                supportsAllDrives: true,
+                fields: 'id,content,createdTime',
+                requestBody: { content: postedText }
+            });
+        } else {
+            res = await drive.comments.create({
+                fileId,
+                supportsAllDrives: true,
+                fields: 'id,content,createdTime',
+                requestBody
+            });
+        }
+        postedId = (res.data && res.data.id) || null;
+    } catch (err) {
+        errInfo = classifyGoogleError(err);
+        console.warn(`[GoogleDoc] comment post failed (${errInfo.status} ${errInfo.reason}): ${errInfo.message}`);
+        if (looksLikeCredentialFailure(errInfo) || errInfo.status === 401) failKind = 'auth';
+        else if (errInfo.status === 403) failKind = 'permission';
+        else if (errInfo.status === 404) failKind = 'not_found';
+        else if (errInfo.status === 400) failKind = 'bad_request';
+        else if (errInfo.status === 429 || errInfo.status >= 500) failKind = 'retryable';
+    }
+
+    const success = !!postedId && !errInfo;
+    appendSyncLog(fileId, {
+        startedAt: startedAt,
+        finishedAt: Date.now(),
+        chatId: chatId || '',
+        messageKey: messageKey || '',
+        kind: 'post_comment',
+        mode: commentId ? 'reply' : 'doc_wide',
+        targetCommentId: commentId || '',
+        postedCommentId: postedId || '',
+        httpCode: errInfo ? errInfo.status : 200,
+        googleReason: errInfo ? errInfo.reason : '',
+        googleError: errInfo ? errInfo.message : '',
+        resultStatus: success ? 'posted' : failKind
+    });
+
+    return {
+        success: success,
+        postedCommentId: postedId,
+        postedAt: success ? Date.now() : null,
+        failKind: success ? null : failKind,
+        httpStatus: errInfo ? errInfo.status : null,
+        error: errInfo ? errInfo.message : null
+    };
+});
+
 exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
     const startedAt = Date.now();
     const docUrl = data.url;

@@ -1247,7 +1247,7 @@
 
         window.switchCalcType = (type) => {
             currentCalcType = type;
-            closeTranscriptModal();
+            window.closeTranscriptModal?.();
             const btnYear = document.getElementById('calcTabYear');
             const btnSem = document.getElementById('calcTabSem');
             const btnGpa = document.getElementById('calcTabGpa');

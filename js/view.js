@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260612-1741';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
 
 /**
  * ==================================================================================

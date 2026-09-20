@@ -94,17 +94,18 @@ export class LiquidGlassEffect {
   }
   
   init() {
-    // Browser/feature detection for SVG filter inside backdrop-filter support.
-    // Safari and Firefox do not support referencing SVG filters in backdrop-filter.
-    // Chrome / Edge / Chromium-based browsers (including Mac Chrome) fully support it.
+    // Feature detection for SVG filters referenced from backdrop-filter.
+    // Only Blink supports it. WebKit silently drops the whole declaration
+    // (WebKit bug 245510), and on iOS every browser ships WebKit -- Chrome
+    // and Firefox included -- so the platform, not the browser, decides there.
     const ua = navigator.userAgent;
-    const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Edg/i.test(ua);
+    const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
     const isFirefox = /Firefox|FxiOS/i.test(ua);
-    
-    // Only genuine Safari and Firefox fallback; all Chrome/Chromium browsers get full Liquid Glass
-    this.isFallback = isSafari || isFirefox;
 
-    
+    this.isFallback = isIOS || isSafari || isFirefox;
+
     if (this.isFallback) {
       this.element.classList.add('liquid-glass-fallback');
       if (this.element.id !== 'bottomNavActivePill') {
