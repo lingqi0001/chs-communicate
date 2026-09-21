@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260920-wpctxbar-v20">
+    <link rel="stylesheet" href="style.css?v=20260921-fly-pill-merge-v7">
 
     <script type="importmap">
     {
@@ -151,25 +151,25 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
         "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260920-iosglass-fb-v2",
+        "./js/view.js": "./js/view.js?v=20260921-accentdisc-v2",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
-        "./js/modal.js": "./js/modal.js?v=20260920-modalglass-v6",
+        "./js/modal.js": "./js/modal.js?v=20260921-modalglass-v7",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/writing.js": "./js/writing.js?v=20260920-ccstrip-v13",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260920-hoverfix-v1",
+        "./js/writing.js": "./js/writing.js?v=20260921-accentdisc-v3",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260921-accentdisc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260919-wpback-v3",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260921-sidebar-tab-glass-v21",
         "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260920-iosglass-fb-v2",
+        "./js/search.js": "./js/search.js?v=20260921-sidebar-tab-glass-v4",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260920-wpproj-v35"
+        "./js/chat.js": "./js/chat.js?v=20260921-accentdisc-v4"
       }
     }
     </script>
@@ -502,7 +502,7 @@
                     }
                 };
                 const badgeHtml = showIcon ? `
-                    <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 shrink-0">
+                    <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-black dark:text-white shrink-0">
                         ${iconSvg}
                     </div>` : '';
                 card.innerHTML = `
@@ -3203,7 +3203,7 @@
                         <!-- Developer Portal Access (Synchronized UI) -->
                         <div onclick="openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents')"
                             class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition mb-3 group">
-                            <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-black dark:text-white shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -3407,7 +3407,7 @@
             <div id="wpDocContextBar">
                 <button id="wpProjectHeader" type="button" onclick="toggleWpProjectMenu(event)" aria-haspopup="listbox" aria-expanded="false"
                     title="Choose a writing project to focus this chat on"
-                    class="w-full h-[34px] px-3 rounded-[14px] flex items-center gap-3 text-left cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                    class="w-full h-[34px] px-3 rounded-[14px] flex items-center gap-3 text-left cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-[background-color,transform]">
                     <span id="wpProjectHeaderIcon" class="glass-disc w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0" onclick="window.toggleWpProjectHeaderIcon(event)">
                         <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     </span>
@@ -3431,6 +3431,9 @@
 
             <!-- Wrapper container to constrain chatBox and frosted glass overlay -->
             <div class="flex-1 flex flex-col items-stretch relative min-h-0 w-full">
+                <!-- iMessage-style top fade: messages dissolve as they scroll
+                     under the floating bars. Gradient, not a flat block. -->
+                <div class="chat-top-fade pointer-events-none absolute top-0 inset-x-0 h-44 z-[25]"></div>
                 <div id="chatBox" class="w-full h-full overflow-y-auto px-4 pt-20 pb-20 md:pb-24 space-y-[2px] relative z-0">
                     <div class="h-full min-h-[200px] flex items-center justify-center text-gray-400">
                         <div class="flex flex-col items-center gap-2">
@@ -3481,7 +3484,7 @@
                             <div id="attachViewMain">
                                 <!-- Photo Button -->
                                 <button type="button" onclick="triggerPhotoUpload()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                                             <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -3498,7 +3501,7 @@
 
                                 <!-- Google Doc Button -->
                                 <button type="button" onclick="openGdocMenu()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                             <polyline points="14 2 14 8 20 8"/>
@@ -3530,7 +3533,7 @@
 
                                 <!-- Add New Doc Button -->
                                 <button type="button" onclick="chooseGdocNew()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                             <polyline points="14 2 14 8 20 8"/>
@@ -3548,7 +3551,7 @@
 
                                 <!-- Send Existing Doc Button -->
                                 <button type="button" id="gdocExistingBtn" onclick="chooseGdocExisting()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="23 4 23 10 17 10"/>
                                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -3564,7 +3567,7 @@
 
                                 <!-- Request A Doc Button -->
                                 <button type="button" id="gdocRequestBtn" onclick="chooseGdocRequest()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
-                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                             <polyline points="7 10 12 15 17 10"/>
@@ -3680,7 +3683,7 @@
                 <!-- Navigation Header (Synchronized with sidebar Level 2 header specifications) -->
                 <div id="writingPortfolioHeader" class="flex-shrink-0 flex items-center px-4 h-16 mt-safe bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 relative z-10">
                     <button onclick="closeWritingPortfolio()" title="Back"
-                        class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                        class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer z-10">
                         <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                         </svg>
@@ -3693,7 +3696,7 @@
                     <div class="ml-auto z-10 flex items-center gap-1">
                         <span id="writingPortfolioSubtitle" class="text-[11px] text-gray-400 font-medium truncate text-right"></span>
                         <button id="writingPortfolioExpandBtn" onclick="toggleWritingPortfolioExpand()" title="Expand"
-                            class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                            class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
                             <svg id="wpExpandIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3" />
                             </svg>
@@ -4117,7 +4120,7 @@
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
             <div class="w-20">
                 <button onclick="closeModule()" title="Back"
-                    class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                    class="w-9 h-9 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
@@ -4205,7 +4208,7 @@
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
             <div class="w-20">
                 <button onclick="closeEagleTime()" title="Back"
-                    class="w-9 h-9 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                    class="w-9 h-9 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
@@ -4296,7 +4299,7 @@
             class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
             <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-3 z-10">
                 <button onclick="closeExtension()" title="Back"
-                    class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
+                    class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>

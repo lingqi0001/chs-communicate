@@ -150,9 +150,9 @@ export const WritingDocCard = {
         const filterBarHtml = (opts && opts.hideFilter) ? '' : `
             <div class="doc-filter-bar flex items-center gap-2 mb-3">
                 <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${list.length})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Open (${liveOpen})</button>
-                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Resolved (${liveResolved})</button>
-                ${liveDeleted > 0 ? `<button type="button" onclick="window.filterDocComments('${key}', 'deleted', event)" id="filterBtn-${key}-deleted" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all">Deleted (${liveDeleted})</button>` : ''}
+                <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white accent-hover-soft transition-all">Open (${liveOpen})</button>
+                <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white accent-hover-soft transition-all">Resolved (${liveResolved})</button>
+                ${liveDeleted > 0 ? `<button type="button" onclick="window.filterDocComments('${key}', 'deleted', event)" id="filterBtn-${key}-deleted" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white accent-hover-soft transition-all">Deleted (${liveDeleted})</button>` : ''}
             </div>
         `;
 
@@ -212,7 +212,7 @@ export const WritingDocCard = {
                     // button. It matches the reply's own Google id (r.id): each
                     // reply's chat card carries that id in commentCard.anchorIds.
                     const rLocateHtml = r.id ? `
-                        <button type="button" onclick="window.portfolioJumpToChat('${anchorMsgKey}', '${docId || ''}', '${UIUtils.escape(r.id)}', '${UIUtils.escape(docData?.title || '')}')" class="w-6 h-6 -ml-1 flex-shrink-0 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Locate this comment in chat">
+                        <button type="button" onclick="window.portfolioJumpToChat('${anchorMsgKey}', '${docId || ''}', '${UIUtils.escape(r.id)}', '${UIUtils.escape(docData?.title || '')}')" class="w-6 h-6 -ml-1 flex-shrink-0 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Locate this comment in chat">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="6"></circle>
                                 <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
@@ -234,7 +234,7 @@ export const WritingDocCard = {
             const rowOpacity = (isDeleted || isMissing) ? ' opacity-60' : '';
             const actionIconClass = isDeleted
                 ? 'w-7 h-7 rounded-full flex items-center justify-center text-gray-400 dark:text-white/25 pointer-events-none'
-                : 'w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors';
+                : 'w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors';
             const replyBtnHtml = (commentId && !isDeleted) ? `
                             <button type="button" onclick="window.replyToDocComment('${key}', ${i}, event)" class="${actionIconClass}" title="Reply to this comment in Google Doc">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -267,7 +267,7 @@ export const WritingDocCard = {
                         <div class="flex items-center justify-between gap-2 mt-1.5">
                             <span class="text-[10px] text-black dark:text-white leading-tight">Delivered by the CHSchat bot, signed “Created by you”.</span>
                             <div class="flex items-center gap-1.5 flex-shrink-0">
-                                <button type="button" onclick="window.closeDocCommentReply('${key}', ${i}, event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 transition-colors">Cancel</button>
+                                <button type="button" onclick="window.closeDocCommentReply('${key}', ${i}, event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white accent-hover-soft transition-colors">Cancel</button>
                                 <button type="button" id="docReplySend-${key}-${i}" onclick="window.sendDocCommentReply('${key}', ${i}, event)" class="px-3.5 py-1.5 rounded-xl text-[12px] bg-[#007AFF] text-white hover:bg-[#0062CC] active:scale-95 transition-all shadow-sm">Post</button>
                             </div>
                         </div>
@@ -309,7 +309,7 @@ export const WritingDocCard = {
                         </div>
                     </div>
                     <!-- One continuous blue rail: quote text flows into the main comment body -->
-                    <div class="mb-2 pl-3 border-l-2 border-[#007AFF]/40 dark:border-[#0A84FF]/50 text-left py-0.5">
+                    <div class="mb-2 pl-3 border-l-2 accent-quote-rail text-left py-0.5">
                         ${quoteHtml}
                         ${contentHtml}
                     </div>
@@ -377,7 +377,7 @@ export const WritingDocCard = {
                 <div class="flex items-center justify-between gap-2 mt-2">
                     <span class="text-[10px] text-black dark:text-white leading-tight">Delivered by the CHSchat bot, signed “Created by you”.</span>
                     <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <button type="button" onclick="window.closeDocCommentComposer('${key}', event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 transition-colors">Cancel</button>
+                        <button type="button" onclick="window.closeDocCommentComposer('${key}', event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white accent-hover-soft transition-colors">Cancel</button>
                         <button type="button" id="docComposerSend-${key}" onclick="window.sendDocCommentFromComposer('${key}', event)" class="px-3.5 py-1.5 rounded-xl text-[12px] bg-[#007AFF] text-white hover:bg-[#0062CC] active:scale-95 transition-all shadow-sm">Post</button>
                     </div>
                 </div>
@@ -392,7 +392,7 @@ export const WritingDocCard = {
                 <div class="p-3.5 flex items-center justify-between gap-3 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02]">
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <!-- Minimal Document SVG Icon with Soft Blue Circle -->
-                        <div class="w-9 h-9 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                        <div class="w-9 h-9 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white flex items-center justify-center flex-shrink-0">
                             <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -416,7 +416,7 @@ export const WritingDocCard = {
                     <!-- Action Icons -->
                     <div class="flex items-center gap-1">
                         <!-- Sync Comments Action Button -->
-                        <button onclick="window.syncDocCardComments('${key}', '${docUrl}', event, '${msg.chatId || ''}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Sync comments">
+                        <button onclick="window.syncDocCardComments('${key}', '${docUrl}', event, '${msg.chatId || ''}')" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Sync comments">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="23 4 23 10 17 10"></polyline>
                                 <polyline points="1 20 1 14 7 14"></polyline>
@@ -425,7 +425,7 @@ export const WritingDocCard = {
                         </button>
 
                         <!-- Post Comment Composer Toggle (right of Sync) -->
-                        <button onclick="window.openDocCommentComposer('${key}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Post a comment to this doc">
+                        <button onclick="window.openDocCommentComposer('${key}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Post a comment to this doc">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                                 <line x1="12" y1="8" x2="12" y2="14"></line>
@@ -434,7 +434,7 @@ export const WritingDocCard = {
                         </button>
 
                         <!-- Open Google Doc External Link -->
-                        <a href="${UIUtils.escape(docUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Open Google Doc">
+                        <a href="${UIUtils.escape(docUrl)}" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Open Google Doc">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -443,7 +443,7 @@ export const WritingDocCard = {
                         </a>
 
                         <!-- Toggle Comments Collapse -->
-                        <button onclick="window.toggleDocCommentsExpand('${key}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Toggle comments list">
+                        <button onclick="window.toggleDocCommentsExpand('${key}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Toggle comments list">
                             <svg id="docArrow-${key}" class="w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
@@ -632,7 +632,7 @@ export function initWritingBehavior(deps) {
         const btnDeleted = container.querySelector(`#filterBtn-${key}-deleted`);
 
         const activeClasses = ['bg-[#007AFF]', 'text-white', 'shadow-sm'];
-        const inactiveClasses = ['text-black', 'dark:text-white', 'hover:bg-gray-100', 'dark:hover:bg-white/5'];
+        const inactiveClasses = ['text-black', 'dark:text-white', 'accent-hover-soft'];
 
         [btnAll, btnOpen, btnResolved, btnDeleted].forEach(b => {
             if (b) {
@@ -676,7 +676,7 @@ export function initWritingBehavior(deps) {
         }
     }
 
-    async function syncDocCardComments(key, docUrl, e, explicitChatId = null, isSilent = false) {
+    async function syncDocCardComments(key, docUrl, e, explicitChatId = null, isSilent = false, autoExpandDrawer = true) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -786,7 +786,7 @@ export function initWritingBehavior(deps) {
                     cardList.innerHTML = WritingDocCard.renderDocCommentsHtml(cardKey, comments, liveComments.length, openCount, resolvedCount, docId, docUrl, resData);
 
                     // For the clicked card specifically, automatically open drawer to show results
-                    if (cardDrawer && cardList.id === `docList-${key}` && (!cardDrawer.classList.contains('expanded') || cardDrawer.classList.contains('hidden'))) {
+                    if (autoExpandDrawer && cardDrawer && cardList.id === `docList-${key}` && (!cardDrawer.classList.contains('expanded') || cardDrawer.classList.contains('hidden'))) {
                         cardDrawer.classList.remove('hidden');
                         void cardDrawer.offsetHeight;
                         cardDrawer.classList.add('expanded');

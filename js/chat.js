@@ -60,6 +60,11 @@ export function initChatEngine(deps) {
     const safeFormatLastSeen = typeof formatLastSeen === 'function'
         ? formatLastSeen
         : ((v) => v || "");
+    // Name-bar width flight lives with repositionWpBar (bottom of this file)
+    // and is exposed on window; fall back to a plain write before it loads.
+    const animateNameBar = (mutate) => (typeof window.animateNameBarContent === 'function'
+        ? window.animateNameBarContent(mutate)
+        : mutate());
     const safeIsExtensionTargetId = typeof isExtensionTargetId === 'function'
         ? isExtensionTargetId
         : (() => false);
@@ -313,7 +318,7 @@ export function initChatEngine(deps) {
                     }
                 });
 
-                chatBox.insertBefore(batchFrag, chatBox.firstChild);
+                chatBox.insertBefore(quietHistory(batchFrag), chatBox.firstChild);
                 // Filter the fresh chunk in the same task, before the next
                 // paint: older pages loaded under an active project filter
                 // would otherwise flash the unfiltered history at the top
@@ -359,7 +364,7 @@ export function initChatEngine(deps) {
                                 }
                             });
 
-                            chatBox.insertBefore(batchFrag, chatBox.firstChild);
+                            chatBox.insertBefore(quietHistory(batchFrag), chatBox.firstChild);
                             // Same as above: hide before paint so an active project
                             // filter never flashes unfiltered All-messages history.
                             applyChatProjectFilter();
@@ -419,12 +424,22 @@ export function initChatEngine(deps) {
 
             // If it's a doc message, update rendered bubble if present
             const oldEl = chatBox.querySelector(`[data-key="${msgKey}"]`);
-            if (oldEl) {
-                const newEl = UIComponents.createChatBubble(updatedMsg, msgKey, getCurrentUser(), setupLongPress);
-                if (newEl) {
-                    oldEl.replaceWith(newEl);
-                }
+            if (!oldEl) return;
+
+            const newEl = UIComponents.createChatBubble(updatedMsg, msgKey, getCurrentUser(), setupLongPress);
+            if (!newEl) return;
+
+            // An outgoing message is written in full except for serverTimestamp(), which the
+            // server fills back in tens of milliseconds later. That ack renders a byte-identical
+            // bubble, and swapping the node restarts .msg-pop's entry animation — the flicker.
+            // Nothing visible needs a new element, so carry the fresh attributes onto the node
+            // already on screen and leave it where it is.
+            if (newEl.innerHTML === oldEl.innerHTML) {
+                for (const attr of newEl.attributes) oldEl.setAttribute(attr.name, attr.value);
+                return;
             }
+
+            oldEl.replaceWith(quietHistory(newEl));
         });
 
         // A portfolio deletion is a real RTDB child removal. Mirror it into every
@@ -1021,14 +1036,16 @@ export function initChatEngine(deps) {
         if (targetId.startsWith('group_')) {
             chatId = targetId;
             const classId = targetId.replace('group_', '');
-            titleEl.innerText = getCnCache()[classId] || "Class Group Chat";
-            if (isDisbanded) {
-                statusEl.innerText = "Class disbanded";
-            } else if (isRemoved) {
-                statusEl.innerText = "You have been removed from this chat";
-            } else {
-                statusEl.innerText = ctCache[classId] || "Group Chat";
-            }
+            animateNameBar(() => {
+                titleEl.innerText = getCnCache()[classId] || "Class Group Chat";
+                if (isDisbanded) {
+                    statusEl.innerText = "Class disbanded";
+                } else if (isRemoved) {
+                    statusEl.innerText = "You have been removed from this chat";
+                } else {
+                    statusEl.innerText = ctCache[classId] || "Group Chat";
+                }
+            });
 
             if (!getCnCache()[classId] || !ctCache[classId]) {
                 get(ref(db, `classes/${classId}`)).then(async snap => {
@@ -1036,14 +1053,20 @@ export function initChatEngine(deps) {
                     const cData = snap.val();
                     getCnCache()[classId] = cData.name;
                     if (getActiveTargetId() === targetId) {
-                        titleEl.innerText = cData.name;
+                        animateNameBar(() => {
+                            titleEl.innerText = cData.name;
+                        });
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
                         if (wpTitleEl) wpTitleEl.innerText = `WRITING PORTFOLIO - ${cData.name}`;
                     }
                     if (cData.teacherId) {
                         const teacher = await safeFetchUser(cData.teacherId);
                         ctCache[classId] = teacher?.name || "Teacher";
-                        if (getActiveTargetId() === targetId) statusEl.innerText = teacher?.name || "Teacher";
+                        if (getActiveTargetId() === targetId) {
+                            animateNameBar(() => {
+                                statusEl.innerText = teacher?.name || "Teacher";
+                            });
+                        }
                     }
                     AppModules.Sidebar.renderSidebar();
                 });
@@ -1051,42 +1074,46 @@ export function initChatEngine(deps) {
         } else {
             chatId = getChatId(currentUser.id, targetId);
             const u = (getAllUsers() || {})[targetId];
-            if (safeIsExtensionTargetId(targetId)) {
-                const extName = safeExtensionIdFromTarget(targetId).replace(/_/g, ' ');
-                titleEl.innerText = u?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
-            } else {
-                titleEl.innerText = u?.name || targetId;
-            }
-
-            const statusText = safeIsExtensionTargetId(targetId)
-                ? "Extension Tool"
-                : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : (u?.email || ""));
-            statusEl.innerText = statusText;
-            if (statusText === "online") {
-                statusEl.classList.add('text-[#007AFF]');
-                statusEl.classList.remove('text-gray-400');
-            } else {
-                statusEl.classList.remove('text-[#007AFF]');
-                statusEl.classList.add('text-gray-400');
-            }
-
-            safeFetchUser(targetId).then(user => {
-                if (!user || getActiveTargetId() !== targetId) return;
-                if (user.name) {
-                    titleEl.innerText = user.name;
-                    const wpTitleEl = document.getElementById('writingPortfolioTitle');
-                    if (wpTitleEl) wpTitleEl.innerText = `WRITING PORTFOLIO - ${user.name}`;
+            animateNameBar(() => {
+                if (safeIsExtensionTargetId(targetId)) {
+                    const extName = safeExtensionIdFromTarget(targetId).replace(/_/g, ' ');
+                    titleEl.innerText = u?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
+                } else {
+                    titleEl.innerText = u?.name || targetId;
                 }
-                if (!user.lastSeen) return;
-                const updatedText = safeFormatLastSeen(user.lastSeen);
-                statusEl.innerText = updatedText;
-                if (updatedText === "online") {
+
+                const statusText = safeIsExtensionTargetId(targetId)
+                    ? "Extension Tool"
+                    : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : (u?.email || ""));
+                statusEl.innerText = statusText;
+                if (statusText === "online") {
                     statusEl.classList.add('text-[#007AFF]');
                     statusEl.classList.remove('text-gray-400');
                 } else {
                     statusEl.classList.remove('text-[#007AFF]');
                     statusEl.classList.add('text-gray-400');
                 }
+            });
+
+            safeFetchUser(targetId).then(user => {
+                if (!user || getActiveTargetId() !== targetId) return;
+                animateNameBar(() => {
+                    if (user.name) {
+                        titleEl.innerText = user.name;
+                        const wpTitleEl = document.getElementById('writingPortfolioTitle');
+                        if (wpTitleEl) wpTitleEl.innerText = `WRITING PORTFOLIO - ${user.name}`;
+                    }
+                    if (!user.lastSeen) return;
+                    const updatedText = safeFormatLastSeen(user.lastSeen);
+                    statusEl.innerText = updatedText;
+                    if (updatedText === "online") {
+                        statusEl.classList.add('text-[#007AFF]');
+                        statusEl.classList.remove('text-gray-400');
+                    } else {
+                        statusEl.classList.remove('text-[#007AFF]');
+                        statusEl.classList.add('text-gray-400');
+                    }
+                });
             });
         }
 
@@ -1190,13 +1217,18 @@ export function initChatEngine(deps) {
     // (duration-300). The glass tracks the flight instead of being dropped: the
     // map is built for the box the bar is about to grow into and the region is
     // clipped by the bar's own box until it lands.
-    function quietActionsBarGlass() {
-        const glass = document.getElementById('chatActionsBar')?._liquidGlass;
+    function quietActionsBarGlass(predictGrow) {
+        const bar = document.getElementById('chatActionsBar');
+        const glass = bar?._liquidGlass;
         if (glass) glass.beginTrack();
-        // The bar's width change shrinks the gap the project pill centres in;
-        // re-run its placement once the 300ms transition lands so the pill
-        // re-evaluates labelled vs icon-only against the real space.
+        // While the width is in flight the bar's box shows mid-transition
+        // sizes; ResizeObserver passes must keep deciding from the FINAL edge.
+        // Record the absolute destination now (frame 1, while the rect is
+        // still the start value) — adding the full growth to a half-flown
+        // rect overshoots and the pill glides out, back, out again.
+        if (bar && predictGrow) bar._wpAbLeftFinal = bar.getBoundingClientRect().left - predictGrow;
         setTimeout(() => {
+            if (bar) delete bar._wpAbLeftFinal;
             if (glass) glass.endTrack();
             scheduleWpDocContext(false);
         }, 360);
@@ -1212,7 +1244,7 @@ export function initChatEngine(deps) {
         if (wrap && !wrap.classList.contains('w-44')) {
             wrap.classList.remove('w-8');
             wrap.classList.add('w-44');
-            quietActionsBarGlass();
+            quietActionsBarGlass(144);
             // w-8→w-44 = 32→176px: decide the pill's shape now, not after the
             // bar finishes growing.
             repositionWpBar(144);
@@ -1225,9 +1257,21 @@ export function initChatEngine(deps) {
         }
     }
 
+    // A press that outlives the 150ms blur timer must finish before the bar
+    // collapses: otherwise the pill / portfolio button slides away between
+    // mousedown and mouseup and the click dies on a stale ancestor (trackpad
+    // taps register ~200ms down-to-up and lost every time).
+    let _chatPtrDown = false;
+    document.addEventListener('pointerdown', () => { _chatPtrDown = true; }, true);
+    document.addEventListener('pointerup', () => { _chatPtrDown = false; }, true);
+
     function maybeCollapseChatSearch() {
         const input = document.getElementById('chatSearchInput');
         setTimeout(() => {
+            if (_chatPtrDown) {
+                window.addEventListener('pointerup', maybeCollapseChatSearch, { once: true });
+                return;
+            }
             if (document.activeElement === input) return;
             const term = (input?.value || '').trim();
             if (term) return;
@@ -1241,7 +1285,7 @@ export function initChatEngine(deps) {
             if (wrap && wrap.classList.contains('w-44')) {
                 wrap.classList.remove('w-44');
                 wrap.classList.add('w-8');
-                quietActionsBarGlass();
+                quietActionsBarGlass(-144);
                 // Mirror of the expand path: the bar will shrink 144px.
                 repositionWpBar(-144);
             }
@@ -1338,7 +1382,7 @@ export function initChatEngine(deps) {
                                     if (el) batchFrag.appendChild(el);
                                 }
                             });
-                            chatBox.appendChild(batchFrag);
+                            chatBox.appendChild(quietHistory(batchFrag));
                             
                             currentDisplayMsgs = nextMsgs;
                             currentOldestLoadedKey = currentDisplayMsgs.length > 0 ? currentDisplayMsgs[0].key : null;
@@ -1469,6 +1513,17 @@ export function initChatEngine(deps) {
         window.addEventListener('resize', window._chatListResizeHandler);
     }
 
+    // Bubbles animate in by default. Opt out only where content is spliced into a
+    // list the user is already reading — paging up, a search jump backfilling older
+    // messages, or an in-place update to a message already on screen. Opening or
+    // switching to a chat still lets the whole restored list enter together.
+    function quietHistory(node) {
+        if (!node) return node;
+        if (node.classList?.contains('msg-pop')) node.classList.add('msg-quiet');
+        else node.querySelectorAll?.('.msg-pop').forEach(el => el.classList.add('msg-quiet'));
+        return node;
+    }
+
     function appendMsg(msg, key, chatId = null, saveToLocal = true) {
         const activeTargetId = getActiveTargetId();
         const currentUser = getCurrentUser();
@@ -1481,6 +1536,25 @@ export function initChatEngine(deps) {
         const chatBox = document.getElementById('chatBox');
         clearChatPlaceholders(chatBox);
         chatBox.appendChild(div);
+
+        // Only a plain text bubble has its final box the moment it lands; photos and doc
+        // cards resize as their media arrives, which would bend a flight mid-way.
+        const isMine = msg.senderId === currentUser.id;
+        const body = msg.text || '';
+        const canFly = isMine && msg.type === 'text'
+            && !body.includes('data:image') && !body.includes('docs.google.com/');
+        const sendBtn = canFly ? document.getElementById('sendBtn') : null;
+        if (sendBtn && sendBtn.offsetParent) {
+            // Measure after the list settles at the bottom. The caller scrolls a frame
+            // later, and a flight anchored to the pre-scroll rect would land short.
+            chatBox.scrollTop = chatBox.scrollHeight;
+            const landed = div.getBoundingClientRect();
+            const origin = sendBtn.getBoundingClientRect();
+            div.style.setProperty('--fly-dx', `${(origin.left + origin.width / 2) - landed.right}px`);
+            div.style.setProperty('--fly-dy', `${(origin.top + origin.height / 2) - landed.bottom}px`);
+            div.classList.add('msg-sent');
+        }
+
         if (saveToLocal && chatId) saveMessageLocal(chatId, key, msg);
     }
 
@@ -1597,7 +1671,9 @@ export function initChatEngine(deps) {
                 const match = val.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)[^\s]*/);
                 if (match && typeof syncDocCardComments === 'function') {
                     setTimeout(() => {
-                        syncDocCardComments(newKey, match[0], null).catch(err => {
+                        // Nobody asked for this sync, so it stays out of the way: no failure
+                        // modal, and it must not flip the card's comment drawer open.
+                        syncDocCardComments(newKey, match[0], null, null, true, false).catch(err => {
                             console.warn('[GoogleDoc] Background auto-sync notice:', err);
                         });
                     }, 600);
@@ -2018,7 +2094,7 @@ export function initChatEngine(deps) {
         } else {
             listEl.innerHTML = docs.map(d => `
                 <button type="button" class="attach-doc-row w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all" data-doc-url="${escapeHTML(d.docUrl).replace(/"/g, '&quot;')}">
-                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                    <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white flex items-center justify-center flex-shrink-0">
                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
@@ -2600,7 +2676,7 @@ export function initChatEngine(deps) {
                         <div class="text-xs mt-3 text-gray-400 max-w-md mx-auto leading-relaxed">Writing Portfolio is an automatically built record of a student’s writing growth, collecting shared Google Docs, draft versions, teacher feedback, comment history, and reflections from the chat into one organized view so teachers can review progress, track revisions, and export a clear writing dossier without manually organizing every document.</div>
                         <div class="text-xs mt-3 text-gray-400 max-w-md mx-auto leading-relaxed">We do not use any kind of AI to analyse or summarize your documents.</div>
                         <button type="button" onclick="portfolioOpenAttachGdocMenu()" class="mt-5 w-full max-w-xs mx-auto self-center px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left bg-black/5 dark:bg-white/10 transition-colors duration-150 hover:bg-black/10 dark:hover:bg-white/[0.16]">
-                            <div class="w-8 h-8 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white flex items-center justify-center flex-shrink-0">
                                 <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                     <polyline points="14 2 14 8 20 8"/>
@@ -2787,7 +2863,7 @@ export function initChatEngine(deps) {
 
                         <!-- Right Actions: Export Button -->
                         <div class="flex items-center gap-2 flex-shrink-0 ml-auto">
-                            <button type="button" onclick="window.openPortfolioExportModal()" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-gray-200/70 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-[#2C2C2E] hover:text-[#007AFF] dark:hover:text-[#0A84FF] shadow-sm transition-all" title="Export complete writing history">
+                            <button type="button" onclick="window.openPortfolioExportModal()" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-gray-200/70 dark:bg-white/10 text-black dark:text-white accent-hover-medium shadow-sm transition-all" title="Export complete writing history">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                     <polyline points="7 10 12 15 17 10"></polyline>
@@ -2804,7 +2880,7 @@ export function initChatEngine(deps) {
                             <button type="button" onclick="window.filterPortfolioFeedback('all', this)" class="px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All Documents</button>
                             <button type="button" onclick="window.filterPortfolioFeedback('open', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
                                 <span>Opened</span>
-                                ${totalPortfolioOpen > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#0A84FF]/25 dark:text-[#0A84FF] leading-none">${totalPortfolioOpen}</span>` : ''}
+                                ${totalPortfolioOpen > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white leading-none">${totalPortfolioOpen}</span>` : ''}
                             </button>
                             <button type="button" onclick="window.filterPortfolioFeedback('resolved', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Resolved</button>
                         </div>
@@ -2911,13 +2987,13 @@ export function initChatEngine(deps) {
                                             <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
                                             <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
                                             <div class="flex items-center gap-1 flex-shrink-0">
-                                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Edit version or ungroup">
+                                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Edit version or ungroup">
                                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                                     </svg>
                                                 </button>
-                                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
+                                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
                                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                                         <polyline points="3 6 5 6 21 6"></polyline>
                                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -2958,14 +3034,14 @@ export function initChatEngine(deps) {
                             <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
                             <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
                             <div class="flex items-center gap-1 flex-shrink-0">
-                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Add this document to a Writing Project">
+                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Add this document to a Writing Project">
                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                                         <line x1="12" y1="11" x2="12" y2="17"></line>
                                         <line x1="9" y1="14" x2="15" y2="14"></line>
                                     </svg>
                                 </button>
-                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
+                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <polyline points="3 6 5 6 21 6"></polyline>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -4339,32 +4415,42 @@ export function initChatEngine(deps) {
         if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
         // All->sub only HIDES messages, so nothing re-enters and the switch
         // reads as an instant flash (sub->all animates because hidden->visible
-        // replays the popIn on its own). Replay the entrance on the surviving
+        // replays the entrance on its own). Replay the entrance on the surviving
         // visible set so every direction animates alike. Deliberately not in
         // applyChatProjectFilter: new messages arriving under an active filter
         // must not re-pop the whole list.
         if (chatBox) {
             const survivors = Array.from(chatBox.querySelectorAll('.msg-pop:not(.hidden)'));
-            survivors.forEach(el => { el.style.animation = 'none'; });
+            survivors.forEach(el => { el.classList.remove('msg-replay'); });
             void chatBox.offsetWidth;
-            survivors.forEach(el => { el.style.animation = ''; });
+            survivors.forEach(el => { el.classList.add('msg-replay'); });
         }
     }
 
     // Newest-first, matching how the chat and Portfolio list the material.
     function scanChatWritingDocs() {
-        const chatBox = document.getElementById('chatBox');
         const docs = [];
         const seen = new Set();
-        if (!chatBox) return docs;
-        chatBox.querySelectorAll('.doc-card-container').forEach(card => {
-            const docId = card.dataset.docId || '';
+        const add = (docId, title, ts) => {
             if (!docId || seen.has(docId)) return;
             seen.add(docId);
-            docs.push({
-                docId: docId,
-                title: (card.querySelector('h4[id^="docTitle-"]')?.innerText || 'Google Document').trim()
-            });
+            docs.push({ docId, title: (title || 'Google Document').trim(), ts: Number(ts) || 0 });
+        };
+        // #chatBox only carries the latest message window, so on a chat switch it
+        // is rebuilt from a truncated slice and older doc cards vanish from it.
+        // The stored message list is the full history, so scan that first and
+        // union the DOM afterwards to keep cards shown outside it (search jumps).
+        (currentLocalMsgs || []).forEach(m => {
+            const text = m?.text || '';
+            if (!text.includes('docs.google.com/document/d/')) return;
+            const docId = m.docData?.fileId
+                || text.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1]
+                || '';
+            add(docId, window.resolveDocViewData?.(docId, m.docData)?.title, m.timestamp);
+        });
+        const chatBox = document.getElementById('chatBox');
+        chatBox?.querySelectorAll('.doc-card-container').forEach(card => {
+            add(card.dataset.docId || '', card.querySelector('h4[id^="docTitle-"]')?.innerText);
         });
         return docs;
     }
@@ -4386,9 +4472,40 @@ export function initChatEngine(deps) {
             console.warn('[ChatProjects] Failed to load writing_projects:', e);
         }
 
+        // The message scan is bounded by what is currently rendered, so a chat
+        // switch (which rebuilds #chatBox from a truncated window) silently drops
+        // older projects.  Union in the authoritative per-chat sources so the
+        // project list is stable regardless of scroll position.
+        let docStates = {};
+        try {
+            const stSnap = await get(ref(db, `writing_doc_state/${chatId}`));
+            if (stSnap.exists()) docStates = stSnap.val() || {};
+        } catch (e) {
+            console.warn('[ChatProjects] Failed to load writing_doc_state:', e);
+        }
+
+        const known = new Map();
+        docs.forEach(d => known.set(d.docId, d));
+        Object.keys(assigned).forEach(docId => {
+            if (known.has(docId)) return;
+            const st = normalizeDocSyncState(docStates[docId]);
+            known.set(docId, {
+                docId,
+                title: (assigned[docId]?.title || st?.title || 'Google Document').trim(),
+                ts: Number(st?.createdTime) || 0
+            });
+        });
+        Object.keys(docStates).forEach(docId => {
+            if (known.has(docId)) return;
+            const st = normalizeDocSyncState(docStates[docId]);
+            if (!st) return;
+            known.set(docId, { docId, title: (st.title || 'Google Document').trim(), ts: Number(st.createdTime) || 0 });
+        });
+        const allDocs = Array.from(known.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
         const groups = new Map();
         const standalone = [];
-        docs.forEach(doc => {
+        allDocs.forEach(doc => {
             const projectName = (assigned[doc.docId]?.projectName || '').trim();
             if (!projectName) {
                 standalone.push({
@@ -4426,7 +4543,7 @@ export function initChatEngine(deps) {
         const row = (index, icon, name, sub, selected) => `
             <button type="button" onclick="selectChatProjectAt(${index})" role="option" aria-selected="${selected ? 'true' : 'false'}"
                 class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
-                <span class="w-7 h-7 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">${icon}</span>
+                <span class="w-7 h-7 rounded-full wp-row-disc text-black dark:text-white flex items-center justify-center flex-shrink-0">${icon}</span>
                 <span class="flex flex-col min-w-0 flex-1">
                     <span class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">${UIUtils.escape(name)}</span>
                     ${sub ? `<span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">${sub}</span>` : ''}
@@ -4494,6 +4611,9 @@ export function initChatEngine(deps) {
         const startingWidth = open ? card.offsetWidth : 0;
 
         if (open) {
+            // A re-open during the close glide must un-hide the real card
+            // immediately; the ghost is cancelled below.
+            card.style.visibility = '';
             // Keep the exact pre-open geometry so the ghost can restore compact
             // mode faithfully even if layout shifts while the card is open.
             card._wpOpenOrigin = {
@@ -4561,9 +4681,25 @@ export function initChatEngine(deps) {
                     const openSr = openSection.getBoundingClientRect();
                     const openAb = openActions.getBoundingClientRect();
                     const openNb = openName.getBoundingClientRect();
+                    // Land the re-anchor instantly: the CSS left/top glide
+                    // would otherwise slide the card in from the left while
+                    // the clip reveal grows it — the perceived growth belongs
+                    // to revealWpCard, not to this box moving.
+                    card.style.transition = 'none';
                     card.style.top = (openNb.bottom - openSr.top + 8) + 'px';
                     card.style.left = (openAb.right - openSr.left - card.offsetWidth / 2) + 'px';
+                    // The reveal's first frame is scaleX(start/end) around the
+                    // card's transform-origin.  With the default top-center it
+                    // lands left of the right-aligned pill (the perceived
+                    // "slide left, then expand").  Anchor it to the right edge
+                    // so frame 1 covers the pill exactly and the card grows
+                    // leftward from it.
+                    card.style.transformOrigin = 'top right';
+                    void card.offsetWidth;
+                    card.style.transition = '';
                 }
+            } else {
+                card.style.transformOrigin = '';
             }
             
             revealWpCard(card, startingWidth);
@@ -4584,6 +4720,7 @@ export function initChatEngine(deps) {
             const duration = reduced ? 1 : retractMs + 80;
             const retractAt = retractMs / duration;
             const origin = card._wpOpenOrigin || {};
+            const wasSecondRow = !!card._wpSecondRow;
             const rect = card.getBoundingClientRect();
             const expandedW = rect.width;
             const expandedH = rect.height;
@@ -4593,6 +4730,10 @@ export function initChatEngine(deps) {
             ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;` +
                 `width:${expandedW}px;height:${expandedH}px;max-width:none;margin:0;` +
                 `transform:none;transition:none;z-index:100;pointer-events:none;`;
+            // Retract around the same edge the expand grew from: a second-row
+            // card is right-anchored, so its ghost must land right-aligned on
+            // the pill instead of drifting to the expanded card's centre.
+            ghost.style.transformOrigin = wasSecondRow ? 'top right' : 'top center';
             document.body.appendChild(ghost);
             card._wpGhost = ghost;
 
@@ -4609,7 +4750,30 @@ export function initChatEngine(deps) {
             card.style.minWidth = '';
             if (header) header.setAttribute('aria-expanded', 'false');
             // Collapsed, the header row is the current scope, not "All Projects".
+            // Same-row closes must land the pill's left/top instantly (the
+            // ghost covers it; a glide would slide visibly after the fade).
+            // A ROW CHANGE (the search bar collapsed while the list was open,
+            // freeing row-1 space) must NOT teleport — the pill flashing into
+            // row 1 reads as a pop.  There the real pill glides to its new
+            // row on the standard 350ms transition while the ghost retracts
+            // where the list was: the animation ends on the real DOM.
+            const openTop = card.style.top, openLeft = card.style.left;
+            card.style.transition = 'none';
             updateWpProjectHeader(false);
+            void card.offsetWidth;
+            const finalTop = card.style.top, finalLeft = card.style.left;
+            const pillRect = card.getBoundingClientRect();
+            const rowChanged = Math.abs(pillRect.top - rect.top) > 1;
+            if (rowChanged) {
+                card.style.top = openTop;
+                card.style.left = openLeft;
+                void card.offsetWidth;
+                card.style.transition = '';
+                card.style.top = finalTop;
+                card.style.left = finalLeft;
+            } else {
+                card.style.transition = '';
+            }
             if (card._hideListener) {
                 document.removeEventListener('mousedown', card._hideListener);
                 document.removeEventListener('touchstart', card._hideListener);
@@ -4621,6 +4785,16 @@ export function initChatEngine(deps) {
             // width is the pill's real width, not a remembered guess.
             const collapsedW = card.getBoundingClientRect().width;
             const scale = expandedW ? Math.min(1, collapsedW / expandedW) : 1;
+            // The ghost squashes around the expanded card's centre.  A
+            // right-aligned second-row pill has a different centre, so shift
+            // the ghost's landing by that delta: it dissolves into exactly
+            // where the real pill already sits.  On a row change the pill is
+            // gliding away underneath, so the ghost retracts in place.
+            const ghostLandCenterX = wasSecondRow
+                ? rect.right - pillRect.width / 2
+                : rect.left + expandedW / 2;
+            const dx = rowChanged ? 0 : (pillRect.left + pillRect.width / 2) - ghostLandCenterX;
+            const dy = rowChanged ? 0 : pillRect.top - rect.top;
 
             // Align the ghost's header with the real pill it dissolves into:
             // same text/icon (the real card was just updated), the pill's row
@@ -4654,8 +4828,8 @@ export function initChatEngine(deps) {
             }
             const animation = ghost.animate([
                 { clipPath: 'inset(0 0 0 0 round 24px)', webkitClipPath: 'inset(0 0 0 0 round 24px)', transform: 'scaleX(1)', opacity: 1, offset: 0 },
-                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `scaleX(${scale})`, opacity: 1, offset: retractAt },
-                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `scaleX(${scale})`, opacity: 0, offset: 1 }
+                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(${dx}px) translateY(${dy}px) scaleX(${scale})`, opacity: 1, offset: retractAt },
+                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(${dx}px) translateY(${dy}px) scaleX(${scale})`, opacity: 0, offset: 1 }
             ], {
                 duration,
                 easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -4667,6 +4841,7 @@ export function initChatEngine(deps) {
             animation.onfinish = () => {
                 if (card._wpCloseAnimation !== animation) return;
                 ghost.remove();
+                card.style.visibility = '';
                 card._wpGhost = null;
                 card._wpCloseAnimation = null;
                 card._wpOpenOrigin = null;
@@ -4795,9 +4970,17 @@ export function initChatEngine(deps) {
         if (!sec.offsetWidth) return;
         const sr = sec.getBoundingClientRect();
         const nb = nameBar.getBoundingClientRect();
+        // Mid-flight name bar: decide from its predicted final right edge,
+        // never the in-flight box (same first-frame rule as predictGrow).
+        const nbRight = nameBar._wpPredictedWidth ? nb.left + nameBar._wpPredictedWidth : nb.right;
         const ab = actionsBar.getBoundingClientRect();
-        const abLeft = ab.left - (predictGrow || 0);
-        const gap = abLeft - nb.right;
+        // Mid-flight actions bar: an explicit predictGrow is relative to the
+        // rect measured right now (frame 1); otherwise fall back to the
+        // absolute final left edge recorded at takeoff, so ResizeObserver
+        // passes during the width transition decide from the destination.
+        const abLeft = predictGrow !== undefined ? ab.left - predictGrow
+            : (actionsBar._wpAbLeftFinal !== undefined ? actionsBar._wpAbLeftFinal : ab.left);
+        const gap = abLeft - nbRight;
         // Shape ladder, only while closed (the open list keeps whatever box it
         // opened with — the expand animation owns it): labelled in row 1 →
         // icon+chevron in row 1 → labelled dropped to a second row centred on
@@ -4807,9 +4990,9 @@ export function initChatEngine(deps) {
             bar.classList.remove('wp-bar-second-row');
             bar.style.removeProperty('--wp-second-row-max-width');
             let secondRow = false;
-            if (bar.offsetWidth + 16 > gap) {
+            if (bar.offsetWidth + 12 > gap) {
                 bar.classList.add('wp-bar-compact');
-                if (bar.offsetWidth + 16 > gap) {
+                if (bar.offsetWidth + 12 > gap) {
                     bar.classList.remove('wp-bar-compact');
                     secondRow = true;
                 }
@@ -4830,7 +5013,7 @@ export function initChatEngine(deps) {
             bar.style.left = (ab.right - sr.left - bar.offsetWidth / 2) + 'px';
         } else {
             bar.style.top = (nb.top - sr.top) + 'px';
-            bar.style.left = ((nb.right + abLeft) / 2 - sr.left) + 'px';
+            bar.style.left = ((nbRight + abLeft) / 2 - sr.left) + 'px';
         }
     }
 
@@ -4941,6 +5124,105 @@ export function initChatEngine(deps) {
                 tracked.forEach(el => observer.observe(el));
             }
         }
+        // Chat-switch width flight for the name bar: the partner name/status
+        // used to hard-cut to its new width. Write sites (openChat, live
+        // presence ticks) wrap their DOM mutations here; the box is pinned to
+        // its old width, the content swaps, then it glides to the measured
+        // natural width on the same 350ms curve the switcher pill uses. This
+        // must run in the caller's task, NOT in a ResizeObserver reacting
+        // after the fact — resizing the observed element inside its own
+        // callback triggered "ResizeObserver loop completed with undelivered
+        // notifications". The glass map is built once for the destination box
+        // (beginTrack before the flight, endTrack on landing) per
+        // LiquidGlassEffect's rules.
+        function animateNameBarContent(mutate) {
+            const bar = document.getElementById('chatNameBar');
+            if (!bar || typeof mutate !== 'function') { if (mutate) mutate(); return; }
+            const ease = 'width 350ms cubic-bezier(0.22, 1, 0.36, 1)';
+            const glass = bar._liquidGlass;
+            const measureNatural = () => {
+                const keep = bar.style.width;
+                bar.style.width = 'max-content';
+                const w = bar.offsetWidth;
+                bar.style.width = keep;
+                return w;
+            };
+            const startW = bar.offsetWidth;
+            if (!startW) { mutate(); return; } // hidden (mobile/startup): no flight
+            const flight = bar._nbFlight;
+            if (flight) {
+                const before = bar.textContent;
+                mutate();
+                // Chat switches fire this a second time ~10ms later with
+                // byte-identical content (the async user fetch re-writing
+                // what the cache write already set). Re-measuring during the
+                // first frames forces a recalc that kills the in-flight
+                // transition, so an identical rewrite just lets it continue.
+                if (bar.textContent === before) return;
+                // Content really did change mid-flight: measure with a
+                // throwaway clone so the live transition is never retargeted
+                // by forced recalcs, then glide from the current animated
+                // width to the new natural width.
+                const cur = bar.getBoundingClientRect().width;
+                const probe = bar.cloneNode(true);
+                probe.style.transition = 'none';
+                probe.style.width = 'max-content';
+                document.body.appendChild(probe);
+                const target = probe.offsetWidth;
+                probe.remove();
+                flight.target = target;
+                bar._wpPredictedWidth = target;
+                bar.style.transition = 'none';
+                bar.style.width = cur + 'px';
+                bar.offsetWidth;
+                bar.style.transition = ease;
+                bar.style.width = target + 'px';
+                clearTimeout(flight.timer);
+                flight.timer = setTimeout(flight.land, 500);
+                return;
+            }
+            bar.style.transition = 'none';
+            bar.style.width = startW + 'px';
+            bar.classList.add('nb-flying');
+            mutate();
+            const endW = measureNatural();
+            if (endW === startW) {
+                bar.classList.remove('nb-flying');
+                bar.style.transition = '';
+                bar.style.width = '';
+                return;
+            }
+            const nb = { target: endW };
+            bar._nbFlight = nb;
+            bar._wpPredictedWidth = endW;
+            bar.style.width = endW + 'px';
+            if (glass) glass.beginTrack();
+            bar.style.transition = 'none';
+            bar.style.width = startW + 'px';
+            bar.offsetWidth; // reflow at the old box so the glide starts there
+            bar.style.transition = ease;
+            bar.style.width = endW + 'px';
+            nb.land = () => {
+                if (bar._nbFlight !== nb) return;
+                clearTimeout(nb.timer);
+                bar.removeEventListener('transitionend', nb.onEnd);
+                delete bar._nbFlight;
+                bar.classList.remove('nb-flying');
+                bar.style.transition = 'none';
+                bar.style.width = '';
+                delete bar._wpPredictedWidth;
+                bar.offsetWidth; // settle the released box now
+                if (glass) glass.endTrack();
+                bar.style.transition = '';
+                repositionWpBar();
+            };
+            nb.onEnd = (e) => {
+                if (e.target === bar && e.propertyName === 'width') nb.land();
+            };
+            bar.addEventListener('transitionend', nb.onEnd);
+            nb.timer = setTimeout(nb.land, 500);
+        }
+        window.animateNameBarContent = animateNameBarContent;
         // The switcher is a single glass card, so it carries one liquid-glass
         // surface (same parameters as chatInputPill) that grows with the list.
         const wpCard = document.getElementById('wpDocContextBar');

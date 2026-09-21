@@ -18,6 +18,11 @@ export const SidebarModule = {
     _isRenderingFlag: false,
     _refreshTimer: null,
     _subListLoadingTimer: null,
+    _barLevel: null,
+    _fly: null,
+    _pendingFly: null,
+    _returnFly: null,
+    _rowHandoffId: null,
     _runtime: {},
 
     state: {
@@ -55,12 +60,16 @@ export const SidebarModule = {
         }
         if (window.sidebarMode === mode) {
             if (mode === 'class' && window.currentClassId) {
+                this._startReturnFly();
                 window.currentClassId = null;
                 window._isPopNav = true;
                 this.renderSidebar(true);
             }
             return;
         }
+        this._killFly();
+        this._pendingFly = null;
+        this._returnFly = null;
         window.sidebarMode = mode;
         window.currentClassId = null;
         this.renderSidebar(true);
@@ -80,7 +89,9 @@ export const SidebarModule = {
     handleSidebarSearch(event) {
         const term = event?.target?.value?.toLowerCase?.().trim?.() || '';
         let matchCount = 0;
-        document.querySelectorAll('#sidebarList > div').forEach(item => {
+        // The chrome layer is a #sidebarList > div too, but it is furniture,
+        // not a result row — hiding it would hide the floating bar.
+        document.querySelectorAll('#sidebarList > div:not(#sidebarChrome)').forEach(item => {
             const nameEl = item.querySelector('span');
             if (!nameEl) return;
             const name = nameEl.innerText.toLowerCase();
@@ -116,13 +127,22 @@ export const SidebarModule = {
                     const formatLastSeen = this._runtime.formatLastSeen || window.formatLastSeen;
                     if (statusEl && typeof formatLastSeen === 'function') {
                         const statusText = formatLastSeen(user.lastSeen);
-                        statusEl.innerText = statusText;
-                        if (statusText === 'online') {
-                            statusEl.classList.add('text-[#007AFF]');
-                            statusEl.classList.remove('text-gray-400');
+                        const writeStatus = () => {
+                            statusEl.innerText = statusText;
+                            if (statusText === 'online') {
+                                statusEl.classList.add('text-[#007AFF]');
+                                statusEl.classList.remove('text-gray-400');
+                            } else {
+                                statusEl.classList.remove('text-[#007AFF]');
+                                statusEl.classList.add('text-gray-400');
+                            }
+                        };
+                        // Glide the name bar to its new width instead of
+                        // hard-cutting when the presence text changes.
+                        if (typeof window.animateNameBarContent === 'function') {
+                            window.animateNameBarContent(writeStatus);
                         } else {
-                            statusEl.classList.remove('text-[#007AFF]');
-                            statusEl.classList.add('text-gray-400');
+                            writeStatus();
                         }
                     }
                 }
@@ -197,15 +217,21 @@ export const SidebarModule = {
 
         this._isRenderingFlag = true;
         try {
-            // Ensure containers exist
+            // Ensure containers exist. The floating bar + fade live in their own
+            // chrome layer above both levels: it is the one piece of furniture
+            // that survives a Level 1 ↔ Level 2 switch, so it can morph
+            // (centre ⇄ left) instead of being torn down with either panel.
             if (!container.querySelector('#sidebarLevel1Container')) {
                 container.innerHTML = `
                     <div id="sidebarLevel1Container" class="flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1C1C1E] relative z-10"></div>
                     <div id="sidebarLevel2Container" class="hidden"></div>
+                    <div id="sidebarChrome" class="sidebar-chrome"></div>
                 `;
             }
             const level1Container = container.querySelector('#sidebarLevel1Container');
             const level2Container = container.querySelector('#sidebarLevel2Container');
+            const chrome = container.querySelector('#sidebarChrome');
+            this._ensureChrome(chrome);
 
             // Establish stacking context on Level 1 so Level 2 (z-index 20) naturally overlays Level 1 scrollbar (z-index 50)
             if (level1Container) {
@@ -228,11 +254,25 @@ export const SidebarModule = {
                     });
                 }
                 // First ensure Level 1 is populated (so it is visible underneath)
-                if (!level1Container.querySelector('.sidebar-tabs')) {
+                if (!level1Container.querySelector('#sidebarSubList')) {
                     const origMode = window.sidebarMode;
-                    window.sidebarMode = 'recent'; 
+                    window.sidebarMode = 'recent';
                     await this._renderLevel1(level1Container, false, animType);
                     window.sidebarMode = origMode;
+                }
+
+                // The shared bar becomes the sub-panel header: back + title, left-aligned.
+                this._setBarLevel(2, this._level2Title());
+                // Overlay-only: the row name flies its own mini-capsule into
+                // the title slot while the bar morphs underneath, untouched.
+                this._startEntryFly();
+                this._returnFly = null;
+
+                // A slide-out still in flight would otherwise hand its
+                // animationend to the old listener and wipe this panel.
+                if (level2Container._popEnd) {
+                    level2Container.removeEventListener('animationend', level2Container._popEnd);
+                    level2Container._popEnd = null;
                 }
 
                 // Show Level 2 container and start animation immediately
@@ -262,28 +302,53 @@ export const SidebarModule = {
 
             // If we are in Level 1 mode
             level1Container.classList.remove('hidden');
-            
+            this._pendingFly = null;
+
+            // Leaving Level 2 is a Level change in its own right: the bar flies
+            // back to centre, and the panel must slide out to match the slide-in
+            // (never rely on _isPopNav alone — it is consumed by whichever
+            // render happens first, which is why the exit used to land flat).
+            const wasLevel2 = this._barLevel === 2;
+            this._setBarLevel(1);
+
+            // Fire the return flight NOW — before any await. Riding after
+            // _renderLevel1 meant a data round-trip could strand the pill for
+            // over a second. The rows are still the pre-render ones and the
+            // scroll is untouched, so the landing geometry is already right.
+            const returnFired = !!this._returnFly;
+            if (returnFired) this._spawnReturnFly();
+
             // Handle slide out of Level 2
             if (level2Container && !level2Container.classList.contains('hidden')) {
-                if (animType === 'fadeSlide' && window._isPopNav) {
+                if (animType !== 'micro' && (window._isPopNav || wasLevel2)) {
+                    level2Container.classList.remove('sidebar-full-slide-in');
+                    void level2Container.offsetWidth; // restart from the resting box
                     level2Container.classList.add('sidebar-full-slide-out');
-                    const handleAnimEnd = () => {
+                    const handleAnimEnd = (e) => {
+                        if (e && e.target !== level2Container) return; // child animations bubble
                         level2Container.classList.add('hidden');
                         level2Container.classList.remove('sidebar-full-slide-out');
                         level2Container.innerHTML = '';
+                        delete level2Container.dataset.view;
                         level2Container.removeEventListener('animationend', handleAnimEnd);
+                        level2Container._popEnd = null;
                     };
+                    level2Container._popEnd = handleAnimEnd;
                     level2Container.addEventListener('animationend', handleAnimEnd);
                 } else {
                     level2Container.classList.add('hidden');
                     level2Container.innerHTML = '';
+                    delete level2Container.dataset.view;
                 }
             }
 
             await this._renderLevel1(level1Container, isTabSwitch, animType);
 
             const subList1 = level1Container.querySelector('#sidebarSubList');
-            if (isTabSwitch && subList1) {
+            if (isTabSwitch && subList1 && !returnFired) {
+                // A return flight owns the Level 1 scroll: no top-reset, the
+                // landing row was centred by _rowTextRect instead — iOS pops
+                // back to where you were, never to the top.
                 subList1._isProgrammaticScroll = true;
                 subList1.scrollTop = 0;
                 requestAnimationFrame(() => {
@@ -306,52 +371,15 @@ export const SidebarModule = {
     },
 
     async _renderLevel1(level1Container, isTabSwitch, animType) {
-        if (!level1Container.querySelector('.sidebar-tabs')) {
+        if (!level1Container.querySelector('#sidebarSubList')) {
             level1Container.innerHTML = `
-                <div class="sidebar-tabs flex items-center border-b border-gray-100 dark:border-white/5 h-11 flex-shrink-0">
-                    <button data-sidebar-mode="recent" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
-                        Recent
-                        <span id="recentTabDot" class="absolute top-2.5 right-4 w-1.5 h-1.5 bg-[#007AFF] rounded-full hidden"></span>
-                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
-                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'recent' ? 'active' : ''}"></span>
-                        </div>
-                    </button>
-                    <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                    <button data-sidebar-mode="all" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
-                        Contacts
-                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
-                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'all' ? 'active' : ''}"></span>
-                        </div>
-                    </button>
-                    <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-700"></div>
-                    <button data-sidebar-mode="class" class="flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}">
-                        Class
-                        <div class="absolute bottom-1 left-0 right-0 flex justify-center items-center pointer-events-none">
-                            <span class="sidebar-tab-indicator bg-[#007AFF] ${window.sidebarMode === 'class' ? 'active' : ''}"></span>
-                        </div>
-                    </button>
-                </div>
                 <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
             `;
-        } else {
-            const btns = level1Container.querySelectorAll('.sidebar-tabs button');
-            btns[0].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'recent' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
-            btns[1].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'all' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
-            btns[2].className = `flex-1 text-[10px] font-bold uppercase tracking-widest h-full text-center transition-colors relative ${window.sidebarMode === 'class' ? 'text-[#007AFF]' : 'text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white'}`;
-
-            const indicatorRecent = btns[0].querySelector('.sidebar-tab-indicator');
-            const indicatorAll = btns[1].querySelector('.sidebar-tab-indicator');
-            const indicatorClass = btns[2].querySelector('.sidebar-tab-indicator');
-
-            if (indicatorRecent) indicatorRecent.classList.toggle('active', window.sidebarMode === 'recent');
-            if (indicatorAll) indicatorAll.classList.toggle('active', window.sidebarMode === 'all');
-            if (indicatorClass) indicatorClass.classList.toggle('active', window.sidebarMode === 'class');
         }
 
-        const tabButtons = level1Container.querySelectorAll('.sidebar-tabs [data-sidebar-mode]');
-        tabButtons.forEach(btn => {
-            btn.onclick = event => this.switchSidebarTab(btn.dataset.sidebarMode, event);
-        });
+        // The switcher now lives in the shared chrome bar, so a Level 1 render
+        // only re-syncs its active segment and the indicator pill.
+        this._syncTabState();
 
         const subList = level1Container.querySelector('#sidebarSubList');
         if (isTabSwitch || window._isPopNav) {
@@ -387,28 +415,585 @@ export const SidebarModule = {
         if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
     },
 
+    /**
+     * Shared floating-bar layer: one glass capsule that carries either the
+     * Level 1 switcher (centred) or the Level 2 back + title (left), plus a
+     * second right-aligned capsule for the sub-panel's actions.
+     */
+    _ensureChrome(chrome) {
+        if (!chrome || chrome._built) return undefined;
+        chrome._built = true;
+        chrome.innerHTML = `
+            <div class="sidebar-tabs-fade"></div>
+            <div class="sidebar-tabs" id="sidebarTabsBar">
+                <div class="sidebar-tabs-group" data-tabs-group="switcher">
+                    <span class="sidebar-tab-pill"></span>
+                    <button data-sidebar-mode="recent" class="sidebar-tab relative h-full min-w-0 px-4 rounded-full flex items-center justify-center font-bold uppercase tracking-widest text-black dark:text-white ${window.sidebarMode === 'recent' ? 'sidebar-tab-active' : ''}">
+                        <span class="relative z-10">Recent</span>
+                    </button>
+                    <button data-sidebar-mode="all" class="sidebar-tab relative h-full min-w-0 px-4 rounded-full flex items-center justify-center font-bold uppercase tracking-widest text-black dark:text-white ${window.sidebarMode === 'all' ? 'sidebar-tab-active' : ''}">
+                        <span class="relative z-10">Contacts</span>
+                    </button>
+                    <button data-sidebar-mode="class" class="sidebar-tab relative h-full min-w-0 px-4 rounded-full flex items-center justify-center font-bold uppercase tracking-widest text-black dark:text-white ${window.sidebarMode === 'class' ? 'sidebar-tab-active' : ''}">
+                        <span class="relative z-10">Class</span>
+                    </button>
+                </div>
+                <div class="sidebar-tabs-group sidebar-tabs-group-back" data-tabs-group="back" hidden>
+                    <button data-sidebar-back="1" title="Back" class="sidebar-back-disc flex-shrink-0">
+                        <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <span class="sidebar-tabs-title" id="sidebarLevel2Title"></span>
+                </div>
+            </div>
+            <div class="sidebar-tabs sidebar-tabs-actions" id="sidebarTabsActions" hidden></div>
+        `;
+
+        const bar = chrome.querySelector('#sidebarTabsBar');
+        this._applyBarGlass(bar);
+
+        chrome.querySelectorAll('#sidebarTabsBar [data-sidebar-mode]').forEach(btn => {
+            btn.onclick = event => this.switchSidebarTab(btn.dataset.sidebarMode, event);
+        });
+        chrome.querySelector('[data-sidebar-back]').onclick = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.handleSidebarBack();
+        };
+
+        // Resting geometry is px the JS computes from the panel width, so any
+        // panel resize must re-place it — with no flight, or the capsule would
+        // bounce once per resize step. Observing the panel (not the bar) also
+        // covers a 0-width first measure when the sidebar is hidden at build
+        // time, and cannot loop: the bar is absolutely positioned, so placing
+        // it never changes the panel's box.
+        const place = () => {
+            if (!bar.isConnected) return;
+            this._layoutBar(false);
+            this._syncTabState(false);
+        };
+        const panel = chrome.parentElement;
+        if (panel && window.ResizeObserver) {
+            new ResizeObserver(place).observe(panel);
+        }
+        window.addEventListener('resize', place);
+        return undefined;
+    },
+
+    _applyBarGlass(el) {
+        if (!el || el._liquidGlass) return;
+        import('./liquid-glass.js?v=20260920-iosglass-fb-v5').then(({ LiquidGlassEffect }) => {
+            if (!el.isConnected || el._liquidGlass) return;
+            new LiquidGlassEffect(el, {
+                radius: 23,            // matches the 46px-tall capsule, same as the chat bars
+                refractionWidth: 10,   // slightly tighter bevel than chatInputPill for a small bar
+                maxDisplacement: 6,
+                mouseRadius: 60,
+                mouseStrength: 5
+            });
+        }).catch(() => {});
+    },
+
+    handleSidebarBack() {
+        this._startReturnFly();
+        if (window.sidebarMode === 'recent_joined') window.sidebarMode = 'recent';
+        else window.currentClassId = null;
+        window._isPopNav = true;
+        this.renderSidebar(true);
+    },
+
+    /* Class row ⇄ capsule title fusion flight. A detached mini-capsule carries
+     * the class name from the tapped row into the bar's title slot (and back).
+     * During an entry flight the real title goes visibility-hidden (layout
+     * untouched, the bar's own morph untouched) so exactly one copy of the
+     * word is ever in motion; it is revealed the frame the pill starts
+     * dissolving — same word, same pixels, reads as a handoff. */
+    _reducedMotion() {
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    },
+
+    _killFly() {
+        const f = this._fly;
+        if (!f) return undefined;
+        this._fly = null;
+        if (f.raf) cancelAnimationFrame(f.raf);
+        try { f.anims.forEach(a => a.cancel()); } catch (e) {}
+        if (f.el && f.el.isConnected) f.el.remove();
+        if (f.reveal) { try { f.reveal(); } catch (e) {} }
+        return undefined;
+    },
+
+    _armFlyFromRow(item, c) {
+        if (this._reducedMotion()) return undefined;
+        // Takeoff rect is captured now, at click time: the entry render will
+        // scroll Level 1 back to the top one frame later and move the row.
+        const nameEl = item.querySelector('[data-fly-name]');
+        let rect = null;
+        if (nameEl) {
+            const range = document.createRange();
+            range.selectNodeContents(nameEl);
+            const nr = range.getBoundingClientRect();
+            if (nr.width && nr.height) rect = { left: nr.left, top: nr.top, width: nr.width, height: nr.height };
+        }
+        this._pendingFly = { id: c.id, name: c.name || '', echo: c.echo || c.name || '', rect };
+        return undefined;
+    },
+
+    // Landing/takeoff geometry is read from the DOM at spawn time, never
+    // cached: entering Level 2 scrolls Level 1 back to the top, so a rect
+    // captured at click time would drift by the scroll delta.
+    _rowTextRect(classId, ensureVisible) {
+        const list = document.querySelector('#sidebarLevel1Container #sidebarSubList');
+        const row = list && list.querySelector('[data-class-id="' + classId + '"]');
+        const nameEl = row && row.querySelector('[data-fly-name]');
+        if (!list || !nameEl) return null;
+        const range = document.createRange();
+        range.selectNodeContents(nameEl);
+        let nr = range.getBoundingClientRect();
+        if (!nr.width || !nr.height) return null;
+        let lr = list.getBoundingClientRect();
+        if (ensureVisible && (nr.bottom < lr.top || nr.top > lr.bottom)) {
+            list._isProgrammaticScroll = true;
+            list.scrollTop += (nr.top - lr.top) - (lr.height - nr.height) / 2;
+            requestAnimationFrame(() => { list._isProgrammaticScroll = false; });
+            nr = range.getBoundingClientRect();
+            lr = list.getBoundingClientRect();
+        }
+        if (nr.bottom < lr.top || nr.top > lr.bottom) return null; // off-fold: no credible landing spot
+        return { left: nr.left, top: nr.top, width: nr.width, height: nr.height };
+    },
+
+    _rowNameEl(classId) {
+        const row = document.querySelector('#sidebarLevel1Container #sidebarSubList [data-class-id="' + classId + '"]');
+        return (row && row.querySelector('[data-fly-name]')) || null;
+    },
+
+    // The hand-off lives in state, not on the node: a Level-1 re-render can
+    // replace the row mid-flight (the async class fetch rebuilds every row),
+    // and a visibility written on the old node would die with it — that is
+    // why only the FIRST return after a reload showed doubled text.
+    _setRowHandoff(id) {
+        this._rowHandoffId = id;
+        const el = this._rowNameEl(id);
+        if (el) el.style.visibility = 'hidden';
+    },
+
+    _clearRowHandoff() {
+        const id = this._rowHandoffId;
+        this._rowHandoffId = null;
+        const el = this._rowNameEl(id);
+        if (el) el.style.visibility = '';
+    },
+
+    _startEntryFly() {
+        const pending = this._pendingFly;
+        this._pendingFly = null;
+        if (!pending || this._reducedMotion()) return undefined;
+        const isJoined = pending.id === 'recent_joined';
+        if (!isJoined && pending.id !== window.currentClassId) return undefined;
+        if (isJoined && window.sidebarMode !== 'recent_joined') return undefined;
+        const bar = document.querySelector('#sidebarChrome #sidebarTabsBar');
+        const titleEl = document.querySelector('#sidebarChrome #sidebarLevel2Title');
+        const fromRect = pending.rect || this._rowTextRect(pending.id);
+        if (!bar || !titleEl || !fromRect || !bar.offsetParent) return undefined;
+        // Kill any live flight BEFORE hiding: its reveal must not undo ours.
+        this._killFly();
+        titleEl.classList.add('title-handoff');
+        // The row leaves its own word behind for the pill to carry — one copy
+        // in flight, never a doubled one lifting off.
+        this._setRowHandoff(pending.id);
+        // Predicted final geometry at frame 1: the bar's inline left/width
+        // already hold the spring targets while it is in flight.
+        let ox = 0, oy = 0;
+        for (let el = titleEl; el && el !== bar; el = el.offsetParent) { ox += el.offsetLeft; oy += el.offsetTop; }
+        const cr = bar.offsetParent.getBoundingClientRect();
+        const toRect = {
+            left: cr.left + (parseFloat(bar.style.left) || bar.offsetLeft) + ox,
+            top: cr.top + (parseFloat(bar.style.top) || bar.offsetTop) + oy,
+            width: titleEl.offsetWidth,
+            height: titleEl.offsetHeight
+        };
+        this._spawnFlyPill(pending.name, fromRect, toRect, {
+            morph: true, startScale: 1.25, endScale: 1, echoText: pending.echo,
+            anchor: () => {
+                const r = titleEl.getBoundingClientRect();
+                return r.width ? r : null;
+            },
+            onDock: () => {
+                titleEl.classList.remove('title-handoff');
+                this._clearRowHandoff();
+            }
+        });
+        return undefined;
+    },
+
+    _startReturnFly() {
+        const isJoined = window.sidebarMode === 'recent_joined';
+        const isClass = window.sidebarMode === 'class' && window.currentClassId;
+        if ((!isJoined && !isClass) || this._barLevel !== 2 || this._reducedMotion()) return undefined;
+        const titleEl = document.querySelector('#sidebarChrome #sidebarLevel2Title');
+        if (!titleEl || !titleEl.offsetWidth || !titleEl.innerText) return undefined;
+        const tr = titleEl.getBoundingClientRect();
+        // Armed at click, fired by the back render before its first await.
+        // The name must come from cnCache, NOT titleEl.innerText: innerText
+        // returns the CSS-uppercased rendering, and an all-caps echo lands
+        // visibly bigger/wider than the mixed-case row text it is joining.
+        this._returnFly = isJoined
+            ? { id: 'recent_joined', name: 'New Members', echo: 'Recently Joined' }
+            : { id: window.currentClassId, name: window.cnCache[window.currentClassId] || titleEl.innerText };
+        this._returnFly.fromRect = { left: tr.left, top: tr.top, width: tr.width, height: tr.height };
+        return undefined;
+    },
+
+    _spawnReturnFly() {
+        const rf = this._returnFly;
+        this._returnFly = null;
+        if (!rf) return undefined;
+        const toRect = this._rowTextRect(rf.id, true);
+        if (!toRect) return undefined;
+        // The landing row keeps its slot but surrenders its word until the
+        // pill docks — otherwise the uppercase in-flight copy and the
+        // mixed-case row text read as two overlapping labels.
+        this._setRowHandoff(rf.id);
+        this._spawnFlyPill(rf.name, rf.fromRect, toRect, {
+            morph: false, startScale: 1, endScale: 1, echoText: rf.echo,
+            anchor: () => this._rowTextRect(rf.id),
+            onDock: () => this._clearRowHandoff()
+        });
+        return undefined;
+    },
+
+    _spawnFlyPill(name, fromRect, toRect, opts = {}) {
+        this._killFly();
+        const startScale = opts.startScale || 1;
+        const endScale = opts.endScale || 1;
+        const pill = document.createElement('div');
+        pill.className = 'sidebar-fly-pill';
+        const shell = document.createElement('span');
+        shell.className = 'sidebar-fly-shell';
+        pill.appendChild(shell);
+        const label = document.createElement('span');
+        label.className = 'sidebar-fly-title';
+        label.textContent = name;
+        const echo = document.createElement('span');
+        echo.className = 'sidebar-fly-echo';
+        echo.textContent = opts.echoText || name;
+        pill.appendChild(label);
+        pill.appendChild(echo);
+        if (opts.morph) {
+            label.style.opacity = '0';
+        } else {
+            echo.style.opacity = '0';
+        }
+        document.body.appendChild(pill);
+        // Dock centered on the title text box, so the last frames show one
+        // word (the overlay) sitting exactly on the other (the real title).
+        const cx = toRect.left + toRect.width / 2;
+        const cy = toRect.top + toRect.height / 2;
+        pill.style.left = (cx - pill.offsetWidth / 2) + 'px';
+        pill.style.top = (cy - pill.offsetHeight / 2) + 'px';
+        const sx = (fromRect.left + fromRect.width / 2) - cx;
+        const sy = (fromRect.top + fromRect.height / 2) - cy;
+        // TEMP DIAGNOSTIC (v20): first-flight drift probe — remove after triage.
+        console.log('[flyPill]', opts.morph ? 'enter' : 'return', JSON.stringify({
+            from: [Math.round(fromRect.left), Math.round(fromRect.width)],
+            to: [Math.round(toRect.left), Math.round(toRect.width)],
+            t: performance.now() | 0
+        }));
+        // The path is rAF-driven, not a baked WAAPI endpoint: entering a
+        // class changes the chat's content height, the page scrollbar can
+        // appear/disappear mid-flight and shift the whole panel ~15px, which
+        // made any launch-time prediction stale on arrival. Every frame
+        // re-reads the live anchor, so the pill tracks its real target.
+        const dur = 480;
+        const easeOut = t => 1 - Math.pow(1 - t, 4);
+        pill.style.transform = `translate(${sx}px, ${sy}px) scale(${startScale})`;
+        const fade = pill.animate([
+            { opacity: opts.morph ? 0 : 1 },
+            { opacity: 1, offset: 0.16 },
+            { opacity: 1 }
+        ], { duration: dur, easing: 'linear', fill: 'forwards' });
+        const anims = [fade];
+        // The glass shell is its own layer so it can melt into the bar before
+        // the pill docks: entering, it shrinks and clears over the last 40%
+        // (an oversized shell resting on the bar's edge read as a sticker);
+        // returning, it condenses back out of the title text.
+        const shellKeys = opts.morph
+            ? [{ opacity: 1, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.55 }, { opacity: 0, transform: 'scale(0.78)' }]
+            : [{ opacity: 1, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.72 }, { opacity: 0, transform: 'scale(0.9)' }];
+        anims.push(shell.animate(shellKeys, { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }));
+        if (opts.morph) {
+            anims.push(label.animate([{ opacity: 0 }, { opacity: 1, offset: 0.45 }, { opacity: 1 }], { duration: 480, easing: 'ease-out', fill: 'forwards' }));
+            anims.push(echo.animate([{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }], { duration: 480, easing: 'ease-out', fill: 'forwards' }));
+        } else {
+            // Landing on the row: convert title type back into list type. The
+            // pill itself never scales up (that read as an oversized capsule);
+            // the row-style twin grows from the title's 13px into its real
+            // 16px while the uppercase copy fades out, so the word arrives at
+            // exactly the size of the text it joins.
+            anims.push(label.animate([{ opacity: 1 }, { opacity: 1, offset: 0.62 }, { opacity: 0, offset: 0.9 }, { opacity: 0 }], { duration: 480, easing: 'ease-out', fill: 'forwards' }));
+            anims.push(echo.animate([
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(0.81)' },
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(0.81)', offset: 0.62 },
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }
+            ], { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }));
+        }
+        const f = { el: pill, anims, raf: 0, reveal: opts.onDock || null };
+        this._fly = f;
+        const dissolve = () => {
+            // The guard timer must never restart a fade already running:
+            // that snapped the pill back to full opacity mid-dissolve.
+            if (this._fly !== f || f.dissolving) return;
+            f.dissolving = true;
+            // Hand the word back BEFORE the fade starts: the real title sits
+            // on the same pixels, so only the shell appears to melt away.
+            if (f.reveal) { try { f.reveal(); } catch (e) {} }
+            const out = pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'cubic-bezier(0.3, 0, 0.2, 1)', fill: 'forwards' });
+            f.anims.push(out);
+            out.finished.then(() => {
+                if (this._fly === f) { this._fly = null; pill.remove(); }
+            }).catch(() => {});
+        };
+        const t0 = performance.now();
+        const tick = (now) => {
+            if (this._fly !== f || f.dissolving) return;
+            const p = Math.min(1, (now - t0) / dur);
+            const ex = easeOut(p);
+            const ey = easeOut(Math.min(1, p * 0.92)); // y lags x: gentle arc
+            const a = (opts.anchor && opts.anchor()) || toRect;
+            const ax = a.left + a.width / 2 - cx;
+            const ay = a.top + a.height / 2 - cy;
+            const s = startScale + (endScale - startScale) * ex;
+            pill.style.transform = `translate(${sx + (ax - sx) * ex}px, ${sy + (ay - sy) * ey}px) scale(${s})`;
+            if (p < 1) { f.raf = requestAnimationFrame(tick); return; }
+            dissolve();
+        };
+        f.raf = requestAnimationFrame(tick);
+        return undefined;
+    },
+
+    _syncTabState(animatePill = true) {
+        const group = document.querySelector('#sidebarChrome [data-tabs-group="switcher"]');
+        if (!group) return undefined;
+        ['recent', 'all', 'class'].forEach(mode => {
+            const btn = group.querySelector(`[data-sidebar-mode="${mode}"]`);
+            if (btn) btn.classList.toggle('sidebar-tab-active', window.sidebarMode === mode);
+        });
+        // One shared indicator pill: snap on first build, spring-glide on switches.
+        this._syncTabPill(group, animatePill);
+        if (window.ResizeObserver && !group._tabPillRO) {
+            // Covers a 0-width first measure (sidebar hidden at build time):
+            // the pill lands with no flight as soon as the bar has a size.
+            group._tabPillRO = new ResizeObserver(() => this._syncTabPill(group, false));
+            group._tabPillRO.observe(group);
+        }
+        return undefined;
+    },
+
+    _level2Title() {
+        if (window.sidebarMode === 'recent_joined') return 'New Members';
+        return window.cnCache[window.currentClassId] || 'Class';
+    },
+
+    // Swap the bar's content between the switcher and the back+title group,
+    // then fly the capsule to the geometry that fits the new content.
+    _setBarLevel(level, title = null) {
+        const chrome = document.getElementById('sidebarChrome');
+        const bar = chrome?.querySelector('#sidebarTabsBar');
+        if (!bar) return undefined;
+        const groups = {
+            1: bar.querySelector('[data-tabs-group="switcher"]'),
+            2: bar.querySelector('[data-tabs-group="back"]')
+        };
+        const first = this._barLevel === null;
+        const changed = this._barLevel !== level;
+        if (level === 2 && title !== null) {
+            const titleEl = bar.querySelector('#sidebarLevel2Title');
+            if (titleEl) titleEl.innerText = title;
+        }
+        Object.entries(groups).forEach(([l, el]) => {
+            if (el) el.hidden = String(l) !== String(level);
+        });
+        if (changed && level === 1) this._renderBarActions(null);
+        if (changed && !first && groups[level]) {
+            groups[level].classList.remove('sidebar-group-in');
+            void groups[level].offsetWidth;
+            groups[level].classList.add('sidebar-group-in');
+        }
+        this._barLevel = level;
+        this._layoutBar(changed && !first);
+        return undefined;
+    },
+
+    // The class name arrives after the bar has already flown to its cached
+    // text; re-measuring rides the same spring so the capsule grows into place
+    // instead of hard-cutting.
+    _setBarTitle(title) {
+        const titleEl = document.querySelector('#sidebarChrome #sidebarLevel2Title');
+        if (!titleEl || this._barLevel !== 2) return undefined; // a late fetch must not resize the Level 1 bar
+        const grew = titleEl.innerText !== title;
+        titleEl.innerText = title;
+        this._layoutBar(grew);
+        return undefined;
+    },
+
+    _layoutBar(animate = true) {
+        const listEl = document.getElementById('sidebarList');
+        const bar = document.querySelector('#sidebarChrome #sidebarTabsBar');
+        if (!listEl || !bar) return undefined;
+        const panelW = listEl.clientWidth;
+        if (!panelW) return undefined; // panel hidden: the next render places it
+
+        const curW = bar.offsetWidth;
+        const curLeft = bar.offsetLeft;
+        // Measure the destination on a throwaway clone: touching the live box
+        // (width: max-content) inside a running transition retargets it and
+        // kills the flight, which is exactly what happens when the class name
+        // arrives mid-glide.
+        const probe = bar.cloneNode(true);
+        probe.id = '';
+        probe.style.transition = 'none';
+        probe.style.position = 'absolute';
+        probe.style.left = '-9999px';
+        probe.style.width = 'max-content';
+        probe.style.maxWidth = 'none';
+        // Inline refraction styles travel with the clone; drop them so the
+        // measure never rasterises a filter over an off-screen box.
+        probe.style.backdropFilter = 'none';
+        probe.style.webkitBackdropFilter = 'none';
+        probe.style.filter = 'none';
+        document.body.appendChild(probe);
+        const natural = probe.offsetWidth;
+        probe.remove();
+
+        const targetW = Math.min(natural, panelW - 24);
+        const targetLeft = this._barLevel === 2 ? 12 : Math.round((panelW - targetW) / 2);
+        const glass = bar._liquidGlass;
+        const settle = () => {
+            if (bar._barTracking) {
+                bar._barTracking = false;
+                if (glass) glass.endTrack();
+            }
+        };
+        if (Math.abs(targetW - curW) < 0.5 && Math.abs(targetLeft - curLeft) < 0.5 && !bar._barFlight) {
+            return undefined; // already resting here
+        }
+        if (!animate || !curW) {
+            // First landing (and resize): land the box, never fly it in from 0.
+            const live = bar._barFlight;
+            if (live) {
+                bar._barFlight = null;
+                clearTimeout(live.timer);
+            }
+            settle();
+            bar.classList.add('sidebar-bar-snap');
+            bar.style.left = targetLeft + 'px';
+            bar.style.width = targetW + 'px';
+            void bar.offsetWidth;
+            bar.classList.remove('sidebar-bar-snap');
+            return undefined;
+        }
+        // Fly: build the glass map once for the destination box, pin back to
+        // the old one, then let the CSS spring carry left + width (see
+        // .sidebar-tabs in style.css — same curves the tab pill rides).
+        bar.classList.add('sidebar-bar-snap');
+        bar.style.left = targetLeft + 'px';
+        bar.style.width = targetW + 'px';
+        void bar.offsetWidth; // the map is built against the destination box
+        if (glass && !bar._barTracking) {
+            bar._barTracking = true;
+            glass.beginTrack();
+        }
+        bar.style.left = curLeft + 'px';
+        bar.style.width = curW + 'px';
+        void bar.offsetWidth; // reflow at the old box so the glide starts there
+        bar.classList.remove('sidebar-bar-snap');
+        void bar.offsetWidth;
+        bar.style.left = targetLeft + 'px';
+        bar.style.width = targetW + 'px';
+        const prev = bar._barFlight;
+        if (prev) clearTimeout(prev.timer);
+        const flight = {};
+        flight.timer = setTimeout(() => {
+            if (bar._barFlight !== flight) return;
+            bar._barFlight = null;
+            settle();
+        }, 560);
+        bar._barFlight = flight;
+        return undefined;
+    },
+
+    // Right-aligned action capsule (Class Level 2: delete + edit for the
+    // teacher/admin). It slides in from off-panel rather than fading, since
+    // opacity would kill the capsule's liquid-glass surface.
+    _renderBarActions(content) {
+        const actions = document.querySelector('#sidebarChrome #sidebarTabsActions');
+        if (!actions) return undefined;
+        if (!content) {
+            actions.classList.remove('sidebar-bar-in');
+            if (actions._hideTimer) clearTimeout(actions._hideTimer);
+            actions._hideTimer = setTimeout(() => {
+                if (!actions.classList.contains('sidebar-bar-in')) {
+                    actions.hidden = true;
+                    actions.innerHTML = '';
+                    delete actions.dataset.key;
+                }
+            }, 460);
+            return undefined;
+        }
+        // A class fetch can land after the user already popped back; the
+        // actions capsule only belongs to a Level 2 panel.
+        if (this._barLevel !== 2) return undefined;
+        if (actions._hideTimer) clearTimeout(actions._hideTimer);
+        if (actions.dataset.key !== content.key) {
+            actions.innerHTML = content.html;
+            actions.dataset.key = content.key;
+        }
+        actions.hidden = false;
+        void actions.offsetWidth;
+        actions.classList.add('sidebar-bar-in');
+        // Built only once the capsule has a real box: a hidden (0×0) glass
+        // surface maps nothing.
+        this._applyBarGlass(actions);
+        return undefined;
+    },
+
+    _syncTabPill(tabsEl, animate = true) {
+        if (!tabsEl) return;
+        const pill = tabsEl.querySelector('.sidebar-tab-pill');
+        const active = tabsEl.querySelector('.sidebar-tab-active');
+        if (!pill || !active) return;
+        if (!active.offsetWidth || !active.offsetHeight) return; // unmeasurable (hidden): RO/next render retries
+        if (pill.style.opacity !== '1') animate = false; // never fly in from 0 on its first landing
+        const place = () => {
+            pill.style.left = active.offsetLeft + 'px';
+            pill.style.top = active.offsetTop + 'px';
+            pill.style.width = active.offsetWidth + 'px';
+            pill.style.height = active.offsetHeight + 'px';
+            pill.style.opacity = '1';
+        };
+        if (!animate) {
+            pill.classList.add('sidebar-pill-snap');
+            place();
+            void pill.offsetWidth;
+            pill.classList.remove('sidebar-pill-snap');
+        } else {
+            place();
+        }
+    },
+
     renderClassLevel2(container, isTabSwitch = false) {
         const rt = this._runtime;
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
         return (async () => {
             try {
-                const checkTitleEl = document.getElementById('sidebarLevel2Title');
-                const isAlreadyInLevel2 = checkTitleEl && checkTitleEl.innerText === (window.cnCache[window.currentClassId] || 'Class');
-
-                if (!isAlreadyInLevel2) {
-                    const cachedName = window.cnCache[window.currentClassId] || 'Class';
+                const view = 'class:' + window.currentClassId;
+                // The back + title row is the shared floating bar now, so this
+                // panel carries only the list (offset under the bar's band).
+                if (container.dataset.view !== view || !container.querySelector('#sidebarSubList')) {
+                    container.dataset.view = view;
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
-                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="class" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer z-10">
-                                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
-                                </button>
-                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div id="sidebarLevel2Title" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest truncate max-w-[150px] text-center">${window.escapeHTML(cachedName)}</div>
-                                </div>
-                                <div class="flex-1"></div>
-                            </div>
                             <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4">
                                 <div class="p-4 space-y-4 animate-pulse">
                                     <div class="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/4 mb-6"></div>
@@ -433,38 +1018,23 @@ export const SidebarModule = {
                     `;
                 }
 
-                const classBackBtn = container.querySelector('button[data-sidebar-back="class"]');
-                if (classBackBtn) {
-                    classBackBtn.onclick = (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        window.currentClassId = null;
-                        window._isPopNav = true;
-                        this.renderSidebar(true);
-                    };
-                }
-
                 const snap = await rt.get(rt.ref(rt.db, `classes/${window.currentClassId}`));
                 const c = snap.val();
                 if (!c) { window.currentClassId = null; this.renderSidebar(); return; }
 
-                const titleEl = container.querySelector('#sidebarLevel2Title');
-                if (titleEl) titleEl.innerText = c.name;
+                window.cnCache[window.currentClassId] = c.name;
+                this._setBarTitle(c.name);
 
-                if (window.AppModules.User.isAdmin() || c.teacherId === currentUser.id) {
-                    const header = container.querySelector('.relative');
-                    if (header && !header.querySelector('.admin-actions')) {
-                        const actionDiv = document.createElement('div');
-                        actionDiv.className = 'flex items-center gap-3 z-10 admin-actions';
-                        actionDiv.innerHTML = `
-                            <button onclick="handleDeleteClass('${window.currentClassId}')" class="text-red-500 hover:text-red-600 active:scale-90 transition-all p-1" title="Delete Class">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                            <button onclick="AppModules.Sidebar.openStudentSelector('${window.currentClassId}')" class="text-[#007AFF] text-xs font-bold uppercase tracking-widest">Edit</button>
-                        `;
-                        header.appendChild(actionDiv);
-                    }
-                }
+                const canManage = window.AppModules.User.isAdmin() || c.teacherId === currentUser.id;
+                this._renderBarActions(canManage ? {
+                    key: view,
+                    html: `
+                        <button onclick="handleDeleteClass('${window.currentClassId}')" class="sidebar-action-disc text-black dark:text-white active:scale-90" title="Delete Class">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                        <button onclick="AppModules.Sidebar.openStudentSelector('${window.currentClassId}')" class="sidebar-action-label text-black dark:text-white">Edit</button>
+                    `
+                } : null);
 
                 const subList = container.querySelector('#sidebarSubList');
                 const teacher = await window.fetchUser(c.teacherId);
@@ -484,7 +1054,7 @@ export const SidebarModule = {
                             if (regItem) {
                                 innerHtml += `
                                     <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                             </svg>
@@ -514,7 +1084,7 @@ export const SidebarModule = {
                     ${extensionHtml}
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
                     <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
-                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center p-2 relative">
+                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-full flex items-center justify-center p-2 relative">
                             ${(rt.eagleIcon || '')}
                             <span id="dot-group_${window.currentClassId}" class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#007AFF] border-2 border-white dark:border-[#1C1C1E] rounded-full ${window.AppModules.Notify.unreadSet.has('group_' + window.currentClassId) ? '' : 'hidden'}"></span>
                         </div>
@@ -610,7 +1180,9 @@ export const SidebarModule = {
                         const escName = window.escapeHTML(c.name);
                         const item = document.createElement('div');
                         item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
+                        item.dataset.classId = c.id;
                         item.onclick = () => {
+                            this._armFlyFromRow(item, c);
                             window.currentClassId = c.id;
                             AppModules.Sidebar.renderSidebar();
                             if (window.innerWidth >= 800) window.switchChat('group_' + c.id);
@@ -621,7 +1193,7 @@ export const SidebarModule = {
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
                                 </div>
                                 <div>
-                                    <div class="font-bold text-base text-black dark:text-white leading-tight">${escName}</div>
+                                    <div data-fly-name${this._rowHandoffId === c.id ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-tight">${escName}</div>
                                     <div class="text-xs text-gray-400 mt-0.5">Click to view members</div>
                                 </div>
                             </div>
@@ -645,20 +1217,10 @@ export const SidebarModule = {
         if (!container || !rt.db || !currentUser) return undefined;
         return (async () => {
             try {
-                const existingSubList = document.getElementById('sidebarSubList');
-                const isAlreadyInRecentJoined = existingSubList && container.querySelector('.uppercase.tracking-widest')?.innerText.toUpperCase() === 'NEW MEMBERS';
-
-                if (!isAlreadyInRecentJoined) {
+                if (container.dataset.view !== 'recent' || !container.querySelector('#sidebarSubList')) {
+                    container.dataset.view = 'recent';
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
-                            <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="recent" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer z-10">
-                                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
-                                </button>
-                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center">New Members</div>
-                                </div>
-                            </div>
                             <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4">
                                 <div class="p-4 space-y-4 animate-pulse">
                                     <div class="flex items-center gap-4">
@@ -688,16 +1250,8 @@ export const SidebarModule = {
                     `;
                 }
 
-                const recentBackBtn = container.querySelector('button[data-sidebar-back="recent"]');
-                if (recentBackBtn) {
-                    recentBackBtn.onclick = (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        window.sidebarMode = 'recent';
-                        window._isPopNav = true;
-                        AppModules.Sidebar.renderSidebar(true);
-                    };
-                }
+                // Back + 'New Members' live in the shared bar; this panel has no actions.
+                this._renderBarActions(null);
 
                 const subList = container.querySelector('#sidebarSubList');
                 const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
@@ -816,14 +1370,19 @@ export const SidebarModule = {
             if (window.sidebarMode === 'recent') {
                 const entry = document.createElement('div');
                 entry.className = 'p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-black/5 dark:hover:bg-white/5';
-                entry.onclick = () => { window.sidebarMode = 'recent_joined'; AppModules.Sidebar.renderSidebar(); };
+                entry.dataset.classId = 'recent_joined';
+                entry.onclick = () => {
+                    this._armFlyFromRow(entry, { id: 'recent_joined', name: 'New Members', echo: 'Recently Joined' });
+                    window.sidebarMode = 'recent_joined';
+                    AppModules.Sidebar.renderSidebar();
+                };
                 entry.innerHTML = `
                     <div class="flex items-center gap-4 flex-1 overflow-hidden">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                         </div>
                         <div class="flex flex-col overflow-hidden">
-                            <span class="font-bold text-base text-black dark:text-white leading-tight truncate">Recently Joined</span>
+                            <span data-fly-name${this._rowHandoffId === 'recent_joined' ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-tight truncate">Recently Joined</span>
                             <span class="text-xs text-gray-400 mt-0.5 truncate">Meet new community members</span>
                         </div>
                     </div>
@@ -862,7 +1421,7 @@ export const SidebarModule = {
                         displayName = user?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
                         displayEmail = 'Notification from Extension Tool';
                         avatarHtml = `
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center p-2 text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center p-2 text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                 </svg>

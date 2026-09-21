@@ -160,14 +160,18 @@ body {
     z-index: 30;
     width: max-content;
     overflow: hidden;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(242, 242, 247, 0.75);
+    border: 1px solid transparent;
+    background: rgba(228, 229, 234, 0.75);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 24px rgba(15, 23, 42, 0.04);
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     /* Must stay border-radius, exactly like #chatInputPill: a clip-path clips
        the element's own box, and because backdrop-filter output is clipped to
        the element box, `clip-path: inset(0 round 24px)` cut away the liquid
@@ -175,6 +179,8 @@ body {
     border-radius: 24px;
     /* Shared inset for the header row and the list rows. */
     padding: 6px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* Open: the header row takes the list's full width through its own content —
@@ -265,37 +271,38 @@ body {
     max-width: var(--wp-second-row-max-width, calc(100% - 24px));
 }
 
-/* Small icon discs (folder / portfolio pen / search magnifier): painted
-   mini-glass. A real backdrop-filter on them would only re-blur the bar's
-   own glass — the bar is a backdrop root — so depth comes from a translucent
-   smoke fill plus the same top-highlight / bottom-shade bevel the bars use.
-   Hover brightens the fill, matching the previous grey-disc family. */
+/* Small icon discs (folder / portfolio pen / search magnifier): bare at rest —
+   no fill, no bevel — so only the icons carry the row.  Hover paints the mini
+   glass: the messaging accent at the SAME token the sidebar switcher's sliding
+   pill uses (every "selected" surface is one colour), with the same
+   top-highlight / bottom-shade bevel the bars use.  A real backdrop-filter on
+   them would only re-blur the bar's own glass — the bar is a backdrop root —
+   so depth comes from the translucent fill plus bevel. */
 .glass-disc {
-    background: rgba(120, 120, 128, 0.22);
-    box-shadow:
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.4),
-        inset 0 -1px 1.5px rgba(0, 0, 0, 0.08);
+    background: transparent;
     transition: background-color 150ms ease;
 }
 
-/* One light-grey hover family across the whole top row: the All Projects
-   row, its disc, the portfolio/search discs and the back button all land on
-   the same gray-200 / white-20 highlight. */
-.glass-disc:hover,
-button:hover > .glass-disc {
-    background: #E5E7EB;
+/* A disc paints ONLY for its own hover.  The old `button:hover > .glass-disc`
+   companion is gone: the switcher's disc is a direct child of the whole-row
+   button, so that selector made it light up whenever ANY part of the row was
+   hovered — exactly the coupling the user rejected. */
+.glass-disc:hover {
+    background: var(--msg-accent-color-alpha20, rgba(120, 120, 128, 0.26));
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.4),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.08);
 }
 
 .dark .glass-disc {
-    background: rgba(0, 0, 0, 0.38);
+    background: transparent;
+}
+
+.dark .glass-disc:hover {
+    background: var(--msg-accent-color-dark-alpha20, rgba(255, 255, 255, 0.22));
     box-shadow:
         inset 0 1px 1.5px rgba(255, 255, 255, 0.16),
         inset 0 -1px 1.5px rgba(0, 0, 0, 0.45);
-}
-
-.dark .glass-disc:hover,
-.dark button:hover > .glass-disc {
-    background: rgba(255, 255, 255, 0.2);
 }
 
 /* All Projects has one action, so its whole row is one hover target.  A chosen
@@ -310,7 +317,7 @@ button:hover > .glass-disc {
 }
 
 #wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--msg-accent-color-alpha20, rgba(120, 120, 128, 0.26));
 }
 
 /* A selected project's label needs its own breathing room inside the right
@@ -321,24 +328,38 @@ button:hover > .glass-disc {
     padding-left: 12px;
 }
 
-#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectBarChevron {
+/* The chevron sits 12px off the hover rectangle's right edge in EVERY
+   collapsed state — the All Projects pill matches the chosen-project pill.
+   (This widens the labelled pill by 12px; the row-1/row-2 ladder measures
+   the real box, so the threshold simply shifts with it.) */
+#wpDocContextBar:not(.wp-project-menu-open) #wpProjectBarChevron {
     margin-right: 12px;
 }
 
-#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeader:hover > #wpProjectHeaderIcon:not(:hover) {
-    background: rgba(120, 120, 128, 0.22);
-}
+/* In EVERY collapsed state the icon disc and the title/chevron are independent
+   hover targets — hovering one never paints the other, in labelled or
+   icon-only mode. */
 
 .dark #wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--msg-accent-color-dark-alpha20, rgba(255, 255, 255, 0.22));
 }
 
-.dark #wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeader:hover > #wpProjectHeaderIcon:not(:hover) {
-    background: rgba(0, 0, 0, 0.38);
+/* "All Projects" has ONE action (the icon has nothing separate to open), so
+   its whole collapsed row is a single hover target painted in the user
+   selection colour.  The disc blends into that row fill instead of painting
+   its own disc, so the tint never doubles up under icon + text. */
+#wpDocContextBar.wp-title-full:not(.wp-project-menu-open) #wpProjectHeader:hover {
+    background: var(--msg-accent-color-alpha20, rgba(120, 120, 128, 0.26));
 }
 
-/* Icon-only mode keeps the labelled row's hover: the whole row lights up and
-   the disc blends into it, so icon + chevron highlight as one unit. */
+#wpDocContextBar.wp-title-full:not(.wp-project-menu-open) #wpProjectHeader:hover .glass-disc {
+    background: transparent;
+    box-shadow: none;
+}
+
+.dark #wpDocContextBar.wp-title-full:not(.wp-project-menu-open) #wpProjectHeader:hover {
+    background: var(--msg-accent-color-dark-alpha20, rgba(255, 255, 255, 0.22));
+}
 
 /* Expanded, the header row IS a list row ("All Projects"): its hover must
    match the project rows below (transparent tint), not the solid grey the
@@ -349,6 +370,28 @@ button:hover > .glass-disc {
 
 .dark #wpDocContextBar.wp-project-menu-open #wpProjectHeader:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+/* Project-list row discs and the open header's folder disc share one static
+   fill: the user selection colour at alpha10, no bevel, no hover deepening —
+   inside the list a row's only hover is its grey background box. */
+.wp-row-disc {
+    background: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark .wp-row-disc {
+    background: var(--msg-accent-color-dark-alpha10, rgba(255, 255, 255, 0.14));
+}
+
+#wpDocContextBar.wp-project-menu-open #wpProjectHeaderIcon,
+#wpDocContextBar.wp-project-menu-open #wpProjectHeaderIcon:hover {
+    background: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+    box-shadow: none;
+}
+
+.dark #wpDocContextBar.wp-project-menu-open #wpProjectHeaderIcon,
+.dark #wpDocContextBar.wp-project-menu-open #wpProjectHeaderIcon:hover {
+    background: var(--msg-accent-color-dark-alpha10, rgba(255, 255, 255, 0.14));
 }
 
 /* The collapse ghost's header strip must land pixel-perfect on the real pill
@@ -480,19 +523,42 @@ button:hover > .glass-disc {
     gap: 6px;
     padding: 6px;
     max-width: min(380px, 42vw);
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(242, 242, 247, 0.75);
+    /* Chrome UI, not document text: dragging across the bars must not
+       blue-highlight the names. */
+    user-select: none;
+    -webkit-user-select: none;
+    border: 1px solid transparent;
+    background: rgba(228, 229, 234, 0.75);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 24px rgba(15, 23, 42, 0.04);
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     border-radius: 24px;
 }
 
 #chatNameBar {
     left: 12px;
+}
+
+/* Width flight (animateNameBarContent): mid-glide the box is narrower than
+   its destination, so `truncate` would paint an ellipsis even though the
+   final width fits the text. During the flight the lines run full width and
+   the gliding capsule edge reveals/clips them instead; truncate returns on
+   landing, so genuinely over-long names still ellipsize. */
+#chatNameBar.nb-flying {
+    overflow: hidden;
+}
+
+#chatNameBar.nb-flying #chatTitle,
+#chatNameBar.nb-flying #chatStatus {
+    overflow: visible;
+    text-overflow: clip;
 }
 
 #chatActionsBar {
@@ -507,6 +573,23 @@ button:hover > .glass-disc {
         inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
         inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
         0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+/* iMessage-style top fade: messages dissolve as they scroll under the floating
+   bars. A gradient from the chat background to transparent, kept below the
+   bars (z-30) and above #chatBox (z-0). */
+.chat-top-fade {
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.97) 0%,
+        rgba(255, 255, 255, 0.8) 40%,
+        rgba(255, 255, 255, 0) 100%);
+}
+
+.dark .chat-top-fade {
+    background: linear-gradient(to bottom,
+        rgba(0, 0, 0, 0.97) 0%,
+        rgba(0, 0, 0, 0.8) 40%,
+        rgba(0, 0, 0, 0) 100%);
 }
 
 /* four-panel modes: the header band (4.5rem→7.25rem) is only 44px tall while
@@ -532,14 +615,18 @@ body.compact-four-panel-layout #searchResults {
 #chatInputPill {
     container-type: inline-size;
     container-name: chat-input;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(242, 242, 247, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
+    border: 1px solid transparent;
+    background: rgba(228, 229, 234, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 24px rgba(15, 23, 42, 0.04); /* softened shadow to remove dirty/blackish look */
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06); /* softened shadow to remove dirty/blackish look */
 }
 
 #chatInputPill.liquid-glass-active,
@@ -552,26 +639,35 @@ body.compact-four-panel-layout #searchResults {
 #wpDocContextBar.liquid-glass-active,
 #chatNameBar.liquid-glass-active,
 #chatActionsBar.liquid-glass-active,
-#messageContextMenu.liquid-glass-active {
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
-    background: rgba(255, 255, 255, 0.48) !important;
+#messageContextMenu.liquid-glass-active,
+.sidebar-tabs.liquid-glass-active {
+    border: 1px solid transparent !important;
+    background: rgba(222, 223, 229, 0.48) !important;
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06) !important;
 }
 
 
 
 #quoteArea {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1);
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     clip-path: inset(0 round 24px);
     -webkit-clip-path: inset(0 round 24px);
 }
@@ -589,14 +685,18 @@ body.compact-four-panel-layout #searchResults {
     text-align: center;
     vertical-align: middle;
     margin-bottom: 1px;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(242, 242, 247, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
+    border: 1px solid transparent;
+    background: rgba(228, 229, 234, 0.75); /* very light gray matching iOS F2F2F7 base, clean and premium */
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 10px 22px rgba(15, 23, 42, 0.04); /* softened shadow to remove dirty/blackish look */
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06); /* softened shadow to remove dirty/blackish look */
 }
 
 .chat-fab-btn svg {
@@ -618,12 +718,16 @@ body.compact-four-panel-layout #searchResults {
 }
 
 #attachMenu {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1);
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     transform-origin: bottom left;
     transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.34, 1.45, 0.64, 1);
     will-change: transform, opacity;
@@ -671,14 +775,18 @@ body.compact-four-panel-layout #searchResults {
 
 /* Forward/Send-to picker card — same glass surface as #attachMenu */
 #forwardPickerCard {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1);
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     clip-path: inset(0 round 24px);
     -webkit-clip-path: inset(0 round 24px);
 }
@@ -705,12 +813,16 @@ body.compact-four-panel-layout #searchResults {
 /* Portfolio Project/Version modal: same glass surface as #forwardPickerCard
    and the same spring pop-in animation */
 #portfolioProjectCard {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1);
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     clip-path: inset(0 round 24px);
     -webkit-clip-path: inset(0 round 24px);
     transform-origin: center center;
@@ -756,14 +868,18 @@ body.compact-four-panel-layout #searchResults {
 
 /* Message context menu — same glass surface as #attachMenu */
 #messageContextMenu {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7),
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1);
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
     clip-path: inset(0 round 16px);
     -webkit-clip-path: inset(0 round 16px);
     /* transform-origin is set per-open in JS to the corner nearest the press point */
@@ -818,7 +934,8 @@ body.compact-four-panel-layout #searchResults {
 .dark #wpDocContextBar.liquid-glass-active,
 .dark #chatNameBar.liquid-glass-active,
 .dark #chatActionsBar.liquid-glass-active,
-.dark #messageContextMenu.liquid-glass-active {
+.dark #messageContextMenu.liquid-glass-active,
+.dark .sidebar-tabs.liquid-glass-active {
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
     background: rgba(45, 45, 50, 0.65) !important;
     box-shadow:
@@ -916,6 +1033,9 @@ body.compact-four-panel-layout #searchResults {
 #searchResults {
     scrollbar-width: none !important; /* Firefox */
     -ms-overflow-style: none !important;
+    /* Chrome UI like the header bars: previews are not document text. */
+    user-select: none;
+    -webkit-user-select: none;
 }
 #searchResultList::-webkit-scrollbar,
 #searchResults::-webkit-scrollbar {
@@ -1066,18 +1186,6 @@ body.compact-four-panel-layout #searchResults {
 }
 
 
-@keyframes popIn {
-    0% {
-        transform: scale(0.95) translateY(10px);
-        opacity: 0;
-    }
-
-    100% {
-        transform: scale(1) translateY(0);
-        opacity: 1;
-    }
-}
-
 @keyframes highlightPulse {
 
     0%,
@@ -1184,8 +1292,67 @@ body.compact-four-panel-layout #searchResults {
     overflow: hidden;
 }
 
+/* Bubbles enter by default; .msg-quiet opts out for content spliced into a list
+   the user is already reading (paging up, search backfill, in-place updates). */
 .msg-pop {
-    animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    animation: msgEnter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Grow out of the bubble's own tail corner rather than zooming from its centre. */
+.msg-pop.items-end {
+    transform-origin: bottom right;
+}
+
+.msg-pop.items-start {
+    transform-origin: bottom left;
+}
+
+.msg-pop.msg-quiet {
+    animation: none;
+}
+
+/* A message you just sent rises from the send button into place. */
+.msg-pop.msg-sent {
+    animation: msgSend 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: bottom right;
+}
+
+/* Project-filter switches replay the entrance on what stays on screen, and those
+   bubbles were painted from history so they carry .msg-quiet. Declared after it. */
+.msg-pop.msg-replay {
+    animation: msgEnter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes msgEnter {
+    0% {
+        transform: scale(0.86) translateY(12px);
+        opacity: 0;
+    }
+
+    45% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes msgSend {
+    0% {
+        transform: translate(var(--fly-dx, 0px), var(--fly-dy, 0px)) scale(0.5);
+        opacity: 0;
+    }
+
+    30% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
 }
 
 .highlight-pulse {
@@ -2500,14 +2667,18 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 /* iOS 26 Liquid Glass Design System (Synchronized with Composer & Attach Menu) */
 .ios26-liquid-glass {
-    background: rgba(255, 255, 255, 0.48) !important;
+    background: rgba(222, 223, 229, 0.48) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid transparent !important;
     box-shadow: 
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06) !important;
 }
 
 .dark .ios26-liquid-glass {
@@ -2530,25 +2701,33 @@ body.is-guest-two-panel .bottom-gradient-shim {
 }
 
 .ios26-liquid-glass.liquid-glass-active {
-    background: rgba(255, 255, 255, 0.48) !important;
+    background: rgba(222, 223, 229, 0.48) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid transparent !important;
     box-shadow: 
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06) !important;
 }
 
 .ios26-liquid-glass.liquid-glass-fallback {
-    background: rgba(255, 255, 255, 0.48) !important;
+    background: rgba(222, 223, 229, 0.48) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid transparent !important;
     box-shadow: 
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06),
-        0 14px 36px rgba(15, 23, 42, 0.1) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06) !important;
 }
 
 .dark .ios26-liquid-glass.liquid-glass-active {
@@ -2576,14 +2755,18 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 /* Site-wide Modal card — same glass surface as #chatInputPill / #attachMenu */
 #modalCard {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
-        0 18px 44px rgba(15, 23, 42, 0.18);
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 12px 32px rgba(15, 23, 42, 0.10);
 }
 
 .dark #modalCard {
@@ -2627,30 +2810,38 @@ body.is-guest-two-panel .bottom-gradient-shim {
     top: 65px;
     right: 12px;
     z-index: 100 !important;
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 1px solid transparent;
     /* Fully rounded dropdown floating under #chatActionsBar; 24px matches the
        glass bars' radius. No clip-path here — it cuts away the liquid-glass
        edge bevel (same lesson recorded on #wpDocContextBar). */
     border-radius: 24px !important;
-    background: rgba(255, 255, 255, 0.48);
+    background: rgba(222, 223, 229, 0.48);
     z-index: 100 !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
     box-shadow: 
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06), 
-        0 16px 40px rgba(0, 0, 0, 0.12) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02), 
+        0 10px 28px rgba(15, 23, 42, 0.08) !important;
 }
 
 #globalSearchResults {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(255, 255, 255, 0.48);
+    border: 1px solid transparent;
+    background: rgba(222, 223, 229, 0.48);
     border-radius: 1rem !important;
     z-index: 150 !important;
     box-shadow: 
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
-        inset 0 -1px 2px rgba(15, 23, 42, 0.06), 
-        0 20px 48px rgba(0, 0, 0, 0.15) !important;
+        inset 0 -1px 2px rgba(15, 23, 42, 0.02), 
+        0 12px 32px rgba(15, 23, 42, 0.08) !important;
     clip-path: inset(0 round 16px);
     -webkit-clip-path: inset(0 round 16px);
 }
@@ -3295,6 +3486,130 @@ body.is-guest-two-panel .bottom-gradient-shim {
 }
 
 
+/* Loading spinners: Part A remaps border-t-[#007AFF] for the Hub, but Part B
+   never did, so every msg-side spinner (sidebar list, chat, Portfolio's
+   "Scanning writing history…") stayed iOS blue whatever the selection colour
+   is. Same pattern, same tokens. */
+.msg-theme-blue .border-t-\[\#007AFF\] {
+    border-top-color: #007AFF !important;
+}
+.msg-theme-blue .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #0A84FF !important;
+}
+.msg-theme-orange .border-t-\[\#007AFF\] {
+    border-top-color: #F97316 !important;
+}
+.msg-theme-orange .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #FB923C !important;
+}
+.msg-theme-green .border-t-\[\#007AFF\] {
+    border-top-color: #34C759 !important;
+}
+.msg-theme-green .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #95FF14 !important;
+}
+.msg-theme-purple .border-t-\[\#007AFF\] {
+    border-top-color: #AF52DE !important;
+}
+.msg-theme-purple .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: #A724FF !important;
+}
+.msg-theme-custom .border-t-\[\#007AFF\] {
+    border-top-color: var(--msg-accent-color) !important;
+}
+.msg-theme-custom .dark\:border-t-\[\#0A84FF\] {
+    border-top-color: var(--msg-accent-color-dark) !important;
+}
+
+
+/* 6. Accent-tinted selection surfaces: the sidebar tab switcher's sliding pill
+   and the .glass-disc icon discs both read one token pair, so "selected" is
+   the same colour everywhere. 'custom' vars are set inline by JS
+   (applyMsgColor); presets declare the same vars here (alpha20 = the hover
+   rung one step deeper). */
+.msg-theme-blue {
+    --msg-accent-color: #007AFF;
+    --msg-accent-color-dark: #0A84FF;
+    --msg-accent-color-alpha10: rgba(0, 122, 255, 0.1);
+    --msg-accent-color-dark-alpha10: rgba(10, 132, 255, 0.15);
+    --msg-accent-color-alpha20: rgba(0, 122, 255, 0.2);
+    --msg-accent-color-dark-alpha20: rgba(10, 132, 255, 0.25);
+}
+.msg-theme-orange {
+    --msg-accent-color: #F97316;
+    --msg-accent-color-dark: #FB923C;
+    --msg-accent-color-alpha10: rgba(249, 115, 22, 0.1);
+    --msg-accent-color-dark-alpha10: rgba(251, 146, 60, 0.15);
+    --msg-accent-color-alpha20: rgba(249, 115, 22, 0.2);
+    --msg-accent-color-dark-alpha20: rgba(251, 146, 60, 0.25);
+}
+.msg-theme-green {
+    --msg-accent-color: #34C759;
+    --msg-accent-color-dark: #95FF14;
+    --msg-accent-color-alpha10: rgba(52, 199, 89, 0.1);
+    --msg-accent-color-dark-alpha10: rgba(149, 255, 20, 0.15);
+    --msg-accent-color-alpha20: rgba(52, 199, 89, 0.2);
+    --msg-accent-color-dark-alpha20: rgba(149, 255, 20, 0.25);
+}
+.msg-theme-purple {
+    --msg-accent-color: #AF52DE;
+    --msg-accent-color-dark: #A724FF;
+    --msg-accent-color-alpha10: rgba(175, 82, 222, 0.1);
+    --msg-accent-color-dark-alpha10: rgba(167, 36, 255, 0.15);
+    --msg-accent-color-alpha20: rgba(175, 82, 222, 0.2);
+    --msg-accent-color-dark-alpha20: rgba(167, 36, 255, 0.25);
+}
+
+
+/* Accent utilities for what Tailwind's remap list can't reach: the opacity and
+   hover variants (border-[#007AFF]/40, hover:bg-[#007AFF]/10) are not selectors
+   Part B declares, so those stayed iOS blue. These consume the accent tokens
+   directly, which every theme — presets and custom — publishes on its
+   container. They paint the HOVER FILL and the quote rail only; the glyphs
+   underneath stay black / white. */
+
+/* Rest fill for chips that should read as part of the accent family (the
+   search category row) — the same rung the sidebar selection pill sits on. */
+.accent-fill-soft {
+    background-color: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark .accent-fill-soft {
+    background-color: var(--msg-accent-color-dark-alpha10, rgba(10, 132, 255, 0.15));
+}
+
+.accent-hover-soft:hover {
+    background-color: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+/* For controls whose REST fill is already a grey (the Export pill), the hover
+   needs the deeper rung or it reads as no feedback at all. */
+.accent-hover-medium:hover {
+    background-color: var(--msg-accent-color-alpha20, rgba(0, 122, 255, 0.2));
+}
+
+.dark .accent-hover-soft:hover {
+    background-color: var(--msg-accent-color-dark-alpha10, rgba(10, 132, 255, 0.15));
+}
+
+.dark .accent-hover-medium:hover {
+    background-color: var(--msg-accent-color-dark-alpha20, rgba(10, 132, 255, 0.25));
+}
+
+.accent-quote-rail {
+    /* Keep the rail's original weight (40% light / 50% dark): color-mix tints
+       the live accent, and the alpha20 line above is the fallback where
+       color-mix is unavailable. */
+    border-left-color: var(--msg-accent-color-alpha20, rgba(0, 122, 255, 0.4));
+    border-left-color: color-mix(in srgb, var(--msg-accent-color, #007AFF) 40%, transparent);
+}
+
+.dark .accent-quote-rail {
+    border-left-color: var(--msg-accent-color-dark-alpha20, rgba(10, 132, 255, 0.5));
+    border-left-color: color-mix(in srgb, var(--msg-accent-color-dark, #0A84FF) 50%, transparent);
+}
+
+
 /* =========================================
    Part C: Custom Elements
    ========================================= */
@@ -3523,11 +3838,11 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 /* Custom override for the camera SVG color to prevent blending into grey messages */
 #chatCameraBtn svg {
-    color: rgba(0, 0, 0, 0.75) !important;
+    color: #000000 !important;
 }
 
 .dark #chatCameraBtn svg {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: #ffffff !important;
 }
 
 /* Custom rounded checkbox */
@@ -3592,9 +3907,404 @@ body.is-guest-two-panel .bottom-gradient-shim {
     transform: scale(1);
 }
 
-/* Synchronize sidebar tab text color transition with the underline animation */
+/* Synchronize sidebar tab text/background transitions with the top-row
+   hover family (color keeps the old 0.3s curve, tint matches 150ms ease) */
 .sidebar-tabs button {
-    transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms ease !important;
+}
+
+/* Sidebar Recent/Contacts/Class switcher: a floating liquid-glass capsule in
+   the same surface family as #chatInputPill / #wpDocContextBar. It keeps the
+   old 44px band (the chat header alignment anchor in four-panel layout) while
+   the list now scrolls *under* it, so the fade plate + capsule need their own
+   stacking above the list. */
+#sidebarLevel1Container > #sidebarSubList,
+#sidebarLevel2Container #sidebarSubList {
+    padding-top: 62px;
+}
+
+/* The capsule + its fade live in their own layer above both sidebar levels:
+   the bar is the one piece of furniture that survives a Level 1 ↔ Level 2
+   switch, so it can morph (centre ⇄ left) instead of being rebuilt. */
+.sidebar-chrome {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+}
+
+.sidebar-chrome>.sidebar-tabs {
+    pointer-events: auto;
+}
+
+.sidebar-tabs-fade {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 62px;
+    z-index: 25;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.97) 0%,
+        rgba(255, 255, 255, 0.85) 55%,
+        rgba(255, 255, 255, 0) 100%);
+}
+
+.dark .sidebar-tabs-fade {
+    background: linear-gradient(to bottom,
+        rgba(28, 28, 30, 0.97) 0%,
+        rgba(28, 28, 30, 0.85) 55%,
+        rgba(28, 28, 30, 0) 100%);
+}
+
+/* 46px tall to match #chatNameBar/#chatActionsBar exactly; top 8px puts its
+   centre line at 103px from the viewport — the same centre the chat bars are
+   pinned to in four-panel layout, so the two rows read as one band.
+   Resting geometry (left + width, in px) is written by SidebarModule: the
+   capsule centres itself at Level 1 and pins to the panel's left edge at
+   Level 2, and `left` rides the same spring curve the tab pill uses so the
+   hand-over overshoots and settles back like a cushion. */
+.sidebar-tabs {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    width: max-content;
+    max-width: calc(100% - 24px);
+    height: 46px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    box-sizing: border-box;
+    border-radius: 23px;
+    /* Clip the sliding pill: on a spring overshoot it must disappear behind
+       the capsule's rounded edge, never ride over the border. overflow (not
+       clip-path) — clip-path would kill the bar's own backdrop-filter. */
+    overflow: hidden;
+    border: 1px solid transparent;
+    background: rgba(228, 229, 234, 0.75);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.02),
+        0 4px 14px rgba(15, 23, 42, 0.06);
+    user-select: none;
+    -webkit-user-select: none;
+    transition:
+        left 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        width 420ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.dark .sidebar-tabs {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(52, 52, 55, 0.7);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+.sidebar-tabs.sidebar-bar-snap {
+    transition: none !important;
+}
+
+/* One content set at a time inside the capsule: the 3-tab switcher (Level 1)
+   or back + title (Level 2). `flex: 0 0 auto` keeps the group at its natural
+   size while the capsule itself shrinks, so the box clips the flight instead
+   of the group re-wrapping mid-glide (and no ResizeObserver feedback loop). */
+.sidebar-tabs-group {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 100%;
+}
+
+.sidebar-tabs-group[hidden] {
+    display: none;
+}
+
+.sidebar-tabs-group-back {
+    gap: 6px;
+    padding-right: 4px;
+}
+
+/* Label scale is owned here (not by a Tailwind text-[..] class) so the three
+   tab labels, the sub-panel title and the action label stay one size. */
+.sidebar-tab {
+    font-size: 13px;
+}
+
+/* The incoming set enters from the side the capsule is travelling to. */
+@keyframes sidebarGroupInFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes sidebarGroupInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.sidebar-tabs-group[data-tabs-group="switcher"].sidebar-group-in {
+    animation: sidebarGroupInFromLeft 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sidebar-tabs-group[data-tabs-group="back"].sidebar-group-in {
+    animation: sidebarGroupInFromRight 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Sub-panel header row, now a segment of the shared capsule: icon-only round
+   back disc + the panel's name, in the same 10px uppercase scale as the tab
+   labels so one bar reads as one system. */
+.sidebar-back-disc {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1c1c1e;
+    cursor: pointer;
+    transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.dark .sidebar-back-disc {
+    color: #f2f2f7;
+}
+
+.sidebar-back-disc:hover {
+    background: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark .sidebar-back-disc:hover {
+    background: var(--msg-accent-color-dark-alpha10, rgba(10, 132, 255, 0.15));
+}
+
+.sidebar-back-disc:active {
+    transform: scale(0.92);
+}
+
+.sidebar-tabs-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #000;
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dark .sidebar-tabs-title {
+    color: #fff;
+}
+
+/* While an entry flight carries the word, the real title keeps its layout
+   (the pill docks onto this exact box) but shows nothing. */
+.sidebar-tabs-title.title-handoff {
+    visibility: hidden;
+}
+
+/* Class row ⇄ title fusion flight: the detached mini-capsule that carries the
+   class name into the bar's title slot (and back). Overlay-only — it docks on
+   top of the real title with the exact same typography, then dissolves. */
+.sidebar-fly-pill {
+    position: fixed;
+    z-index: 70;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 9999px;
+    overflow: hidden;
+    will-change: transform, opacity;
+}
+
+/* The glass skin lives on its own layer so it can shrink away into the bar
+   before the text docks. Deliberately NOT a backdrop-filter surface: the pill
+   fades in and out, and blurring its backdrop re-rasterises every frame of
+   that fade (jank). */
+.sidebar-fly-shell {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: rgba(232, 233, 238, 0.94);
+    border: 1px solid rgba(60, 60, 67, 0.1);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.7),
+        0 10px 26px rgba(15, 23, 42, 0.18);
+    transform-origin: center;
+}
+
+.dark .sidebar-fly-shell {
+    background: rgba(58, 58, 62, 0.94);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.sidebar-fly-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    color: #000;
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dark .sidebar-fly-title {
+    color: #fff;
+}
+
+/* Row-style twin inside the same pill: fades out as the pill shrinks toward
+   the title slot, so the word visibly converts from list type to title type. */
+.sidebar-fly-echo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: normal;
+    white-space: nowrap;
+    color: #000;
+}
+
+.dark .sidebar-fly-echo {
+    color: #fff;
+}
+
+/* Level 2 actions (Class delete / Edit for teacher & admin): a second capsule
+   on the same band, right-aligned. It slides in from off-panel rather than
+   fading — opacity on a glass element kills the refraction. */
+.sidebar-tabs-actions {
+    left: auto;
+    right: 12px;
+    width: max-content;
+    gap: 0;
+    transform: translateX(calc(100% + 12px));
+    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sidebar-tabs-actions[hidden] {
+    display: none;
+}
+
+.sidebar-tabs-actions.sidebar-bar-in {
+    transform: translateX(0);
+}
+
+.sidebar-action-disc,
+.sidebar-action-label {
+    height: 34px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.sidebar-action-disc {
+    width: 34px;
+    flex-shrink: 0;
+}
+
+.sidebar-action-disc:hover,
+.sidebar-action-label:hover {
+    background: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark .sidebar-action-disc:hover,
+.dark .sidebar-action-label:hover {
+    background: var(--msg-accent-color-dark-alpha10, rgba(10, 132, 255, 0.15));
+}
+
+.sidebar-action-disc:active {
+    transform: scale(0.92);
+}
+
+.sidebar-action-label {
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Active segment: same weightless language as the All Projects row — a flat
+   translucent smoke tint, no drop shadow, no bevel. Hover of an inactive
+   segment lands on the shared black/5 (dark white/10) family. */
+.sidebar-tab:not(.sidebar-tab-active):hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .sidebar-tab:not(.sidebar-tab-active):hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ONE shared indicator living in .sidebar-tabs, glided by JS to the active
+   tab's geometry. `left` rides a spring curve (overshoots the target, then
+   settles back like hitting a cushion); `width`/`top` use a plain ease so the
+   pill doesn't balloon at both ends. Snap class: first landing and resizes
+   place it with no flight. */
+.sidebar-tab-pill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-radius: 9999px;
+    /* Same tint as the Recently Joined icon disc (accent @ alpha10); falls
+       back to the neutral smoke before any theme class is applied. */
+    background: var(--msg-accent-color-alpha10, rgba(120, 120, 128, 0.16));
+    opacity: 0;
+    pointer-events: none;
+    transition: left 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        width 420ms cubic-bezier(0.25, 0.1, 0.25, 1),
+        top 420ms cubic-bezier(0.25, 0.1, 0.25, 1),
+        opacity 150ms ease;
+}
+
+.sidebar-tab-pill.sidebar-pill-snap {
+    transition: none !important;
+}
+
+.dark .sidebar-tab-pill {
+    background: var(--msg-accent-color-dark-alpha10, rgba(255, 255, 255, 0.14));
 }
 
 /* Hide native scrollbar for sidebar sub lists to use custom animated scrollbars */
@@ -3828,4 +4538,25 @@ textarea,
 #chatComposerWrap.composer-busy #chatCameraBtn > *,
 #chatComposerWrap.composer-busy #chatInputPill > * {
     opacity: 0.5;
+}
+
+
+/* ==========================================================================
+   Light-mode secondary text
+   Sub-labels — the email under a name, "last seen … days ago", "By …", the
+   Recently Joined caption — all ship as Tailwind gray-400 (#9CA3AF), which is
+   barely legible on the app's near-white surfaces. Land them on the composer
+   placeholder's gray (rgba(0,0,0,.7)), the tone the user reads as "the right
+   dark". Dark mode is deliberately untouched: its grays already read on black,
+   and every dark:text-gray-* / dark:bg-* variant stays out of reach because
+   .dark sits on <html>.
+   ========================================================================== */
+html:not(.dark) .text-gray-400 {
+    color: rgba(0, 0, 0, 0.7);
+}
+
+/* Icon buttons that darken on hover (text-gray-400 hover:text-gray-600) must
+   keep that feedback instead of being pinned by the rule above. */
+html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
+    color: rgba(0, 0, 0, 0.85);
 }

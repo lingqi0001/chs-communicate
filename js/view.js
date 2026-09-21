@@ -726,7 +726,10 @@ export const ViewModule = {
     applyAnnColor: function (color, customLightHex = null, customDarkHex = null) {
         const newsSec = document.getElementById('newsSection');
         const postPage = document.getElementById('postPage');
-        const elements = [newsSec, postPage];
+        // #toolsSection is a SIBLING of #newsSection, so without tagging it too
+        // the Hub Panel colour never reaches the tool cards' icon discs.
+        const toolsSec = document.getElementById('toolsSection');
+        const elements = [newsSec, postPage, toolsSec];
 
         elements.forEach(el => {
             if (el) {
@@ -813,7 +816,11 @@ export const ViewModule = {
         const chatSection = document.getElementById('chatSection');
         const newsTopButtonsContainer = document.getElementById('newsTopButtonsContainer');
         const sidebarHandle = document.getElementById('sidebarHandle');
-        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle];
+        // The Portfolio drawer is re-parented onto <body> while it is open
+        // (chat.js body.appendChild), so without tagging it here nothing under
+        // .msg-theme-* reaches its doc cards — their accent stayed iOS blue.
+        const portfolioDrawer = document.getElementById('writingPortfolioDrawer');
+        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle, portfolioDrawer];
 
         elements.forEach(el => {
             if (el) {

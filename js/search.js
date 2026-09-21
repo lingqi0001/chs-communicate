@@ -62,19 +62,19 @@ export const SearchModule = {
                         <!-- Search Categories Bar: Horizontal Pill Layout (iOS Style) -->
                         <div class="flex-shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
                             <button onclick="setSearchCategory('messages')" id="searchCat-messages"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Messages</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">Messages</button>
                             <button onclick="setSearchCategory('writing')" id="searchCat-writing"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Writing</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">Writing</button>
                             <button onclick="setSearchCategory('community')" id="searchCat-community"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Community</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">Community</button>
                             <button onclick="setSearchCategory('news')" id="searchCat-news"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">News</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">News</button>
                             <button onclick="setSearchCategory('tools')" id="searchCat-tools"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Tools</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">Tools</button>
                             <button onclick="setSearchCategory('people')" id="searchCat-people"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">People</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">People</button>
                             <button onclick="setSearchCategory('club')" id="searchCat-club"
-                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap">Club</button>
+                                class="search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap">Club</button>
                         </div>
                     <div id="searchResultList" class="flex-1 overflow-y-auto divide-y divide-white/5"></div>
                     </div>
@@ -806,11 +806,11 @@ export const SearchModule = {
             document.querySelectorAll('.search-cat-btn').forEach(btn => {
                 const btnCat = btn.id.replace('searchCat-', '');
                 if (window.currentSearchCategory === 'all') {
-                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 whitespace-nowrap";
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium whitespace-nowrap";
                 } else if (btnCat === window.currentSearchCategory) {
                     btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-white bg-[#007AFF] dark:bg-[#0A84FF] shadow-sm whitespace-nowrap";
                 } else {
-                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-white/5 opacity-40 hover:opacity-75 whitespace-nowrap";
+                    btn.className = "search-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-black dark:text-white accent-fill-soft accent-hover-medium opacity-40 hover:opacity-75 whitespace-nowrap";
                 }
             });
 
@@ -836,7 +836,7 @@ export const SearchModule = {
                 if (history && history.length > 0) {
                     let html = `<div class="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
                         <span>Recent Searches</span>
-                        <button onclick="clearSearchHistoryUI(event)" class="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
+                        <button onclick="clearSearchHistoryUI(event)" class="text-[10px] text-[#007AFF] dark:text-[#0A84FF] font-medium">Clear All</button>
                     </div>`;
                     history.forEach(item => {
                         const escapedHistoryItem = escapeForInlineHandler(item);
@@ -951,7 +951,7 @@ export const SearchModule = {
                                     const escapedToolId = escapeForInlineHandler(t.id);
                                     const onClick = t.type === 'module' ? `openModule('${escapedToolId}')` : `openExtension('${escapedToolId}')`;
                                     chunk += `<div onclick="${onClick}; triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                        <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF]">
+                                        <div class="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center text-black dark:text-white">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                                         </div>
                                         <div class="flex-1">

@@ -46,10 +46,10 @@ const _escape = (str) => {
 const MODAL_HTML = `
     <div id="customModal"
         class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/25 backdrop-blur-[5px] px-6 transition-all duration-300 opacity-0">
-        <div id="modalCard" class="w-full max-w-[320px] rounded-2xl overflow-hidden scale-90 transition-all duration-300 border border-black/15 dark:border-white/10">
+        <div id="modalCard" class="w-full max-w-[320px] rounded-2xl overflow-hidden scale-90 transition-all duration-300 border border-black/15 dark:border-white/10 bg-white/75 dark:bg-transparent">
             <div class="p-5 text-center">
                 <div id="modalTitle" class="text-base font-bold text-black dark:text-white mb-2 leading-tight">Title</div>
-                <div id="modalBody" class="text-sm text-black/75 dark:text-white/70 leading-snug break-words">Body</div>
+                <div id="modalBody" class="text-sm text-black/80 dark:text-white/70 leading-snug break-words">Body</div>
             </div>
             <div class="flex border-t border-black/10 dark:border-white/10 h-12">
                 <button id="modalCancel" class="flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors">Cancel</button>
