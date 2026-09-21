@@ -1272,6 +1272,27 @@ body.compact-four-panel-layout #searchResults {
     animation: sidebarFullSlideOut 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Level 1 ⇄ Level 2 germination: the sub-panel is drawn open out of the row
+   that was tapped (clip-path window + corners that melt once it is full), so
+   the exit literally retraces the entry. Geometry lives in js/sidebar.js; the
+   rows lift in behind it, one notch apart, the way an iOS list finishes. */
+@keyframes sidebarRowIn {
+
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sidebar-row-in {
+    animation: sidebarRowIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Google Doc Card Comments Accordion Animation */
 .doc-drawer-accordion {
     display: grid;
@@ -4305,6 +4326,28 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 .dark .sidebar-tab-pill {
     background: var(--msg-accent-color-dark-alpha10, rgba(255, 255, 255, 0.14));
+}
+
+/* Sidebar list loading spinner: the spinning edge rides the user-selected
+   accent color (--msg-accent-color), same token as the selection pill. */
+.sidebar-spinner {
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    border: 2px solid rgba(120, 120, 128, 0.25);
+    border-top-color: var(--msg-accent-color, #007AFF);
+    animation: sidebar-spin 0.8s linear infinite;
+}
+
+.dark .sidebar-spinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: var(--msg-accent-color-dark, #0A84FF);
+}
+
+@keyframes sidebar-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Hide native scrollbar for sidebar sub lists to use custom animated scrollbars */

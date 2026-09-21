@@ -16,6 +16,7 @@ export const SidebarModule = {
     _pendingTabSwitch: false,
     _isRenderingGetter: null,
     _isRenderingFlag: false,
+    _queuedRender: false,
     _refreshTimer: null,
     _subListLoadingTimer: null,
     _barLevel: null,
@@ -41,6 +42,45 @@ export const SidebarModule = {
 
     configureRuntime(runtime = {}) {
         this._runtime = { ...this._runtime, ...runtime };
+    },
+
+    // Firebase get() stays pending forever when the device is offline with no
+    // cached copy, which used to pin _isRenderingFlag and freeze Level 1 ↔
+    // Level 2 navigation (Back button dead). Every sidebar read races this.
+    _offlineTimeoutMs() {
+        return navigator.onLine === false ? 1500 : 6000;
+    },
+
+    _fetch(query) {
+        return Promise.race([
+            this._runtime.get(query),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('network-timeout')), this._offlineTimeoutMs()))
+        ]);
+    },
+
+    _fetchUser(userId) {
+        return Promise.race([
+            window.fetchUser(userId),
+            new Promise(resolve => setTimeout(() => resolve(null), this._offlineTimeoutMs()))
+        ]);
+    },
+
+    _loadingHtml(label) {
+        return `
+            <div class="flex flex-col items-center justify-center gap-2 py-10 text-gray-400">
+                <div class="sidebar-spinner"></div>
+                <span class="text-xs font-medium">${label}</span>
+            </div>
+        `;
+    },
+
+    _errorHtml(label) {
+        return `
+            <div class="p-8 text-center text-red-500 text-xs space-y-3">
+                <div>${label}</div>
+                <button onclick="AppModules.Sidebar.renderSidebar()" class="text-red-500 font-bold hover:underline cursor-pointer">Retry</button>
+            </div>
+        `;
     },
 
     attachLegacyRender(rawRenderFn, opts = {}) {
@@ -205,7 +245,12 @@ export const SidebarModule = {
     },
 
     async _renderShell(isTabSwitch = false) {
-        if (this.isRendering()) return;
+        // A click (e.g. Back) that lands mid-render must not be swallowed —
+        // queue it and replay once the current render releases the flag.
+        if (this.isRendering()) {
+            this._queuedRender = true;
+            return;
+        }
         const rt = this._runtime;
         const container = document.getElementById('sidebarList');
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
@@ -276,22 +321,36 @@ export const SidebarModule = {
                 }
 
                 // Show Level 2 container and start animation immediately
+                this._killGerminate(); // a rewind still running must not clip this panel
                 level2Container.classList.remove('hidden', 'sidebar-full-slide-out', 'sidebar-full-slide-in', 'sidebar-push');
+                this._rowsToStagger = false;
                 if (!isTabSwitch) {
-                    if (animType === 'micro') {
+                    const seed = this._entrySeed;
+                    this._entrySeed = null;
+                    // A seed means the click came from a row, so the germination
+                    // outranks the stored transition style — and it needs Level 1
+                    // live underneath, because the growing window reveals it.
+                    if (this._germinate(level2Container, seed, 'in')) {
+                        this._rowsToStagger = true;
+                        level1Container.classList.remove('hidden');
+                    } else if (animType === 'micro') {
                         level2Container.classList.add('sidebar-push');
                         level1Container.classList.add('hidden'); // Hide level 1 in micro mode to keep clean look
                     } else {
-                        level2Container.classList.add('sidebar-full-slide-in');
                         level1Container.classList.remove('hidden'); // Ensure level 1 is visible underneath
+                        level2Container.classList.add('sidebar-full-slide-in');
                     }
                 }
                 void level2Container.offsetWidth; // reflow
 
+                // Fire-and-forget: the panel is already up with its skeleton,
+                // so the data render must NOT be awaited here. Awaiting it let
+                // a pending offline fetch pin _isRenderingFlag and deaden the
+                // Back button and every tab switch until the timeout fired.
                 if (window.sidebarMode === 'class' && window.currentClassId) {
-                    await this.renderClassLevel2(level2Container, isTabSwitch);
+                    this.renderClassLevel2(level2Container, isTabSwitch);
                 } else if (window.sidebarMode === 'recent_joined') {
-                    await this.renderRecentlyJoinedLevel2(level2Container, isTabSwitch);
+                    this.renderRecentlyJoinedLevel2(level2Container, isTabSwitch);
                 }
                 const subList2 = level2Container.querySelector('#sidebarSubList');
                 if (subList2 && window.setupCustomScrollbar) {
@@ -303,6 +362,7 @@ export const SidebarModule = {
             // If we are in Level 1 mode
             level1Container.classList.remove('hidden');
             this._pendingFly = null;
+            this._entrySeed = null;
 
             // Leaving Level 2 is a Level change in its own right: the bar flies
             // back to centre, and the panel must slide out to match the slide-in
@@ -320,25 +380,37 @@ export const SidebarModule = {
 
             // Handle slide out of Level 2
             if (level2Container && !level2Container.classList.contains('hidden')) {
-                if (animType !== 'micro' && (window._isPopNav || wasLevel2)) {
+                const detach = () => {
+                    level2Container.classList.add('hidden');
+                    level2Container.classList.remove('sidebar-full-slide-out');
+                    level2Container.style.clipPath = '';
+                    level2Container.style.opacity = '';
+                    level2Container.innerHTML = '';
+                    delete level2Container.dataset.view;
+                    if (level2Container._popEnd) {
+                        level2Container.removeEventListener('animationend', level2Container._popEnd);
+                        level2Container._popEnd = null;
+                    }
+                };
+                // Exact rewind first, whatever the stored transition style is:
+                // the panel shrinks back into the row the name is flying home
+                // to, so the exit literally traces the entry.
+                const seed = returnFired ? this._returnSeed : null;
+                this._returnSeed = null;
+                if (this._germinate(level2Container, seed, 'out', detach)) {
+                    // the rewind calls detach itself when the sheet is gone
+                } else if (animType !== 'micro' && (window._isPopNav || wasLevel2)) {
                     level2Container.classList.remove('sidebar-full-slide-in');
                     void level2Container.offsetWidth; // restart from the resting box
                     level2Container.classList.add('sidebar-full-slide-out');
                     const handleAnimEnd = (e) => {
                         if (e && e.target !== level2Container) return; // child animations bubble
-                        level2Container.classList.add('hidden');
-                        level2Container.classList.remove('sidebar-full-slide-out');
-                        level2Container.innerHTML = '';
-                        delete level2Container.dataset.view;
-                        level2Container.removeEventListener('animationend', handleAnimEnd);
-                        level2Container._popEnd = null;
+                        detach();
                     };
                     level2Container._popEnd = handleAnimEnd;
                     level2Container.addEventListener('animationend', handleAnimEnd);
                 } else {
-                    level2Container.classList.add('hidden');
-                    level2Container.innerHTML = '';
-                    delete level2Container.dataset.view;
+                    detach();
                 }
             }
 
@@ -367,6 +439,10 @@ export const SidebarModule = {
             }
         } finally {
             this._isRenderingFlag = false;
+            if (this._queuedRender) {
+                this._queuedRender = false;
+                this.renderSidebar();
+            }
         }
     },
 
@@ -393,8 +469,10 @@ export const SidebarModule = {
             return;
         }
 
-        if (window.sidebarMode === 'class') await this.renderClassLevel1(subList);
-        else await this.renderUserSidebarItems(subList);
+        // Same rule as Level 2: schedule the data render, never await it —
+        // the render paints its own loading state and updates when data lands.
+        if (window.sidebarMode === 'class') this.renderClassLevel1(subList);
+        else this.renderUserSidebarItems(subList);
 
         if (isTabSwitch || window._isPopNav) {
             void subList.offsetWidth;
@@ -522,7 +600,7 @@ export const SidebarModule = {
         return undefined;
     },
 
-    _armFlyFromRow(item, c) {
+    _armFlyFromRow(item, c, ev) {
         if (this._reducedMotion()) return undefined;
         // Takeoff rect is captured now, at click time: the entry render will
         // scroll Level 1 back to the top one frame later and move the row.
@@ -534,7 +612,14 @@ export const SidebarModule = {
             const nr = range.getBoundingClientRect();
             if (nr.width && nr.height) rect = { left: nr.left, top: nr.top, width: nr.width, height: nr.height };
         }
-        this._pendingFly = { id: c.id, name: c.name || '', echo: c.echo || c.name || '', rect };
+        // Where inside the row the pointer landed — kept row-relative so the
+        // rewind finds the same spot even after the list has scrolled.
+        const rr = item.getBoundingClientRect();
+        const hasPoint = ev && Number.isFinite(ev.clientX) && (ev.clientX !== 0 || ev.clientY !== 0);
+        this._germPoint = hasPoint ? { dx: ev.clientX - rr.left, dy: ev.clientY - rr.top } : null;
+        const seed = this._germSeedFromRow(item, this._germPoint);
+        this._trackRow(c.id, item);
+        this._pendingFly = { id: c.id, name: c.name || '', echo: c.echo || c.name || '', rect, seed };
         return undefined;
     },
 
@@ -543,7 +628,7 @@ export const SidebarModule = {
     // captured at click time would drift by the scroll delta.
     _rowTextRect(classId, ensureVisible) {
         const list = document.querySelector('#sidebarLevel1Container #sidebarSubList');
-        const row = list && list.querySelector('[data-class-id="' + classId + '"]');
+        const row = this._rowEl(classId);
         const nameEl = row && row.querySelector('[data-fly-name]');
         if (!list || !nameEl) return null;
         const range = document.createRange();
@@ -563,7 +648,7 @@ export const SidebarModule = {
     },
 
     _rowNameEl(classId) {
-        const row = document.querySelector('#sidebarLevel1Container #sidebarSubList [data-class-id="' + classId + '"]');
+        const row = this._rowEl(classId);
         return (row && row.querySelector('[data-fly-name]')) || null;
     },
 
@@ -597,6 +682,10 @@ export const SidebarModule = {
         if (!bar || !titleEl || !fromRect || !bar.offsetParent) return undefined;
         // Kill any live flight BEFORE hiding: its reveal must not undo ours.
         this._killFly();
+        // One click, two results: the name flies up while the panel body grows
+        // out of the same row. The seed only arms when the flight actually
+        // launches, so the two never diverge into a pill with a slide panel.
+        this._entrySeed = pending.seed || null;
         titleEl.classList.add('title-handoff');
         // The row leaves its own word behind for the pill to carry — one copy
         // in flight, never a doubled one lifting off.
@@ -650,6 +739,9 @@ export const SidebarModule = {
         if (!rf) return undefined;
         const toRect = this._rowTextRect(rf.id, true);
         if (!toRect) return undefined;
+        // Measured after that call: _rowTextRect may have centred the landing
+        // row, and the panel has to shrink onto where the row now really is.
+        this._returnSeed = this._germSeedFromRow(this._rowEl(rf.id), this._germPoint);
         // The landing row keeps its slot but surrenders its word until the
         // pill docks — otherwise the uppercase in-flight copy and the
         // mixed-case row text read as two overlapping labels.
@@ -754,12 +846,21 @@ export const SidebarModule = {
             }).catch(() => {});
         };
         const t0 = performance.now();
+        // The anchor is a live rect, and reading one every frame forces a
+        // layout pass while the sheet is being clipped and the bar is
+        // transitioning — that is what dropped the flight to a few visible
+        // steps. Re-measure on a beat and coast between reads; the last frame
+        // always reads fresh so the dock stays pixel-exact.
+        let a = toRect, aAt = 0;
         const tick = (now) => {
             if (this._fly !== f || f.dissolving) return;
             const p = Math.min(1, (now - t0) / dur);
             const ex = easeOut(p);
             const ey = easeOut(Math.min(1, p * 0.92)); // y lags x: gentle arc
-            const a = (opts.anchor && opts.anchor()) || toRect;
+            if (opts.anchor && (p >= 1 || now - aAt > 32)) {
+                const r = opts.anchor();
+                if (r) { a = r; aAt = now; }
+            }
             const ax = a.left + a.width / 2 - cx;
             const ay = a.top + a.height / 2 - cy;
             const s = startScale + (endScale - startScale) * ex;
@@ -768,6 +869,155 @@ export const SidebarModule = {
             dissolve();
         };
         f.raf = requestAnimationFrame(tick);
+        return undefined;
+    },
+
+    /* Level 1 ⇄ Level 2 germination: the tapped row is the seed the sub-panel
+     * is drawn open from (and collapses back into), so the exit path literally
+     * is the entry path. Clipping the panel is safe — its own background is
+     * solid, and the glass capsule lives in the sibling #sidebarChrome layer. */
+    _GERM_MS: 700,
+
+    _rowEl(classId) {
+        // Prefer the row the flight actually lifted off from: the id lookup
+        // would land on the first row carrying that id, which is not the one
+        // the user tapped whenever the list repeats an entry.
+        const tracked = this._rowRefs && this._rowRefs[classId];
+        if (tracked && tracked.isConnected) return tracked;
+        return document.querySelector('#sidebarLevel1Container #sidebarSubList [data-class-id="' + classId + '"]');
+    },
+
+    _trackRow(classId, el) {
+        if (!this._rowRefs) this._rowRefs = {};
+        this._rowRefs[classId] = el;
+    },
+
+    // The seed is a squarish window punched at the spot the pointer landed,
+    // so the sheet opens outward in all four directions from the click. Insets
+    // are panel-local and captured in the click frame: Level 1 scrolls to its
+    // own top one frame after entry, which would otherwise teleport the seed.
+    // The point is kept row-relative (dx, dy inside the row) so the rewind
+    // folds back into the same spot even after the list has scrolled.
+    _germSeedFromRow(rowEl, point) {
+        const frame = document.getElementById('sidebarList');
+        // TEMP DIAGNOSTIC (v23): why the germination declines — remove after triage.
+        const bail = why => { console.log('[germinate] no seed:', why); return null; };
+        if (!rowEl) return bail('no row element');
+        if (!frame) return bail('no #sidebarList');
+        const r = rowEl.getBoundingClientRect();
+        const f = frame.getBoundingClientRect();
+        if (!r.width || !r.height) return bail('row box ' + JSON.stringify([r.width, r.height]));
+        if (!f.height) return bail('frame height 0');
+        if (r.bottom < f.top || r.top > f.bottom) return bail('row off-fold');
+        const S = Math.min(92, Math.max(56, Math.round(r.height)));
+        const cx = r.left + (point ? Math.min(Math.max(point.dx, 0), r.width) : r.width / 2);
+        const cy = r.top + (point ? Math.min(Math.max(point.dy, 0), r.height) : r.height / 2);
+        // Keep the whole seed inside the panel: an edge that starts already at
+        // the panel border cannot grow, and the pull reads as one-sided.
+        const mx = Math.min(S / 2, f.width / 2) + 6;
+        const my = Math.min(S / 2, f.height / 2) + 6;
+        const px = Math.min(Math.max(cx - f.left, mx), Math.max(mx, f.width - mx));
+        const py = Math.min(Math.max(cy - f.top, my), Math.max(my, f.height - my));
+        const seed = {
+            top: Math.round(py - S / 2),
+            right: Math.round(f.width - px - S / 2),
+            bottom: Math.round(f.height - py - S / 2),
+            left: Math.round(px - S / 2),
+            size: S
+        };
+        console.log('[germinate] seed', JSON.stringify(seed));
+        return seed;
+    },
+
+    _killGerminate() {
+        const g = this._germ;
+        if (g) this._landGerminate(g);
+        return undefined;
+    },
+
+    _landGerminate(rec) {
+        // fill:forwards would keep the last inset() clipping the panel (and the
+        // emptied body invisible) long after the flight, so the effects are
+        // dropped rather than overwritten — and a killed rewind must leave the
+        // panel clean for whatever render takes it over next.
+        if (this._germ === rec) this._germ = null;
+        rec.anims.forEach(a => { try { a.cancel(); } catch (e) {} });
+        rec.panel.style.clipPath = '';
+        rec.panel.style.opacity = '';
+        rec.panel.style.willChange = '';
+        if (rec.body) rec.body.style.opacity = '';
+    },
+
+    _germinate(panel, seed, dir, onDone) {
+        // TEMP DIAGNOSTIC (v23): remove after triage.
+        if (!panel || !seed) { console.log('[germinate] skipped', dir, !panel ? 'no panel' : 'no seed'); return null; }
+        if (this._reducedMotion()) { console.log('[germinate] skipped: reduced motion'); return null; }
+        if (!panel.animate) { console.log('[germinate] skipped: no WAAPI'); return null; }
+        if (dir === 'in' && !seed.top && !seed.bottom && !seed.left && !seed.right) { console.log('[germinate] skipped: seed is the whole panel'); return null; }
+        this._killGerminate();
+        const box = (s, r) => `inset(${s.top}px ${s.right}px ${s.bottom}px ${s.left}px round ${r}px)`;
+        const R = Math.min(30, Math.max(14, Math.round(seed.size * 0.34)));
+        const closed = box(seed, R);
+        // The corners ride the moving edge: the radius stays at full size for
+        // the whole opening, and only squares off once the sheet is full — a
+        // radius that shrinks while the box grows reads as "the row went
+        // square, then the panel snapped open" instead of a paper pull.
+        const open = { top: 0, right: 0, bottom: 0, left: 0 };
+        // The corners ride the moving edge almost to the end: the sheet grows
+        // with a full radius on a curve that starts unhurried, and only once it
+        // has reached all four borders do the corners melt out. A front-loaded
+        // curve reads as "still on the row, then already gone square".
+        const keys = dir === 'in'
+            ? [
+                { clipPath: closed, easing: 'cubic-bezier(0.34, 0.02, 0.14, 1)' },
+                { clipPath: box(open, R), offset: 0.74, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+                { clipPath: box(open, 0) }
+            ]
+            : [
+                { clipPath: box(open, 0), opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+                { clipPath: box(open, R), offset: 0.26, opacity: 1, easing: 'cubic-bezier(0.5, 0.02, 0.7, 0.6)' },
+                { clipPath: closed, offset: 0.86, opacity: 1 },
+                { clipPath: closed, opacity: 0 }
+            ];
+        const anims = [panel.animate(keys, { duration: this._GERM_MS, easing: 'linear', fill: 'forwards' })];
+        // clip-path only rides the compositor if the sheet has its own layer.
+        panel.style.willChange = 'clip-path';
+        // Rewinding must not leave a slice of member rows cut in half inside
+        // the collapsing band: the content clears first, then an empty sheet
+        // folds back into the row it came from.
+        const body = dir === 'out' ? panel.firstElementChild : null;
+        if (body) {
+            anims.push(body.animate([
+                { opacity: 1 },
+                { opacity: 1, offset: 0.1 },
+                { opacity: 0 }
+            ], { duration: this._GERM_MS * 0.6, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' }));
+        }
+        const rec = { panel, body, anims, dir };
+        this._germ = rec;
+        // TEMP DIAGNOSTIC (v23): remove after triage.
+        console.log('[germinate] run', dir, closed);
+        requestAnimationFrame(() => {
+            try { console.log('[germinate] live clip', getComputedStyle(panel).clipPath); } catch (e) {}
+        });
+        anims[0].finished.then(() => {
+            this._landGerminate(rec);
+            if (onDone) onDone();
+        }).catch(() => {});
+        return rec;
+    },
+
+    // iOS list finish: once the panel has opened past its half-way mark the
+    // rows lift into place, one notch behind the next.
+    _staggerRows(list) {
+        if (!list || this._reducedMotion() || !list.children.length) return undefined;
+        void list.offsetWidth;
+        Array.from(list.children).forEach((el, i) => {
+            el.classList.remove('sidebar-row-in');
+            el.style.animationDelay = '';
+            el.classList.add('sidebar-row-in');
+            el.style.animationDelay = (90 + Math.min(i, 11) * 16) + 'ms';
+        });
         return undefined;
     },
 
@@ -986,8 +1236,13 @@ export const SidebarModule = {
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
         return (async () => {
+            const classId = window.currentClassId;
+            // Consumed here (not in the shell) so the stagger still runs on
+            // the real rows whenever the data lands.
+            const stagger = this._rowsToStagger;
+            this._rowsToStagger = false;
             try {
-                const view = 'class:' + window.currentClassId;
+                const view = 'class:' + classId;
                 // The back + title row is the shared floating bar now, so this
                 // panel carries only the list (offset under the bar's band).
                 if (container.dataset.view !== view || !container.querySelector('#sidebarSubList')) {
@@ -1013,12 +1268,17 @@ export const SidebarModule = {
                                         </div>
                                     </div>
                                 </div>
+                                ${this._loadingHtml('Loading...')}
                             </div>
                         </div>
                     `;
                 }
 
-                const snap = await rt.get(rt.ref(rt.db, `classes/${window.currentClassId}`));
+                const snap = await this._fetch(rt.ref(rt.db, `classes/${classId}`));
+                // The user may have left (Back / tab switch) while this hung
+                // offline — writing into the shared panel/bar afterwards would
+                // clobber whatever they navigated to, so drop the stale render.
+                if (window.sidebarMode !== 'class' || window.currentClassId !== classId) return;
                 const c = snap.val();
                 if (!c) { window.currentClassId = null; this.renderSidebar(); return; }
 
@@ -1037,7 +1297,7 @@ export const SidebarModule = {
                 } : null);
 
                 const subList = container.querySelector('#sidebarSubList');
-                const teacher = await window.fetchUser(c.teacherId);
+                const teacher = await this._fetchUser(c.teacherId);
                 const students = c.students ? Object.keys(c.students) : [];
 
                 const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
@@ -1097,7 +1357,7 @@ export const SidebarModule = {
                 `;
 
                 const studentData = await Promise.all(students.map(async uid => {
-                    const data = await window.fetchUser(uid);
+                    const data = await this._fetchUser(uid);
                     return data ? { ...data, id: uid } : null;
                 }));
                 const canEdit = (window.AppModules.User.isAdmin() || c.teacherId === currentUser.id);
@@ -1132,9 +1392,15 @@ export const SidebarModule = {
                     `;
                 }).join('');
 
+                if (window.sidebarMode !== 'class' || window.currentClassId !== classId) return;
                 subList.innerHTML = html;
+                if (stagger) this._staggerRows(subList);
             } catch (e) {
                 console.error(e);
+                if (window.sidebarMode !== 'class' || window.currentClassId !== classId) return;
+                container.dataset.view = '';
+                const failList = container.querySelector('#sidebarSubList');
+                if (failList) failList.innerHTML = this._errorHtml('Failed to load class.');
             }
         })();
     },
@@ -1144,8 +1410,16 @@ export const SidebarModule = {
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
         return (async () => {
+            // The Level 1 list DOM is reused across tabs and the Recently
+            // Joined entry also carries data-class-id, so "already showing
+            // classes" must come from the paint marker, not from rows alone.
+            const hadRows = container.dataset.listMode === 'class' && !!container.querySelector('[data-class-id]');
+            const loadingTimer = hadRows ? null : setTimeout(() => {
+                if (window.sidebarMode === 'class') container.innerHTML = this._loadingHtml('Loading classes...');
+            }, 100);
             try {
-                const snap = await rt.get(rt.ref(rt.db, 'classes'));
+                const snap = await this._fetch(rt.ref(rt.db, 'classes'));
+                if (window.sidebarMode !== 'class') return;
                 const allClasses = snap.val() || {};
                 const myClasses = Object.keys(allClasses)
                     .map(id => ({ id, ...allClasses[id] }))
@@ -1181,8 +1455,8 @@ export const SidebarModule = {
                         const item = document.createElement('div');
                         item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                         item.dataset.classId = c.id;
-                        item.onclick = () => {
-                            this._armFlyFromRow(item, c);
+                        item.onclick = event => {
+                            this._armFlyFromRow(item, c, event);
                             window.currentClassId = c.id;
                             AppModules.Sidebar.renderSidebar();
                             if (window.innerWidth >= 800) window.switchChat('group_' + c.id);
@@ -1206,7 +1480,10 @@ export const SidebarModule = {
                 window._isPopNav = false;
             } catch (err) {
                 console.error('renderClassLevel1 error:', err);
-                container.innerHTML = '<div class="p-10 text-center text-red-500 text-xs">Failed to load classes.</div>';
+                if (window.sidebarMode !== 'class') return;
+                container.innerHTML = this._errorHtml('Failed to load classes.');
+            } finally {
+                if (loadingTimer) clearTimeout(loadingTimer);
             }
         })();
     },
@@ -1216,6 +1493,8 @@ export const SidebarModule = {
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
         return (async () => {
+            const stagger = this._rowsToStagger;
+            this._rowsToStagger = false;
             try {
                 if (container.dataset.view !== 'recent' || !container.querySelector('#sidebarSubList')) {
                     container.dataset.view = 'recent';
@@ -1245,6 +1524,7 @@ export const SidebarModule = {
                                         </div>
                                     </div>
                                 </div>
+                                ${this._loadingHtml('Loading...')}
                             </div>
                         </div>
                     `;
@@ -1254,7 +1534,8 @@ export const SidebarModule = {
                 this._renderBarActions(null);
 
                 const subList = container.querySelector('#sidebarSubList');
-                const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                if (window.sidebarMode !== 'recent_joined') return;
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
                     const users = recentSnap.val();
@@ -1283,10 +1564,16 @@ export const SidebarModule = {
                         `;
                         subList.appendChild(div);
                     });
+                    if (stagger) this._staggerRows(subList);
                 }
             } catch (err) {
                 console.error('renderRecentlyJoinedLevel2 error:', err);
-                container.innerHTML = '<div class="p-8 text-center text-red-500 text-xs">Failed to load new members.</div>';
+                if (window.sidebarMode !== 'recent_joined') return;
+                container.dataset.view = '';
+                const failList = container.querySelector('#sidebarSubList');
+                const msg = this._errorHtml('Failed to load new members.');
+                if (failList) failList.innerHTML = msg;
+                else container.innerHTML = msg;
             }
         })();
     },
@@ -1297,6 +1584,11 @@ export const SidebarModule = {
         if (!subList || !rt.db || !currentUser) return undefined;
 
         return (async () => {
+            // recent_joined pre-fills Level 1 as 'recent' and restores the
+            // real mode before this render finishes, so compare a derived
+            // mode; also bail out of painting if the user switched tabs.
+            const currentListMode = () => window.sidebarMode === 'recent_joined' ? 'recent' : window.sidebarMode;
+            const listMode = currentListMode();
             const hadListItems = !!subList.querySelector('div[id^="item-"]');
             const canShowDelayedLoading = !hadListItems;
             let loadingShown = false;
@@ -1306,11 +1598,12 @@ export const SidebarModule = {
             }
             if (canShowDelayedLoading) {
                 this._subListLoadingTimer = setTimeout(() => {
+                    if (currentListMode() !== listMode) return;
                     loadingShown = true;
                     subList.innerHTML = `
                         <div class="h-full flex items-center justify-center">
                             <div class="flex flex-col items-center gap-2 text-gray-400">
-                                <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#007AFF] dark:border-white/20 dark:border-t-[#0A84FF]"></div>
+                                <div class="sidebar-spinner"></div>
                                 <span class="text-xs font-medium">Loading chats...</span>
                             </div>
                         </div>
@@ -1318,13 +1611,13 @@ export const SidebarModule = {
                 }, 100);
             }
             try {
-                const chatSnap = await rt.get(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
+                const chatSnap = await this._fetch(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
                 const chatMap = chatSnap.val() || {};
                 let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
                 if (Object.keys(chatMap).length === 0) {
                     try {
-                        const recentSnap = await rt.get(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                        const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
                         if (recentSnap.exists()) {
                             const recents = recentSnap.val();
                             Object.keys(recents).forEach(rid => {
@@ -1348,12 +1641,12 @@ export const SidebarModule = {
                         return;
                     }
                     let u = window.ALL_USERS[id];
-                    if (!u) u = await window.fetchUser(id);
+                    if (!u) u = await this._fetchUser(id);
                     if (u && u.name) validIds.push(id);
                 }));
 
                 let sortedIds = [];
-                if (window.sidebarMode === 'recent') {
+                if (listMode === 'recent') {
                     sortedIds = validIds.sort((a, b) => (chatMap[b] || 0) - (chatMap[a] || 0)).slice(0, 50);
                 } else {
                     sortedIds = validIds.sort((a, b) => {
@@ -1367,12 +1660,12 @@ export const SidebarModule = {
 
                 const fragment = document.createDocumentFragment();
 
-            if (window.sidebarMode === 'recent') {
+            if (listMode === 'recent') {
                 const entry = document.createElement('div');
                 entry.className = 'p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group hover:bg-black/5 dark:hover:bg-white/5';
                 entry.dataset.classId = 'recent_joined';
-                entry.onclick = () => {
-                    this._armFlyFromRow(entry, { id: 'recent_joined', name: 'New Members', echo: 'Recently Joined' });
+                entry.onclick = event => {
+                    this._armFlyFromRow(entry, { id: 'recent_joined', name: 'New Members', echo: 'Recently Joined' }, event);
                     window.sidebarMode = 'recent_joined';
                     AppModules.Sidebar.renderSidebar();
                 };
@@ -1513,6 +1806,7 @@ export const SidebarModule = {
                     clearTimeout(this._subListLoadingTimer);
                     this._subListLoadingTimer = null;
                 }
+                if (currentListMode() !== listMode) return;
                 subList.innerHTML = '';
                 subList.appendChild(fragment);
             } catch (err) {
@@ -1521,6 +1815,7 @@ export const SidebarModule = {
                     this._subListLoadingTimer = null;
                 }
                 console.error('renderUserSidebarItems error:', err);
+                if (currentListMode() !== listMode) return;
                 if (!hadListItems || loadingShown) {
                     subList.innerHTML = '<div class="h-full min-h-[120px] flex items-center justify-center text-gray-400 text-sm">Unable to load chats</div>';
                 }
