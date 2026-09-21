@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chs-v1';
+const CACHE_NAME = 'chs-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -23,6 +23,7 @@ const STATIC_ASSETS = [
   '/js/modal.js',
   '/js/notify_v2.js',
   '/js/utils.js',
+  '/js/writing.js',
   '/js/ui-components.js',
   '/js/content.js',
   '/js/extensions.js',
@@ -63,20 +64,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first for same-origin assets.  Cache-first pinned stale files:
+  // the Cache API's fallback match ignores query strings, so the ?v=… cache
+  // busting in index.html never reached the browser and every JS/CSS update
+  // kept serving the first cached version.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response.ok && url.origin === self.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
-    })
+    fetch(event.request).then(response => {
+      if (response.ok && url.origin === self.location.origin) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() =>
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') return caches.match('/index.html');
+      })
+    )
   );
 });

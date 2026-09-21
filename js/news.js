@@ -1,4 +1,4 @@
-import { UIComponents } from './ui-components.js?v=20260522-1';
+import { UIComponents } from './ui-components.js?v=20260920-hoverfix-v1';
 
 export function createNewsModule(deps) {
     const {

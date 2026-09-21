@@ -1,4 +1,5 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260920-iosglass-fb-v5';
+import { initWritingBehavior, WritingDocCard } from './writing.js';
 
 export function initChatEngine(deps) {
     const {
@@ -16,6 +17,7 @@ export function initChatEngine(deps) {
     let loadedMsgKeys = new Set();
     let lastChatId = null;
     let currentQuote = null;
+    let docReplyTarget = null; // Google Doc comment reply mode driven by the chat input
     let selectedMsgData = null;
     let longPressTimer = null;
     let hasMountedUIEvents = false;
@@ -213,6 +215,7 @@ export function initChatEngine(deps) {
             chatBox.style.opacity = '1';
             chatBox.innerHTML = '';
             loadedMsgKeys.clear();
+            resetChatProjectFilter();
             lastChatId = chatId;
 
             loadingTimer = setTimeout(() => {
@@ -311,6 +314,11 @@ export function initChatEngine(deps) {
                 });
 
                 chatBox.insertBefore(batchFrag, chatBox.firstChild);
+                // Filter the fresh chunk in the same task, before the next
+                // paint: older pages loaded under an active project filter
+                // would otherwise flash the unfiltered history at the top
+                // until the debounced pass hid it.
+                applyChatProjectFilter();
                 chatBox.scrollTop = chatBox.scrollHeight - oldScrollHeight;
 
                 currentOldestLoadedKey = currentDisplayMsgs.length > 0 ? currentDisplayMsgs[0].key : null;
@@ -352,6 +360,9 @@ export function initChatEngine(deps) {
                             });
 
                             chatBox.insertBefore(batchFrag, chatBox.firstChild);
+                            // Same as above: hide before paint so an active project
+                            // filter never flashes unfiltered All-messages history.
+                            applyChatProjectFilter();
                             chatBox.scrollTop = chatBox.scrollHeight - oldScrollHeight;
 
                             currentOldestLoadedKey = currentDisplayMsgs.length > 0 ? currentDisplayMsgs[0].key : null;
@@ -508,6 +519,28 @@ export function initChatEngine(deps) {
 
     function handleMsgQuote() {
         if (!selectedMsgData) return;
+        if (docReplyTarget) exitDocReplyMode();
+        const menu = document.getElementById('messageContextMenu');
+        if (menu) {
+            menu.classList.add('hidden');
+            if (menu._hideListener) {
+                document.removeEventListener('mousedown', menu._hideListener);
+                document.removeEventListener('touchstart', menu._hideListener);
+            }
+        }
+        // Replying to a comment card must go through the Google Doc bot
+        // reply path, not the plain message-quote path.
+        const card = selectedMsgData.type === 'comment_card' ? (selectedMsgData.commentCard || null) : null;
+        if (card && card.comment && card.comment.id && card.docUrl) {
+            startDocCommentReply({
+                docId: card.docId,
+                docUrl: card.docUrl,
+                docTitle: card.docTitle,
+                originMsgKey: card.originMsgKey || null,
+                comment: card.comment
+            });
+            return;
+        }
         currentQuote = { 
             senderName: selectedMsgData.senderName, 
             text: selectedMsgData.text,
@@ -516,17 +549,12 @@ export function initChatEngine(deps) {
         document.getElementById('quoteUser').innerText = currentQuote.senderName;
         document.getElementById('quoteText').innerText = (currentQuote.text || '').replace(/\r?\n/g, ' ');
         showQuoteArea();
-        const menu = document.getElementById('messageContextMenu');
-        menu.classList.add('hidden');
-        if (menu._hideListener) {
-            document.removeEventListener('mousedown', menu._hideListener);
-            document.removeEventListener('touchstart', menu._hideListener);
-        }
         document.getElementById('u-msg').focus();
     }
 
     function clearQuote() {
         currentQuote = null;
+        exitDocReplyMode();
         const quoteArea = document.getElementById('quoteArea');
         if (!quoteArea || quoteArea.classList.contains('hidden')) return;
         quoteArea.classList.remove('menu-visible');
@@ -535,6 +563,121 @@ export function initChatEngine(deps) {
         quoteAreaCloseTimer = setTimeout(() => {
             quoteArea.classList.add('hidden');
         }, 230);
+    }
+
+    function exitDocReplyMode() {
+        if (!docReplyTarget) return;
+        docReplyTarget = null;
+        const tail = document.getElementById('quoteTail');
+        if (tail) tail.innerText = "'s message: ";
+        const input = document.getElementById('u-msg');
+        if (input) input.placeholder = "Type a message...";
+        liftComposerForPortfolio(false);
+    }
+
+    // #writingPortfolioDrawer is body-fixed at z-80, so the composer must
+    // leave #chatSection (z-10) and ride above it while replying in-portfolio.
+    function portfolioIsOpen() {
+        return !!document.getElementById('writingPortfolioDrawer')?.classList.contains('wp-drawer-open');
+    }
+
+    // Keep the lifted composer exactly as wide as the portfolio drawer.
+    function composerFollowDrawer(expanded, animate) {
+        const wrap = document.getElementById('chatComposerWrap');
+        if (!wrap || !wrap.classList.contains('composer-front')) return;
+        const target = wpCurrentLeft(!!expanded) + 'px';
+        if (animate) {
+            wrap.style.transition = 'left 440ms cubic-bezier(0.22, 1, 0.36, 1)';
+            wrap.style.left = target;
+            setTimeout(() => { wrap.style.transition = ''; }, 460);
+        } else {
+            wrap.style.left = target;
+        }
+    }
+
+    function liftComposerForPortfolio(on) {
+        const wrap = document.getElementById('chatComposerWrap');
+        if (!wrap) return;
+        if (on) {
+            clearTimeout(window._composerSinkT);
+            wrap.classList.remove('composer-sink');
+            if (wrap.parentElement === document.body) return;
+            window._composerHome = wrap.parentElement;
+            document.body.appendChild(wrap);
+            wrap.classList.add('composer-front');
+            const drawer = document.getElementById('writingPortfolioDrawer');
+            composerFollowDrawer(drawer?.classList.contains('wp-expanded'), false);
+        } else {
+            if (wrap.parentElement !== document.body || !wrap.classList.contains('composer-front')) return;
+            // No sink animation: the composer simply drops back into the chat
+            // column in place, then the drawer slides out over it as usual.
+            clearTimeout(window._composerSinkT);
+            wrap.classList.remove('composer-front', 'composer-sink');
+            wrap.style.left = '';
+            wrap.style.transition = '';
+            if (window._composerHome) window._composerHome.appendChild(wrap);
+        }
+    }
+
+    // Gray out + lock the whole composer while the bot posts a reply to Google.
+    // The .composer-busy CSS (style.css) dims children and freezes pointer
+    // events on quote strip/X, attach menu, camera and pill; opacity must
+    // never be set on the glass elements themselves or backdrop-filter dies.
+    function setDocReplyBusy(on) {
+        const wrap = document.getElementById('chatComposerWrap');
+        const input = document.getElementById('u-msg');
+        if (input) input.disabled = on;
+        if (wrap) wrap.classList.toggle('composer-busy', on);
+    }
+
+    // Comment replies ride on the quote strip + main input instead of the
+    // old per-comment inline box.
+    function startDocCommentReply(ctx) {
+        if (!ctx || !ctx.comment || !ctx.comment.id) return;
+        currentQuote = null;
+        const disp = WritingDocCard.docCommentDisplay(ctx.comment);
+        const authorName = disp.author || 'Reviewer';
+        docReplyTarget = {
+            docId: ctx.docId || null,
+            docUrl: ctx.docUrl || '',
+            docTitle: ctx.docTitle || 'Google Document',
+            originMsgKey: ctx.originMsgKey || null,
+            comment: ctx.comment,
+            photoUrls: []
+        };
+        const lead = document.getElementById('quoteLead');
+        const userEl = document.getElementById('quoteUser');
+        const tail = document.getElementById('quoteTail');
+        const textEl = document.getElementById('quoteText');
+        if (lead) lead.innerText = 'Reply to ';
+        if (userEl) userEl.innerText = authorName;
+        if (tail) tail.innerText = ' on this Google Doc comment: ';
+        if (textEl) textEl.innerText = (disp.content || '').replace(/\r?\n/g, ' ');
+        if (portfolioIsOpen()) liftComposerForPortfolio(true);
+        showQuoteArea();
+        const input = document.getElementById('u-msg');
+        if (input) {
+            input.placeholder = `Reply to ${authorName}…`;
+            input.focus();
+        }
+    }
+
+    // The doc button on a comment-card strip replies directly, without
+    // going through the long-press menu.
+    function replyCommentCardStrip(key, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const card = (window._commentCards || {})[key];
+        if (!card || !card.comment || !card.comment.id) return;
+        startDocCommentReply({
+            docId: card.docId,
+            docUrl: card.docUrl,
+            docTitle: card.docTitle,
+            originMsgKey: card.originMsgKey || null,
+            comment: card.comment
+        });
     }
 
     function handleMsgForward() {
@@ -624,17 +767,7 @@ export function initChatEngine(deps) {
         const entry = (window._docCommentPayloads || {})[key];
         const comment = entry && entry.comments ? entry.comments[index] : null;
         if (!entry || !comment) return;
-        showSendToPicker({ docId: entry.docId, docUrl: entry.docUrl, docTitle: entry.docTitle, comment });
-    }
-
-    function forwardCommentCardMsg(key, e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        const card = (window._commentCardMsgPayloads || {})[key];
-        if (!card || !card.comment) return;
-        showSendToPicker({ docId: card.docId, docUrl: card.docUrl, docTitle: card.docTitle, comment: card.comment });
+        showSendToPicker({ docId: entry.docId, docUrl: entry.docUrl, docTitle: entry.docTitle, originMsgKey: key, comment });
     }
 
     async function sendCommentCardTo(targetId, payload) {
@@ -648,6 +781,7 @@ export function initChatEngine(deps) {
                 docId: payload.docId,
                 docUrl: payload.docUrl,
                 docTitle: payload.docTitle,
+                originMsgKey: payload.originMsgKey || null,
                 comment: payload.comment
             }));
             await push(ref(db, `messages/${chatId}`), {
@@ -666,6 +800,21 @@ export function initChatEngine(deps) {
         }
     }
 
+    function handleMsgJumpDoc() {
+        const card = selectedMsgData && selectedMsgData.commentCard;
+        const menu = document.getElementById('messageContextMenu');
+        if (menu) menu.classList.add('hidden');
+        if (!card) return;
+        const c = card.comment || {};
+        const url = (card.docId && c.id)
+            ? `https://docs.google.com/document/d/${card.docId}/edit?disco=${encodeURIComponent(c.id)}`
+            : (card.docUrl || '');
+        if (url) window.open(url, '_blank', 'noopener');
+    }
+
+    // Clicking a comment_card's reply strip: jump to the source doc card in the
+    // Writing Portfolio when we know its key, otherwise fall back to the Google Doc.
+
     function setupLongPress(el, msg) {
         const start = (e) => {
             selectedMsgData = msg;
@@ -681,6 +830,8 @@ export function initChatEngine(deps) {
                 const menuWidth = menu.offsetWidth || 180;
                 const reportBtn = menu.querySelector('button[onclick="handleMsgReport()"]');
                 const replyBtn = menu.querySelector('button[onclick="handleMsgQuote()"]');
+                const jumpBtn = menu.querySelector('button[onclick="handleMsgJumpDoc()"]');
+                if (jumpBtn) jumpBtn.classList.toggle('hidden', msg.type !== 'comment_card');
                 if (msg.senderId === 'safety_bot') {
                     if (reportBtn) reportBtn.classList.add('hidden');
                     if (replyBtn) replyBtn.classList.add('hidden');
@@ -792,12 +943,39 @@ export function initChatEngine(deps) {
             return;
         }
 
+        // A pending doc-comment reply belongs to the chat it was started in.
+        if (docReplyTarget) clearQuote();
+
         safeSetActiveTargetId(targetId);
 
         const composerWrap = document.getElementById('chatComposerWrap');
         if (composerWrap) composerWrap.classList.remove('hidden');
         const chatSearchWrap = document.getElementById('chatSearchWrap');
-        if (chatSearchWrap) chatSearchWrap.classList.remove('hidden');
+        if (chatSearchWrap) {
+            // A search box left expanded by the previous chat must not flash
+            // wide on re-entry (it makes the project pill shrink then re-grow):
+            // reset to the collapsed icon state before unhiding. The width
+            // swap is transition-suppressed in case the box is still visible
+            // at this point — a flying w-44→w-8 would feed the pill stale
+            // mid-animation measurements.
+            const searchInput = document.getElementById('chatSearchInput');
+            if (searchInput) searchInput.value = '';
+            chatSearchWrap.style.transition = 'none';
+            chatSearchWrap.classList.remove('w-44');
+            chatSearchWrap.classList.add('w-8');
+            document.getElementById('chatSearchInput')?.classList.add('hidden');
+            document.getElementById('chatSearchLeadingIcon')?.classList.add('hidden');
+            document.getElementById('clearSearchBtn')?.classList.add('hidden');
+            document.getElementById('chatSearchIconBtn')?.classList.remove('hidden');
+            const resultsBox = document.getElementById('searchResults');
+            if (resultsBox) {
+                resultsBox.classList.add('hidden');
+                resultsBox.innerHTML = '';
+            }
+            chatSearchWrap.classList.remove('hidden');
+            void chatSearchWrap.offsetWidth;
+            chatSearchWrap.style.transition = '';
+        }
 
         let isDisbanded = false;
         let isRemoved = false;
@@ -976,6 +1154,7 @@ export function initChatEngine(deps) {
 
     function jumpToMessage(text, searchQuery, msgKey) {
         const chatBox = document.getElementById('chatBox');
+        if (_activeChatProject !== WP_ALL_PROJECTS) resetChatProjectFilter();
         const messages = Array.from(chatBox.querySelectorAll('.msg-pop'));
         let target = null;
         if (msgKey) target = messages.find(m => m.dataset.key === msgKey);
@@ -1007,14 +1186,36 @@ export function initChatEngine(deps) {
         }
     }
 
+    // The right bar grows/shrinks with #chatSearchWrap's width transition
+    // (duration-300). The glass tracks the flight instead of being dropped: the
+    // map is built for the box the bar is about to grow into and the region is
+    // clipped by the bar's own box until it lands.
+    function quietActionsBarGlass() {
+        const glass = document.getElementById('chatActionsBar')?._liquidGlass;
+        if (glass) glass.beginTrack();
+        // The bar's width change shrinks the gap the project pill centres in;
+        // re-run its placement once the 300ms transition lands so the pill
+        // re-evaluates labelled vs icon-only against the real space.
+        setTimeout(() => {
+            if (glass) glass.endTrack();
+            scheduleWpDocContext(false);
+        }, 360);
+    }
+
     function toggleChatSearch() {
         const wrap = document.getElementById('chatSearchWrap');
         const input = document.getElementById('chatSearchInput');
         const iconBtn = document.getElementById('chatSearchIconBtn');
         const leadingIcon = document.getElementById('chatSearchLeadingIcon');
-        if (wrap) {
+        // Idempotent: re-expanding an already-expanded box must not fire a
+        // second width prediction at the project pill.
+        if (wrap && !wrap.classList.contains('w-44')) {
             wrap.classList.remove('w-8');
             wrap.classList.add('w-44');
+            quietActionsBarGlass();
+            // w-8→w-44 = 32→176px: decide the pill's shape now, not after the
+            // bar finishes growing.
+            repositionWpBar(144);
         }
         if (iconBtn) iconBtn.classList.add('hidden');
         if (leadingIcon) leadingIcon.classList.remove('hidden');
@@ -1035,9 +1236,14 @@ export function initChatEngine(deps) {
             const leadingIcon = document.getElementById('chatSearchLeadingIcon');
             const clearBtn = document.getElementById('clearSearchBtn');
             const resultsBox = document.getElementById('searchResults');
-            if (wrap) {
+            // A chat switch may have already reset the box to w-8; collapsing
+            // again would fire a bogus -144px prediction at the pill.
+            if (wrap && wrap.classList.contains('w-44')) {
                 wrap.classList.remove('w-44');
                 wrap.classList.add('w-8');
+                quietActionsBarGlass();
+                // Mirror of the expand path: the bar will shrink 144px.
+                repositionWpBar(-144);
             }
             if (input) input.classList.add('hidden');
             if (leadingIcon) leadingIcon.classList.add('hidden');
@@ -1278,10 +1484,41 @@ export function initChatEngine(deps) {
         if (saveToLocal && chatId) saveMessageLocal(chatId, key, msg);
     }
 
+    // Send button pending state. A write that lands quickly must not flicker, so
+    // the spinner is only swapped in once the message is still in flight after 200ms.
+    let sendPendingCount = 0;
+    let sendPendingTimer = null;
+
+    function renderSendPending(pending) {
+        const icon = document.getElementById('sendBtnIcon');
+        const spin = document.getElementById('sendBtnSpin');
+        if (!icon || !spin) return;
+        icon.classList.toggle('hidden', pending);
+        spin.classList.toggle('hidden', !pending);
+    }
+
+    function beginSendPending() {
+        sendPendingCount++;
+        if (sendPendingCount > 1) return;
+        clearTimeout(sendPendingTimer);
+        sendPendingTimer = setTimeout(() => {
+            sendPendingTimer = null;
+            renderSendPending(true);
+        }, 200);
+    }
+
+    function endSendPending() {
+        sendPendingCount = Math.max(0, sendPendingCount - 1);
+        if (sendPendingCount > 0) return;
+        clearTimeout(sendPendingTimer);
+        sendPendingTimer = null;
+        renderSendPending(false);
+    }
+
     const MessageEngine = {
         commit: async function (msgData) {
             const targetId = getActiveTargetId();
-            if (!targetId || !msgData) return;
+            if (!targetId || !msgData) return null;
             if (await blockIfRestrictedDirectTarget(targetId)) return null;
 
             if (window.AppModules && window.AppModules.Notify && typeof window.AppModules.Notify.unhideChat === 'function') {
@@ -1289,6 +1526,13 @@ export function initChatEngine(deps) {
             }
 
             const currentUser = getCurrentUser();
+            
+            // 🆕 NEW: Check if we're in a specific project view and attach docIds
+            const currentProject = wpActiveProject();
+            if (currentProject && currentProject.docIds.size > 0) {
+                msgData.projectDocIds = Array.from(currentProject.docIds);
+            }
+            
             const isGroup = targetId.startsWith('group_');
             const chatId = isGroup ? targetId : getChatId(currentUser.id, targetId);
             const msgObj = {
@@ -1300,7 +1544,12 @@ export function initChatEngine(deps) {
             };
 
             const newMsgRef = push(ref(db, `messages/${chatId}`));
-            await set(newMsgRef, msgObj);
+            beginSendPending();
+            try {
+                await set(newMsgRef, msgObj);
+            } finally {
+                endSendPending();
+            }
 
             if (isGroup) {
                 const classId = targetId.replace('group_', '');
@@ -1318,6 +1567,10 @@ export function initChatEngine(deps) {
         sendText: async function (customVal = null) {
             const input = document.getElementById('u-msg');
             const val = (customVal || input.value).trim();
+            if (docReplyTarget) {
+                await this.sendDocCommentReply(val);
+                return;
+            }
             if (!val) return;
             if (val.length > 8000) {
                 await AppModules.Modal.alert("Too Long", "Message limit is 8000 chars.");
@@ -1352,8 +1605,72 @@ export function initChatEngine(deps) {
             }
         },
 
+        // Post the chat-input draft as a reply to the selected Google Doc
+        // comment: bot posts it to Google, then one comment_card (quote +
+        // main comment + replies) lands in this chat.
+        sendDocCommentReply: async function (val) {
+            const target = docReplyTarget;
+            if (!target) return;
+            let content = val || '';
+            if (target.photoUrls && target.photoUrls.length) {
+                const urls = target.photoUrls.join(' ');
+                content = `${content ? content + '\n' : ''}With ${target.photoUrls.length === 1 ? 'a photo' : 'photos'}: ${urls}`;
+            }
+            if (!content.trim()) {
+                await AppModules.Modal.alert("Empty reply", "Type your reply or attach a photo before posting.");
+                return;
+            }
+            if (content.length > 3000) {
+                await AppModules.Modal.alert("Reply too long", "Google Doc replies are limited to 3000 characters (the photo links count too).");
+                return;
+            }
+            if (target._posting) return;
+            const input = document.getElementById('u-msg');
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+            }
+            const textEl = document.getElementById('quoteText');
+            const prevText = textEl ? textEl.innerText : '';
+            if (textEl) textEl.innerText = 'Posting to Google Doc…';
+            target._posting = true;
+            beginSendPending();
+            setDocReplyBusy(true);
+            let posted = null;
+            try {
+                posted = await WB.submitDocCommentPost(target.originMsgKey, target.docUrl, target.comment.id, content, null);
+            } finally {
+                setDocReplyBusy(false);
+                endSendPending();
+                target._posting = false;
+            }
+            if (posted) {
+                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, target.comment, content, (posted && posted.postedCommentId) || null);
+                clearQuote();
+            } else if (docReplyTarget === target) {
+                // Keep the draft so the user can fix it and retry
+                if (input) input.value = val;
+                if (textEl) textEl.innerText = prevText;
+            }
+        },
+
         sendImages: async function (base64s) {
             if (!base64s || !base64s.length) return;
+            if (docReplyTarget) {
+                const urls = await Promise.all(base64s.map(b => uploadImageToStorage(b, 'chats')));
+                docReplyTarget.photoUrls = urls.slice(0, 3);
+                if (urls.length > 3) {
+                    await AppModules.Modal.alert("Up to three photos", "Only the first three photos were attached.");
+                }
+                const textEl = document.getElementById('quoteText');
+                if (textEl) {
+                    const n = docReplyTarget.photoUrls.length;
+                    textEl.innerText = `${n} photo${n > 1 ? 's' : ''} attached · ` + textEl.innerText.replace(/^\d+ photos? attached · /, '');
+                }
+                const input = document.getElementById('u-msg');
+                if (input) input.placeholder = `Reply to ${(WritingDocCard.docCommentDisplay(docReplyTarget.comment).author) || 'Reviewer'}…`;
+                return;
+            }
             const imageUrls = await Promise.all(base64s.map(b => uploadImageToStorage(b, 'chats')));
             const msgKey = await this.commit({ text: JSON.stringify(imageUrls), type: 'image_group' });
 
@@ -1671,30 +1988,6 @@ export function initChatEngine(deps) {
 
     let attachDocListToken = 0;
 
-    async function loadSavedDocs() {
-        const currentUser = getCurrentUser();
-        const activeTargetId = getActiveTargetId();
-        if (!currentUser || !activeTargetId) return { ok: false, docs: [] };
-        const chatId = activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId);
-        try {
-            const snap = await get(ref(db, `writing_doc_state/${chatId}`));
-            if (!snap.exists()) return { ok: true, docs: [] };
-            const docs = Object.entries(snap.val() || {}).map(([fid, st]) => {
-                const view = normalizeDocSyncState(st) || {};
-                const count = view.lastKnownCommentCount || 0;
-                return {
-                    docUrl: view.docUrl || `https://docs.google.com/document/d/${fid}/edit`,
-                    title: view.title || 'Google Document',
-                    sub: `${count} comment${count === 1 ? '' : 's'}`,
-                    ts: docViewTimestamp(view)
-                };
-            }).sort((a, b) => b.ts - a.ts);
-            return { ok: true, docs };
-        } catch (e) {
-            console.warn('[GoogleDoc] Failed to load saved doc states:', e);
-            return { ok: false, docs: [] };
-        }
-    }
 
     async function chooseGdocExisting() {
         const listEl = document.getElementById('attachDocList');
@@ -1863,311 +2156,16 @@ export function initChatEngine(deps) {
     }
 
     // Google Doc Card Expand / Collapse with Smooth Transition
-    function toggleDocCommentsExpand(key, e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        // First try finding within the clicked card container (to handle duplicate cards or modal drawer cleanly)
-        const btn = e && e.currentTarget ? e.currentTarget : null;
-        const container = btn ? btn.closest('.doc-card-container') : null;
-        
-        const drawer = (container ? container.querySelector('[id^="docDrawer-"]') : null) || document.getElementById(`docDrawer-${key}`);
-        const arrow = (container ? container.querySelector('[id^="docArrow-"]') : null) || document.getElementById(`docArrow-${key}`);
-        if (!drawer) return;
 
-        const isExpanded = drawer.classList.contains('expanded');
-        if (!isExpanded) {
-            drawer.classList.remove('hidden');
-            void drawer.offsetHeight; // Force reflow so grid-template-rows transition triggers from 0fr
-            drawer.classList.add('expanded');
-            if (arrow) arrow.style.transform = 'rotate(180deg)';
+    // Comment-card strip expand: reuse the doc card comment renderer so the
+    // thread row (quote + comment + replies) is 100% identical to the card list.
 
-            // Auto-sync: Check if document has never been synced or last sync was > 3 minutes ago
-            try {
-                const docId = container ? container.getAttribute('data-doc-id') : null;
-                const docUrl = container ? container.getAttribute('data-doc-url') : null;
-                if (docId && docUrl) {
-                    const cached = window._docCache?.[docId];
-                    const lastSynced = cached?.lastSyncedAt || 0;
-                    const now = Date.now();
-                    const THREE_MINUTES = 3 * 60 * 1000;
-                    // Backoff: transient Google failures (429/5xx) retry at most every 15 min
-                    const RETRY_BACKOFF = 15 * 60 * 1000;
-                    const inBackoff = cached?.syncStatus === 'sync_failed_retryable'
-                        && (now - (cached.lastSyncAttemptAt || cached.lastSyncedAt || 0)) < RETRY_BACKOFF;
-                    if (!inBackoff && now - lastSynced > THREE_MINUTES) {
-                        // Trigger background silent sync
-                        syncDocCardComments(key, docUrl, null, null, true);
-                    }
-                }
-            } catch (syncErr) {
-                console.warn('[DocAutoSync] Error checking auto-sync freshness:', syncErr);
-            }
-        } else {
-            drawer.classList.remove('expanded');
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
-            setTimeout(() => {
-                if (!drawer.classList.contains('expanded')) {
-                    drawer.classList.add('hidden');
-                }
-            }, 350);
-        }
-    }
 
     // Google Doc Card Comments Filter (All / Open / Resolved)
-    function filterDocComments(key, filterType, e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        const btn = e && e.currentTarget ? e.currentTarget : null;
-        const container = btn ? btn.closest('.doc-card-container') : (document.getElementById(`docDrawer-${key}`)?.closest('.doc-card-container') || document);
-
-        const btnAll = container.querySelector(`#filterBtn-${key}-all`);
-        const btnOpen = container.querySelector(`#filterBtn-${key}-open`);
-        const btnResolved = container.querySelector(`#filterBtn-${key}-resolved`);
-        const btnDeleted = container.querySelector(`#filterBtn-${key}-deleted`);
-
-        const activeClasses = ['bg-[#007AFF]', 'text-white', 'shadow-sm'];
-        const inactiveClasses = ['text-black', 'dark:text-white', 'hover:bg-gray-100', 'dark:hover:bg-white/5'];
-
-        [btnAll, btnOpen, btnResolved, btnDeleted].forEach(b => {
-            if (b) {
-                b.classList.remove(...activeClasses);
-                b.classList.add(...inactiveClasses);
-            }
-        });
-
-        const targetBtn = filterType === 'open' ? btnOpen : (filterType === 'resolved' ? btnResolved : (filterType === 'deleted' ? btnDeleted : btnAll));
-        if (targetBtn) {
-            targetBtn.classList.remove(...inactiveClasses);
-            targetBtn.classList.add(...activeClasses);
-        }
-
-        const rows = container.querySelectorAll(`.comment-item-row[data-card-key="${key}"]`);
-        let visibleCount = 0;
-        rows.forEach(row => {
-            const isResolved = row.getAttribute('data-resolved') === 'true';
-            const isDeleted = row.getAttribute('data-comment-deleted') === 'true';
-            let show = true;
-            if (filterType === 'open' && (isResolved || isDeleted)) show = false;
-            if (filterType === 'resolved' && (!isResolved || isDeleted)) show = false;
-            if (filterType === 'deleted' && !isDeleted) show = false;
-
-            if (show) {
-                row.classList.remove('hidden');
-                visibleCount++;
-            } else {
-                row.classList.add('hidden');
-            }
-        });
-
-        const emptyEl = container.querySelector(`#commentEmpty-${key}`);
-        if (emptyEl) {
-            if (visibleCount === 0) {
-                emptyEl.classList.remove('hidden');
-                emptyEl.innerText = filterType === 'open' ? '🎉 All comments have been resolved!' : (filterType === 'resolved' ? 'No resolved comments yet.' : (filterType === 'deleted' ? 'No deleted comments.' : 'No comments found.'));
-            } else {
-                emptyEl.classList.add('hidden');
-            }
-        }
-    }
 
     // Google Doc Card Comments Synchronization (supports silent auto-sync).
     // The Cloud Function owns the access state machine and snapshot merge;
     // the frontend only renders the normalized status it receives back.
-    async function syncDocCardComments(key, docUrl, e, explicitChatId = null, isSilent = false) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        const badge = document.getElementById(`docBadge-${key}`);
-
-        const prevBadgeText = badge ? badge.innerText : '';
-        if (!isSilent && badge) badge.innerText = "Syncing...";
-
-        const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        const docId = match ? match[1] : null;
-
-        const currentUser = getCurrentUser();
-        const activeTargetId = getActiveTargetId();
-        const computedChatId = explicitChatId || lastChatId || (activeTargetId ? (activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId)) : null);
-
-        try {
-            if (!docId) throw new Error("Invalid document ID");
-
-            let resData = null;
-            const knownTitle = (window._docCache?.[docId]?.title && window._docCache[docId].title !== 'Google Document')
-                ? window._docCache[docId].title
-                : (document.getElementById(`docTitle-${key}`)?.innerText || null);
-            const payload = {
-                url: docUrl,
-                chatId: computedChatId,
-                messageKey: key,
-                knownTitle: (knownTitle && knownTitle !== 'Google Document') ? knownTitle : null
-            };
-
-            if (window.httpsCallable && window.firebaseFunctions) {
-                const fetchFn = window.httpsCallable(window.firebaseFunctions, 'fetchGoogleDocComments');
-                const res = await fetchFn(payload);
-                resData = res.data;
-            } else if (window.firebase && window.firebase.functions) {
-                const fetchFn = window.firebase.functions().httpsCallable('fetchGoogleDocComments');
-                const res = await fetchFn(payload);
-                resData = res.data;
-            }
-
-            if (!resData || !resData.syncStatus) {
-                // Transport-level failure: keep snapshot and previous badge untouched, record retryable failure.
-                if (docId && window._docCache && window._docCache[docId]) {
-                    window._docCache[docId] = { ...window._docCache[docId], syncStatus: 'sync_failed_retryable', lastSyncAttemptAt: Date.now() };
-                }
-                if (!isSilent) {
-                    if (badge && prevBadgeText) badge.innerText = prevBadgeText;
-                    AppModules.Modal.alert("Sync Notice", `We could not reach the comment sync service. Your last saved comments are still shown.`);
-                }
-                return;
-            }
-
-            const syncStatus = resData.syncStatus;
-
-            // Merge into global memory cache (backend already merged the snapshot;
-            // comments here can only grow or carry status flags, never silently shrink)
-            window._docCache = window._docCache || {};
-            window._docCache[docId] = { ...(window._docCache[docId] || {}), ...resData, lastSyncAttemptAt: Date.now() };
-
-            const comments = resData.comments || [];
-            const liveComments = UIComponents.docLiveComments(comments);
-            let openCount = 0;
-            liveComments.forEach(c => { if (!c.resolved) openCount++; });
-            const resolvedCount = liveComments.length - openCount;
-            const badgeText = UIComponents.docBadgeLabel(resData);
-
-            // Update every doc card on screen sharing this docId
-            const docCards = document.querySelectorAll(`[data-doc-id="${docId}"]`);
-            docCards.forEach(cardEl => {
-                cardEl.setAttribute('data-open-count', openCount);
-                cardEl.setAttribute('data-total-comments', liveComments.length);
-
-                const cardBadge = cardEl.querySelector('[id^="docBadge-"]');
-                const cardTitle = cardEl.querySelector('[id^="docTitle-"]');
-                const cardList = cardEl.querySelector('[id^="docList-"]');
-                const cardDrawer = cardEl.querySelector('[id^="docDrawer-"]');
-                const cardArrow = cardEl.querySelector('[id^="docArrow-"]');
-
-                const cardDate = cardEl.querySelector('[id^="docDate-"]');
-                if (cardDate && resData.createdTime) {
-                    const cStr = new Date(resData.createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                    cardDate.innerText = `Created ${cStr}`;
-                    cardDate.classList.remove('hidden');
-                }
-
-                if (cardBadge) cardBadge.innerText = badgeText;
-                if (cardTitle && resData.title) {
-                    const curTitle = cardTitle.innerText;
-                    if (!(resData.title === 'Google Document' && curTitle && curTitle !== 'Google Document')) {
-                        cardTitle.innerText = resData.title;
-                        cardTitle.title = resData.title;
-                    }
-                }
-
-                // Swap the two-level status notice bar for this card
-                const cardKey = cardList ? cardList.id.replace('docList-', '') : key;
-                const existingNotice = cardEl.querySelector('[id^="docStatusNotice-"]');
-                const noticeHtml = UIComponents.renderDocStatusNoticeHtml(resData, cardKey);
-                if (existingNotice) {
-                    if (noticeHtml) existingNotice.outerHTML = noticeHtml;
-                    else existingNotice.remove();
-                } else if (noticeHtml && cardDrawer) {
-                    cardDrawer.insertAdjacentHTML('beforebegin', noticeHtml);
-                }
-
-                if (cardList) {
-                    cardList.innerHTML = UIComponents.renderDocCommentsHtml(cardKey, comments, liveComments.length, openCount, resolvedCount, docId, docUrl, resData);
-
-                    // For the clicked card specifically, automatically open drawer to show results
-                    if (cardDrawer && cardList.id === `docList-${key}` && (!cardDrawer.classList.contains('expanded') || cardDrawer.classList.contains('hidden'))) {
-                        cardDrawer.classList.remove('hidden');
-                        void cardDrawer.offsetHeight;
-                        cardDrawer.classList.add('expanded');
-                        if (cardArrow) cardArrow.style.transform = 'rotate(180deg)';
-                    }
-                }
-            });
-
-            // Update any portfolio date labels on screen matching this docId
-            if (resData.createdTime) {
-                const formattedDate = new Date(resData.createdTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const pfDateEls = document.querySelectorAll(`[id="portfolio-date-${docId}"]`);
-                pfDateEls.forEach(el => {
-                    el.innerText = `Created: ${formattedDate}`;
-                });
-            }
-
-            // Persist merged state to local IndexedDB copies (client-side guard:
-            // an empty response never replaces comments we already have locally)
-            if (computedChatId) {
-                try {
-                    const persistData = { ...resData, lastSyncAttemptAt: Date.now() };
-                    delete persistData.success;
-                    delete persistData.error;
-                    const localMessages = await getLocalMessages(computedChatId);
-                    for (const targetMsg of localMessages) {
-                        if (targetMsg && targetMsg.text && targetMsg.text.includes(docId)) {
-                            const prevLocal = targetMsg.docData || {};
-                            const nextDocData = mergeDocViews(prevLocal, persistData);
-                            if (comments.length === 0 && (prevLocal.comments || []).length > 0) {
-                                nextDocData.comments = prevLocal.comments;
-                            }
-                            targetMsg.docData = nextDocData;
-                            await saveMessageLocal(computedChatId, targetMsg.key, targetMsg);
-                        }
-                    }
-                } catch (dbSaveErr) {
-                    console.warn('[DocSync] Failed to save updated docData to local DB:', dbSaveErr);
-                }
-            }
-
-            // Friendly, human status line for manual syncs on non-ok outcomes
-            if (!isSilent) {
-                const actionStatuses = ['access_lost', 'access_lost_or_file_unavailable', 'file_unavailable', 'comments_access_lost', 'comments_unavailable', 'comments_unavailable_or_empty', 'auth_required', 'sync_failed_retryable'];
-                if (actionStatuses.includes(syncStatus)) {
-                    const plainNotice = UIComponents.renderDocStatusNoticeHtml(resData, 'modal')
-                        .replace(/<div[^>]*>/, '<div>').replace(/<\/div>/, '</div>');
-                    let extra = '';
-                    if (syncStatus === 'file_unavailable' || syncStatus === 'comments_access_lost' || syncStatus === 'access_lost_or_file_unavailable') {
-                        const botEmail = "chscommunication@appspot.gserviceaccount.com";
-                        extra = `
-                            <div class="mt-3 text-left text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed space-y-2.5">
-                                <div>To restore live sync, set doc sharing to <b>"Anyone with the link can comment"</b>, or add the bot as a <b>Commenter</b>:</div>
-                                <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
-                                    <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</span>
-                                    <button type="button" onclick="navigator.clipboard.writeText('${botEmail}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (resData.lastSyncErrorMessage) {
-                        extra += `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(String(resData.lastSyncErrorMessage).slice(0, 300))}</div>`;
-                    }
-                    AppModules.Modal.alert("Sync status", `${plainNotice}${extra}`);
-                }
-            }
-        } catch (err) {
-            console.error("Sync comments error:", err);
-            // Transport/callable failure is always retryable — never wipe data, never blame the doc.
-            if (docId && window._docCache && window._docCache[docId]) {
-                window._docCache[docId] = { ...window._docCache[docId], syncStatus: 'sync_failed_retryable', lastSyncAttemptAt: Date.now() };
-            }
-            if (!isSilent) {
-                if (badge && prevBadgeText) badge.innerText = prevBadgeText;
-                AppModules.Modal.alert("Sync Notice", `We couldn't reach Google Docs right now. This is a temporary sync issue — your last saved comments are untouched.`);
-            } else if (badge && prevBadgeText) {
-                badge.innerText = prevBadgeText;
-            }
-        }
-    }
 
     // ============================================================
     // [Bot Comment Post] Inline composer on Google Doc cards.
@@ -2179,187 +2177,18 @@ export function initChatEngine(deps) {
 
     // Shared send path for both the whole-doc note composer and per-comment
     // reply boxes. Returns true when the comment was posted.
-    async function submitDocCommentPost(key, docUrl, commentId, content, sendBtn) {
-        const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        if (!match) {
-            AppModules.Modal.alert("Comment not posted", "This card is not linked to a valid Google Doc URL.");
-            return false;
-        }
 
-        const currentUser = getCurrentUser();
-        const activeTargetId = getActiveTargetId();
-        const chatId = lastChatId || (activeTargetId
-            ? (activeTargetId.startsWith('group_') ? activeTargetId : getChatId(currentUser.id, activeTargetId))
-            : null);
-
-        if (sendBtn) {
-            sendBtn.disabled = true;
-            sendBtn.innerText = 'Posting...';
-            sendBtn.classList.add('opacity-60', 'pointer-events-none');
-        }
-        const restoreBtn = () => {
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.innerText = 'Post';
-                sendBtn.classList.remove('opacity-60', 'pointer-events-none');
-            }
-        };
-
-        try {
-            const payload = {
-                url: docUrl,
-                chatId: chatId,
-                messageKey: key,
-                commentId: commentId,
-                content: content,
-                userName: (currentUser && (currentUser.name || currentUser.id)) || 'Anonymous'
-            };
-            let resData = null;
-            if (window.httpsCallable && window.firebaseFunctions) {
-                const postFn = window.httpsCallable(window.firebaseFunctions, 'postGoogleDocComment');
-                resData = (await postFn(payload)).data;
-            } else if (window.firebase && window.firebase.functions) {
-                const postFn = window.firebase.functions().httpsCallable('postGoogleDocComment');
-                resData = (await postFn(payload)).data;
-            }
-
-            if (!resData || !resData.success) {
-                restoreBtn();
-                const failKind = (resData && resData.failKind) || 'unknown';
-                const detail = (resData && resData.error)
-                    ? `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(String(resData.error).slice(0, 300))}</div>`
-                    : '';
-                if (failKind === 'permission' || failKind === 'not_found') {
-                    const bodyHtml = `
-                        <div class="text-left leading-relaxed space-y-2.5">
-                            <div>${failKind === 'permission'
-                                ? 'The bot is not allowed to comment on this document. Open the doc and share it with the bot as <b>Commenter</b> (or set link sharing to <b>"Anyone with the link can comment"</b>), then post again.'
-                                : 'Google cannot find this document for the bot. It may have been deleted, moved, or not shared with the bot yet. Open the doc to check its sharing settings, then post again.'}</div>
-                            <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
-                                <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${BOT_DOCS_EMAIL}</span>
-                                <button type="button" onclick="navigator.clipboard.writeText('${BOT_DOCS_EMAIL}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
-                            </div>
-                            ${detail}
-                        </div>
-                    `;
-                    const goDoc = await AppModules.Modal.confirm("Comment not posted", bodyHtml, "Open Doc", "OK");
-                    if (goDoc) window.open(docUrl, '_blank', 'noopener');
-                } else if (failKind === 'bad_request') {
-                    await AppModules.Modal.alert("Comment not posted", `Google rejected this comment — the target comment may have been deleted on Google Docs. Sync the card first, then post again.${detail}`);
-                } else if (failKind === 'auth') {
-                    await AppModules.Modal.alert("Comment not posted", "The bot's Google credentials are not configured on the server yet. Please contact the administrator.");
-                } else {
-                    const statusTag = (resData && resData.httpStatus) ? ` (HTTP ${resData.httpStatus}, kind: ${failKind})` : ` (kind: ${failKind || 'unknown'})`;
-                    await AppModules.Modal.alert("Comment not posted", `We couldn't reach Google Docs right now. Your text is still in the box — please try again in a moment.${statusTag}${detail}`);
-                }
-                return false;
-            }
-
-            // Posted: pull the bot's comment back through the normal snapshot sync.
-            restoreBtn();
-            await syncDocCardComments(key, docUrl, null, chatId, true);
-            return true;
-        } catch (err) {
-            console.error('Post comment error:', err);
-            restoreBtn();
-            const fbErr = err && err.message ? String(err.message) : '';
-            if (fbErr.includes('permission-denied') || fbErr.includes('Error 7')) {
-                await AppModules.Modal.alert("Comment not posted", "Sign-in is required to post comments. Please sign in again and retry.");
-            } else {
-                const errDetail = fbErr ? `<div class="mt-3 text-left text-[10px] font-mono text-gray-400 dark:text-gray-500 break-all leading-relaxed">Technical detail: ${UIUtils.escape(fbErr.slice(0, 300))}</div>` : '';
-                await AppModules.Modal.alert("Comment not posted", `We couldn't reach the comment posting service right now. Your text is still in the box — please try again shortly.${errDetail}`);
-            }
-            return false;
-        }
-    }
+    // When a user posts a reply/comment through a doc card, drop the same
+    // content into the current chat as a comment_card, so it shows up
+    // immediately without waiting for the Google sync to surface a row.
 
     // Whole-doc note composer (header bubble button)
-    function openDocCommentComposer(key, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        if (!composer) return;
-        const wasHidden = composer.classList.contains('hidden');
-        composer.classList.toggle('hidden');
-        if (wasHidden) {
-            const ta = document.getElementById(`docComposerText-${key}`);
-            if (ta) setTimeout(() => ta.focus(), 60);
-        }
-    }
 
-    function closeDocCommentComposer(key, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        if (composer) composer.classList.add('hidden');
-    }
 
-    async function sendDocCommentFromComposer(key, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        const container = composer ? composer.closest('.doc-card-container') : null;
-        const docUrl = container ? (container.getAttribute('data-doc-url') || '') : '';
-        const textEl = document.getElementById(`docComposerText-${key}`);
-        const sendBtn = document.getElementById(`docComposerSend-${key}`);
-        const content = (textEl ? textEl.value : '').trim();
-
-        if (!content) {
-            return AppModules.Modal.alert("Empty comment", "Type your comment before posting.");
-        }
-
-        const posted = await submitDocCommentPost(key, docUrl, null, content, sendBtn);
-        if (posted) {
-            if (textEl) textEl.value = '';
-            composer.classList.add('hidden');
-        }
-    }
 
     // Per-comment inline reply box, rendered directly under its comment row.
-    function replyToDocComment(key, idx, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
-        if (!box) {
-            console.warn('[DocComment] reply box missing for', key, idx, '— stale card render, sync the card.');
-            return;
-        }
-        const wasHidden = box.classList.contains('hidden');
-        box.classList.toggle('hidden');
-        if (wasHidden) {
-            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            const ta = document.getElementById(`docReplyText-${key}-${idx}`);
-            if (ta) setTimeout(() => ta.focus(), 120);
-        }
-    }
 
-    function closeDocCommentReply(key, idx, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
-        if (box) box.classList.add('hidden');
-    }
 
-    async function sendDocCommentReply(key, idx, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const box = document.getElementById(`docReplyBox-${key}-${idx}`);
-        if (!box) return;
-        const container = box.closest('.doc-card-container');
-        const docUrl = container ? (container.getAttribute('data-doc-url') || '') : '';
-        const payloadData = (window._docCommentPayloads || {})[key];
-        const c = payloadData && payloadData.comments ? payloadData.comments[idx] : null;
-        const textEl = document.getElementById(`docReplyText-${key}-${idx}`);
-        const sendBtn = document.getElementById(`docReplySend-${key}-${idx}`);
-        const content = (textEl ? textEl.value : '').trim();
-
-        if (!c || !c.id) {
-            return AppModules.Modal.alert("Reply not posted", "This comment is no longer available. Sync the card and try again.");
-        }
-        if (!content) {
-            return AppModules.Modal.alert("Empty reply", "Type your reply before posting.");
-        }
-
-        const posted = await submitDocCommentPost(key, docUrl, c.id, content, sendBtn);
-        if (posted) {
-            if (textEl) textEl.value = '';
-            box.classList.add('hidden');
-        }
-    }
 
     // Close attach menu on outside click
     document.addEventListener('click', (e) => {
@@ -2429,13 +2258,28 @@ export function initChatEngine(deps) {
         const searchResults = document.getElementById('searchResults');
         if (searchResults) {
             new LiquidGlassEffect(searchResults, {
-                radius: 16,            // matches rounded-b-2xl (16px)
+                radius: 24,            // matches the 24px radius of #searchResults
                 refractionWidth: 12,   // matches chatInputPill bevel width
                 maxDisplacement: 8,    // matches chatInputPill refraction strength
                 mouseRadius: 55,       // matches chatInputPill hover ripple
                 mouseStrength: 6       // matches chatInputPill ripple strength
             });
         }
+
+        // Initialize Liquid Glass on the two chat top-row bars (name/left,
+        // actions/right), matching #wpDocContextBar and #chatInputPill.
+        ['chatNameBar', 'chatActionsBar'].forEach(id => {
+            const bar = document.getElementById(id);
+            if (bar) {
+                new LiquidGlassEffect(bar, {
+                    radius: 24,
+                    refractionWidth: 12,
+                    maxDisplacement: 8,
+                    mouseRadius: 55,
+                    mouseStrength: 6
+                });
+            }
+        });
 
         // Initialize Liquid Glass effect on the reply quote bar (same parameters as attachMenu)
         const quoteArea = document.getElementById('quoteArea');
@@ -2462,120 +2306,66 @@ export function initChatEngine(deps) {
         }
     }
 
-    function toggleQuoteText(quoteId, btn, e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        const box = document.getElementById(quoteId);
-        if (!box) return;
-        const isClamped = box.classList.contains('line-clamp-2');
-        if (isClamped) {
-            box.classList.remove('line-clamp-2');
-            if (btn) btn.innerText = "Collapse";
-        } else {
-            box.classList.add('line-clamp-2');
-            if (btn) btn.innerText = "Expand";
-        }
-    }
 
     // ============================================================
     // [Doc Sync State Layer] writing_doc_state is the single snapshot
     // source of truth; message.docData is only a lightweight fallback.
     // ============================================================
-    function normalizeDocSyncState(state) {
-        if (!state) return null;
-        const comments = state.snapshotComments || [];
-        const liveCount = typeof state.lastKnownCommentCount === 'number'
-            ? state.lastKnownCommentCount : comments.length;
-        return {
-            fileId: state.fileId,
-            docUrl: state.docUrl,
-            title: state.title || 'Google Document',
-            webViewLink: state.webViewLink || state.docUrl,
-            createdTime: state.createdTime || null,
-            modifiedTime: state.modifiedTime || null,
-            comments: comments,
-            commentsCount: liveCount,
-            lastKnownCommentCount: liveCount,
-            lastSyncedAt: state.lastSyncAttemptAt || null,
-            lastSyncAttemptAt: state.lastSyncAttemptAt || null,
-            lastSuccessfulSyncAt: state.lastSuccessfulSyncAt || null,
-            syncStatus: state.lastSyncStatus || null,
-            fileAccessStatus: state.fileAccessStatus || null,
-            commentAccessStatus: state.commentAccessStatus || null,
-            accessLostAt: state.accessLostAt || null,
-            commentsAccessLostAt: state.commentsAccessLostAt || null,
-            warnings: state.warnings || [],
-            accessLost: ['access_lost', 'access_lost_or_file_unavailable'].includes(state.fileAccessStatus),
-            _stateTs: Math.max(Number(state.lastSyncAttemptAt) || 0, Number(state.lastSuccessfulSyncAt) || 0)
-        };
-    }
 
-    function docViewTimestamp(view) {
-        return Number(view?.lastSyncAttemptAt || view?.lastSyncedAt || view?._stateTs) || 0;
-    }
 
     // Spread-merge two doc views, but never let a placeholder title ("Google
     // Document", produced by a failed file read) erase a real known title.
-    function mergeDocViews(base, winner) {
-        const out = { ...(base || {}), ...(winner || {}) };
-        const isPlaceholder = t => !t || t === 'Google Document';
-        if (isPlaceholder(out.title)) {
-            out.title = (base && !isPlaceholder(base.title) && base.title)
-                || (winner && !isPlaceholder(winner.title) && winner.title)
-                || out.title;
-        }
-        return out;
-    }
 
     // Merge a fresher doc view (state or sync response) into the session cache.
-    function mergeDocViewIntoCache(docId, incoming) {
-        if (!docId || !incoming) return incoming;
-        window._docCache = window._docCache || {};
-        const cur = window._docCache[docId];
-        if (!cur || docViewTimestamp(incoming) >= docViewTimestamp(cur)) {
-            window._docCache[docId] = mergeDocViews(cur, incoming);
-        }
-        return window._docCache[docId];
-    }
 
     // Resolve the best doc view for rendering: whichever source synced more
     // recently wins; a stale message copy can never hide state-backed comments.
-    function resolveDocViewData(docId, msgDocData) {
-        const cached = (docId && window._docCache?.[docId]) || null;
-        if (!cached) return msgDocData || null;
-        if (!msgDocData) return cached;
-        if (docViewTimestamp(cached) >= docViewTimestamp(msgDocData)) {
-            return mergeDocViews(msgDocData, cached);
-        }
-        return mergeDocViews(cached, msgDocData);
-    }
 
-    async function openWritingPortfolio(targetMsgKey = null) {
+    async function openWritingPortfolio(targetMsgKey = null, targetCommentId = null, targetDocId = null) {
+        console.group('%c🟢 [WritingPortfolio] Opening', 'color:#0A84FF;font-weight:bold');
+        
         const drawer = document.getElementById('writingPortfolioDrawer');
         const content = document.getElementById('writingPortfolioContent');
         const subtitle = document.getElementById('writingPortfolioSubtitle');
 
-        if (!drawer || !content) return;
+        if (!drawer || !content) {
+            console.error('%c❌ Portfolio DOM elements not found!', 'color:red');
+            console.log('drawer:', drawer);
+            console.log('content:', content);
+            console.groupEnd();
+            return;
+        }
 
         // While open, the drawer lives under <body> and is viewport-fixed so its
         // left edge can animate smoothly and it is never clipped or z-trapped by
         // #chatSection. It returns to its original parent once fully closed.
         if (drawer.parentElement !== document.body) {
             window._wpDrawerHome = drawer.parentElement;
+            console.log('Moving drawer to body (parent was:', drawer.parentElement.tagName + ')');
             document.body.appendChild(drawer);
         }
+        
+        console.log('\n%c✅ Step 1: Drawer Initialized', 'color:green');
+        console.log('   Drawer state before:', drawer.className);
+        
         drawer.classList.remove('hidden');
         drawer.classList.add('wp-drawer-open');
         setWritingPortfolioExpanded(false);
+        
         requestAnimationFrame(() => {
             drawer.classList.remove('translate-x-full');
         });
+        
+        console.log('   Drawer state after:', drawer.className);
+        console.log('   Animating drawer from right...');
 
         const activeTargetId = getActiveTargetId();
         const currentUser = getCurrentUser();
-        if (!activeTargetId) return;
+        if (!activeTargetId) {
+            console.error('%c❌ No active target chat!', 'color:red');
+            console.groupEnd();
+            return;
+        }
 
         const isGroup = activeTargetId.startsWith('group_');
         const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
@@ -2608,31 +2398,108 @@ export function initChatEngine(deps) {
         `;
 
         const requestTargetId = activeTargetId;
+        
+        console.log('\n%c✅ Step 2: Context Setup', 'color:green');
+        console.log('   Target Chat ID:', chatId);
+        console.log('   Chat Partner:', chatPartnerName);
+        console.log('   Is Group Chat:', isGroup);
+        console.log('   Title Set To:', titleEl?.innerText);
+        
+        if (targetDocId) {
+            console.log('\n⚡ Target Document Specified:');
+            console.log('   targetDocId:', targetDocId);
+        }
+        if (targetMsgKey) {
+            console.log('   targetMsgKey:', targetMsgKey);
+        }
+        if (targetCommentId) {
+            console.log('   targetCommentId:', targetCommentId);
+        }
 
         try {
+            console.log('\n%c📡 Step 3: Loading Messages from Firebase', 'color:green');
+            
             // Retrieve all messages for this chat (merge local IndexedDB with Firebase RTDB for 100% sync)
+            const fetchStart = Date.now();
             let localMsgs = (await getLocalMessages(chatId)) || [];
+            const localFetchTime = Date.now() - fetchStart;
+            console.log(`   IndexedDB loaded ${localMsgs.length} messages in ${localFetchTime}ms`);
+            
             const msgMap = new Map();
             localMsgs.forEach(m => {
                 if (m && m.key) msgMap.set(m.key, m);
             });
+            console.log('   IndexedDB messages indexed into Map:', msgMap.size);
 
             try {
-                const snap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(150)));
+                // Increased limit to ensure we capture documents that may be grouped
+                // but not visible in the most recent 150 messages. This prevents
+                // "doc not found" errors when opening portfolio from All Projects bar.
+                console.log('   Querying Firebase RTDB (limitToLast(500))...');
+                const snap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(500)));
                 if (snap.exists()) {
                     const val = snap.val();
+                    const rtdbKeys = Object.keys(val).length;
+                    console.log(`   Firebase returned ${rtdbKeys} messages`);
+                    
                     Object.keys(val).forEach(k => {
                         msgMap.set(k, { key: k, ...val[k] });
                     });
+                    console.log('   Merged Firebase data into Map:', msgMap.size);
+                } else {
+                    console.warn('%c⚠️ No messages found in Firebase for this chat', 'color:orange');
                 }
             } catch (e) {
-                console.warn('[WritingPortfolio] Firebase query fallback error:', e);
+                console.error('%c❌ Firebase query error:', 'color:red', e);
             }
 
+            const finalMsgCount = msgMap.size;
             localMsgs = Array.from(msgMap.values());
+            
+            console.log(`\n%c✅ Total messages ready: ${finalMsgCount}`, 'color:green');
+            if (targetDocId) {
+                const docMatchCount = localMsgs.filter(m => 
+                    (m.docData?.fileId === targetDocId) || 
+                    (m.text?.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1] === targetDocId)
+                ).length;
+                console.log(`   Documents matching targetDocId "${targetDocId}":`, docMatchCount);
+                if (docMatchCount === 0) {
+                    console.warn('%c⚠️ WARNING: Target doc NOT FOUND in message list!', 'color:orange;font-weight:bold');
+                }
+            }
+
+            // If targeting a specific docId that may not be in recent messages,
+            // pre-load its data from writing_doc_state to ensure it appears in the portfolio
+            let targetDocFoundInMessages = false;
+            if (targetDocId && localMsgs.length > 0) {
+                targetDocFoundInMessages = localMsgs.some(m => 
+                    (m.docData?.fileId || (m.text?.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1])) === targetDocId
+                );
+                
+                // If target doc not found in recent messages, try loading from writing_doc_state
+                if (!targetDocFoundInMessages) {
+                    try {
+                        const stateSnap = await get(ref(db, `writing_doc_state/${chatId}/${targetDocId}`));
+                        if (stateSnap.exists()) {
+                            const docState = normalizeDocSyncState(stateSnap.val());
+                            if (docState) {
+                                console.log(`[Portfolio] Found target doc ${targetDocId} in writing_doc_state, enriching with cached data`);
+                                // Merge cached doc info into message processing
+                                mergeDocViewIntoCache(targetDocId, docState);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('%c❌ Error loading from writing_doc_state:', 'color:red', e);
+                    }
+                }
+            }
 
             // Ensure user hasn't switched to another chat while fetching
-            if (getActiveTargetId() !== requestTargetId) return;
+            if (getActiveTargetId() !== requestTargetId) {
+                console.warn('%c⚠️ Chat switched during loading, aborting', 'color:orange');
+                console.groupEnd();
+                return;
+            }
 
             const rawDocMsgs = (localMsgs || []).filter(m => {
                 if (!m) return false;
@@ -2644,6 +2511,33 @@ export function initChatEngine(deps) {
                 const timeB = b.docData?.createdTime ? new Date(b.docData.createdTime).getTime() : (b.timestamp || 0);
                 return timeB - timeA;
             });
+            
+            console.log('\n%c📊 Step 4: Processing Documents', 'color:green');
+            console.log('   Total raw doc messages:', rawDocMsgs.length);
+            
+            // Debug: Show each doc message's docId extraction
+            if (rawDocMsgs.length > 0) {
+                console.log('\n%c   📋 Document Extraction Details', 'color:blue');
+                rawDocMsgs.forEach((m, idx) => {
+                    const text = m.text || '';
+                    const match = text.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
+                    const fileId = m.docData?.fileId;
+                    const extractedId = match ? match[1] : null;
+                    const finalId = fileId || extractedId || (m.key || `doc-${idx}`);
+                    
+                    console.log(`   [${idx}] ID: ${finalId}`);
+                    if (finalId === targetDocId) {
+                        console.log('       ^^^ MATCHES TARGET!');
+                    }
+                });
+            }
+            
+            // Use correct check BEFORE _portfolioDocId is set
+            console.log(`   Target docId "${targetDocId}" present in rawMsgs:`, 
+                rawDocMsgs.some(m => 
+                    (m.docData?.fileId === targetDocId) || 
+                    ((m.text || '').match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1] === targetDocId)
+                ));
 
             // Deduplicate: multiple cards sharing the same doc link/ID should only appear once
             // Also maintain a map of docId -> all corresponding message keys
@@ -2655,8 +2549,19 @@ export function initChatEngine(deps) {
                 const m = rawDocMsgs[i];
                 const text = m.text || '';
                 const match = text.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
-                const docId = m.docData?.fileId || (match ? match[1] : (m.key || `doc-${i}`));
+                const fileId = m.docData?.fileId;
+                const extractedId = match ? match[1] : null;
+                const docId = fileId || extractedId || (m.key || `doc-${i}`);
+                
                 m._portfolioDocId = docId;
+                
+                // Debug: Show if this matches target
+                if (targetDocId && docId === targetDocId) {
+                    console.log(`   ✅ MATCH FOUND at index ${i}: ${docId}`);
+                    console.log('      Message key:', m.key);
+                    console.log('      Has docData?:', !!m.docData);
+                    console.log('      Has text?:', !!m.text);
+                }
 
                 if (!docIdToKeys.has(docId)) {
                     docIdToKeys.set(docId, []);
@@ -2670,15 +2575,17 @@ export function initChatEngine(deps) {
                     docMessages.push(m);
                 }
             }
+            
+            console.log('\n%c📝 Mapping Table Created', 'color:green');
+            console.log('   Total unique docIds:', docIdToKeys.size);
+            console.log('   All keys:', Array.from(docIdToKeys.keys()));
+            if (targetDocId) {
+                console.log(`   Target "${targetDocId}" in mapping:`, docIdToKeys.has(targetDocId));
+                console.log(`   Target keys:`, docIdToKeys.get(targetDocId) || []);
+            }
 
             // Save docIdToKeys mapping for quick message lookup on delete
             window._portfolioDocIdToKeys = docIdToKeys;
-
-            // Clear any legacy deleted docs blacklists so re-sent documents immediately show
-            try {
-                localStorage.removeItem(`writing_deleted_docs_${chatId}`);
-                if (activeTargetId !== chatId) localStorage.removeItem(`writing_deleted_docs_${activeTargetId}`);
-            } catch (e) {}
 
             const activeDocMessages = docMessages;
 
@@ -2956,9 +2863,9 @@ export function initChatEngine(deps) {
                         <!-- Project Header & Version Stepper -->
                         <div id="projHeader-${projId}" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-white/5">
                             <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 rounded-xl bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-[#007AFF] dark:text-[#0A84FF] flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                <div class="w-9 h-9 rounded-xl bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path>
                                     </svg>
                                 </div>
                                 <div class="min-w-0">
@@ -3011,9 +2918,11 @@ export function initChatEngine(deps) {
                                                     </svg>
                                                 </button>
                                                 <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
-                                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                                         <polyline points="3 6 5 6 21 6"></polyline>
                                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
                                                     </svg>
                                                 </button>
                                             </div>
@@ -3057,9 +2966,11 @@ export function initChatEngine(deps) {
                                     </svg>
                                 </button>
                                 <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
-                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <polyline points="3 6 5 6 21 6"></polyline>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
                                     </svg>
                                 </button>
                             </div>
@@ -3100,23 +3011,111 @@ export function initChatEngine(deps) {
 
                     const targetEl = document.getElementById(`portfolio-item-${targetMsgKey}`);
                     if (targetEl) {
-                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        const content = document.getElementById('writingPortfolioContent');
+                        const needsScroll = content && content.scrollHeight > content.clientHeight;
+                        
+                        if (needsScroll) {
+                            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        
                         // Also auto-expand comments if target with smooth accordion animation
                         const drawer = document.getElementById(`docDrawer-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docDrawer-"]');
                         const arrow = document.getElementById(`docArrow-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docArrow-"]');
-                        if (drawer && (!drawer.classList.contains('expanded') || drawer.classList.contains('hidden'))) {
+                        if (drawer && !drawer.classList.contains('expanded') && drawer.classList.contains('hidden')) {
                             drawer.classList.remove('hidden');
                             void drawer.offsetHeight;
                             drawer.classList.add('expanded');
                             if (arrow) arrow.style.transform = 'rotate(180deg)';
                         }
+
+                        // Jump to the specific comment once the drawer has opened.
+                        if (targetCommentId && drawer) {
+                            setTimeout(() => {
+                                const row = drawer.querySelector(`[data-comment-id="${targetCommentId}"]`);
+                                if (row) {
+                                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    row.classList.add('wp-comment-flash');
+                                    setTimeout(() => row.classList.remove('wp-comment-flash'), 1800);
+                                }
+                            }, 380);
+                        }
+                    }
+                }, 150);
+            } else if (targetDocId) {
+                console.log('\n%c🔍 Step 7: Locating Target Doc Card', 'color:green');
+                console.log('   Target DocID:', targetDocId);
+                
+                // Capture mapping state IMMEDIATELY (before any async operations)
+                const currentMappings = window._portfolioDocIdToKeys || new Map();
+                console.log('   Mapping captured BEFORE timeout:', currentMappings.size, 'entries');
+                
+                // Find and expand the card for this docId - use captured reference
+                setTimeout(() => {
+                    const mappings = window._portfolioDocIdToKeys || new Map();
+                    
+                    // Debug: Check if it's the same object or different
+                    console.log('%c⚡ Mapping check after timeout', 'color:blue');
+                    console.log('   Mappings size:', mappings.size);
+                    console.log('   Same object?', mappings === currentMappings);
+                    console.log('   All keys (Map):', Array.from(mappings.keys()));
+                    
+                    const keys = mappings.get(targetDocId) || [];
+                    
+                    console.log(`   Keys for target doc:`, keys.length);
+                    if (keys.length > 0) {
+                        console.log('%c✅ Found card!', 'color:green');
+                        const firstKey = keys[0];
+                        const targetEl = document.getElementById(`portfolio-item-${firstKey}`);
+                        if (targetEl) {
+                            console.log('   Element ID: portfolio-item-' + firstKey);
+                            console.log('   Element exists:', !!targetEl);
+                            
+                            const content = document.getElementById('writingPortfolioContent');
+                            const needsScroll = content && content.scrollHeight > content.clientHeight;
+                            console.log('   Needs scroll:', needsScroll, '(scrollHeight:', content?.scrollHeight, ', clientHeight:', content?.clientHeight, ')');
+                            
+                            if (needsScroll) {
+                                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                console.log('   ✓ Scrolled to card');
+                            }
+                            
+                            const drawer = document.getElementById(`docDrawer-portfolio-${firstKey}`) || targetEl.querySelector('[id^="docDrawer-"]');
+                            const arrow = document.getElementById(`docArrow-portfolio-${firstKey}`) || targetEl.querySelector('[id^="docArrow-"]');
+                            
+                            console.log('   Drawer element:', !!drawer);
+                            console.log('   Arrow element:', !!arrow);
+                            console.log('   Drawer is hidden:', drawer?.classList.contains('hidden'));
+                            console.log('   Drawer expanded:', drawer?.classList.contains('expanded'));
+                            
+                            if (drawer && !drawer.classList.contains('expanded') && drawer.classList.contains('hidden')) {
+                                console.log('   Expanding drawer...');
+                                drawer.classList.remove('hidden');
+                                void drawer.offsetHeight;  // Force reflow for transition
+                                drawer.classList.add('expanded');
+                                console.log('   ✓ Drawer expanded');
+                                if (arrow) {
+                                    arrow.style.transform = 'rotate(180deg)';
+                                    console.log('   ✓ Arrow rotated');
+                                }
+                            }
+                        } else {
+                            console.warn('%c⚠️ Portfolio item element NOT found!', 'color:orange');
+                        }
+                    } else {
+                        console.warn('%c❌ Doc not in _portfolioDocIdToKeys mapping!', 'color:red;font-weight:bold');
+                        console.log('   Available keys in mapping:', Object.keys(mappings).slice(0, 20));
+                        console.log('   Tip: Document may be too old or from another chat!');
                     }
                 }, 150);
             }
         } catch (err) {
-            console.error('[WritingPortfolio] Failed to load timeline:', err);
-            content.innerHTML = `<div class="p-6 text-center text-xs text-red-500">Failed to load writing history.</div>`;
+            console.error('%c❌ Failed to load timeline:', 'color:red', err);
+            console.groupEnd();
+            return;
         }
+        
+        console.log('\n%c🎉 Portfolio loading complete!', 'color:green;font-weight:bold');
+        console.groupEnd();
     }
 
     // Switch between Cards View, Comments View, and Timeline View
@@ -3175,35 +3174,6 @@ export function initChatEngine(deps) {
     }
 
     // Classify comment author into 'teacher', 'student', or 'peer'
-    function classifyCommentAuthor(authorName, authorEmail, currentUserId, currentUser) {
-        const normName = (authorName || '').trim().toLowerCase();
-        const normEmail = (authorEmail || '').trim().toLowerCase();
-
-        // A bot-delivered comment belongs to whoever the "Created by" line names
-        // (docCommentDisplay has already unwrapped the prefix into authorName).
-        if (normEmail.endsWith('.gserviceaccount.com')) {
-            const meNames = [currentUserId, currentUser && currentUser.name].filter(Boolean)
-                .map(s => String(s).toLowerCase());
-            if (normName && meNames.some(n => normName === n || normName.includes(n) || n.includes(normName))) {
-                return { role: 'student', label: 'Author' };
-            }
-            if (/^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
-                return { role: 'teacher', label: 'Teacher' };
-            }
-            return { role: 'peer', label: 'Peer Reviewer' };
-        }
-
-        if (normEmail.endsWith('@hcpss.org') || /^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
-            return { role: 'teacher', label: 'Teacher' };
-        }
-        if (currentUserId && (normEmail.includes(currentUserId.toLowerCase()) || normName.includes(currentUserId.toLowerCase()))) {
-            return { role: 'student', label: 'Author' };
-        }
-        if (normEmail.endsWith('@inst.hcpss.org')) {
-            return { role: 'peer', label: 'Peer Reviewer' };
-        }
-        return { role: 'teacher', label: 'Teacher' };
-    }
 
     // Render Comments View: All comments from all documents in this chat, sorted chronologically
     function renderPortfolioCommentsContent() {
@@ -3240,6 +3210,7 @@ export function initChatEngine(deps) {
                     docId: docId,
                     docTitle: docTitle,
                     docUrl: docUrl,
+                    msgKey: m.key || '',
                     authorName: aName,
                     authorEmail: aEmail,
                     authorRole: role,
@@ -3343,10 +3314,19 @@ export function initChatEngine(deps) {
                             ${item.isMissing ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium" title="Google has not returned this comment in recent full syncs">Not in latest sync</span>' : ''}
                             ${isResolved && !item.isDeleted ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' : ''}
                         </div>
-                        <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline" title="Jump to this comment in Google Doc">
-                            <span>View Doc</span>
-                            <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        </a>
+                        <div class="flex items-center gap-3 flex-shrink-0">
+                            <button type="button" onclick="window.portfolioJumpToChat('${item.msgKey}', '${item.docId}', '${c.id || ''}', '${UIUtils.escape(item.docTitle)}')" class="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-[#007AFF] dark:hover:text-[#0A84FF] transition-colors" title="Locate this comment in chat">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="6"></circle>
+                                    <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
+                                </svg>
+                                <span>Locate</span>
+                            </button>
+                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline" title="Jump to this comment in Google Doc">
+                                <span>View Doc</span>
+                                <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                            </a>
+                        </div>
                     </div>
 
                     <div class="text-[13px] ${dimRow ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${UIUtils.escape(item.displayContent || '')}</div>
@@ -3489,7 +3469,7 @@ export function initChatEngine(deps) {
                                 : 'bg-[#007AFF]/10 text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF]';
 
                             return `
-                                <div class="relative bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-3.5 hover:border-[#007AFF]/50 transition-colors">
+                                <div onclick="window.portfolioJumpToChat('${entry.key}', '${entry.docId}', '', '${UIUtils.escape(entry.rawTitle)}')" class="relative cursor-pointer bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-3.5 hover:border-[#007AFF]/50 transition-colors">
                                     <!-- Timeline Node Circle -->
                                     <div class="absolute -left-[31px] top-4 w-3.5 h-3.5 rounded-full ${isFinal ? 'bg-emerald-500 ring-4 ring-white dark:ring-black' : 'bg-[#007AFF] ring-4 ring-white dark:ring-black'}"></div>
 
@@ -3512,7 +3492,7 @@ export function initChatEngine(deps) {
                                                 ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Showing saved snapshot — sync status: ${UIUtils.escape(entry.syncStatus)}">snapshot</span>` : ''}
                                             </div>
                                             <span class="text-[11px] text-black dark:text-white whitespace-nowrap" title="${entry.dateSource}; last feedback is tracked separately">${entry.dateSource} · ${dateStr}</span>
-                                            <button type="button" onclick="window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="text-[#007AFF] dark:text-[#0A84FF] hover:underline text-[12px] font-semibold ml-1">
+                                            <button type="button" onclick="event.stopPropagation(); window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="text-[#007AFF] dark:text-[#0A84FF] hover:underline text-[12px] font-semibold ml-1">
                                                 View
                                             </button>
                                         </div>
@@ -3994,10 +3974,20 @@ export function initChatEngine(deps) {
     }
 
     let _wpExpandAnimT = null;
+
+    // Expanding only makes sense when the collapsed drawer (chat-column wide)
+    // actually leaves room on screen — on phones the drawer is already the
+    // full viewport, so hide the button and keep the drawer collapsed.
+    function wpCanExpand() {
+        const chat = document.getElementById('chatSection');
+        if (!chat || chat.offsetParent === null) return false;
+        return chat.getBoundingClientRect().left >= 80;
+    }
+
     function setWritingPortfolioExpanded(isExpanded, animate) {
         const drawer = document.getElementById('writingPortfolioDrawer');
         if (!drawer) return;
-        const exp = !!isExpanded;
+        const exp = !!isExpanded && wpCanExpand();
         drawer.classList.toggle('wp-expanded', exp);
         // Only position while the drawer is actually mounted as the open overlay.
         if (drawer.classList.contains('wp-drawer-open')) {
@@ -4019,9 +4009,11 @@ export function initChatEngine(deps) {
         const expIcon = document.getElementById('wpExpandIcon');
         const colIcon = document.getElementById('wpCollapseIcon');
         const btn = document.getElementById('writingPortfolioExpandBtn');
+        if (btn) btn.style.display = wpCanExpand() ? '' : 'none';
         if (expIcon) expIcon.classList.toggle('hidden', exp);
         if (colIcon) colIcon.classList.toggle('hidden', !exp);
         if (btn) btn.setAttribute('title', exp ? 'Collapse' : 'Expand');
+        composerFollowDrawer(exp, animate);
     }
 
     // Restore the drawer to its resting state after the slide-out finishes.
@@ -4048,7 +4040,7 @@ export function initChatEngine(deps) {
 
     function toggleWritingPortfolioExpand() {
         const drawer = document.getElementById('writingPortfolioDrawer');
-        if (!drawer) return;
+        if (!drawer || !wpCanExpand()) return;
         setWritingPortfolioExpanded(!drawer.classList.contains('wp-expanded'), true);
     }
 
@@ -4062,6 +4054,8 @@ export function initChatEngine(deps) {
         const exportModal = document.getElementById('portfolioExportModal');
         if (exportModal && !exportModal.classList.contains('hidden')) closePortfolioExportModal();
         closeForwardPicker();
+        // A composer lifted over the drawer must not float once it closes.
+        liftComposerForPortfolio(false);
 
         // Slide out to the right from wherever it is (collapsed or expanded),
         // then reset geometry once the transition has finished.
@@ -4069,6 +4063,9 @@ export function initChatEngine(deps) {
         setTimeout(() => {
             drawer.classList.add('hidden');
             resetWritingPortfolioDrawer();
+            // Chat geometry/visibility may have changed while the drawer covered
+            // it, and no scroll event fires after the slide-out — resync the bar.
+            scheduleWpDocContext();
         }, 400);
     }
 
@@ -4086,6 +4083,878 @@ export function initChatEngine(deps) {
         }, 420);
     }
     window.portfolioOpenAttachGdocMenu = portfolioOpenAttachGdocMenu;
+
+    // ---- Chat project soft-filter (writing-doc context bar) ---------------
+    // The always-visible glass bar under the chat header is a project
+    // switcher. Picking a project hides the messages that are not tied to one
+    // of its docs; nothing is moved or refetched, so "All Projects" restores
+    // the full chat. A grouped project is the Portfolio folder name, an
+    // ungrouped doc is its own project named after the Google Doc title.
+    const WP_ALL_PROJECTS = '__all__';
+    let _activeChatProject = WP_ALL_PROJECTS;
+    let _chatProjects = [];
+    let _wpBarPending = null;
+    let _wpFilterSince = 0;
+
+    // Expanded, the row above the divider is always "All Projects"; collapsed,
+    // the pill shows the current scope. Either way it is rendered with the same
+    // icon language as the list: folder for a collection, doc for a single file.
+    function updateWpProjectHeader(isOpen) {
+        const selected = wpActiveProject();
+        const showingAll = isOpen || !selected;
+        const card = document.getElementById('wpDocContextBar');
+
+        const titleOut = document.getElementById('wpDocContextTitle');
+        const name = showingAll ? 'All Projects' : selected.name;
+        if (titleOut && titleOut.innerText !== name) titleOut.innerText = name;
+
+        const iconOut = document.getElementById('wpProjectHeaderIcon');
+        if (iconOut) {
+            // Icon logic:
+            // - When OPEN: show folder/doc icon matching the type
+            // - When CLOSED and ALL PROJECTS: always show FOLDER icon (can expand to view projects)
+            // - When CLOSED and SPECIFIC PROJECT: show EXPAND/COLLAPSE icon (toggle filter on/off)
+            let iconHtml;
+            if (isOpen) {
+                // Open state: show folder/icon based on project type
+                iconHtml = (showingAll || selected.isGroup) ? WP_ROW_FOLDER_ICON : WP_ROW_DOC_ICON;
+            } else {
+                // Closed state
+                if (showingAll) {
+                    // All Projects: use folder icon (click to open project list)
+                    iconHtml = WP_ROW_FOLDER_ICON;
+                } else if (selected.isGroup) {
+                    // Specific group project: use expand icon (toggle filter)
+                    iconHtml = WP_ROW_EXPAND_ICON;
+                } else {
+                    // Standalone doc project: use collapse icon (toggle filter)
+                    iconHtml = WP_ROW_COLLAPSE_ICON;
+                }
+            }
+            if (iconOut.innerHTML !== iconHtml) iconOut.innerHTML = iconHtml;
+        }
+
+        const subOut = document.getElementById('wpProjectHeaderSub');
+        if (subOut) {
+            let sub = '';
+            if (showingAll) {
+                sub = wpCountLabel(_chatProjects.length, 'project');
+            } else if (selected.isGroup) {
+                sub = wpCountLabel(selected.docIds.size, 'version');
+            }
+            if (subOut.innerText !== sub) subOut.innerText = sub;
+        }
+
+        // The tick marks the row that is actually in effect, and only while open.
+        if (card) card.classList.toggle('wp-header-checked', !!isOpen && !selected);
+        // "All Projects" must never ellipsize, in the pill or the open header.
+        if (card) card.classList.toggle('wp-title-full', name === 'All Projects');
+        // A selected document may have a much longer name than the previous
+        // scope.  Re-evaluate in the same task so that title never gets a
+        // frame to paint at its max-content width before compacting/truncating.
+        if (!isOpen) repositionWpBar();
+    }
+
+    // Open Writing Portfolio for the currently selected project and auto-expand its latest card
+    async function openPortfolioForSelectedProject(e) {
+        e?.stopPropagation(); // Prevent triggering toggleWpProjectMenu
+        
+        console.group('%c🔵 [AllProjects→Portfolio] Starting', 'color:#0A84FF;font-weight:bold');
+        
+        const selected = wpActiveProject();
+        if (!selected) {
+            console.warn('%c❌ No project selected (currently "All Projects")', 'color:orange');
+            console.log('Current active chat project:', _activeChatProject);
+            console.log('Available projects in _chatProjects:', _chatProjects.length);
+            console.log(_chatProjects);
+            console.warn('Hint: Please select a specific project first, then click the folder icon.');
+            console.groupEnd();
+            return; // If all projects selected, do nothing
+        }
+        
+        const activeDocId = Array.from(selected.docIds)[0];
+        if (!activeDocId) {
+            console.warn('%c❌ Project has no docIds', 'color:orange');
+            console.log('Project details:', selected);
+            console.groupEnd();
+            return;
+        }
+        
+        console.log('%c✅ Step 1: Target Identified', 'color:green');
+        console.log('   Project Name:', selected.name);
+        console.log('   Project ID:', selected.id);
+        console.log('   Doc Count:', selected.docIds.size);
+        console.log('   Target DocID:', activeDocId);
+        console.log('   All DocIDs in project:', Array.from(selected.docIds));
+        
+        // Get current chat context
+        const activeTargetId = getActiveTargetId();
+        const currentUser = getCurrentUser();
+        const isGroup = activeTargetId.startsWith('group_');
+        const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
+        
+        console.log('\n%c✅ Step 2: Chat Context', 'color:green');
+        console.log('   Current Chat ID:', chatId);
+        console.log('   Chat Partner:', activeTargetId.replace('group_', ''));
+        console.log('   Is Group Chat:', isGroup);
+        console.log('   Current User:', currentUser?.id || 'Not logged in');
+        
+        // Check if target doc exists in writing_doc_state BEFORE opening
+        console.log('\n%c⚡ Pre-check: Looking for doc in writing_doc_state...', 'color:blue');
+        try {
+            const stateRef = ref(db, `writing_doc_state/${chatId}/${activeDocId}`);
+            const stateSnap = await get(stateRef);
+            if (stateSnap.exists()) {
+                const docState = normalizeDocSyncState(stateSnap.val());
+                if (docState) {
+                    console.log('%c✅ Found in writing_doc_state!', 'color:green');
+                    console.log('   Title:', docState.title);
+                    console.log('   Last Synced:', new Date(docState.lastSyncedAt || 0).toLocaleString());
+                    console.log('   Comment Count:', docState.commentsCount || 0);
+                }
+            } else {
+                console.warn('%c⚠️ Not found in writing_doc_state', 'color:orange');
+            }
+        } catch (e) {
+            console.error('%c❌ Error checking writing_doc_state:', 'color:red', e);
+        }
+        
+        console.log('\n%c📊 Step 3: Opening Writing Portfolio', 'color:green');
+        console.log('Calling openWritingPortfolio(null, null, "' + activeDocId + '")...');
+        
+        // Open Writing Portfolio with targetDocId - let internal logic handle auto-expand
+        const startTime = Date.now();
+        await openWritingPortfolio(null, null, activeDocId);
+        const endTime = Date.now();
+        console.log(`✅ Portfolio opened in ${endTime - startTime}ms`);
+        
+        console.groupEnd();
+    }
+    
+    // Helper to scroll to and expand a specific portfolio card
+    function openPortfolioCard(targetMsgKey) {
+        if (!targetMsgKey) return;
+        
+        setTimeout(() => {
+            const targetEl = document.getElementById(`portfolio-item-${targetMsgKey}`);
+            if (targetEl) {
+                // Check if we actually need to scroll
+                const content = document.getElementById('writingPortfolioContent');
+                const needsScroll = content && content.scrollHeight > content.clientHeight;
+                
+                if (needsScroll) {
+                    // Scroll to the card only if there's content to scroll
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Auto-expand the card only if it's not already expanded
+                const drawer = document.getElementById(`docDrawer-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docDrawer-"]');
+                const arrow = document.getElementById(`docArrow-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docArrow-"]');
+                
+                if (drawer && !drawer.classList.contains('expanded') && drawer.classList.contains('hidden')) {
+                    drawer.classList.remove('hidden');
+                    void drawer.offsetHeight;
+                    drawer.classList.add('expanded');
+                    if (arrow) arrow.style.transform = 'rotate(180deg)';
+                }
+            }
+        }, 150);
+    }
+
+    function wpCountLabel(count, noun) {
+        if (!count) return '';
+        return `${count} ${count === 1 ? noun : noun + 's'}`;
+    }
+
+    function wpActiveProject() {
+        if (_activeChatProject === WP_ALL_PROJECTS) return null;
+        return _chatProjects.find(p => p.id === _activeChatProject) || null;
+    }
+
+    // True while something is hidden or the empty hint is on screen: it is what
+    // forces a restore pass even after the filter itself has been cleared.
+    let _wpFilterDirty = false;
+
+    function applyChatProjectFilter() {
+        const chatBox = document.getElementById('chatBox');
+        if (!chatBox) return;
+        const project = wpActiveProject();
+        if (!project && !_wpFilterDirty) return;
+        let hidden = 0;
+        
+        chatBox.querySelectorAll('.msg-pop').forEach(el => {
+            // 🆕 NEW: Support multiple docIds (comma-separated)
+            const elDocIdAttr = el.getAttribute('data-doc-id') || '';
+            const elDocIds = elDocIdAttr.split(',').filter(Boolean).map(id => id.trim());
+            
+            // Anything that lands after the filter was switched on stays visible,
+            // so a message sent from inside a project view never disappears.
+            const isNewer = _wpFilterSince && Number(el.dataset.timestampMs || 0) > _wpFilterSince;
+            const show = !project || isNewer || (elDocIds.length > 0 && elDocIds.some(id => project.docIds.has(id)));
+            el.classList.toggle('hidden', !show);
+            if (!show) hidden++;
+        });
+
+        const host = chatBox.parentElement;
+        let hint = document.getElementById('wpProjectEmptyHint');
+        const wantHint = !!project && hidden === chatBox.querySelectorAll('.msg-pop').length;
+        if (wantHint && !hint && host) {
+            hint = document.createElement('div');
+            hint.id = 'wpProjectEmptyHint';
+            hint.className = 'text-xs text-gray-400';
+            host.appendChild(hint);
+            hint.innerHTML = `<div class="font-semibold text-sm text-black dark:text-white">No messages in this project yet</div>
+                <div class="mt-1">Docs shared into ${UIUtils.escape(project.name)} will appear here.</div>`;
+        } else if (!wantHint && hint) {
+            hint.remove();
+            hint = null;
+        }
+        _wpFilterDirty = hidden > 0 || !!hint;
+    }
+
+    function resetChatProjectFilter() {
+        _activeChatProject = WP_ALL_PROJECTS;
+        _chatProjects = [];
+        _wpFilterSince = 0;
+        updateWpProjectHeader(false);
+        applyChatProjectFilter();
+    }
+
+    function selectChatProject(projectId) {
+        const project = _chatProjects.find(p => p.id === projectId) || null;
+        _activeChatProject = project ? project.id : WP_ALL_PROJECTS;
+        _wpFilterSince = project ? Date.now() : 0;
+        // NOT updateWpProjectHeader(false) here: the card is still open, and
+        // shrinking its header content would snap the max-content card to the
+        // pill width on the click frame — the collapse branch would then
+        // measure an already-narrow "expanded" width and the whole retract
+        // animation would degenerate into a vertical clip. The close path in
+        // setWpProjectMenuOpen(false) performs the header swap after the ghost
+        // clone has captured the wide card.
+        applyChatProjectFilter();
+        setWpProjectMenuOpen(false);
+        // Every switch lands at the newest end of what is now on screen, whether
+        // that is a project's last message or the restored full history.
+        const chatBox = document.getElementById('chatBox');
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+        // All->sub only HIDES messages, so nothing re-enters and the switch
+        // reads as an instant flash (sub->all animates because hidden->visible
+        // replays the popIn on its own). Replay the entrance on the surviving
+        // visible set so every direction animates alike. Deliberately not in
+        // applyChatProjectFilter: new messages arriving under an active filter
+        // must not re-pop the whole list.
+        if (chatBox) {
+            const survivors = Array.from(chatBox.querySelectorAll('.msg-pop:not(.hidden)'));
+            survivors.forEach(el => { el.style.animation = 'none'; });
+            void chatBox.offsetWidth;
+            survivors.forEach(el => { el.style.animation = ''; });
+        }
+    }
+
+    // Newest-first, matching how the chat and Portfolio list the material.
+    function scanChatWritingDocs() {
+        const chatBox = document.getElementById('chatBox');
+        const docs = [];
+        const seen = new Set();
+        if (!chatBox) return docs;
+        chatBox.querySelectorAll('.doc-card-container').forEach(card => {
+            const docId = card.dataset.docId || '';
+            if (!docId || seen.has(docId)) return;
+            seen.add(docId);
+            docs.push({
+                docId: docId,
+                title: (card.querySelector('h4[id^="docTitle-"]')?.innerText || 'Google Document').trim()
+            });
+        });
+        return docs;
+    }
+
+    async function buildChatProjects() {
+        const docs = scanChatWritingDocs();
+        const currentUser = getCurrentUser();
+        const activeTargetId = getActiveTargetId();
+        if (!currentUser || !activeTargetId) return [];
+
+        const isGroup = activeTargetId.startsWith('group_');
+        const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
+
+        let assigned = {};
+        try {
+            const snap = await get(ref(db, `writing_projects/${chatId}`));
+            if (snap.exists()) assigned = snap.val() || {};
+        } catch (e) {
+            console.warn('[ChatProjects] Failed to load writing_projects:', e);
+        }
+
+        const groups = new Map();
+        const standalone = [];
+        docs.forEach(doc => {
+            const projectName = (assigned[doc.docId]?.projectName || '').trim();
+            if (!projectName) {
+                standalone.push({
+                    id: doc.docId,
+                    name: doc.title,
+                    docIds: new Set([doc.docId]),
+                    isGroup: false
+                });
+                return;
+            }
+            const norm = projectName.toLowerCase();
+            if (!groups.has(norm)) {
+                groups.set(norm, { id: `p:${norm}`, name: projectName, docIds: new Set(), isGroup: true });
+            }
+            groups.get(norm).docIds.add(doc.docId);
+        });
+
+        return Array.from(groups.values()).reverse().concat(standalone.reverse());
+    }
+
+    const WP_ROW_DOC_ICON = `<svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
+    const WP_ROW_FOLDER_ICON = `<svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path></svg>`;
+    const WP_ROW_EXPAND_ICON = `<svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3" /></svg>`;
+    const WP_ROW_COLLAPSE_ICON = `<svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 4v3a2 2 0 0 1-2 2H4M15 4v3a2 2 0 0 0 2 2h3M9 20v-3a2 2 0 0 0-2-2H4M15 20v-3a2 2 0 0 1 2-2h3" /></svg>`;
+
+    const WP_ROW_CHECK = `<svg class="w-4 h-4 flex-shrink-0 text-black dark:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+    // Below the divider sit the projects themselves, the active one ticked.
+    function renderWpProjectList() {
+        const list = document.getElementById('wpProjectMenuList');
+        if (!list) return;
+        // Runs on every open, so the header row is refreshed from the same data.
+        updateWpProjectHeader(true);
+
+        const row = (index, icon, name, sub, selected) => `
+            <button type="button" onclick="selectChatProjectAt(${index})" role="option" aria-selected="${selected ? 'true' : 'false'}"
+                class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                <span class="w-7 h-7 rounded-full bg-[#007AFF]/15 dark:bg-[#0A84FF]/25 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">${icon}</span>
+                <span class="flex flex-col min-w-0 flex-1">
+                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">${UIUtils.escape(name)}</span>
+                    ${sub ? `<span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">${sub}</span>` : ''}
+                </span>
+                ${selected ? WP_ROW_CHECK : ''}
+            </button>`;
+
+        list.innerHTML = _chatProjects.length
+            ? _chatProjects.map((p, i) => row(
+                i,
+                p.isGroup ? WP_ROW_FOLDER_ICON : WP_ROW_DOC_ICON,
+                p.name,
+                p.isGroup ? wpCountLabel(p.docIds.size, 'version') : '',
+                p.id === _activeChatProject
+            )).join('')
+            : '<div class="px-3 py-2 text-[12px] text-black dark:text-white">No documents shared in this chat yet.</div>';
+    }
+
+    function selectChatProjectAt(index) {
+        const project = _chatProjects[index];
+        if (project) selectChatProject(project.id);
+    }
+    window.selectChatProjectAt = selectChatProjectAt;
+
+    // The visual growth is a reveal, not a height animation.  The card is first
+    // laid out at its final size (and its glass map is refreshed once), then a
+    // clip-path reveals the extra area from the header down.  This preserves the
+    // "one card growing" story without forcing backdrop-filter/SVG work on every
+    // animation frame or a large canvas rebuild after it settles.
+    function revealWpCard(card, startWidth) {
+        const duration = 300;
+        const endWidth = card.offsetWidth;
+        const widthScale = endWidth ? Math.max(0.01, Math.min(1, (startWidth || endWidth) / endWidth)) : 1;
+        card.style.setProperty('--wp-start-width-scale', widthScale);
+        // Commit the narrow visual start without transitioning from the old
+        // pill into it; only the next frame should perform the outward growth.
+        card.style.transition = 'none';
+        card.classList.remove('wp-project-menu-closing', 'wp-project-menu-visible');
+        card.classList.add('wp-project-menu-animating');
+        void card.offsetWidth;
+        card.style.transition = '';
+        if (card._liquidGlass?.refresh) card._liquidGlass.refresh();
+
+        // The first frame contains only the collapsed pill.  Starting on the
+        // following frame lets the browser commit the final glass surface before
+        // the compositor starts revealing it.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            card.classList.add('wp-project-menu-visible');
+            card._wpAnimUntil = Date.now() + duration + 60;
+        }));
+        setTimeout(() => {
+            card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible');
+            card.style.removeProperty('--wp-start-width-scale');
+        }, duration + 60);
+    }
+
+    function setWpProjectMenuOpen(open) {
+        const card = document.getElementById('wpDocContextBar');
+        const listWrap = document.getElementById('wpProjectList');
+        const header = document.getElementById('wpProjectHeader');
+        if (!card || !listWrap) return;
+        if (card.classList.contains('wp-project-menu-open') === open) return;
+
+        if (card.classList.contains('wp-project-menu-closing')) return;
+        const startingWidth = open ? card.offsetWidth : 0;
+
+        if (open) {
+            // Keep the exact pre-open geometry so the ghost can restore compact
+            // mode faithfully even if layout shifts while the card is open.
+            card._wpOpenOrigin = {
+                width: startingWidth,
+                wasCompact: card.classList.contains('wp-bar-compact')
+            };
+            // A re-open landing mid-fade must not fight the ghost still on screen.
+            if (card._wpGhost) { card._wpGhost.cancel?.(); card._wpGhost.remove(); card._wpGhost = null; }
+            renderWpProjectList();
+            listWrap.classList.remove('hidden');
+            card.classList.add('wp-project-menu-open');
+            if (header) header.setAttribute('aria-expanded', 'true');
+            if (!card._hideListener) {
+                card._hideListener = (e) => {
+                    // A row's mousedown re-renders the list, which detaches the
+                    // button that was pressed; a detached target is not an
+                    // outside click, and treating it as one collapsed the card a
+                    // frame before the row's click reopened it.
+                    if (!card.classList.contains('wp-project-menu-open')) return;
+                    if (Date.now() < (card._wpAnimUntil || 0)) return;
+                    if (!e.target || !e.target.isConnected || card.contains(e.target)) return;
+                    setWpProjectMenuOpen(false);
+                };
+                document.addEventListener('mousedown', card._hideListener);
+                document.addEventListener('touchstart', card._hideListener);
+            }
+            // Let the final panel establish its natural width before revealing.
+            // There is no intermediate width/height animation for the glass to
+            // chase; clip-path performs the perceived growth instead.
+            card.style.maxWidth = 'none';
+            void card.offsetWidth;
+            const naturalW = card.offsetWidth;
+            // "All Projects" must never ellipsize: measure the header row on
+            // its own and let it lift the width floor above the viewport cap.
+            // Over-long project names in the list truncate instead.
+            listWrap.classList.add('hidden');
+            void card.offsetWidth;
+            const headerW = card.offsetWidth;
+            listWrap.classList.remove('hidden');
+            
+            // Calculate max width based on the chat panel width (4th panel)
+            // - Card should be responsive within its parent container
+            // - Max at 70% of viewport or available panel space, whichever is smaller
+            // - Min at content width or a reasonable floor, whichever is larger
+            const cardParent = card.parentElement;
+            const parentWidth = cardParent ? cardParent.offsetWidth : window.innerWidth;
+            const availableWidth = parentWidth * 0.7; // Use up to 70% of panel width
+            
+            // Don't force minimum expansion beyond content needs
+            card.style.maxWidth = `${availableWidth}px`;
+            // The floor must be bounded by the same available width.  A long
+            // document title otherwise turns `min-width` into an escape hatch
+            // that defeats max-width and pushes the list beyond the right edge.
+            card.style.minWidth = `${Math.min(availableWidth, Math.max(headerW, 200))}px`;
+
+            // A second-row pill is right-aligned while closed.  Its list can
+            // be substantially wider than that pill, so re-anchor it only
+            // after the final constrained width is known; otherwise it grows
+            // equally in both directions and escapes past the actions bar.
+            if (card._wpSecondRow) {
+                const openSection = document.getElementById('chatSection');
+                const openActions = document.getElementById('chatActionsBar');
+                const openName = document.getElementById('chatNameBar');
+                if (openSection && openActions && openName) {
+                    const openSr = openSection.getBoundingClientRect();
+                    const openAb = openActions.getBoundingClientRect();
+                    const openNb = openName.getBoundingClientRect();
+                    card.style.top = (openNb.bottom - openSr.top + 8) + 'px';
+                    card.style.left = (openAb.right - openSr.left - card.offsetWidth / 2) + 'px';
+                }
+            }
+            
+            revealWpCard(card, startingWidth);
+        } else {
+            // Swap-first + ghost.  The old path kept the expanded DOM alive and
+            // clip/scale-shrunk it, so the animation ENDED on a fake frame (the
+            // squashed expanded header: check mark, up-chevron, squeezed text)
+            // and the real-DOM swap after finish was the visible pop.  Here the
+            // real card becomes the collapsed pill on frame 1 — its resting box
+            // IS the animation's destination, so no pop is possible — and a
+            // fixed clone (the "ghost") of the expanded card replays the
+            // retraction above it and fades out into the real pill.
+            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            // The retraction must run the expand animation's own 280ms so the
+            // shape moves at the same speed both ways; the dissolve is extra
+            // tail time after the shape has landed.
+            const retractMs = reduced ? 1 : 280;
+            const duration = reduced ? 1 : retractMs + 80;
+            const retractAt = retractMs / duration;
+            const origin = card._wpOpenOrigin || {};
+            const rect = card.getBoundingClientRect();
+            const expandedW = rect.width;
+            const expandedH = rect.height;
+            const clipBottom = Math.max(0, expandedH - 46);
+
+            const ghost = card.cloneNode(true);
+            ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;` +
+                `width:${expandedW}px;height:${expandedH}px;max-width:none;margin:0;` +
+                `transform:none;transition:none;z-index:100;pointer-events:none;`;
+            document.body.appendChild(ghost);
+            card._wpGhost = ghost;
+
+            // Collapse the real DOM before the ghost animates.
+            card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible', 'wp-project-menu-closing', 'wp-project-menu-closing-active', 'wp-project-menu-open');
+            card.classList.toggle('wp-bar-compact', !!origin.wasCompact);
+            listWrap.classList.add('hidden');
+            card.style.maxWidth = '';
+            // The open list temporarily gives the card a text-sized minimum
+            // width.  It must not survive the close: otherwise a compact
+            // pill hides its title but still keeps the All Projects-sized
+            // blank area, and that oversized measurement can force row two
+            // after returning to this chat.
+            card.style.minWidth = '';
+            if (header) header.setAttribute('aria-expanded', 'false');
+            // Collapsed, the header row is the current scope, not "All Projects".
+            updateWpProjectHeader(false);
+            if (card._hideListener) {
+                document.removeEventListener('mousedown', card._hideListener);
+                document.removeEventListener('touchstart', card._hideListener);
+                card._hideListener = null;
+            }
+            if (card._liquidGlass?.refresh) card._liquidGlass.refresh();
+
+            // Measure the true destination after the swap: the ghost's final
+            // width is the pill's real width, not a remembered guess.
+            const collapsedW = card.getBoundingClientRect().width;
+            const scale = expandedW ? Math.min(1, collapsedW / expandedW) : 1;
+
+            // Align the ghost's header with the real pill it dissolves into:
+            // same text/icon (the real card was just updated), the pill's row
+            // width, and a counter-scale that cancels the card squish exactly
+            // at the landing frame (same easing, so both ends match; any
+            // mid-flight drift is hidden under an opaque ghost).
+            ghost.classList.add('wp-ghost-closing');
+            const ghostRow = ghost.querySelector('#wpProjectHeader');
+            if (ghostRow) {
+                const ghostTitle = ghost.querySelector('#wpDocContextTitle');
+                const realTitle = document.getElementById('wpDocContextTitle');
+                if (ghostTitle && realTitle) ghostTitle.innerText = realTitle.innerText;
+                const ghostIcon = ghost.querySelector('#wpProjectHeaderIcon');
+                const realIcon = document.getElementById('wpProjectHeaderIcon');
+                if (ghostIcon && realIcon) ghostIcon.innerHTML = realIcon.innerHTML;
+                ghostRow.style.transformOrigin = 'left center';
+                if (origin.wasCompact) {
+                    ghostRow.style.gap = '6px';
+                    ghostRow.style.paddingLeft = '6px';
+                    ghostRow.style.paddingRight = '10px';
+                    if (ghostTitle) ghostTitle.style.display = 'none';
+                }
+                // The row's width retracts on the same 280ms curve as the
+                // card's scaleX (they cancel: rendered width = layout width),
+                // so the header content glides to the pill instead of snapping
+                // to the final width on frame 1.
+                ghostRow.animate([
+                    { width: `${Math.max(0, expandedW - 12)}px`, transform: 'translateX(0px) scaleX(1)' },
+                    { width: `${Math.max(0, collapsedW - 12)}px`, transform: `translateX(${scale ? 6 * (1 / scale - 1) : 0}px) scaleX(${scale ? 1 / scale : 1})` }
+                ], { duration: retractMs, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' });
+            }
+            const animation = ghost.animate([
+                { clipPath: 'inset(0 0 0 0 round 24px)', webkitClipPath: 'inset(0 0 0 0 round 24px)', transform: 'scaleX(1)', opacity: 1, offset: 0 },
+                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `scaleX(${scale})`, opacity: 1, offset: retractAt },
+                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `scaleX(${scale})`, opacity: 0, offset: 1 }
+            ], {
+                duration,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                fill: 'forwards'
+            });
+            card._wpCloseAnimation?.cancel?.();
+            card._wpCloseAnimation = animation;
+            card._wpAnimUntil = Date.now() + duration + 60;
+            animation.onfinish = () => {
+                if (card._wpCloseAnimation !== animation) return;
+                ghost.remove();
+                card._wpGhost = null;
+                card._wpCloseAnimation = null;
+                card._wpOpenOrigin = null;
+            };
+
+            /* Old closing path (clip/scale the expanded card, swap the real DOM
+               only at finish) — kept until the ghost version is confirmed good:
+            const duration = 220;
+            const expandedWidth = card.offsetWidth;
+            const origin = card._wpOpenOrigin || {};
+            const collapsedWidth = origin.width || expandedWidth;
+            const widthScale = expandedWidth ? Math.min(1, collapsedWidth / expandedWidth) : 1;
+            const clipBottom = Math.max(0, card.offsetHeight - 46);
+            const animation = card.animate([
+                { clipPath: 'inset(0 0 0 0 round 24px)', webkitClipPath: 'inset(0 0 0 0 round 24px)', transform: 'translateX(-50%) scaleX(1)', opacity: 1 },
+                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(-50%) scaleX(${widthScale})`, opacity: 0.98 }
+            ], {
+                duration,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                fill: 'forwards'
+            });
+            card._wpCloseAnimation?.cancel?.();
+            card._wpCloseAnimation = animation;
+            card._wpAnimUntil = Date.now() + duration + 60;
+            animation.onfinish = () => {
+                if (card._wpCloseAnimation !== animation) return;
+                card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible', 'wp-project-menu-closing', 'wp-project-menu-closing-active', 'wp-project-menu-open');
+                card.classList.toggle('wp-bar-compact', !!origin.wasCompact);
+                listWrap.classList.add('hidden');
+                card.style.maxWidth = '';
+                if (header) header.setAttribute('aria-expanded', 'false');
+                updateWpProjectHeader(false);
+                if (card._hideListener) {
+                    document.removeEventListener('mousedown', card._hideListener);
+                    document.removeEventListener('touchstart', card._hideListener);
+                    card._hideListener = null;
+                }
+                animation.cancel();
+                card._wpCloseAnimation = null;
+                card._wpOpenOrigin = null;
+            };
+            */
+        }
+    }
+
+    async function toggleWpProjectMenu(e) {
+        if (e) e.stopPropagation();
+        const card = document.getElementById('wpDocContextBar');
+        if (!card) return;
+        
+        console.log('%c🔵 [AllProjects] Toggle button clicked', 'color:#0A84FF');
+        console.log('   Current active project:', _activeChatProject);
+        
+        // Check if "All Projects" is selected
+        const selected = wpActiveProject();
+        const showingAll = !selected;
+        
+        // Opening/closing the list should NOT change the current project selection
+        // Only clicking a specific project item should trigger state changes
+        if (showingAll) {
+            console.log('   Status: Already in "All Projects", toggling list...');
+        } else {
+            console.log('   Status: Viewing', selected.name, '- just toggling list without changing selection');
+        }
+        
+        // buildChatProjects is awaited before the card opens, so a second click
+        // during that gap would otherwise queue a collapse behind the pending
+        // open — the card flashed shut and then popped.
+        if (Date.now() < (card._wpToggleLock || 0)) return;
+        card._wpToggleLock = Date.now() + 120;
+        if (card.classList.contains('wp-project-menu-open')) {
+            // The expanded header is the All Projects row.  From a focused
+            // project it is an actual selection, not merely a close control:
+            // restore the full chat before folding the list away.
+            if (!showingAll) {
+                selectChatProject(WP_ALL_PROJECTS);
+                return;
+            }
+            // Already showing all projects: the header simply closes the list.
+            setWpProjectMenuOpen(false);
+            return;
+        }
+        _chatProjects = await buildChatProjects();
+        // Show project list
+        setWpProjectMenuOpen(true);
+    }
+    window.toggleWpProjectMenu = toggleWpProjectMenu;
+
+    // Handle icon button click specifically
+    window.toggleWpProjectHeaderIcon = async (e) => {
+        if (e) e.stopPropagation();
+        
+        const selected = wpActiveProject();
+        const showingAll = !selected;
+        
+        console.log('%c📁 [AllProjects] Icon clicked', 'color:blue');
+        console.log('   Current mode:', showingAll ? 'All Projects' : 'Specific project - ' + selected.name);
+        
+        // When All Projects is selected, clicking the icon should just expand/close the list
+        if (showingAll) {
+            console.log('   Action: Opening/closing project list...');
+            await toggleWpProjectMenu(e);
+        } else {
+            // When specific project is selected, clicking the icon opens portfolio
+            console.log('   Action: Opening Writing Portfolio for current project...');
+            await openPortfolioForSelectedProject(e);
+        }
+    };
+    
+    // Top-row placement: sit on the same line as #chatNameBar (both collapsed
+    // boxes are 46px, so aligning tops aligns centres), centred in the free
+    // space between the name bar and the actions bar. When that gap cannot fit
+    // the labelled pill, the bar drops to icon-only (.wp-bar-compact). The
+    // side bars' geometry is CSS-driven, so measuring them keeps this correct
+    // in every layout mode (default, four-panel, compact-four-panel).
+    // predictGrow: pixels the actions bar is about to widen (+) or shrink (-)
+    // by while its width transition is still flying (search expand/collapse).
+    // Passing it lets the pill decide labelled-vs-icon at the FIRST frame of
+    // that transition instead of after the 360ms settle pass.
+    function repositionWpBar(predictGrow) {
+        const bar = document.getElementById('wpDocContextBar');
+        const sec = document.getElementById('chatSection');
+        const nameBar = document.getElementById('chatNameBar');
+        const actionsBar = document.getElementById('chatActionsBar');
+        if (!bar || !sec || !nameBar || !actionsBar) return;
+        if (!sec.offsetWidth) return;
+        const sr = sec.getBoundingClientRect();
+        const nb = nameBar.getBoundingClientRect();
+        const ab = actionsBar.getBoundingClientRect();
+        const abLeft = ab.left - (predictGrow || 0);
+        const gap = abLeft - nb.right;
+        // Shape ladder, only while closed (the open list keeps whatever box it
+        // opened with — the expand animation owns it): labelled in row 1 →
+        // icon+chevron in row 1 → labelled dropped to a second row centred on
+        // the full section width, sliding down via the CSS left/top transition.
+        if (!bar.classList.contains('wp-project-menu-open')) {
+            bar.classList.remove('wp-bar-compact');
+            bar.classList.remove('wp-bar-second-row');
+            bar.style.removeProperty('--wp-second-row-max-width');
+            let secondRow = false;
+            if (bar.offsetWidth + 16 > gap) {
+                bar.classList.add('wp-bar-compact');
+                if (bar.offsetWidth + 16 > gap) {
+                    bar.classList.remove('wp-bar-compact');
+                    secondRow = true;
+                }
+            }
+            bar._wpSecondRow = secondRow;
+            bar.classList.toggle('wp-bar-second-row', secondRow);
+            if (secondRow) {
+                // The title may truncate within the full chat panel, but the
+                // card itself must still retain the same 12px right inset as
+                // the actions bar above it.
+                bar.style.setProperty('--wp-second-row-max-width', `${Math.max(0, sr.width - 24)}px`);
+            }
+        }
+        if (bar._wpSecondRow) {
+            // Align to the *actual* actions-bar edge, rather than the chat
+            // section edge.  That is robust if its right inset ever changes.
+            bar.style.top = (nb.bottom - sr.top + 8) + 'px';
+            bar.style.left = (ab.right - sr.left - bar.offsetWidth / 2) + 'px';
+        } else {
+            bar.style.top = (nb.top - sr.top) + 'px';
+            bar.style.left = ((nb.right + abLeft) / 2 - sr.left) + 'px';
+        }
+    }
+
+    // setTimeout throttle instead of requestAnimationFrame: background tabs
+    // and embedded webviews pause rAF, which would freeze the tracker.
+    let _wpBarNeedsFilter = false;
+    function scheduleWpDocContext(withFilter) {
+        _wpBarNeedsFilter = _wpBarNeedsFilter || !!withFilter;
+        if (_wpBarPending) return;
+        _wpBarPending = setTimeout(() => {
+            _wpBarPending = null;
+            const needsFilter = _wpBarNeedsFilter;
+            _wpBarNeedsFilter = false;
+            repositionWpBar();
+            if (needsFilter) applyChatProjectFilter();
+        }, 60);
+    }
+
+    // Portfolio -> chat anchor jump: close the drawer, scroll the target
+    // message into view and flash it. With a commentId the only valid target
+    // is the comment's own comment_card message; if none exists (legacy syncs)
+    // we report "nothing to locate" instead of falling back to the doc card.
+    function portfolioJumpToChat(msgKey, docId = '', commentId = '', titleHint = '') {
+        if (!msgKey && !docId) return;
+        const chatBox = document.getElementById('chatBox');
+        if (!chatBox) return;
+
+        // A filtered stream can hide the jump target: always land on the full history.
+        if (_activeChatProject !== WP_ALL_PROJECTS) resetChatProjectFilter();
+
+        // data-comment-id is a space-separated id list (top-level id + reply
+        // anchorIds), so `~=` matches a card by any single comment/reply id.
+        const findCommentMsg = () => commentId
+            ? chatBox.querySelector(`.msg-pop[data-comment-id~="${commentId}"]`)
+            : null;
+
+        const findDocMsg = () => {
+            let t = msgKey ? chatBox.querySelector(`.msg-pop[data-key="${msgKey}"]`) : null;
+            if (!t && docId) {
+                const card = chatBox.querySelector(`.doc-card-container[data-doc-id="${docId}"]`);
+                t = card ? card.closest('.msg-pop') : null;
+            }
+            return t;
+        };
+
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        const drawerOpen = drawer && !drawer.classList.contains('hidden') && !drawer.classList.contains('translate-x-full');
+
+        if (commentId) {
+            // Locate: only the comment's own chat card counts. Legacy cards
+            // that predate per-comment ids simply report "not found".
+            let target = findCommentMsg();
+            if (!target) {
+                AppModules.Modal.alert('Nothing to locate', 'This comment has no chat message to jump to — it was synced before comments got their own chat cards.');
+                return;
+            }
+            if (drawerOpen) closeWritingPortfolio();
+            setTimeout(() => {
+                target = findCommentMsg() || target;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => UIUtils.highlight(target.firstElementChild || target), 500);
+            }, drawerOpen ? 430 : 30);
+            return;
+        }
+
+        // Doc-level jump (Timeline entries / card anchors): land on the source
+        // doc message and flash its card.
+        let target = findDocMsg();
+        if (!target) {
+            if (drawerOpen) closeWritingPortfolio();
+            if (titleHint) {
+                setTimeout(() => jumpToMessage(titleHint, titleHint, msgKey), drawerOpen ? 430 : 0);
+            }
+            return;
+        }
+        if (drawerOpen) closeWritingPortfolio();
+        setTimeout(() => {
+            target = findDocMsg() || target;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const card = target.querySelector('.doc-card-container');
+            setTimeout(() => UIUtils.highlight(card || target), 500);
+        }, drawerOpen ? 430 : 30);
+    }
+
+    // Feed scroll / DOM mutations (new messages, pagination, chat switches)
+    // into the bar geometry and the project soft-filter.
+    (function initWpDocContext() {
+        const chatBox = document.getElementById('chatBox');
+        if (chatBox) {
+            chatBox.addEventListener('scroll', () => scheduleWpDocContext(false), { passive: true });
+            if (typeof MutationObserver !== 'undefined') {
+                new MutationObserver(() => scheduleWpDocContext(true)).observe(chatBox, { childList: true, subtree: true });
+            }
+        }
+        window.addEventListener('resize', () => scheduleWpDocContext(false));
+        // A panel switch can hide and later reveal the chat without emitting a
+        // window resize.  Observe the real layout boxes so the three-stage
+        // decision is remade from current geometry when the chat comes back,
+        // rather than carrying a prior second-row decision into this view.
+        if (typeof ResizeObserver !== 'undefined') {
+            const tracked = [
+                document.getElementById('chatSection'),
+                document.getElementById('chatNameBar'),
+                document.getElementById('chatActionsBar')
+            ].filter(Boolean);
+            if (tracked.length) {
+                const observer = new ResizeObserver(() => scheduleWpDocContext(false));
+                tracked.forEach(el => observer.observe(el));
+            }
+        }
+        // The switcher is a single glass card, so it carries one liquid-glass
+        // surface (same parameters as chatInputPill) that grows with the list.
+        const wpCard = document.getElementById('wpDocContextBar');
+        if (wpCard && !wpCard._liquidGlass) {
+            new LiquidGlassEffect(wpCard, {
+                radius: 24,            // matches clip-path round 24px
+                refractionWidth: 12,   // matches chatInputPill bevel width
+                maxDisplacement: 8,    // matches chatInputPill refraction strength
+                mouseRadius: 55,       // matches chatInputPill hover ripple
+                mouseStrength: 6       // matches chatInputPill ripple strength
+            });
+        }
+        repositionWpBar();
+    })();
 
     async function acceptPortfolioGroupingSuggestion(suggestionIndex) {
         const portfolio = window._activePortfolioData;
@@ -4161,9 +5030,15 @@ export function initChatEngine(deps) {
             const parsed = parseDocVersion(rawTitle);
             inputProj.value = currentAssign?.projectName || parsed.baseTitle || '';
         }
+        const chipsEl = document.getElementById('portfolioExistingProjects');
+        if (chipsEl) {
+            const names = [...new Set(Object.values(cachedProjects).map(a => (a && a.projectName || '').trim()).filter(Boolean))];
+            chipsEl.innerHTML = names.map(n => `<button type="button" onclick="window.pickExistingProject(this)" data-proj="${UIUtils.escape(n)}" class="px-2.5 py-1 rounded-lg text-[12px] font-medium bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors whitespace-nowrap">${UIUtils.escape(n)}</button>`).join('');
+            chipsEl.classList.toggle('hidden', names.length === 0);
+        }
         if (inputVer) {
             const parsed = parseDocVersion(rawTitle);
-            inputVer.value = currentAssign?.versionLabel || parsed.versionLabel || 'Draft 1';
+            inputVer.value = currentAssign?.versionLabel || parsed.versionLabel || nextDraftLabelForProject((inputProj?.value || '').toLowerCase().trim());
         }
         if (btnUngroup) {
             if (currentAssign?.projectName) {
@@ -4206,6 +5081,29 @@ export function initChatEngine(deps) {
             inputVer.value = preset;
             inputVer.focus();
         }
+    }
+
+    // Next free "Draft N" for a project: Draft 1, or max existing + 1.
+    function nextDraftLabelForProject(projectNameLower) {
+        const assign = _activeProjectAssignDoc;
+        const cachedProjects = (window._writingProjectsCache && assign && window._writingProjectsCache[assign.chatId]) || {};
+        if (!projectNameLower) return 'Draft 1';
+        let maxDraft = 0;
+        Object.values(cachedProjects).forEach(a => {
+            if (a && a.projectName && a.projectName.toLowerCase().trim() === projectNameLower) {
+                const m = String(a.versionLabel || '').match(/^draft\s*(\d+)$/i);
+                if (m) maxDraft = Math.max(maxDraft, parseInt(m[1], 10));
+            }
+        });
+        return `Draft ${maxDraft + 1}`;
+    }
+
+    function pickExistingProject(btn) {
+        const name = btn.getAttribute('data-proj') || '';
+        const inputProj = document.getElementById('portfolioInputProjectName');
+        const inputVer = document.getElementById('portfolioInputVersionLabel');
+        if (inputProj) inputProj.value = name;
+        if (inputVer) inputVer.value = nextDraftLabelForProject(name.toLowerCase().trim());
     }
 
     async function submitPortfolioProjectSave() {
@@ -4275,6 +5173,7 @@ export function initChatEngine(deps) {
                 delete window._writingProjectsCache[chatId][docId];
             }
             closePortfolioProjectModal();
+            openWritingPortfolio();
         } catch (err) {
             console.error('[WritingPortfolio] Failed to ungroup:', err);
             AppModules.Modal.alert("Error", "Failed to ungroup document.");
@@ -4380,13 +5279,7 @@ export function initChatEngine(deps) {
                 }
             }
 
-            // 4. Ensure no legacy blacklist locks this docId
-            try {
-                localStorage.removeItem(`writing_deleted_docs_${chatId}`);
-                if (activeTargetId !== chatId) localStorage.removeItem(`writing_deleted_docs_${activeTargetId}`);
-            } catch (e) {}
-
-            // 5. Re-render writing portfolio
+            // 4. Re-render writing portfolio
             await openWritingPortfolio();
         } catch (err) {
             console.error('[WritingPortfolio] Error deleting document card:', err);
@@ -4394,10 +5287,41 @@ export function initChatEngine(deps) {
         }
     }
 
+    // ==== doc card 行为代码已搬到 writing.js；原定义保留为注释 ====
+    const WB = initWritingBehavior({
+        db, ref, get, AppModules,
+        getCurrentUser, getActiveTargetId, getChatId,
+        getLocalMessages, saveMessageLocal,
+        MessageEngine,
+        startDocCommentReply,
+        getLastChatId: () => lastChatId
+    });
+    const toggleDocCommentsExpand = WB.toggleDocCommentsExpand;
+    const toggleCommentCardExpand = WB.toggleCommentCardExpand;
+    const filterDocComments = WB.filterDocComments;
+    const toggleQuoteText = WB.toggleQuoteText;
+    const syncDocCardComments = WB.syncDocCardComments;
+    const openDocCommentComposer = WB.openDocCommentComposer;
+    const closeDocCommentComposer = WB.closeDocCommentComposer;
+    const sendDocCommentFromComposer = WB.sendDocCommentFromComposer;
+    const replyToDocComment = WB.replyToDocComment;
+    const closeDocCommentReply = WB.closeDocCommentReply;
+    const sendDocCommentReply = WB.sendDocCommentReply;
+    const deleteBotDocComment = WB.deleteBotDocComment;
+    const jumpCommentCard = WB.jumpCommentCard;
+    const resolveDocViewData = WB.resolveDocViewData;
+    const normalizeDocSyncState = WB.normalizeDocSyncState;
+    const mergeDocViewIntoCache = WB.mergeDocViewIntoCache;
+    const loadSavedDocs = WB.loadSavedDocs;
+    const classifyCommentAuthor = WB.classifyCommentAuthor;
+
     window.deletePortfolioCard = deletePortfolioCard;
     window.openWritingPortfolio = openWritingPortfolio;
     window.closeWritingPortfolio = closeWritingPortfolio;
     window.toggleWritingPortfolioExpand = toggleWritingPortfolioExpand;
+    window.portfolioJumpToChat = portfolioJumpToChat;
+    window.resetChatProjectFilter = resetChatProjectFilter;
+    window.openPortfolioForSelectedProject = openPortfolioForSelectedProject;
 
     window.addEventListener('resize', wpFollowPanelGeometry);
     if (typeof ResizeObserver !== 'undefined') {
@@ -4415,6 +5339,7 @@ export function initChatEngine(deps) {
     window.openProjectAssignModal = openProjectAssignModal;
     window.closePortfolioProjectModal = closePortfolioProjectModal;
     window.setPortfolioVersionPreset = setPortfolioVersionPreset;
+    window.pickExistingProject = pickExistingProject;
     window.submitPortfolioProjectSave = submitPortfolioProjectSave;
     window.submitPortfolioUngroup = submitPortfolioUngroup;
     window.switchPortfolioView = switchPortfolioView;
@@ -4443,12 +5368,14 @@ export function initChatEngine(deps) {
     window.backToGdocMenu = backToGdocMenu;
     window.closeAttachMenu = closeAttachMenu;
     window.toggleDocCommentsExpand = toggleDocCommentsExpand;
+    window.toggleCommentCardExpand = toggleCommentCardExpand;
     window.syncDocCardComments = syncDocCardComments;
     window.openDocCommentComposer = openDocCommentComposer;
     window.closeDocCommentComposer = closeDocCommentComposer;
     window.replyToDocComment = replyToDocComment;
     window.closeDocCommentReply = closeDocCommentReply;
     window.sendDocCommentReply = sendDocCommentReply;
+    window.deleteBotDocComment = deleteBotDocComment;
     window.sendDocCommentFromComposer = sendDocCommentFromComposer;
     window.loadChatThread = loadChatThread;
     window.handleMsgCopy = handleMsgCopy;
@@ -4458,8 +5385,10 @@ export function initChatEngine(deps) {
     window.handleMsgReport = handleMsgReport;
     window.closeForwardPicker = closeForwardPicker;
     window.openCommentSendPicker = openCommentSendPicker;
-    window.forwardCommentCardMsg = forwardCommentCardMsg;
     window.sendCommentCardTo = sendCommentCardTo;
+    window.handleMsgJumpDoc = handleMsgJumpDoc;
+    window.jumpCommentCard = jumpCommentCard;
+    window.replyCommentCardStrip = replyCommentCardStrip;
     window.handleImg = handleImg;
     window.switchChat = switchChat;
     window.deleteChatRecord = deleteChatRecord;

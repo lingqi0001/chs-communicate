@@ -82,6 +82,10 @@ export class LiquidGlassEffect {
     this.width = 0;
     this.height = 0;
     this.mouse = { x: -999, y: -999, active: false };
+    // Set while a host element is mid size-animation. Rebuilding the map is
+    // main-thread work (per-pixel pass + toDataURL), so during a flight the
+    // filter region is only *moved* (see beginTrack), never rebuilt.
+    this.animating = false;
     
     this.svgElement = null;
     this.feImage = null;
@@ -195,9 +199,7 @@ export class LiquidGlassEffect {
       this.bgElement.style.setProperty('filter', elementFilterVal, 'important');
       this.bgElement.style.setProperty('-webkit-filter', elementFilterVal, 'important');
     } else {
-      const filterVal = `url(#${this.id}_filter) blur(0.25px) contrast(1.15) var(--lg-brightness, brightness(1.04)) saturate(1.1)`;
-      this.element.style.setProperty('backdrop-filter', filterVal, 'important');
-      this.element.style.setProperty('-webkit-backdrop-filter', filterVal, 'important');
+      this.applyFilter();
     }
     
     // 3. Listen for size changes
@@ -220,6 +222,9 @@ export class LiquidGlassEffect {
   }
   
   refresh() {
+    // Fallback mode (iOS/Safari/Firefox) never builds the SVG filter chain,
+    // so handleResize would dereference a null svgElement here.
+    if (this.isFallback) return;
     this.handleResize();
   }
   
@@ -290,6 +295,7 @@ export class LiquidGlassEffect {
   }
   
   queueUpdate() {
+    if (this.animating) return;
     if (this.options.fragment || this.options.animate) return;
     if (this.animationFrameId) return;
     this.animationFrameId = requestAnimationFrame(() => {
@@ -428,6 +434,33 @@ export class LiquidGlassEffect {
     this.feDisplacementMap.setAttribute('scale', (maxScale / dpi).toString());
   }
   
+  // Keep the glass alive through a size animation instead of pausing it.
+  // The map is built once for the box the element is about to grow into and
+  // the filter region stays at that size, so the bevel band is already the
+  // right thickness from the first frame; the element's own box clips the
+  // effect as it expands, which costs the compositor nothing. Rebuilding the
+  // map per frame is what stuttered, and dropping the filter altogether left
+  // the not-yet-covered part of the element transparent.
+  beginTrack() {
+    if (this.isFallback) return;
+    this.animating = true;
+    this.handleResize();
+  }
+
+  endTrack() {
+    if (this.isFallback) return;
+    this.animating = false;
+    this.width = 0;
+    this.height = 0;
+    this.handleResize();
+  }
+
+  applyFilter() {
+    const filterVal = `url(#${this.id}_filter) blur(0.25px) contrast(1.15) var(--lg-brightness, brightness(1.04)) saturate(1.1)`;
+    this.element.style.setProperty('backdrop-filter', filterVal, 'important');
+    this.element.style.setProperty('-webkit-backdrop-filter', filterVal, 'important');
+  }
+
   destroy() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);

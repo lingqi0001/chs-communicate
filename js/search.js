@@ -8,7 +8,7 @@
 
 import { get, query, ref, orderByKey, limitToFirst, limitToLast } from './core.js';
 import { localDB, dbReady, saveMessageLocal } from './db.js';
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260920-iosglass-fb-v5';
 
 const HISTORY_KEY = 'chs_search_history';
 const MAX_HISTORY_LEN = 8;

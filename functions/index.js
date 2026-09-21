@@ -27,7 +27,9 @@ exports.sendNotification = functions.database.ref('/messages/{chatId}/{messageId
 
         const chatId = context.params.chatId;
         const senderId = message.senderId;
-        const senderName = message.senderName || 'New Message';
+        // notifyName lets bot-delivered notices (e.g. Google Doc activity)
+        // push under the real author while the chat bubble shows CHSBot.
+        const senderName = message.notifyName || message.senderName || 'New Message';
         const text = message.text || '';
         const msgType = message.type || 'text';
 
@@ -269,6 +271,35 @@ function mergeSnapshotComments(prevComments, fetched) {
 }
 
 const PLACEHOLDER_DOC_TITLE = 'Google Document';
+
+// Identity used for chat notices about Google-side activity. senderName is
+// always the real Google author display name; CHSBot is only the fallback.
+const GDOC_BOT_SENDER_ID = 'gdoc_bot';
+const GDOC_BOT_DISPLAY = 'CHSBot';
+
+function isBotCommentAuthor(c) {
+    const email = String(c && c.author && c.author.emailAddress || '').toLowerCase();
+    const name = String(c && c.author && c.author.displayName || '').toLowerCase();
+    return email.endsWith('.gserviceaccount.com')
+        || name.endsWith('.gserviceaccount.com')
+        || String(c && c.content || '').startsWith(BOT_DISPLAY_PREFIX);
+}
+
+// Flatten a snapshot into comment + reply items, skipping tombstones and
+// rows that Google stopped returning.
+function collectThreadItems(comments) {
+    const items = [];
+    (comments || []).forEach(c => {
+        if (!c || !c.id) return;
+        if (c.deleted || c.status === 'deleted_on_google' || c.status === 'missing_from_latest_sync') return;
+        items.push({ id: c.id, parentId: null, author: c.author || {}, content: c.content || '' });
+        (c.replies || []).forEach(r => {
+            if (!r || !r.id || r.deleted) return;
+            items.push({ id: r.id, parentId: c.id, author: r.author || {}, content: r.content || '' });
+        });
+    });
+    return items;
+}
 function firstRealTitle() {
     for (const t of Array.prototype.slice.call(arguments)) {
         if (t && t !== PLACEHOLDER_DOC_TITLE) return t;
@@ -473,6 +504,64 @@ exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }
     };
 });
 
+// Only the bot's own top-level comments can be deleted: Google refuses to
+// delete a thread that has replies and offers no API for deleting replies.
+exports.deleteGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
+    const startedAt = Date.now();
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign-in required to delete comments.');
+    }
+
+    const fileId = extractGoogleDocId(data.url);
+    if (!fileId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid document URL');
+    }
+    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_-]{8,}$/.test(data.commentId))
+        ? data.commentId : null;
+    if (!commentId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing or invalid comment ID.');
+    }
+    const chatId = data.chatId || null;
+
+    let failKind = 'unknown';
+    let errInfo = null;
+    try {
+        const auth = await getBotWriteAuth();
+        const drive = google.drive({ version: 'v3', auth });
+        await drive.comments.delete({ fileId, commentId, supportsAllDrives: true });
+    } catch (err) {
+        errInfo = classifyGoogleError(err);
+        console.warn(`[GoogleDoc] comment delete failed (${errInfo.status} ${errInfo.reason}): ${errInfo.message}`);
+        if (looksLikeCredentialFailure(errInfo) || errInfo.status === 401) failKind = 'auth';
+        else if ((errInfo.status === 400 || errInfo.status === 403) && /repl/i.test(errInfo.message)) failKind = 'has_replies';
+        else if (errInfo.status === 403) failKind = 'permission';
+        else if (errInfo.status === 404) failKind = 'not_found';
+        else if (errInfo.status === 429 || errInfo.status >= 500) failKind = 'retryable';
+        else failKind = 'bad_request';
+    }
+
+    const success = !errInfo;
+    appendSyncLog(fileId, {
+        startedAt: startedAt,
+        finishedAt: Date.now(),
+        chatId: chatId || '',
+        kind: 'delete_comment',
+        targetCommentId: commentId,
+        httpCode: errInfo ? errInfo.status : 200,
+        googleReason: errInfo ? errInfo.reason : '',
+        googleError: errInfo ? errInfo.message : '',
+        resultStatus: success ? 'deleted' : failKind
+    });
+
+    return {
+        success: success,
+        deletedCommentId: success ? commentId : null,
+        failKind: success ? null : failKind,
+        httpStatus: errInfo ? errInfo.status : null,
+        error: errInfo ? errInfo.message : null
+    };
+});
+
 // Shared by the fetchGoogleDocComments callable and the public doc-request
 // submission flow, which must sync a doc without a chat message driving it.
 async function runGoogleDocSync(data) {
@@ -498,6 +587,14 @@ async function runGoogleDocSync(data) {
         }
     }
     const prevSnapshot = (prevState && prevState.snapshotComments) || [];
+    // The snapshot itself is the announce ledger: every id already recorded
+    // in the last good sync has been (or deliberately was not) announced.
+    const prevIds = new Set();
+    prevSnapshot.forEach(pc => {
+        if (!pc || !pc.id) return;
+        prevIds.add(pc.id);
+        (pc.replies || []).forEach(r => { if (r && r.id) prevIds.add(r.id); });
+    });
     const prevLiveCount = prevState && prevState.lastKnownCommentCount !== undefined
         ? Number(prevState.lastKnownCommentCount)
         : countLiveComments(prevSnapshot);
@@ -686,6 +783,10 @@ async function runGoogleDocSync(data) {
         accessLost: fileAccessStatus === 'access_lost' || fileAccessStatus === 'access_lost_or_file_unavailable'
     };
 
+    const cardInfo = {};
+    const senderIdSet = new Set();
+    let docCardKey = null;
+    let docCardSender = { id: '', name: '' };
     if (chatId) {
         try {
             const linkedKeys = new Set(Object.keys((nextState.linkedMessageKeys) || {}));
@@ -694,7 +795,20 @@ async function runGoogleDocSync(data) {
             const allMsgs = chatMsgsSnap.val() || {};
             const updates = {};
             for (const [mKey, mVal] of Object.entries(allMsgs)) {
+                if (mVal && mVal.senderId) senderIdSet.add(String(mVal.senderId).toLowerCase());
+                if (mVal && mVal.type === 'comment_card' && mVal.commentCard && mVal.commentCard.comment && mVal.commentCard.comment.id) {
+                    cardInfo[String(mVal.commentCard.comment.id)] = {
+                        msgKey: mKey,
+                        senderId: String(mVal.senderId || '').toLowerCase(),
+                        senderName: mVal.senderName || '',
+                        text: mVal.text || ''
+                    };
+                }
                 if (mVal && mVal.text && mVal.text.includes(fileId)) {
+                    if (!docCardKey) {
+                        docCardKey = mKey;
+                        docCardSender = { id: String(mVal.senderId || '').toLowerCase(), name: mVal.senderName || '' };
+                    }
                     const merged = { ...docData };
                     // When the file layer failed we could not verify metadata —
                     // never downgrade what a previous good sync already stored.
@@ -724,6 +838,132 @@ async function runGoogleDocSync(data) {
         }
     }
 
+    // ---- Google-side activity push -------------------------------------
+    // Comments/replies authored directly in Google Docs (never through the
+    // bot) become chat notices: replies quote the original comment_card and
+    // show under the real Google author's name; brand-new threads arrive as
+    // comment_cards. First sync per doc only sets the baseline.
+    let notifySent = 0;
+    if (chatId && hasSnapshot) {
+        try {
+            const newItems = collectThreadItems(snapshotComments).filter(it => !prevIds.has(it.id));
+            const fresh = newItems.filter(it => String(it.content || '').trim() && !isBotCommentAuthor(it));
+            console.log(`[GoogleDoc] Notice diff ${fileId} in ${chatId}: new=${newItems.length} fresh=${fresh.length} prevIds=${prevIds.size}`);
+            if (fresh.length) {
+                const isGroup = chatId.startsWith('group_');
+                const title = nextState.title || PLACEHOLDER_DOC_TITLE;
+                const directIds = [...senderIdSet].filter(s => s && s !== GDOC_BOT_SENDER_ID);
+                let partner = '';
+                if (!isGroup && directIds.length >= 2) {
+                    partner = directIds[1];
+                } else if (!isGroup && directIds.length === 1) {
+                    const users = (await db.ref('users').once('value')).val() || {};
+                    partner = Object.keys(users).map(String).find(uid => {
+                        const k = uid.toLowerCase();
+                        return k !== directIds[0] && [directIds[0], k].sort().join('_') === chatId;
+                    }) || '';
+                }
+                const byParent = new Map();
+                fresh.forEach(it => {
+                    const pid = it.parentId || ('top:' + it.id);
+                    if (!byParent.has(pid)) byParent.set(pid, []);
+                    byParent.get(pid).push(it);
+                });
+                const msgUpdates = {};
+                const cardThreadsSent = new Set();
+                // Notices ride the existing comment_card format: bubble = the new
+                // reply, expand = live thread, tap = jump into the portfolio.
+                // anchorIds carries the reply ids this notice stands for, so a
+                // per-reply "Locate in chat" can match this exact card (comment.id
+                // must stay the top-level id: replies post against the thread).
+                const pushCardMessage = (aName, topId, threadSrc, bodyText, recipientId, anchorIds) => {
+                    const ref = db.ref(`messages/${chatId}`).push();
+                    msgUpdates[`messages/${chatId}/${ref.key}`] = {
+                        senderId: GDOC_BOT_SENDER_ID,
+                        // Bubble header stays CHSBot; the Google author name
+                        // lives in the card strip (comment.author.displayName).
+                        senderName: GDOC_BOT_DISPLAY,
+                        // Push notifications are titled with the real author.
+                        notifyName: aName,
+                        ...(isGroup || !recipientId ? {} : { recipientId }),
+                        text: `Comment on "${title}"`,
+                        type: 'comment_card',
+                        commentCard: {
+                            docId: fileId,
+                            docUrl: docUrl,
+                            docTitle: title,
+                            originMsgKey: docCardKey,
+                            anchorIds: (anchorIds || []).filter(Boolean),
+                            comment: {
+                                id: topId,
+                                author: { displayName: aName },
+                                content: bodyText,
+                                quotedFileContent: (threadSrc && threadSrc.quotedFileContent) || null,
+                                createdTime: new Date().toISOString()
+                            }
+                        },
+                        timestamp: admin.database.ServerValue.TIMESTAMP
+                    };
+                    notifySent++;
+                };
+                for (const [pid, items] of byParent.entries()) {
+                    const isReply = !!items[0].parentId;
+                    if (isReply) {
+                        const thread = snapshotComments.find(x => x && x.id === pid) || null;
+                        const card = cardInfo[pid];
+                        const byAuthor = new Map();
+                        items.forEach(it => {
+                            const aName = String(it.author.displayName || GDOC_BOT_DISPLAY).trim() || GDOC_BOT_DISPLAY;
+                            if (!byAuthor.has(aName)) byAuthor.set(aName, []);
+                            byAuthor.get(aName).push(String(it.content).trim());
+                        });
+                        for (const [aName, texts] of byAuthor.entries()) {
+                            // The card always lands in the chat; only the push
+                            // is rerouted so nobody gets pinged about their own
+                            // Google-side reply.
+                            const selfReply = card && aName.toLowerCase() === String(card.senderName || '').toLowerCase();
+                            const recipient = selfReply
+                                ? (partner || '')
+                                : (card ? card.senderId : (docCardSender.id || partner || ''));
+                            pushCardMessage(aName, pid, thread, texts.join('\n'), recipient, items.map(it => it.id));
+                        }
+                    } else {
+                        const topId = items[0].id;
+                        if (cardThreadsSent.has(topId)) continue;
+                        cardThreadsSent.add(topId);
+                        const src = snapshotComments.find(x => x && x.id === topId) || items[0];
+                        const aName = String((src.author && src.author.displayName) || GDOC_BOT_DISPLAY).trim() || GDOC_BOT_DISPLAY;
+                        let recipient = docCardSender.id || '';
+                        if (aName.toLowerCase() === String(docCardSender.name || '').toLowerCase() && partner) {
+                            recipient = partner;
+                        }
+                        pushCardMessage(aName, topId, src, String(src.content || items[0].content || '').trim(), recipient, [topId]);
+                    }
+                }
+                if (notifySent) {
+                    const stamp = Date.now();
+                    if (isGroup) {
+                        msgUpdates[`classes/${chatId.replace('group_', '')}/lastActivity`] = stamp;
+                        directIds.forEach(uid => { msgUpdates[`user_chats/${uid}/${chatId}`] = stamp; });
+                    } else {
+                        const peers = directIds.slice(0, 2);
+                        if (peers.length === 2) {
+                            msgUpdates[`user_chats/${peers[0]}/${peers[1]}`] = stamp;
+                            msgUpdates[`user_chats/${peers[1]}/${peers[0]}`] = stamp;
+                        } else if (peers.length === 1 && partner) {
+                            msgUpdates[`user_chats/${peers[0]}/${partner}`] = stamp;
+                            msgUpdates[`user_chats/${partner}/${peers[0]}`] = stamp;
+                        }
+                    }
+                    await db.ref().update(msgUpdates);
+                    console.log(`[GoogleDoc] Pushed ${notifySent} Google-side notice(s) to ${chatId} for ${fileId}`);
+                }
+            }
+        } catch (notifyErr) {
+            console.warn(`[GoogleDoc] Notice pass failed for ${chatId}/${fileId}:`, notifyErr.message);
+        }
+    }
+
     appendSyncLog(fileId, {
         startedAt: startedAt,
         finishedAt: Date.now(),
@@ -736,6 +976,7 @@ async function runGoogleDocSync(data) {
         googleError: (fileErrInfo && fileErrInfo.message) || (commentsErrInfo && commentsErrInfo.message) || '',
         commentsReturnedCount: fetchedComments ? fetchedComments.length : -1,
         pagesFetched: pagesFetched,
+        newNotices: notifySent,
         resultStatus: syncStatus
     });
 
@@ -749,6 +990,52 @@ async function runGoogleDocSync(data) {
 
 exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data, context) => {
     return runGoogleDocSync(data);
+});
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+
+// Every 15 minutes: refresh active doc snapshots so Google-side comments and
+// replies get pushed into their chats even while nobody has the chat open.
+exports.syncGoogleDocsTimer = onSchedule({
+    schedule: 'every 15 minutes',
+    timeZone: 'America/New_York',
+    timeoutSeconds: 540,
+    memoryMb: 256,
+    secrets: ['GOOGLE_SA_JSON']
+}, async () => {
+    const db = admin.database();
+    const states = (await db.ref('writing_doc_state').once('value')).val() || {};
+    const now = Date.now();
+    const FRESH_MS = 13 * 60 * 1000;
+    const SKIP = ['access_lost', 'access_lost_or_file_unavailable', 'file_unavailable', 'comments_access_lost'];
+    const queue = [];
+    Object.entries(states).forEach(([chatId, files]) => {
+        Object.entries(files || {}).forEach(([fileId, st]) => {
+            if (!st || !st.docUrl || SKIP.includes(st.lastSyncStatus)) return;
+            const last = Math.max(Number(st.lastSyncAttemptAt) || 0, Number(st.lastSuccessfulSyncAt) || 0);
+            if (now - last < FRESH_MS) return;
+            queue.push({
+                chatId, fileId,
+                docUrl: st.docUrl,
+                knownTitle: (st.title && st.title !== PLACEHOLDER_DOC_TITLE) ? st.title : null,
+                messageKey: Object.keys(st.linkedMessageKeys || {})[0] || null,
+                last
+            });
+        });
+    });
+    queue.sort((a, b) => a.last - b.last);
+    const batch = queue.slice(0, 25);
+    let ok = 0, failed = 0;
+    for (const item of batch) {
+        try {
+            await runGoogleDocSync({ url: item.docUrl, chatId: item.chatId, messageKey: item.messageKey, knownTitle: item.knownTitle });
+            ok++;
+        } catch (e) {
+            failed++;
+            console.warn(`[GoogleDoc][Timer] ${item.chatId}/${item.fileId} failed: ${e && e.message}`);
+        }
+    }
+    console.log(`[GoogleDoc][Timer] queued=${queue.length} ran=${batch.length} ok=${ok} fail=${failed}`);
 });
 
 // ==========================================

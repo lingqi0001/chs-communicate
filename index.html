@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260919-divider-dark-v3">
+    <link rel="stylesheet" href="style.css?v=20260920-wpctxbar-v20">
 
     <script type="importmap">
     {
@@ -151,24 +151,25 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
         "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260919-iosglass-fb-v1",
+        "./js/view.js": "./js/view.js?v=20260920-iosglass-fb-v2",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
-        "./js/modal.js": "./js/modal.js?v=20260919-modalglass-v5",
+        "./js/modal.js": "./js/modal.js?v=20260920-modalglass-v6",
         "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/ui-components.js": "./js/ui-components.js?v=20260919-docnotice-tone-v1",
+        "./js/writing.js": "./js/writing.js?v=20260920-ccstrip-v13",
+        "./js/ui-components.js": "./js/ui-components.js?v=20260920-hoverfix-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260919-wpback-v2",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260919-wpback-v3",
         "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260919-iosglass-fb-v1",
+        "./js/search.js": "./js/search.js?v=20260920-iosglass-fb-v2",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260919-docrq-v3"
+        "./js/chat.js": "./js/chat.js?v=20260920-wpproj-v35"
       }
     }
     </script>
@@ -278,15 +279,6 @@
 
         const av = document.getElementById('appVersionLabel');
         if (av) av.innerText = `Build: 20260516-2380`;
-
-        // Automatically purge any legacy writing_deleted_docs blacklists across all devices
-        try {
-            Object.keys(localStorage).forEach(k => {
-                if (k.startsWith('writing_deleted_docs_')) {
-                    localStorage.removeItem(k);
-                }
-            });
-        } catch (e) {}
 
         AppModules.View.init();
         AppModules.Gallery.init();
@@ -2401,7 +2393,17 @@
                 </svg>
             </div>
             <h2 class="text-xl font-bold mb-2">Startup Failure</h2>
-            <p class="text-gray-400 text-sm mb-4">The application failed to initialize. Error details:</p>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-gray-400 text-sm">The application failed to initialize. Error details:</p>
+                <button onclick="copyErrorMessage(this)"
+                    class="text-sm text-white/70 hover:text-white transition-colors flex items-center gap-1 flex-shrink-0 ml-3">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy
+                </button>
+            </div>
             <pre id="errorMessage"
                 class="bg-black/50 p-4 rounded-xl text-left text-xs text-red-400 overflow-auto max-h-40 mb-6 font-mono"></pre>
             <button onclick="location.reload()" class="w-full bg-[#007AFF] py-3 rounded-xl font-bold">Try
@@ -2419,6 +2421,14 @@
                 msgEl.textContent = err && err.stack ? err.stack : String(err);
                 overlay.classList.remove('hidden');
             }
+        };
+        window.copyErrorMessage = function (btn) {
+            const text = document.getElementById('errorMessage').textContent || '';
+            navigator.clipboard.writeText(text).then(() => {
+                btn.dataset.orig = btn.innerHTML;
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+                setTimeout(() => { btn.innerHTML = btn.dataset.orig; }, 1500);
+            });
         };
         // Device Compatibility Check
         window.isDeviceSupported = function () {
@@ -3317,68 +3327,107 @@
 
 
         <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-black overflow-x-hidden relative">
+            <!-- Transparent geometry anchor: JS (wp bar, forward picker) measures
+                 this band, but it no longer paints anything. The visible top row
+                 is three floating glass bars inside it. -->
             <header
-                class="h-16 mt-safe bg-white dark:bg-[#1C1C1E] border-b border-gray-200 dark:border-gray-800 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 z-20 absolute top-0 w-full">
-                <div class="flex justify-start items-center">
-                    <button onclick="showSidebar()" class="chat-back-btn text-[#007AFF] flex items-center z-10" title="Back to messages" aria-label="Back to messages">
-                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                </div>
+                class="h-16 mt-safe pointer-events-none z-20 absolute top-0 w-full">
+            </header>
 
-                <div class="min-w-0 flex flex-col justify-center text-center overflow-hidden">
-                    <div class="font-bold text-base tracking-tight text-black dark:text-white truncate" id="chatTitle">
+            <!-- Left bar: back control + partner name/status, left-aligned. -->
+            <div id="chatNameBar">
+                <button onclick="showSidebar()" class="chat-back-btn w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer" title="Back to messages" aria-label="Back to messages">
+                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
+                </button>
+                <div class="min-w-0 flex flex-col justify-center px-1.5">
+                    <div class="font-bold text-base leading-[19px] tracking-tight text-black dark:text-white truncate" id="chatTitle">
                         ...</div>
-                    <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-tight truncate"></div>
+                    <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-[13px] truncate"></div>
                 </div>
+            </div>
 
-                <div class="flex justify-end items-center relative h-full gap-1.5">
-                    <!-- Writing Portfolio Button -->
-                    <button id="chatWritingBtn" onclick="openWritingPortfolio()"
-                        class="hidden w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] flex items-center justify-center text-gray-600 dark:text-white/80 active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/20"
-                        title="Writing Portfolio">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 20h9"></path>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                        </svg>
-                    </button>
+            <!-- Right bar: Writing Portfolio + in-chat search, and the results
+                 dropdown that hangs beneath the bar. -->
+            <div id="chatActionsBar">
+                <!-- Writing Portfolio Button -->
+                <button id="chatWritingBtn" onclick="openWritingPortfolio()"
+                    class="hidden glass-disc w-8 h-8 rounded-full flex items-center justify-center text-black dark:text-white active:scale-95 transition-all"
+                    title="Writing Portfolio">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                </button>
 
-                    <div id="chatSearchWrap"
-                        class="hidden flex items-center relative transition-all duration-300 w-8 h-8 rounded-full bg-[#E9E9EB] dark:bg-[#2C2C2E] hover:bg-gray-200 dark:hover:bg-white/20 overflow-hidden">
-                        <button id="chatSearchIconBtn" onclick="toggleChatSearch()"
-                            class="w-8 h-8 shrink-0 flex items-center justify-center text-gray-600 dark:text-white/80 active:scale-95 transition-transform"
-                            title="Search">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </button>
-                        <svg class="hidden ml-2 text-gray-400 w-4 h-4 pointer-events-none shrink-0" id="chatSearchLeadingIcon"
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <div id="chatSearchWrap"
+                    class="hidden glass-disc flex items-center relative transition-all duration-300 w-8 h-8 rounded-full overflow-hidden">
+                    <button id="chatSearchIconBtn" onclick="toggleChatSearch()"
+                        class="w-8 h-8 shrink-0 flex items-center justify-center text-black dark:text-white active:scale-95 transition-transform"
+                        title="Search">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input id="chatSearchInput" type="text" placeholder="Search"
-                            oninput="handleSearch(event, 'chat')"
-                            onblur="maybeCollapseChatSearch()"
-                            autocomplete="one-time-code"
-                            class="hidden flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-400">
-                        <button id="clearSearchBtn" onclick="clearSearch()"
-                            class="hidden mr-1.5 shrink-0 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div id="searchResults"
-                        class="hidden absolute top-full right-0 w-[80vw] lg:w-64 max-h-80 overflow-y-auto no-scrollbar shadow-2xl rounded-b-2xl border border-gray-200 dark:border-white/10 border-t-0 fade-in overscroll-contain z-50">
-                    </div>
+                    </button>
+                    <svg class="hidden ml-2 text-gray-400 w-4 h-4 pointer-events-none shrink-0" id="chatSearchLeadingIcon"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input id="chatSearchInput" type="text" placeholder="Search"
+                        oninput="handleSearch(event, 'chat')"
+                        onblur="maybeCollapseChatSearch()"
+                        autocomplete="one-time-code"
+                        class="hidden flex-1 min-w-0 h-full bg-transparent border-none rounded-full pl-2 pr-2 text-sm outline-none placeholder-gray-400">
+                    <button id="clearSearchBtn" onclick="clearSearch()"
+                        class="hidden mr-1.5 shrink-0 w-5 h-5 bg-[#C7C7CC] dark:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
-            </header>
+
+            </div>
+
+            <!-- Search results hangs under the right bar but must NOT live
+                 inside it: the bar's own backdrop-filter forms a backdrop root
+                 and the dropdown's liquid glass would sample an empty backdrop. -->
+            <div id="searchResults"
+                class="hidden w-[80vw] lg:w-64 max-h-80 overflow-y-auto no-scrollbar shadow-2xl rounded-[24px] border border-gray-200 dark:border-white/10 fade-in overscroll-contain">
+            </div>
+
+            <!-- Chat project switcher: one glass card under the chat header. Its
+                 header row is the current selection; expanding pops the same card
+                 open into the project list, which never repeats the selected entry.
+                 Card padding is shared by both rows, so nothing sits on the edge. -->
+            <div id="wpDocContextBar">
+                <button id="wpProjectHeader" type="button" onclick="toggleWpProjectMenu(event)" aria-haspopup="listbox" aria-expanded="false"
+                    title="Choose a writing project to focus this chat on"
+                    class="w-full h-[34px] px-3 rounded-[14px] flex items-center gap-3 text-left cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                    <span id="wpProjectHeaderIcon" class="glass-disc w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0" onclick="window.toggleWpProjectHeaderIcon(event)">
+                        <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </span>
+                    <span id="wpProjectHeaderMain" class="flex min-w-0 flex-1 h-full items-center gap-3 rounded-[18px]">
+                        <span class="flex flex-col min-w-0 flex-1">
+                            <span id="wpDocContextTitle" class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">All Projects</span>
+                            <span id="wpProjectHeaderSub" class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5"></span>
+                        </span>
+                        <svg id="wpProjectHeaderCheck" class="w-4 h-4 flex-shrink-0 text-black dark:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <svg id="wpProjectBarChevron" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </span>
+                </button>
+
+                <div id="wpProjectList" class="hidden" role="listbox">
+                    <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+                    <div id="wpProjectMenuList"></div>
+                </div>
+            </div>
 
             <!-- Wrapper container to constrain chatBox and frosted glass overlay -->
             <div class="flex-1 flex flex-col items-stretch relative min-h-0 w-full">
@@ -3403,7 +3452,7 @@
                     <div id="quoteArea"
                         class="hidden menu-hidden px-4 py-2.5 rounded-[24px] relative pointer-events-auto w-full mb-1.5 flex items-center">
                         <div class="text-xs flex-1 min-w-0 pr-8 truncate">
-                            <span class="text-gray-500 dark:text-gray-400 font-bold">Reply to </span><span class="text-gray-500 dark:text-gray-400 font-bold" id="quoteUser">User</span><span class="text-gray-500 dark:text-gray-400 font-bold">'s message: </span><span class="text-gray-500 dark:text-gray-400" id="quoteText">...</span>
+                            <span id="quoteLead" class="text-gray-500 dark:text-gray-400 font-bold">Reply to </span><span class="text-gray-500 dark:text-gray-400 font-bold" id="quoteUser">User</span><span id="quoteTail" class="text-gray-500 dark:text-gray-400 font-bold">'s message: </span><span class="text-gray-500 dark:text-gray-400" id="quoteText">...</span>
                         </div>
                         <button onclick="clearQuote()"
                             class="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-white/10 transition-all">
@@ -3611,13 +3660,14 @@
                         class="flex-1 flex items-center rounded-[24px] pl-[14px] pr-[4px] min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
                             class="flex-1 bg-transparent outline-none text-[14.5px] text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-2 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
-                        <button onclick="sendMsg()"
-                            class="ml-2 w-[30px] h-[30px] chat-accent-bg bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
-                            <svg class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
+                        <button id="sendBtn" onclick="sendMsg()"
+                            class="ml-2 w-[30px] h-[30px] chat-accent-bg bg-[#007AFF] rounded-full relative flex items-center justify-center flex-shrink-0 transition-all active:scale-90 pr-[2px] pt-[1px]">
+                            <svg id="sendBtnIcon" class="h-[16px] w-[16px] text-white" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="22" y1="2" x2="11" y2="13"></line>
                                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                             </svg>
+                            <div id="sendBtnSpin" class="hidden absolute top-[-1px] bottom-0 left-[1px] right-0 m-auto animate-spin rounded-full h-[16px] w-[16px] border-2 border-white/55 border-t-white"></div>
                         </button>
                     </div>
                 </div>
@@ -3644,10 +3694,10 @@
                         <span id="writingPortfolioSubtitle" class="text-[11px] text-gray-400 font-medium truncate text-right"></span>
                         <button id="writingPortfolioExpandBtn" onclick="toggleWritingPortfolioExpand()" title="Expand"
                             class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer">
-                            <svg id="wpExpandIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                            <svg id="wpExpandIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3" />
                             </svg>
-                            <svg id="wpCollapseIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                            <svg id="wpCollapseIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 4v3a2 2 0 0 1-2 2H4M15 4v3a2 2 0 0 0 2 2h3M9 20v-3a2 2 0 0 0-2-2H4M15 20v-3a2 2 0 0 1 2-2h3" />
                             </svg>
                         </button>
@@ -3682,6 +3732,7 @@
                             <div>
                                 <label class="block text-[12px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Project Name</label>
                                 <input type="text" id="portfolioInputProjectName" placeholder="e.g. Macbeth Essay, Research Paper" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-[#2C2C2E] text-[14px] text-black dark:text-white outline-none transition-all" />
+                                <div id="portfolioExistingProjects" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
                             </div>
 
                             <!-- Version Label Input & Presets -->
@@ -3787,6 +3838,14 @@
                     d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
             Forward
+        </button>
+        <button onclick="handleMsgJumpDoc()"
+            class="hidden w-full px-4 py-3 text-left text-[14px] font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-100 dark:border-white/5 flex items-center gap-3">
+            <svg class="w-4 h-4 text-black dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+            </svg>
+            Open in Doc
         </button>
         <button onclick="handleMsgReport()"
             class="w-full px-4 py-3 text-left text-[14px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex items-center gap-3">
@@ -4331,7 +4390,6 @@
 </body>
 
 </html>
-
 
 
 

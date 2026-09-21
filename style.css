@@ -102,6 +102,23 @@ body {
     transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Chat composer lifted to <body> while replying to a Google Doc comment
+   inside the Writing Portfolio drawer (z-80); stays below the sidebar
+   trigger (89) like the drawer itself. `left` is set inline by JS so the
+   composer tracks the drawer width through expand/collapse. */
+#chatComposerWrap.composer-front {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    z-index: 81;
+    animation: composer-rise 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes composer-rise {
+    from { transform: translateY(110%); }
+    to { transform: translateY(0); }
+}
+
 /* Writing Portfolio cards: show as many columns as actually fit. auto-fill
    recomputes the column count live from the container's width, so collapsing
    Hub/Tools, expanding the drawer, or resizing the window all reflow it
@@ -116,6 +133,396 @@ body {
 
 #portfolioCardsView > * {
     min-width: 0;
+}
+
+/* Brief highlight on a doc comment row after jumping to it from a comment_card. */
+@keyframes wpCommentFlash {
+    0%   { background-color: rgba(0, 122, 255, 0.18); }
+    70%  { background-color: rgba(0, 122, 255, 0.12); }
+    100% { background-color: transparent; }
+}
+.wp-comment-flash {
+    animation: wpCommentFlash 1.8s ease-out;
+    border-radius: 0.75rem;
+}
+
+/* Chat project switcher: one always-visible glass card under the chat header
+   (same liquid-glass surface as #chatInputPill). JS keeps its `top` measured
+   against the real header bottom. The list is revealed with a clip rather than
+   by transitioning this glass surface's width or height. */
+#wpDocContextBar {
+    position: absolute;
+    /* Fallback only: JS repositions this onto the top row (name-bar line). */
+    top: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    transform-origin: top center;
+    z-index: 30;
+    width: max-content;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(242, 242, 247, 0.75);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
+        0 10px 24px rgba(15, 23, 42, 0.04);
+    /* Must stay border-radius, exactly like #chatInputPill: a clip-path clips
+       the element's own box, and because backdrop-filter output is clipped to
+       the element box, `clip-path: inset(0 round 24px)` cut away the liquid
+       bevel on the left/right edges and corners, leaving only top/bottom. */
+    border-radius: 24px;
+    /* Shared inset for the header row and the list rows. */
+    padding: 6px;
+}
+
+/* Open: the header row takes the list's full width through its own content —
+   the card is width:max-content in both states, so it never reserves dead space. */
+.dark #wpDocContextBar {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(52, 52, 55, 0.7);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+/* Open: the header row grows into a full list row (same vertical rhythm as the
+   rows below it) and reads exactly like a row — icon, name, subtitle and, when it
+   is the current scope, a check mark. The card is width:max-content in both
+   states, so it fits its own text instead of reserving dead space. */
+#wpProjectHeaderSub,
+#wpProjectHeaderCheck {
+    display: none;
+}
+
+#wpDocContextBar.wp-project-menu-open #wpProjectHeader {
+    height: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+#wpDocContextBar.wp-project-menu-open #wpProjectHeaderSub:not(:empty) {
+    display: block;
+}
+
+#wpDocContextBar.wp-header-checked #wpProjectHeaderCheck {
+    display: block;
+}
+
+#wpDocContextBar.wp-project-menu-open #wpProjectBarChevron {
+    transform: rotate(180deg);
+}
+
+/* Top-row too narrow for a labelled pill (set by repositionWpBar): text-only
+   trim — the folder disc and the expand chevron both stay. Scoped with
+   :not(open) so the expand animation never sees a reflow — the open list
+   always renders its full rows. */
+#wpDocContextBar.wp-bar-compact:not(.wp-project-menu-open) #wpDocContextTitle {
+    display: none;
+}
+
+#wpDocContextBar.wp-bar-compact:not(.wp-project-menu-open) #wpProjectHeader {
+    width: auto;
+    gap: 6px;
+    padding-left: 6px;
+    padding-right: 10px;
+}
+
+/* The project switcher's leading disc uses the same 32px footprint as the
+   Writing Portfolio and Search controls.  The 34px row inside the 6px-padded
+   46px card forms an exact 7px grid: left, between the two targets, right,
+   top, and bottom are all 7px. */
+#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeader {
+    padding-left: 1px;
+    padding-right: 1px;
+    gap: 7px;
+    /* Outer card is 24px rounded with a 6px inset, so its hover surface must
+       be 18px rounded to remain the same pill shape at every edge. */
+    border-radius: 18px;
+}
+
+#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderIcon {
+    width: 32px;
+    height: 32px;
+}
+
+#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderMain {
+    height: 32px;
+}
+
+#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderIcon svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* When the labelled switcher needs its own row, it may use the chat panel's
+   width but never spill past it.  This matters most for a selected document
+   with a very long filename: its title is allowed to ellipsize, rather than
+   making the glass card escape the viewport before JS can compact it. */
+#wpDocContextBar.wp-bar-second-row:not(.wp-project-menu-open) {
+    max-width: var(--wp-second-row-max-width, calc(100% - 24px));
+}
+
+/* Small icon discs (folder / portfolio pen / search magnifier): painted
+   mini-glass. A real backdrop-filter on them would only re-blur the bar's
+   own glass — the bar is a backdrop root — so depth comes from a translucent
+   smoke fill plus the same top-highlight / bottom-shade bevel the bars use.
+   Hover brightens the fill, matching the previous grey-disc family. */
+.glass-disc {
+    background: rgba(120, 120, 128, 0.22);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.4),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.08);
+    transition: background-color 150ms ease;
+}
+
+/* One light-grey hover family across the whole top row: the All Projects
+   row, its disc, the portfolio/search discs and the back button all land on
+   the same gray-200 / white-20 highlight. */
+.glass-disc:hover,
+button:hover > .glass-disc {
+    background: #E5E7EB;
+}
+
+.dark .glass-disc {
+    background: rgba(0, 0, 0, 0.38);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.16),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.45);
+}
+
+.dark .glass-disc:hover,
+.dark button:hover > .glass-disc {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* All Projects has one action, so its whole row is one hover target.  A chosen
+   project has two actions: its icon opens the portfolio and its title/chevron
+   opens the project chooser.  Keep those two hover surfaces independent. */
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeader:hover {
+    background: transparent;
+}
+
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain {
+    transition: background-color 150ms ease;
+}
+
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* A selected project's label needs its own breathing room inside the right
+   hover pill.  Keeping the arrow fixed while shifting only the label column
+   uses the existing open space and prevents glyphs from visually touching the
+   pill's left edge. */
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain > span:first-child {
+    padding-left: 12px;
+}
+
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectBarChevron {
+    margin-right: 12px;
+}
+
+#wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeader:hover > #wpProjectHeaderIcon:not(:hover) {
+    background: rgba(120, 120, 128, 0.22);
+}
+
+.dark #wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeaderMain:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dark #wpDocContextBar:not(.wp-title-full):not(.wp-project-menu-open) #wpProjectHeader:hover > #wpProjectHeaderIcon:not(:hover) {
+    background: rgba(0, 0, 0, 0.38);
+}
+
+/* Icon-only mode keeps the labelled row's hover: the whole row lights up and
+   the disc blends into it, so icon + chevron highlight as one unit. */
+
+/* Expanded, the header row IS a list row ("All Projects"): its hover must
+   match the project rows below (transparent tint), not the solid grey the
+   collapsed pill uses to read like the portfolio/search buttons. */
+#wpDocContextBar.wp-project-menu-open #wpProjectHeader:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.dark #wpDocContextBar.wp-project-menu-open #wpProjectHeader:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* The collapse ghost's header strip must land pixel-perfect on the real pill
+   before it dissolves, so from frame 1 it wears the collapsed row rhythm:
+   34px row, no check mark, no subtitle, chevron back down, no divider.
+   Declared after the open-state rules above so equal-specificity ties break
+   in favour of the ghost. JS additionally counter-scales the row so text is
+   never squashed. */
+#wpDocContextBar.wp-ghost-closing #wpProjectHeader {
+    height: 34px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+#wpDocContextBar.wp-ghost-closing #wpProjectHeaderSub:not(:empty),
+#wpDocContextBar.wp-ghost-closing #wpProjectHeaderCheck {
+    display: none;
+}
+
+#wpDocContextBar.wp-ghost-closing #wpProjectBarChevron {
+    transform: rotate(0deg);
+}
+
+#wpDocContextBar.wp-ghost-closing #wpProjectList > div:first-child {
+    display: none;
+}
+
+/* "All Projects" is fixed chrome text and must never ellipsize (a project's
+   own long name may still truncate).  The header's max-content contribution
+   is unreliable through the flex-1/min-w-0/truncate chain, so when the title
+   is "All Projects" the column refuses to shrink below its text. */
+#wpDocContextBar.wp-title-full #wpProjectHeaderMain > span:first-child {
+    min-width: max-content;
+}
+
+#wpDocContextBar.wp-title-full #wpDocContextTitle {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Chat switches change the name bar's width, which moves the gap the pill is
+   centred in; slide the reposition instead of teleporting. Height/width stay
+   out of the transition — animateWpCard owns those via inline style. */
+#wpDocContextBar {
+    transition: left 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        top 350ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Long project lists scroll inside the card instead of covering the chat. */
+#wpProjectList {
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+}
+
+#wpProjectBarChevron {
+    transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The project card reaches its final size before it is revealed.  We animate a
+   clip instead of height: the eye sees the pill grow down from its top edge,
+   but the glass filter never receives a stream of intermediate sizes.  This is
+   the same compositor-friendly principle that makes the attachment menu pop.
+   46px is the collapsed card height (34px row + 6px inset on either side). */
+#wpDocContextBar.wp-project-menu-animating,
+#wpDocContextBar.wp-project-menu-closing {
+    will-change: clip-path, transform, opacity;
+    transition:
+        left 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        top 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        clip-path 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        -webkit-clip-path 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 180ms ease-out;
+}
+
+#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible),
+#wpDocContextBar.wp-project-menu-closing-active {
+    clip-path: inset(0 0 calc(100% - 46px) 0 round 24px);
+    -webkit-clip-path: inset(0 0 calc(100% - 46px) 0 round 24px);
+    opacity: 0.98;
+}
+
+#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible) {
+    transform: translateX(-50%) scaleX(var(--wp-start-width-scale, 1));
+}
+
+#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible) #wpProjectList,
+#wpDocContextBar.wp-project-menu-closing-active #wpProjectList {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+#wpProjectList {
+    transition: opacity 180ms ease-out, transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #wpDocContextBar.wp-project-menu-animating,
+    #wpDocContextBar.wp-project-menu-closing,
+    #wpProjectList {
+        transition-duration: 1ms;
+    }
+}
+
+/* No writing message inside the selected project */
+#wpProjectEmptyHint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    padding: 0 24px;
+}
+
+/* Chat top-row floating bars: name/back on the left, portfolio/search on the
+   right (the project switcher in the middle is #wpDocContextBar). Same glass
+   surface as #chatInputPill. They sit inside the transparent header band
+   (h-16 → centre 32px) and are 46px tall to match the switcher card. */
+#chatNameBar,
+#chatActionsBar {
+    position: absolute;
+    top: 32px;
+    transform: translateY(-50%);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    height: 46px;
+    box-sizing: border-box;
+    gap: 6px;
+    padding: 6px;
+    max-width: min(380px, 42vw);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(242, 242, 247, 0.75);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1.5px rgba(15, 23, 42, 0.06),
+        0 10px 24px rgba(15, 23, 42, 0.04);
+    border-radius: 24px;
+}
+
+#chatNameBar {
+    left: 12px;
+}
+
+#chatActionsBar {
+    right: 12px;
+}
+
+.dark #chatNameBar,
+.dark #chatActionsBar {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(52, 52, 55, 0.7);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+/* four-panel modes: the header band (4.5rem→7.25rem) is only 44px tall while
+   the bars are 46px, so centring them pins them against the global top bar's
+   bottom edge. Push the centre down to 103px → 8px visible gap, mirroring the
+   9px gap the bars keep from the top in the default layout. */
+body.four-panel-layout #chatNameBar,
+body.four-panel-layout #chatActionsBar,
+body.compact-four-panel-layout #chatNameBar,
+body.compact-four-panel-layout #chatActionsBar {
+    top: 6.4375rem;
+}
+
+body.four-panel-layout #searchResults,
+body.compact-four-panel-layout #searchResults {
+    top: calc(6.4375rem + 33px);
 }
 
 #chatComposerWrap {
@@ -142,6 +549,9 @@ body {
 #searchResults.liquid-glass-active,
 #forwardPickerCard.liquid-glass-active,
 #quoteArea.liquid-glass-active,
+#wpDocContextBar.liquid-glass-active,
+#chatNameBar.liquid-glass-active,
+#chatActionsBar.liquid-glass-active,
 #messageContextMenu.liquid-glass-active {
     border: 1px solid rgba(255, 255, 255, 0.6) !important;
     background: rgba(255, 255, 255, 0.48) !important;
@@ -405,6 +815,9 @@ body {
 .dark #searchResults.liquid-glass-active,
 .dark #forwardPickerCard.liquid-glass-active,
 .dark #quoteArea.liquid-glass-active,
+.dark #wpDocContextBar.liquid-glass-active,
+.dark #chatNameBar.liquid-glass-active,
+.dark #chatActionsBar.liquid-glass-active,
 .dark #messageContextMenu.liquid-glass-active {
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
     background: rgba(45, 45, 50, 0.65) !important;
@@ -1328,22 +1741,13 @@ body.is-guest-two-panel .bottom-gradient-shim {
         margin-top: 4.5rem !important;
     }
 
-    /* Chat header is moved down to align horizontally with RECENT / CONTACTS / CLASS tabs */
+    /* Chat header band is moved down to align horizontally with RECENT /
+       CONTACTS / CLASS tabs. It is a transparent geometry anchor now — the
+       visible top row is the three floating glass bars. */
     body.four-panel-layout #chatSection > header {
         top: 4.5rem !important;
         height: 2.75rem !important; /* Exactly matches sidebar-tabs height (h-11 = 44px) */
-        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
         z-index: 30 !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        background: #ffffff !important;
-    }
-
-    .dark body.four-panel-layout #chatSection > header {
-        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
-        background: #1C1C1E !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
     }
 
     /* Writing Portfolio drawer offset by 4.5rem top bar and header aligned with tabs/Level2 */
@@ -1366,9 +1770,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #1C1C1E !important;
     }
 
-    /* Adjust chat messages scroll area so messages don't hide behind the lower header */
+    /* Chat messages start 8px under the floating top-row bars (their bottom
+       edge sits at 6.4375rem + 23px = 126px). */
     body.four-panel-layout #chatBox {
-        padding-top: 7.75rem !important;
+        padding-top: 8.375rem !important;
     }
 
 
@@ -1610,22 +2015,12 @@ body.is-guest-two-panel .bottom-gradient-shim {
         margin-top: 4.5rem !important;
     }
 
-    /* Chat header moved down to align horizontally with sidebar tabs */
+    /* Chat header band moved down to align horizontally with sidebar tabs
+       (transparent anchor — see four-panel note above). */
     body.compact-four-panel-layout #chatSection > header {
         top: 4.5rem !important;
         height: 2.75rem !important;
-        border-bottom: 1px solid rgba(229, 231, 235, 0.6) !important;
         z-index: 30 !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        background: #ffffff !important;
-    }
-
-    .dark body.compact-four-panel-layout #chatSection > header {
-        border-bottom-color: rgba(255, 255, 255, 0.08) !important;
-        background: #1C1C1E !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
     }
 
     /* Writing Portfolio drawer offset by 4.5rem top bar and header aligned with tabs/Level2 */
@@ -1649,7 +2044,7 @@ body.is-guest-two-panel .bottom-gradient-shim {
     }
 
     body.compact-four-panel-layout #chatBox {
-        padding-top: 7.75rem !important;
+        padding-top: 8.375rem !important;
     }
 
 
@@ -2226,14 +2621,18 @@ body.is-guest-two-panel .bottom-gradient-shim {
    Enhanced Frosted Glass Edge (磨砂倒角高光与边缘光圈)
    ========================================= */
 #searchResults {
+    /* Direct child of #chatSection, floating under #chatActionsBar (bar bottom
+       55px + 10px gap; four-panel: centre 5.875rem + 23px + 10px). */
+    position: absolute;
+    top: 65px;
+    right: 12px;
+    z-index: 100 !important;
     border: 1px solid rgba(255, 255, 255, 0.6);
-    border-top: none !important;
-    border-top-left-radius: 0 !important;
-    border-top-right-radius: 0 !important;
-    border-bottom-left-radius: 1rem !important;
-    border-bottom-right-radius: 1rem !important;
+    /* Fully rounded dropdown floating under #chatActionsBar; 24px matches the
+       glass bars' radius. No clip-path here — it cuts away the liquid-glass
+       edge bevel (same lesson recorded on #wpDocContextBar). */
+    border-radius: 24px !important;
     background: rgba(255, 255, 255, 0.48);
-    margin-top: 0 !important;
     z-index: 100 !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
@@ -2241,8 +2640,6 @@ body.is-guest-two-panel .bottom-gradient-shim {
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
         inset 0 -1px 2px rgba(15, 23, 42, 0.06), 
         0 16px 40px rgba(0, 0, 0, 0.12) !important;
-    clip-path: inset(0 0 0 0 round 0 0 16px 16px);
-    -webkit-clip-path: inset(0 0 0 0 round 0 0 16px 16px);
 }
 
 #globalSearchResults {
@@ -2260,7 +2657,6 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 .dark #searchResults {
     border: 1px solid rgba(255, 255, 255, 0.18);
-    border-top: none !important;
     background: rgba(45, 45, 50, 0.65);
     box-shadow: 
         inset 0 1px 2px rgba(255, 255, 255, 0.18), 
@@ -2283,21 +2679,9 @@ body.is-guest-two-panel .bottom-gradient-shim {
     height: 0 !important;
 }
 
-#searchResults.liquid-glass-active {
-    border-top: none !important;
-    border-top-left-radius: 0 !important;
-    border-top-right-radius: 0 !important;
-}
-
-#searchResults.liquid-glass-fallback {
-    border-top: none !important;
-    border-top-left-radius: 0 !important;
-    border-top-right-radius: 0 !important;
-}
-
 #searchResults > div:last-child {
-    border-bottom-left-radius: 1rem;
-    border-bottom-right-radius: 1rem;
+    border-bottom-left-radius: 1.5rem;
+    border-bottom-right-radius: 1.5rem;
     border-bottom: none !important;
 }
 
@@ -2315,12 +2699,6 @@ body.is-guest-two-panel .bottom-gradient-shim {
 .dark #searchResults > div:hover,
 .dark #searchResultList > div:hover {
     background-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* Ensure Safari renders backdrop-filter on searchResults without ancestor interference */
-#chatSection > header.search-results-open {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
 }
 
 /* iOS resets for bottom navigation buttons and their descendants */
@@ -3435,3 +3813,19 @@ textarea,
 }
 
 
+
+/* Doc-reply posting lock: gray out + freeze every composer control (quote
+   strip incl. its X, attach menu, camera, input pill) while the bot posts.
+   Opacity must NOT touch the glass elements themselves — backdrop-filter
+   stops rendering on elements with opacity < 1 — so we dim their children. */
+#chatComposerWrap.composer-busy #quoteArea,
+#chatComposerWrap.composer-busy #attachMenu,
+#chatComposerWrap.composer-busy #chatCameraBtn,
+#chatComposerWrap.composer-busy #chatInputPill {
+    pointer-events: none !important;
+}
+#chatComposerWrap.composer-busy #quoteArea > *,
+#chatComposerWrap.composer-busy #chatCameraBtn > *,
+#chatComposerWrap.composer-busy #chatInputPill > * {
+    opacity: 0.5;
+}

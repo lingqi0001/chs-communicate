@@ -27,7 +27,7 @@
  *    - 【输入】：title (String) - 标题；body (String) - 正文；defaultValue (String) - 输入框默认值�? *    - 【返回】：Promise(String | null) - 返回用户输入的字符串，点取消返回 null�? *    - 【存在理由】：它会在弹窗正文动态插入一个输入框，是收集用户临时输入的最高效方式�? * ==================================================================================
  */
 
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260919-iosglass-fb-v1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260920-iosglass-fb-v5';
 
 // Private Helper: Escape HTML to prevent XSS in prompts/body
 // [Architectural Note]: This is implemented locally to keep ModalModule Zero-Dependency.

@@ -401,7 +401,7 @@ export const SidebarModule = {
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="class" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                                <button data-sidebar-back="class" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer z-10">
                                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
                                 </button>
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -652,7 +652,7 @@ export const SidebarModule = {
                     container.innerHTML = `
                         <div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]">
                             <div class="flex items-center px-4 h-11 border-b border-gray-100 dark:border-white/5 relative">
-                                <button data-sidebar-back="recent" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-[#007AFF]/10 dark:hover:bg-[#007AFF]/25 active:scale-90 transition-all duration-200 cursor-pointer z-10">
+                                <button data-sidebar-back="recent" title="Back" class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer z-10">
                                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
                                 </button>
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
