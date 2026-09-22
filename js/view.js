@@ -963,7 +963,9 @@ export const ViewModule = {
      * 控制主界面内部三个主要区域的显隐
      */
     applyDesktopPanelLayout: function (layout = null) {
-        if (!window.isLoggedIn) return;
+        // The public preview deliberately uses this same layout path.  Its
+        // data/actions still remain gated by window.isLoggedIn elsewhere.
+        if (!window.isLoggedIn && !window.useChatPreviewLayout) return;
 
         const selected = layout === 'four' || (layout === null && localStorage.getItem('panelLayout') === 'four')
             ? 'four' : 'three';

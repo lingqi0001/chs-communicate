@@ -154,14 +154,14 @@
         "./js/view.js": "./js/view.js?v=20260921-accentdisc-v2",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
         "./js/modal.js": "./js/modal.js?v=20260921-modalglass-v7",
-        "./js/utils.js": "./js/utils.js?v=20260519-0220",
-        "./js/writing.js": "./js/writing.js?v=20260921-accentdisc-v3",
+        "./js/utils.js": "./js/utils.js?v=20260921-previewstatus-v1",
+        "./js/writing.js": "./js/writing.js?v=20260921-previewpostguard-v1",
         "./js/ui-components.js": "./js/ui-components.js?v=20260921-accentdisc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
         "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260921-germinate-v30",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260921-classjoinlink-v1",
         "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260519-0935",
@@ -169,7 +169,7 @@
         "./js/search.js": "./js/search.js?v=20260921-sidebar-tab-glass-v4",
         "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260921-accentdisc-v4"
+        "./js/chat.js": "./js/chat.js?v=20260921-previewtopscroll-v1"
       }
     }
     </script>
@@ -434,17 +434,12 @@
                 if (typeof window.closeExtension === 'function') {
                     window.closeExtension();
                 }
-                if (typeof window.switchTab === 'function') {
-                    window.switchTab('messages');
-                }
-                if (window.AppModules?.View?.showPanel) {
-                    window.AppModules.View.showPanel('messages');
-                }
-                const card = document.getElementById('guestSignInCard');
-                if (card) {
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.classList.add('ring-4', 'ring-[#007AFF]/60', 'transition-all');
-                    setTimeout(() => card.classList.remove('ring-4', 'ring-[#007AFF]/60'), 2000);
+                // The visitor already said "Sign In" once by pressing this
+                // button — do not navigate them back to the login card and
+                // make them click again; fire the HCPSS (Microsoft) sign-in
+                // for them.  Google sign-in stays an admin-only path.
+                if (typeof window.loginWithMicrosoft === 'function') {
+                    window.loginWithMicrosoft();
                 }
             }
         };
@@ -628,71 +623,23 @@
 
         window.setupGuestThreePanelLayout = () => {
             if (window.isLoggedIn) return;
-            if (window.innerWidth < 768) {
-                window.teardownGuestThreePanelLayout();
-                return;
-            }
-            const useThreePanels = window.innerWidth >= 1280;
-            const wasThreePanels = document.body.classList.contains('is-guest-three-panel');
-            document.body.classList.remove('sidebar-collapsed', 'mobile-layout-active', 'desktop-messages-layout-active');
+
+            // Public preview uses the identical logged-in four-panel workspace.
+            // Authentication remains false, so data and write actions stay gated.
+            window.useChatPreviewLayout = true;
             document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
-            document.body.classList.add(useThreePanels ? 'is-guest-three-panel' : 'is-guest-two-panel');
-
-            const newsSec = document.getElementById('newsSection');
-            const toolsSec = document.getElementById('toolsSection');
-            const sidePanel = document.getElementById('sidePanel');
-            const chatSec = document.getElementById('chatSection');
-            const bottomNav = document.getElementById('bottomNavContainer');
-
-            if (newsSec) { newsSec.classList.remove('hidden'); newsSec.classList.add('flex'); }
-            if (toolsSec) {
-                toolsSec.classList.toggle('hidden', !useThreePanels);
-                toolsSec.classList.toggle('flex', useThreePanels);
-            }
-            if (sidePanel) { sidePanel.classList.remove('hidden'); sidePanel.classList.add('flex'); }
-            if (chatSec) { chatSec.classList.add('hidden'); chatSec.classList.remove('flex'); }
-            if (bottomNav) {
-                bottomNav.classList.add('hidden');
-                // Guard against resize handlers that remove the utility class mid-transition.
-                bottomNav.style.display = 'none';
-            }
-
-            const toolsMainContent = document.getElementById('toolsMainContent');
-            const toolsSectionBody = document.getElementById('toolsSectionBody');
-            const newsMainWrapper = document.getElementById('newsMainWrapper');
-            if (useThreePanels) {
-                if (toolsMainContent && toolsSectionBody && !toolsSectionBody.contains(toolsMainContent)) {
-                    toolsSectionBody.appendChild(toolsMainContent);
-                }
-                if (toolsMainContent) {
-                    toolsMainContent.style.opacity = '1';
-                    toolsMainContent.style.transform = 'none';
-                    toolsMainContent.style.pointerEvents = 'auto';
-                    toolsMainContent.style.zIndex = '1';
-                }
-                const subTabs = document.getElementById('newsSubTabsWrapper');
-                if (subTabs) {
-                    subTabs.style.height = '36px';
-                    subTabs.style.opacity = '1';
-                    subTabs.style.marginTop = '0.75rem';
-                }
-            } else {
-                if (toolsMainContent && newsMainWrapper && !newsMainWrapper.contains(toolsMainContent)) {
-                    newsMainWrapper.appendChild(toolsMainContent);
-                }
-                // Returning from three panels restores the regular Hub/Tools tab stack.
-                if (wasThreePanels && toolsMainContent) {
-                    toolsMainContent.style.opacity = '';
-                    toolsMainContent.style.transform = '';
-                    toolsMainContent.style.pointerEvents = '';
-                    toolsMainContent.style.zIndex = '';
-                    window.switchLeftTab?.('news');
-                }
-            }
+            document.body.classList.remove('sidebar-collapsed');
+            document.body.classList.add('is-logged-in');
+            AppModules.View?.applyDesktopPanelLayout?.('four');
         };
 
         window.teardownGuestThreePanelLayout = () => {
             document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
+            window.useChatPreviewLayout = false;
+
+            if (!window.isLoggedIn) {
+                document.body.classList.remove('is-logged-in', 'sidebar-collapsed');
+            }
 
             const bottomNav = document.getElementById('bottomNavContainer');
             if (bottomNav) bottomNav.style.display = '';
@@ -729,11 +676,7 @@
             guestLayoutResizeFrame = requestAnimationFrame(() => {
                 guestLayoutResizeFrame = null;
                 if (window.isLoggedIn) return;
-                if (window.innerWidth >= 768) {
-                    window.setupGuestThreePanelLayout();
-                } else {
-                    window.teardownGuestThreePanelLayout();
-                }
+                window.setupGuestThreePanelLayout();
             });
         });
 
@@ -742,6 +685,363 @@
             window.currentUser = null;
             document.body.classList.remove('is-logged-in');
             console.log('App: Initializing Public Guest Shell (Hub & Tools first)...');
+
+            // Fixed, local-only preview data.  The Sidebar receives it through
+            // the same runtime contract it uses after sign-in, so navigation
+            // and all of its existing transitions remain untouched.
+            const previewUser = { id: 'preview_moss', name: 'Moss', email: 'moss@chs.preview' };
+            currentUser = previewUser;
+            const previewUsers = {
+                preview_moss: previewUser,
+                preview_centennial: { name: 'Centennial High School', email: 'Learn about our platform', lastSeen: 'Guest · Preview Mode' },
+                preview_teacher: { name: 'Ms. Alvarez', email: 'a.alvarez@hcpss.org', role: 'teacher' },
+                preview_sofia: { name: 'Sofia Reyes', email: 's.reyes@student.hcpss.org' },
+                preview_jaylen: { name: 'Jaylen Price', email: 'j.price@student.hcpss.org' },
+                preview_maya: { name: 'Maya Chen', email: 'm.chen@student.hcpss.org' },
+                preview_ethan: { name: 'Ethan Brooks', email: 'e.brooks@student.hcpss.org' },
+                preview_amara: { name: 'Amara Diallo', email: 'a.diallo@student.hcpss.org' },
+                preview_lucas: { name: 'Lucas Nguyen', email: 'l.nguyen@student.hcpss.org' },
+                preview_zoe: { name: 'Zoe Martin', email: 'z.martin@student.hcpss.org' },
+                preview_devon: { name: 'Devon Carter', email: 'd.carter@student.hcpss.org' },
+                preview_isla: { name: 'Isla Murphy', email: 'i.murphy@student.hcpss.org' }
+            };
+            const previewClassId = 'preview_writing';
+            const previewClassStudents = {};
+            ['preview_moss', 'preview_sofia', 'preview_jaylen', 'preview_maya', 'preview_ethan',
+             'preview_amara', 'preview_lucas', 'preview_zoe', 'preview_devon', 'preview_isla'].forEach(uid => {
+                previewClassStudents[uid] = true;
+            });
+            const previewClasses = {
+                [previewClassId]: {
+                    name: 'Hum10 2627',
+                    teacherId: 'preview_teacher',
+                    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+                    lastActivity: Date.now() - 1000 * 60 * 60 * 2,
+                    students: previewClassStudents
+                }
+            };
+            // Recent sorts by chat timestamp descending: the class sits above
+            // the community chat in the list, while the shell still opens the
+            // Centennial conversation by default (openPublicPreviewChat).
+            const previewChats = {
+                preview_centennial: Date.now() - 1000 * 60 * 30,
+                [`group_${previewClassId}`]: Date.now()
+            };
+            // This is an intentionally local, read-only writing showcase for
+            // visitors.  It never represents a real student or a real Google
+            // document, and it is never sent to Firebase.
+            const previewChatId = getChatId(previewUser.id, 'preview_centennial');
+            const previewSketch = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
+                    <rect width="960" height="640" fill="#f8f1e8"/>
+                    <rect x="100" y="68" width="760" height="504" rx="20" fill="#fffdf9" stroke="#d9c8b3" stroke-width="4"/>
+                    <text x="150" y="154" font-family="Georgia, serif" font-size="44" fill="#3b3028">The Quiet Before the Bell</text>
+                    <line x1="150" y1="182" x2="760" y2="182" stroke="#d9c8b3" stroke-width="3"/>
+                    <text x="150" y="248" font-family="Georgia, serif" font-size="27" fill="#64554a">The hallway held its breath before first period.</text>
+                    <text x="150" y="296" font-family="Georgia, serif" font-size="27" fill="#64554a">Lockers clicked shut like small doors in a storm,</text>
+                    <text x="150" y="344" font-family="Georgia, serif" font-size="27" fill="#64554a">and sunlight crossed the floor in long, patient lines.</text>
+                    <path d="M152 378 C290 350 430 410 605 379" fill="none" stroke="#377dbe" stroke-width="5"/>
+                    <text x="620" y="425" font-family="Arial, sans-serif" font-size="22" fill="#377dbe">Try a more specific sound here.</text>
+                    <text x="150" y="505" font-family="Arial, sans-serif" font-size="20" fill="#8a7561">Writing workshop: draft excerpt</text>
+                </svg>`)} `;
+            const previewSketchB = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
+                    <rect width="960" height="640" fill="#f8f1e8"/>
+                    <rect x="100" y="68" width="760" height="504" rx="20" fill="#fffdf9" stroke="#d9c8b3" stroke-width="4"/>
+                    <text x="150" y="154" font-family="Georgia, serif" font-size="44" fill="#3b3028">Page Two: Revised Lines</text>
+                    <line x1="150" y1="182" x2="760" y2="182" stroke="#d9c8b3" stroke-width="3"/>
+                    <text x="150" y="248" font-family="Georgia, serif" font-size="27" fill="#64554a">Lockers clicked shut like small doors in a storm,</text>
+                    <text x="150" y="296" font-family="Georgia, serif" font-size="27" fill="#64554a">a radiator ticked somewhere behind Room 118,</text>
+                    <text x="150" y="344" font-family="Georgia, serif" font-size="27" fill="#64554a">and the first bell kept pretending it was late.</text>
+                    <path d="M152 378 C300 352 470 404 640 376" fill="none" stroke="#377dbe" stroke-width="5"/>
+                    <text x="655" y="422" font-family="Arial, sans-serif" font-size="22" fill="#377dbe">Three sounds: a strong pattern.</text>
+                    <text x="150" y="505" font-family="Arial, sans-serif" font-size="20" fill="#8a7561">Writing workshop: second draft</text>
+                </svg>`)} `;
+            const previewSketchC = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
+                    <rect width="960" height="640" fill="#f8f1e8"/>
+                    <rect x="100" y="68" width="760" height="504" rx="20" fill="#fffdf9" stroke="#d9c8b3" stroke-width="4"/>
+                    <text x="150" y="154" font-family="Georgia, serif" font-size="44" fill="#3b3028">Peer Markup Notes</text>
+                    <line x1="150" y1="182" x2="760" y2="182" stroke="#d9c8b3" stroke-width="3"/>
+                    <text x="150" y="248" font-family="Georgia, serif" font-size="27" fill="#64554a">Sunlight crossed the floor in long, patient lines,</text>
+                    <text x="150" y="296" font-family="Georgia, serif" font-size="27" fill="#64554a">and for a moment the whole hallway waited.</text>
+                    <circle cx="330" cy="290" r="86" fill="none" stroke="#c98a2b" stroke-width="5" stroke-dasharray="10 8"/>
+                    <text x="450" y="400" font-family="Arial, sans-serif" font-size="22" fill="#c98a2b">Circle the verb you would keep.</text>
+                    <text x="150" y="505" font-family="Arial, sans-serif" font-size="20" fill="#8a7561">Writing workshop: peer feedback</text>
+                </svg>`)} `;
+            const previewDocId = 'preview-writing-workshop-draft';
+            const previewDocTitle = 'The Quiet Before the Bell';
+            const previewFeedbackText = 'This image makes your direction clear. The repeated quiet sounds are a strong choice. Keep building the moment through details the reader can hear and see.';
+            // The two feedback threads live once and render twice: inside the
+            // doc card's drawer AND as comment_card messages in the chat, the
+            // same "X Commented on <doc>" strip a real Google comment creates.
+            const previewCommentSensory = {
+                id: 'preview-comment-sensory-detail',
+                author: { displayName: 'Centennial Writing Team', emailAddress: 'community@chs.preview' },
+                content: 'The image of the hallway “holding its breath” is memorable. Can you follow it with one concrete sound or movement?',
+                quotedFileContent: { value: 'The hallway held its breath before first period.' },
+                createdTime: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
+                resolved: false,
+                replies: [{
+                    id: 'preview-reply-sensory-detail',
+                    author: { displayName: 'Moss', emailAddress: 'moss@chs.preview' },
+                    content: 'I added the lockers clicking shut and will look for one more detail near the ending.',
+                    createdTime: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString()
+                }]
+            };
+            const previewCommentPacing = {
+                id: 'preview-comment-pacing',
+                author: { displayName: 'Centennial Writing Team', emailAddress: 'community@chs.preview' },
+                content: 'Nice revision. The pacing is much stronger after you pause on the sunlight crossing the floor.',
+                quotedFileContent: { value: 'and sunlight crossed the floor in long, patient lines.' },
+                createdTime: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
+                resolved: true,
+                replies: []
+            };
+            const previewMessages = {
+                preview_welcome: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'Welcome to the CHShub. This is a community that contains Centennial High School based tools and functions.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 26
+                },
+                preview_tool_intro: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'This section is a writing-based developing tool. You can collaborate better with your teacher with the help of CHShub. Our platform syncs comments from the Google Docs you upload to help you and your teacher keep track of your writing year long.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 25
+                },
+                preview_features_note: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'Try it out:\n1️⃣ The all project switcher above collects each writing project as its own history. Pick one to filter this conversation and its portfolio down to that piece of writing.\n2️⃣ The + button at the bottom left sends photos of a handwritten draft, attaches a Google Doc so its comments sync here automatically, or asks a classmate to share their document with you.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24.9
+                },
+                preview_moss_question: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'text',
+                    text: 'Got it. I have been revising the opening of my personal narrative. Here are photos of my marked-up draft pages.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24.8
+                },
+                preview_sketch: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'image_group',
+                    text: JSON.stringify([previewSketch, previewSketchB, previewSketchC]), timestamp: Date.now() - 1000 * 60 * 60 * 24.7
+                },
+                preview_feedback: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: previewFeedbackText,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24.4
+                },
+                // Shows the reply form: a bubble with the quote strip of the
+                // message it answers, exactly what long-press → Reply produces.
+                preview_reply_demo: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'text',
+                    text: 'I hear you. The second draft now has three concrete sounds in that opening, and I circled the verb I want to keep.',
+                    quote: { senderName: 'Centennial High School', text: previewFeedbackText, messageId: 'preview_feedback' },
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24.2
+                },
+                preview_doccard_explain: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'Now attach the doc itself with the + button. When you share a Google Doc, it lands here as a document card like the one below, and its comments sync into this chat automatically.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24.1
+                },
+                preview_doc: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'text',
+                    text: `https://docs.google.com/document/d/${previewDocId}/edit`,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 24,
+                    docData: {
+                        fileId: previewDocId,
+                        docUrl: `https://docs.google.com/document/d/${previewDocId}/edit`,
+                        title: previewDocTitle,
+                        createdTime: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
+                        lastSyncedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+                        syncStatus: 'synced',
+                        comments: [previewCommentSensory, previewCommentPacing]
+                    }
+                },
+                preview_what_can_i_do: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'text',
+                    text: 'The card is here. What can I do with it now?',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 23.5
+                },
+                preview_can_do: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'Open the doc from the card, tap the arrow to read the feedback, and reply to any comment right from this chat. The writing team leaves its notes inside the doc, and each one arrives here as a comment card below. Everything also collects in your Writing Portfolio.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 23.2
+                },
+                preview_comment_card_1: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'comment_card',
+                    text: `Comment on "${previewDocTitle}"`,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 22,
+                    commentCard: {
+                        docId: previewDocId,
+                        docUrl: `https://docs.google.com/document/d/${previewDocId}/edit`,
+                        docTitle: previewDocTitle,
+                        originMsgKey: 'preview_doc',
+                        anchorIds: [],
+                        comment: previewCommentSensory
+                    }
+                },
+                preview_comment_card_2: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'comment_card',
+                    text: `Comment on "${previewDocTitle}"`,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 18,
+                    commentCard: {
+                        docId: previewDocId,
+                        docUrl: `https://docs.google.com/document/d/${previewDocId}/edit`,
+                        docTitle: previewDocTitle,
+                        originMsgKey: 'preview_doc',
+                        anchorIds: [],
+                        comment: previewCommentPacing
+                    }
+                },
+                preview_close: {
+                    senderId: 'preview_centennial', senderName: 'Centennial High School', type: 'text',
+                    text: 'Your document card and its feedback are now collected in Writing Portfolio. Sign in to create a real portfolio and collaborate with your own community.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 1
+                }
+            };
+            // The virtual class showcase: a second fictional doc shared by a
+            // fictional classmate, teacher feedback as comment_card messages,
+            // and a quote reply — the same shapes a real class week produces.
+            const previewClassDocId = 'preview-maya-porch-light';
+            const previewClassDocTitle = 'The Porch Light';
+            const previewClassDocUrl = `https://docs.google.com/document/d/${previewClassDocId}/edit`;
+            const previewPraiseText = 'Maya’s opening does the sensory thing we practiced. Check the first two lines.';
+            const previewPorchCommentOpening = {
+                id: 'porch-comment-opening',
+                author: { displayName: 'Ms. Alvarez', emailAddress: 'a.alvarez@hcpss.org' },
+                content: '“The only star we owned”. This is the specificity we practiced. Keep one more image like it near the ending.',
+                quotedFileContent: { value: 'The porch light was the only star we owned that summer.' },
+                createdTime: new Date(Date.now() - 1000 * 60 * 60 * 46).toISOString(),
+                resolved: false,
+                replies: [{
+                    id: 'porch-reply-opening',
+                    author: { displayName: 'Maya Chen', emailAddress: 'm.chen@student.hcpss.org' },
+                    content: 'Thank you. I am trying the firefly image for the ending now.',
+                    createdTime: new Date(Date.now() - 1000 * 60 * 60 * 44).toISOString()
+                }]
+            };
+            const previewPorchCommentEnding = {
+                id: 'porch-comment-ending',
+                author: { displayName: 'Ms. Alvarez', emailAddress: 'a.alvarez@hcpss.org' },
+                content: 'This ending arrives too quickly. Give the reader one more beat before the door closes.',
+                quotedFileContent: { value: 'Then she closed the door.' },
+                createdTime: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
+                resolved: true,
+                replies: []
+            };
+            const previewGroupMessages = {
+                gw_announce: {
+                    senderId: 'preview_teacher', senderName: 'Ms. Alvarez', type: 'text',
+                    text: 'Welcome to Hum10 2627. This week is the personal narrative: post your draft link here and I will leave feedback directly in the doc.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 72
+                },
+                gw_maya_question: {
+                    senderId: 'preview_maya', senderName: 'Maya Chen', type: 'text',
+                    text: 'Do we need a finished title already, or can it change later?',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 70
+                },
+                gw_teacher_answer: {
+                    senderId: 'preview_teacher', senderName: 'Ms. Alvarez', type: 'text',
+                    text: 'Change it as often as you like. The draft matters more than the label.',
+                    quote: { senderName: 'Maya Chen', text: 'Do we need a finished title already, or can it change later?', messageId: 'gw_maya_question' },
+                    timestamp: Date.now() - 1000 * 60 * 60 * 69.5
+                },
+                gw_jaylen_stuck: {
+                    senderId: 'preview_jaylen', senderName: 'Jaylen Price', type: 'text',
+                    text: 'Anyone else stuck on endings? Mine just stops in the middle of a thought.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 50
+                },
+                gw_sofia_advice: {
+                    senderId: 'preview_sofia', senderName: 'Sofia Reyes', type: 'text',
+                    text: 'I read my last line out loud. If it sounds like a shrug, I rewrite it.',
+                    quote: { senderName: 'Jaylen Price', text: 'Anyone else stuck on endings? Mine just stops in the middle of a thought.', messageId: 'gw_jaylen_stuck' },
+                    timestamp: Date.now() - 1000 * 60 * 60 * 49
+                },
+                gw_maya_doc: {
+                    senderId: 'preview_maya', senderName: 'Maya Chen', type: 'text',
+                    text: previewClassDocUrl,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 48,
+                    docData: {
+                        fileId: previewClassDocId,
+                        docUrl: previewClassDocUrl,
+                        title: previewClassDocTitle,
+                        createdTime: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
+                        lastSyncedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+                        syncStatus: 'synced',
+                        comments: [previewPorchCommentOpening, previewPorchCommentEnding]
+                    }
+                },
+                gw_comment_card_1: {
+                    senderId: 'preview_teacher', senderName: 'Ms. Alvarez', type: 'comment_card',
+                    text: `Comment on "${previewClassDocTitle}"`,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 46,
+                    commentCard: {
+                        docId: previewClassDocId,
+                        docUrl: previewClassDocUrl,
+                        docTitle: previewClassDocTitle,
+                        originMsgKey: 'gw_maya_doc',
+                        anchorIds: [],
+                        comment: previewPorchCommentOpening
+                    }
+                },
+                gw_teacher_praise: {
+                    senderId: 'preview_teacher', senderName: 'Ms. Alvarez', type: 'text',
+                    text: previewPraiseText,
+                    timestamp: Date.now() - 1000 * 60 * 60 * 45
+                },
+                gw_moss_reply: {
+                    senderId: 'preview_moss', senderName: 'Moss', type: 'text',
+                    text: 'That first line is the whole essay. Stealing the trick for my ending.',
+                    quote: { senderName: 'Ms. Alvarez', text: previewPraiseText, messageId: 'gw_teacher_praise' },
+                    timestamp: Date.now() - 1000 * 60 * 60 * 44.5
+                },
+                gw_ethan_draft: {
+                    senderId: 'preview_ethan', senderName: 'Ethan Brooks', type: 'text',
+                    text: 'My draft is in the shared folder. Feedback on the middle section welcome before Friday.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 20
+                },
+                gw_reminder: {
+                    senderId: 'preview_teacher', senderName: 'Ms. Alvarez', type: 'text',
+                    text: 'Reminder: portfolio check Friday. Every doc you share here collects in Writing Portfolio automatically.',
+                    timestamp: Date.now() - 1000 * 60 * 60 * 2
+                }
+            };
+            const previewValueAt = (path = '') => {
+                if (path === 'users') return previewUsers;
+                if (path.startsWith('users/')) return previewUsers[path.slice(6)] || null;
+                if (path === 'classes') return previewClasses;
+                if (path.startsWith('classes/')) return previewClasses[path.slice(8)] || null;
+                if (path === `user_chats/${previewUser.id}`) return previewChats;
+                return null;
+            };
+            const previewSnapshot = value => ({
+                exists: () => value !== null && value !== undefined,
+                val: () => value
+            });
+            const previewRef = (_db, path = '') => ({ path });
+            const previewGet = target => Promise.resolve(previewSnapshot(previewValueAt(target?.path)));
+            const previewQuery = target => target;
+            window.CHAT_PREVIEW = {
+                user: previewUser,
+                users: previewUsers,
+                classes: previewClasses,
+                messages: {
+                    [previewChatId]: previewMessages,
+                    [`group_${previewClassId}`]: previewGroupMessages
+                }
+            };
+            window.isChatPreview = true;
+            window.ALL_USERS = { ...(window.ALL_USERS || {}), ...previewUsers };
+            // Seed the class-name caches so the group chat header renders
+            // from them and switchChat never falls through to a real fetch.
+            window.cnCache = { ...(window.cnCache || {}), [previewClassId]: previewClasses[previewClassId].name };
+            window.ctCache = { ...(window.ctCache || {}), [previewClassId]: previewUsers.preview_teacher.name };
+            // globalDataSync flips isSyncDone even for a guest, and every
+            // "disbanded / removed from class" check compares against the
+            // sync-side class registries — enrol the preview class in them
+            // so its rows keep the live eagle icon and header.
+            if (AppModules.Sync) {
+                AppModules.Sync.existingClassIds = { ...(AppModules.Sync.existingClassIds || {}), [previewClassId]: true };
+                AppModules.Sync.sidebarClasses = { ...(AppModules.Sync.sidebarClasses || {}), [previewClassId]: true };
+            }
 
             document.getElementById('loginPage')?.classList.add('hidden');
             document.getElementById('mainPage')?.classList.remove('hidden');
@@ -770,16 +1070,17 @@
             // Sidebar runtime initialization for guest mode
             if (AppModules.Sidebar && AppModules.Sidebar.configureRuntime) {
                 AppModules.Sidebar.configureRuntime({
-                    db,
-                    get,
+                    db: { preview: true },
+                    get: previewGet,
                     update,
-                    query,
-                    ref,
-                    orderByKey,
-                    limitToLast,
-                    getCurrentUser: () => null,
+                    query: previewQuery,
+                    ref: previewRef,
+                    orderByKey: value => value,
+                    limitToLast: value => value,
+                    getCurrentUser: () => previewUser,
                     getActiveTargetId: () => activeTargetId,
-                    getAllUsers: () => ALL_USERS || {},
+                    getAllUsers: () => previewUsers,
+                    fetchUser: id => Promise.resolve(previewUsers[id] || null),
                     formatLastSeen,
                     eagleIcon: EAGLE_ICON,
                     eagleIconBw: EAGLE_ICON_BW,
@@ -792,6 +1093,16 @@
             if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
                 AppModules.Sidebar.renderSidebar();
             }
+
+            // Open the fictional community conversation as soon as the chat
+            // engine is available.  The auth callback can run before that
+            // engine mounts on a cold load, so the mount path below invokes
+            // this helper once more as a safe fallback.
+            window.openPublicPreviewChat = () => {
+                if (!window.isChatPreview || typeof window.switchChat !== 'function') return false;
+                window.switchChat('preview_centennial');
+                return true;
+            };
 
             // Set clean welcome state in chatBox
             const chatBox = document.getElementById('chatBox');
@@ -815,10 +1126,15 @@
             const chatStatus = document.getElementById('chatStatus');
             if (chatStatus) chatStatus.innerText = "Public Hub & Tools";
 
-            // Hide chat input composer and in-chat search for unauthenticated guests
-            document.getElementById('chatComposerWrap')?.classList.add('hidden');
-            document.getElementById('chatSearchWrap')?.classList.add('hidden');
-
+            // Keep the existing chat controls visible as a read-only preview.
+            document.getElementById('chatComposerWrap')?.classList.remove('hidden');
+            document.getElementById('chatSearchWrap')?.classList.remove('hidden');
+            document.getElementById('chatWritingBtn')?.classList.remove('hidden');
+            const guestInput = document.getElementById('u-msg');
+            if (guestInput) {
+                guestInput.readOnly = true;
+                guestInput.placeholder = 'Sign in to type a message';
+            }
             // Initialize News & Extensions for public browsing
             if (AppModules.Sync && AppModules.Sync.init) {
                 AppModules.Sync.init({
@@ -859,6 +1175,7 @@
 
             window.handleDirectRouteAndParams();
             hideLoading();
+            requestAnimationFrame(() => window.openPublicPreviewChat?.());
         };
 
 
@@ -866,8 +1183,17 @@
 
 
         window.enterApp = async () => {
+            // The public shell borrows the sidebar renderer, but it must never
+            // survive into an authenticated session.
+            window.isChatPreview = false;
+            window.CHAT_PREVIEW = null;
             window.teardownGuestThreePanelLayout();
             currentUser = AppModules.User.current;
+            const signedInInput = document.getElementById('u-msg');
+            if (signedInInput) {
+                signedInInput.readOnly = false;
+                signedInInput.placeholder = 'Type a message...Use Shift+Enter to change lines';
+            }
 
             try {
                 const settingsSnap = await get(ref(db, 'settings'));
@@ -953,6 +1279,12 @@
                     extensionIdFromTarget: AppModules.Bridge.extensionIdFromTarget
                 });
             }
+            // Discard the public card DOM before the normal renderer paints
+            // real conversations.  This prevents a stale sign-in card from
+            // remaining visible after authentication succeeds.
+            const sidebarList = document.getElementById('sidebarList');
+            if (sidebarList) sidebarList.innerHTML = '';
+            AppModules.Sidebar?.renderSidebar?.();
             AppModules.Security.initSecurityObserver();
             chatEngine.initChatListObserver();
             SettingsModule.initSettingsUI();
@@ -1240,6 +1572,7 @@
 
         window.getSelectedMsgData = () => chatEngine.getSelectedMsgData();
         chatEngine.mountChatUIEvents();
+        window.openPublicPreviewChat?.();
         /* --- FIREBASE STORAGE MIGRATION HELPER --- */
         window.uploadImageToStorage = async function (base64Data, folder = 'uploads') {
             return await AppModules.Utils.Image.uploadToStorage(
@@ -4393,17 +4726,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-

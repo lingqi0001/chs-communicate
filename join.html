@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Send Google Doc · CHSchat</title>
+    <style>
+        :root {
+            --bg: #F2F2F7;
+            --card: #FFFFFF;
+            --text: #000000;
+            --muted: #6B6B70;
+            --line: rgba(0, 0, 0, .10);
+            --field: #FFFFFF;
+            --accent: #007AFF;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --card: #1C1C1E;
+                --text: #FFFFFF;
+                --muted: #A1A1A6;
+                --line: rgba(255, 255, 255, .15);
+                --field: rgba(255, 255, 255, .08);
+                --accent: #0A84FF;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 26px 22px;
+        }
+
+        .brand {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            color: var(--muted);
+        }
+
+        h1 {
+            margin: 10px 0 0;
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        p {
+            margin: 8px 0 0;
+            font-size: 15px;
+            line-height: 1.55;
+            color: var(--text);
+        }
+
+        .sub {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .bot {
+            margin-top: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            color: var(--text);
+            user-select: all;
+            word-break: break-all;
+        }
+
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            margin-top: 18px;
+            padding: 12px 14px;
+            font-size: 16px;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--field);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            outline: none;
+        }
+
+        input::placeholder { color: var(--muted); }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .row input { margin-top: 10px; }
+
+        button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px 14px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            color: #FFFFFF;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: opacity .15s ease, transform .1s ease;
+        }
+
+        button:disabled { opacity: .5; cursor: default; }
+        button:active { transform: scale(.98); }
+
+        .link-back {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 4px;
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text);
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .link-back:disabled { opacity: 1; cursor: default; }
+
+        a { color: var(--accent); }
+
+        .email-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .email-line .copy-btn { margin: 0; }
+
+        .copy-btn {
+            width: auto;
+            margin: 0 0 0 8px;
+            padding: 7px 12px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent);
+            background: none;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            vertical-align: 2px;
+        }
+
+        .status {
+            margin-top: 12px;
+            font-size: 15px;
+            line-height: 1.55;
+        }
+
+        .status.error { color: #FF3B30; }
+        .status.done { color: var(--text); }
+        .hidden { display: none; }
+    </style>
+</head>
+
+<body>
+    <main class="card">
+        <div class="brand">CHSCHAT</div>
+        <h1 id="headline">Loading class…</h1>
+        <p class="sub" id="classSub"></p>
+
+        <div id="identityStep">
+            <p>Enter your school email and name first. So Your teacher can see who is sharing this Google Doc and you will share your Doc in the next step.</p>
+            <input type="email" id="email" placeholder="School email (name@inst.hcpss.org)" autocomplete="off"
+                autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
+            <div class="row">
+                <input type="text" id="firstName" placeholder="First name" autocomplete="off" data-lpignore="true" data-form-type="other">
+                <input type="text" id="lastName" placeholder="Last name" autocomplete="off" data-lpignore="true" data-form-type="other">
+            </div>
+            <button id="continueBtn" type="button">Continue</button>
+            <div id="identityStatus" class="status"></div>
+        </div>
+
+        <div id="docStep" class="hidden">
+            <p>Now paste the Google Doc you want to share with your teacher.</p>
+            <p>Share the doc with the CHSchat bot and set access to <strong>"Commenter"</strong> so it can be reviewed.</p>
+            <p class="email-line"><code id="botEmail">…</code><button id="copyBotEmailBtn" type="button" class="copy-btn">Copy email</button></p>
+            <input type="text" id="docUrl" placeholder="https://docs.google.com/document/d/..." autocomplete="off"
+                autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
+            <button id="submitBtn" type="button">Submit</button>
+            <button id="backBtn" type="button" class="link-back">Not you? Re-enter your name and email</button>
+            <div class="bot">You can also set access to "Anyone with the link can comment" instead.</div>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div id="doneStep" class="hidden">
+            <p id="doneText"></p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+        import { firebaseConfig } from "./js/config.js";
+
+        const functions = getFunctions(initializeApp(firebaseConfig));
+        const call = (name) => httpsCallable(functions, name);
+
+        const classId = new URLSearchParams(location.search).get('class') || '';
+        const headline = document.getElementById('headline');
+        const classSub = document.getElementById('classSub');
+        const identityStep = document.getElementById('identityStep');
+        const docStep = document.getElementById('docStep');
+        const doneStep = document.getElementById('doneStep');
+        const doneText = document.getElementById('doneText');
+        const identityStatus = document.getElementById('identityStatus');
+        const statusEl = document.getElementById('status');
+        const emailInput = document.getElementById('email');
+        const firstInput = document.getElementById('firstName');
+        const lastInput = document.getElementById('lastName');
+        const docInput = document.getElementById('docUrl');
+        const continueBtn = document.getElementById('continueBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const backBtn = document.getElementById('backBtn');
+
+        // Identity lives in memory only: closing the page or refreshing always
+        // starts over, which is the point of this link.
+        let identity = null;
+        let className = 'your class';
+        let teacherName = '';
+
+        function showStatus(el, text, kind) {
+            el.className = `status ${kind || ''}`;
+            el.innerText = text;
+        }
+
+        async function load() {
+            if (!classId) {
+                headline.innerText = 'This class link is not valid.';
+                identityStep.classList.add('hidden');
+                return;
+            }
+            try {
+                const res = await call('readClassJoin')({ classId });
+                className = res.data.className || className;
+                teacherName = res.data.teacherName || '';
+                document.getElementById('botEmail').innerText = res.data.botEmail || '';
+                headline.innerText = `Send Google Doc For ${className}`;
+                document.title = `Send Google Doc For ${className} · CHSchat`;
+                classSub.innerText = teacherName ? `Taught by ${teacherName}` : '';
+            } catch (e) {
+                console.warn('[ClassJoin] read failed:', e);
+                headline.innerText = e && e.code === 'not-found'
+                    ? e.message
+                    : 'We could not reach the class service. Please try again in a moment.';
+                identityStep.classList.add('hidden');
+            }
+        }
+
+        function validIdentity() {
+            const email = emailInput.value.trim().toLowerCase();
+            if (!/^[a-z0-9][a-z0-9._-]{0,60}@inst\.hcpss\.org$/i.test(email)) {
+                return { error: 'Please use your school email address ending with @inst.hcpss.org.' };
+            }
+            const firstName = firstInput.value.trim();
+            const lastName = lastInput.value.trim();
+            if (!firstName || !lastName) {
+                return { error: 'Please enter both your first and last name.' };
+            }
+            if (firstName.length > 20 || lastName.length > 20) {
+                return { error: 'First name and last name must not exceed 20 characters each.' };
+            }
+            return { email, firstName, lastName };
+        }
+
+        function goDocStep() {
+            showStatus(identityStatus, '', '');
+            const check = validIdentity();
+            if (check.error) {
+                showStatus(identityStatus, check.error, 'error');
+                return;
+            }
+            identity = check;
+            identityStep.classList.add('hidden');
+            docStep.classList.remove('hidden');
+        }
+
+        async function submit() {
+            const url = docInput.value.trim();
+            if (!url || !identity) return;
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Checking…';
+            backBtn.disabled = true;
+            showStatus(statusEl, '', '');
+            try {
+                const res = await call('submitClassJoin')({
+                    classId,
+                    email: identity.email,
+                    firstName: identity.firstName,
+                    lastName: identity.lastName,
+                    url
+                });
+                const out = res.data || {};
+                if (out.ok) {
+                    docStep.classList.add('hidden');
+                    classSub.classList.add('hidden');
+                    doneStep.classList.remove('hidden');
+                    headline.innerText = 'Thanks! Your document is in.';
+                    const esc = (s) => { const d = document.createElement('div'); d.innerText = String(s == null ? '' : s); return d.innerHTML; };
+                    const ownerLabel = teacherName ? `${teacherName}'s ${className}` : className;
+                    const title = esc(out.title);
+                    doneText.innerHTML = `You have sent the Google Doc "${title}" to "${esc(ownerLabel)}" and "${title}" is now shared with your teacher. When you sign in with your school account using HCPSS Sign-In on <a href="https://chschat.xyz">chschat.xyz</a>, the Doc History you just shared with your teachers will also be accessible to you.`;
+                } else {
+                    showStatus(statusEl, out.message || 'We could not accept that document. Please check the link and try again.', 'error');
+                }
+            } catch (e) {
+                console.warn('[ClassJoin] submit failed:', e);
+                showStatus(statusEl, 'Something went wrong on our side. Please try again in a moment.', 'error');
+            }
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Submit';
+            backBtn.disabled = false;
+        }
+
+        function backToIdentity() {
+            showStatus(statusEl, '', '');
+            docStep.classList.add('hidden');
+            identityStep.classList.remove('hidden');
+        }
+
+        continueBtn.addEventListener('click', goDocStep);
+        submitBtn.addEventListener('click', submit);
+        backBtn.addEventListener('click', backToIdentity);
+        document.getElementById('copyBotEmailBtn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const done = () => {
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = 'Copy email'; }, 1500);
+            };
+            const text = document.getElementById('botEmail').innerText.trim();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(done);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (err) {}
+                ta.remove();
+                done();
+            }
+        });
+        [emailInput, firstInput, lastInput].forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    goDocStep();
+                }
+            });
+        });
+        docInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submit();
+            }
+        });
+
+        load();
+    </script>
+</body>
+
+</html>

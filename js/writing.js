@@ -681,6 +681,16 @@ export function initWritingBehavior(deps) {
             e.preventDefault();
             e.stopPropagation();
         }
+        // The guest preview card is a frozen showcase: its fictional fileId
+        // would make the real sync service answer file_unavailable, which then
+        // overwrites the card and never recovers.  Never let a preview card
+        // (or its silent freshness sync) touch the network.
+        if (window.isChatPreview) {
+            if (!isSilent) {
+                window.promptSignIn?.('Sign in to sync this document with Google.', 'Sign in to sync comments');
+            }
+            return;
+        }
         const badge = document.getElementById(`docBadge-${key}`);
 
         const prevBadgeText = badge ? badge.innerText : '';
@@ -869,6 +879,13 @@ export function initWritingBehavior(deps) {
     }
 
     async function submitDocCommentPost(key, docUrl, commentId, content, sendBtn) {
+        // Guests may open the composer and type freely (the preview invites
+        // them to try the flow), but the moment they press Post they must
+        // sign in — no write ever leaves the preview shell.
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to post this comment to your Google Doc.', 'Sign in to post a comment');
+            return false;
+        }
         const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
         if (!match) {
             AppModules.Modal.alert("Comment not posted", "This card is not linked to a valid Google Doc URL.");

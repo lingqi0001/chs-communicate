@@ -74,6 +74,10 @@ export const UIUtils = {
      * 格式化最后上线时?     */
     formatLastSeen: (timestamp) => {
         if (!timestamp) return "";
+        // A non-numeric string is already a display-ready status line
+        // (e.g. the guest preview's "Guest · Preview Mode") — pass it through;
+        // running it through the age math renders "last seen NaN day ago".
+        if (typeof timestamp === 'string' && !/^\d+$/.test(timestamp)) return timestamp;
         const now = Date.now();
         const diff = now - timestamp;
         const mins = Math.floor(diff / 60000);

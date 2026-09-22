@@ -158,6 +158,12 @@ export function initChatEngine(deps) {
         const picker = document.getElementById('forwardPicker');
         const card = document.getElementById('forwardPickerCard');
         if (!picker) return;
+        // Forwarding is a write action into real conversations — the picker
+        // lists actual people, so a guest must never see it open.
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to forward messages to your own conversations.', 'Sign in to forward');
+            return;
+        }
         clearTimeout(forwardPickerCloseTimer);
         picker.classList.remove('hidden');
         if (card) {
@@ -240,12 +246,24 @@ export function initChatEngine(deps) {
         const prevStop = getStopCurrentChatListener();
         if (prevStop) prevStop();
 
-        currentLocalMsgs = await getLocalMessages(chatId);
+        const previewMessages = window.isChatPreview
+            ? window.CHAT_PREVIEW?.messages?.[chatId]
+            : null;
+        const isPreviewChat = !!previewMessages;
+        // Guests land at the TOP of the community preview so the demo reads
+        // as a story from its first message.  Only that chat, only while
+        // signed out — every other thread keeps anchoring to the newest
+        // message at the bottom.
+        const guestPreviewOpensAtTop = isPreviewChat && !window.isLoggedIn &&
+            chatId === getChatId((getCurrentUser() || {}).id, 'preview_centennial');
+        currentLocalMsgs = isPreviewChat
+            ? Object.entries(previewMessages).map(([key, message]) => ({ key, ...message }))
+            : await getLocalMessages(chatId);
         isLoaded = true;
         if (loadingTimer) clearTimeout(loadingTimer);
 
         // Fetch recent messages from Firebase to reconcile with local cache (restores any messages deleted locally but still in Firebase)
-        try {
+        if (!isPreviewChat) try {
             const remoteSnap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50)));
             if (remoteSnap.exists()) {
                 const remoteVal = remoteSnap.val() || {};
@@ -282,7 +300,7 @@ export function initChatEngine(deps) {
         chatBox.innerHTML = '';
         if (initialFrag.childNodes.length > 0) {
             chatBox.appendChild(initialFrag);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            chatBox.scrollTop = guestPreviewOpensAtTop ? 0 : chatBox.scrollHeight;
         } else {
             let placeholderHtml = `
                 <div class="font-semibold text-base">No messages here yet</div>
@@ -389,6 +407,11 @@ export function initChatEngine(deps) {
         chatBox._scrollListener = handleScroll;
         chatBox.addEventListener('scroll', handleScroll);
 
+        if (isPreviewChat) {
+            chatLoadingLock = null;
+            return;
+        }
+
         let isSyncing = true;
         let syncBuffer = [];
         const q = lastKey
@@ -479,11 +502,11 @@ export function initChatEngine(deps) {
 
             requestAnimationFrame(() => {
                 if (chatGeneration !== thisGeneration) return;
-                chatBox.scrollTop = chatBox.scrollHeight;
+                if (!guestPreviewOpensAtTop) chatBox.scrollTop = chatBox.scrollHeight;
                 chatBox.style.opacity = '1';
                 setTimeout(() => {
                     if (chatGeneration !== thisGeneration) return;
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                    if (!guestPreviewOpensAtTop) chatBox.scrollTop = chatBox.scrollHeight;
                 }, 50);
             });
 
@@ -586,7 +609,7 @@ export function initChatEngine(deps) {
         const tail = document.getElementById('quoteTail');
         if (tail) tail.innerText = "'s message: ";
         const input = document.getElementById('u-msg');
-        if (input) input.placeholder = "Type a message...";
+        if (input) input.placeholder = composerPlaceholder();
         liftComposerForPortfolio(false);
     }
 
@@ -902,6 +925,16 @@ export function initChatEngine(deps) {
         el.addEventListener('contextmenu', (e) => { e.preventDefault(); start(e); });
     }
 
+    // One placeholder source so no width/resize/quote path can hand a guest
+    // the signed-in "Type a message…" prompt.
+    function composerPlaceholder() {
+        if (!window.isLoggedIn) return 'Sign in to type a message';
+        const composerWidth = document.getElementById('chatInputPill')?.clientWidth || 0;
+        return window.innerWidth < 640 || (composerWidth > 0 && composerWidth < 430)
+            ? "Type a message..."
+            : "Type a message...Use Shift+Enter to change lines";
+    }
+
     function setComposerState({ disabled, placeholder, hideSend, hideCamera }) {
         const msgInput = document.getElementById('u-msg');
         if (!msgInput) return;
@@ -924,7 +957,12 @@ export function initChatEngine(deps) {
             if (!hideCamera) cameraBtn.style.display = safeGetIsPhotoDisabled() ? 'none' : 'block';
         }
         if (inputPill) {
-            if (disabled) {
+            // The full-bleed width only exists to cover the spot of the
+            // plus button that hidden-camera states (system/disbanded chats)
+            // leave behind.  A disabled composer that still shows the plus
+            // (guest preview) must keep the normal flex width, or the pill
+            // overflows past the panel's right edge.
+            if (disabled && hideCamera) {
                 inputPill.style.width = '100%';
                 inputPill.style.flex = 'none';
                 setTimeout(updateComposerPadding, 50);
@@ -943,6 +981,18 @@ export function initChatEngine(deps) {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
         if (!targetId || targetId === currentUser.id) return;
+
+        // The preview ships a fixed set of conversations.  Roster rows
+        // (classmates, the teacher) are visible but have no local thread;
+        // opening one would land on an empty chat wired to real Firebase
+        // paths, so route the visitor to sign in instead.
+        if (window.isChatPreview) {
+            const previewChatKey = targetId.startsWith('group_') ? targetId : getChatId(currentUser.id, targetId);
+            if (!window.CHAT_PREVIEW?.messages?.[previewChatKey]) {
+                window.promptSignIn?.('Sign in to start new conversations with your classmates.', 'Sign in to start a chat');
+                return;
+            }
+        }
         
         // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
         const isMobile = window.innerWidth < 640;
@@ -1015,6 +1065,13 @@ export function initChatEngine(deps) {
                     : "You have been removed from this chat. Messaging is disabled.",
                 hideSend: true,
                 hideCamera: true
+            });
+        } else if (window.isChatPreview) {
+            setComposerState({
+                disabled: true,
+                placeholder: composerPlaceholder(),
+                hideSend: false,
+                hideCamera: false
             });
         } else {
             setComposerState({
@@ -1771,6 +1828,10 @@ export function initChatEngine(deps) {
     };
 
     async function sendMsg(type = 'text', customVal = null) {
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to join the conversation and keep your work connected to the people who support it.', 'Sign in to send a message');
+            return;
+        }
         if (!AppModules.Security.checkRateLimit('msg', true)) return;
         const activeTargetId = getActiveTargetId();
         if (activeTargetId && activeTargetId.startsWith('group_')) {
@@ -1827,10 +1888,7 @@ export function initChatEngine(deps) {
         };
 
         const updatePlaceholder = () => {
-            const composerWidth = document.getElementById('chatInputPill')?.clientWidth || 0;
-            input.placeholder = window.innerWidth < 640 || (composerWidth > 0 && composerWidth < 430)
-                ? "Type a message..."
-                : "Type a message...Use Shift+Enter to change lines";
+            input.placeholder = composerPlaceholder();
         };
 
         input.addEventListener('input', () => {
@@ -1925,6 +1983,10 @@ export function initChatEngine(deps) {
     }
 
     function triggerPhotoUpload() {
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to share photos, annotated pages, and visual notes.', 'Sign in to share photos');
+            return;
+        }
         closeAttachMenu();
         if (safeGetIsPhotoDisabled()) {
             AppModules.Modal.alert("Photos Disabled", "Photo uploads are currently disabled.");
@@ -2036,6 +2098,10 @@ export function initChatEngine(deps) {
     }
 
     function chooseGdocNew() {
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to share a writing draft and keep feedback beside the work it belongs to.', 'Sign in to add a Google Doc');
+            return;
+        }
         setAttachView('input', 1);
         const input = document.getElementById('attachDocUrlInput');
         const err = document.getElementById('attachDocUrlError');
@@ -2066,6 +2132,10 @@ export function initChatEngine(deps) {
 
 
     async function chooseGdocExisting() {
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to re-share one of your synced drafts with a classmate, teacher, or group.', 'Sign in to send a saved doc');
+            return;
+        }
         const listEl = document.getElementById('attachDocList');
         const btn = document.getElementById('gdocExistingBtn');
         if (!listEl) return;
@@ -2175,6 +2245,10 @@ export function initChatEngine(deps) {
     }
 
     async function chooseGdocRequest() {
+        if (!window.isLoggedIn) {
+            window.promptSignIn?.('Sign in to create a secure request link for a writing draft.', 'Sign in to request a document');
+            return;
+        }
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
         if (!currentUser || !activeTargetId) return;
@@ -2398,6 +2472,10 @@ export function initChatEngine(deps) {
     // recently wins; a stale message copy can never hide state-backed comments.
 
     async function openWritingPortfolio(targetMsgKey = null, targetCommentId = null, targetDocId = null) {
+        if (!window.isLoggedIn && !window.isChatPreview) {
+            window.promptSignIn?.('Sign in to view the writing history connected to your conversations.', 'Sign in to view Writing Portfolio');
+            return;
+        }
         console.group('%c🟢 [WritingPortfolio] Opening', 'color:#0A84FF;font-weight:bold');
         
         const drawer = document.getElementById('writingPortfolioDrawer');
@@ -2497,7 +2575,12 @@ export function initChatEngine(deps) {
             
             // Retrieve all messages for this chat (merge local IndexedDB with Firebase RTDB for 100% sync)
             const fetchStart = Date.now();
-            let localMsgs = (await getLocalMessages(chatId)) || [];
+            const previewMessages = window.isChatPreview
+                ? window.CHAT_PREVIEW?.messages?.[chatId]
+                : null;
+            let localMsgs = previewMessages
+                ? Object.entries(previewMessages).map(([key, message]) => ({ key, ...message }))
+                : (await getLocalMessages(chatId)) || [];
             const localFetchTime = Date.now() - fetchStart;
             console.log(`   IndexedDB loaded ${localMsgs.length} messages in ${localFetchTime}ms`);
             
@@ -2507,7 +2590,7 @@ export function initChatEngine(deps) {
             });
             console.log('   IndexedDB messages indexed into Map:', msgMap.size);
 
-            try {
+            if (!previewMessages) try {
                 // Increased limit to ensure we capture documents that may be grouped
                 // but not visible in the most recent 150 messages. This prevents
                 // "doc not found" errors when opening portfolio from All Projects bar.
@@ -2696,7 +2779,7 @@ export function initChatEngine(deps) {
 
             // 1. Fetch manual project assignments
             let assignedProjects = {};
-            try {
+            if (!previewMessages) try {
                 const projSnap = await get(ref(db, `writing_projects/${chatId}`));
                 if (projSnap.exists()) {
                     assignedProjects = projSnap.val() || {};
@@ -2710,7 +2793,7 @@ export function initChatEngine(deps) {
 
             // Load the snapshot state (single source of truth) and seed the session cache,
             // so docs wiped by the legacy empty-overwrite bug recover from RTDB state.
-            try {
+            if (!previewMessages) try {
                 const stSnap = await get(ref(db, `writing_doc_state/${chatId}`));
                 if (stSnap.exists()) {
                     const docStates = stSnap.val() || {};

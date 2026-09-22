@@ -1238,3 +1238,161 @@ exports.submitDocRequest = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).ht
     await requestRef.child('docTitle').set(title);
     return { ok: true, title };
 });
+
+// ==========================================
+// CLASS JOIN LINK
+// Every class carries a forced "Class Join Link" extension: a permanent,
+// public page (/join.html?class=<id>) where a student types their school
+// email + name and submits a Google Doc. A correctly-formatted @inst.hcpss.org
+// identity and a comment-level Doc grant are the only requirements, so a
+// student can join a class before ever signing in. The Admin SDK performs
+// every write, so no new security rules are needed.
+// ==========================================
+const CLASS_ID_RE = /^[A-Za-z0-9_-]{8,40}$/;
+const STUDENT_EMAIL_RE = /^[a-z0-9][a-z0-9._-]{0,60}@inst\.hcpss\.org$/;
+
+function titleCaseName(part) {
+    const clean = String(part || '').trim().replace(/\s+/g, ' ').replace(/[<>&]/g, '').slice(0, 20);
+    return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : '';
+}
+
+async function loadJoinableClass(classId) {
+    if (!CLASS_ID_RE.test(classId)) return null;
+    const snap = await admin.database().ref(`classes/${classId}`).once('value');
+    const cls = snap.val();
+    if (!cls || typeof cls.name !== 'string' || !cls.name.trim()) return null;
+    return cls;
+}
+
+exports.readClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data) => {
+    const cls = await loadJoinableClass(String((data && data.classId) || ''));
+    if (!cls) {
+        throw new functions.https.HttpsError('not-found', 'This class link is not valid.');
+    }
+    let teacherName = '';
+    if (cls.teacherId) {
+        const teacherSnap = await admin.database().ref(`users/${cls.teacherId}/name`).once('value');
+        teacherName = String(teacherSnap.val() || '');
+    }
+    return { className: cls.name, teacherName, botEmail: getBotEmail() };
+});
+
+exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).https.onCall(async (data) => {
+    const payload = data || {};
+    const classId = String(payload.classId || '');
+    const cls = await loadJoinableClass(classId);
+    if (!cls) {
+        return { ok: false, reason: 'invalid_class', message: 'This class link is not valid. Please ask your teacher for a fresh link.' };
+    }
+
+    const email = String(payload.email || '').trim().toLowerCase();
+    if (!STUDENT_EMAIL_RE.test(email)) {
+        return { ok: false, reason: 'bad_email', message: 'Please use your school email address ending with @inst.hcpss.org.' };
+    }
+    const first = titleCaseName(payload.firstName);
+    const last = titleCaseName(payload.lastName);
+    if (!first || !last) {
+        return { ok: false, reason: 'bad_name', message: 'Enter both your first and last name.' };
+    }
+    const fullName = `${first} ${last}`;
+
+    const docUrl = String(payload.url || '').trim();
+    const fileId = extractGoogleDocId(docUrl);
+    if (!fileId || !docUrl.includes('docs.google.com/document/d/')) {
+        return { ok: false, reason: 'bad_url', message: 'Use a Google Doc link that looks like https://docs.google.com/document/d/...' };
+    }
+
+    // Same document gate as the doc-request link: the portfolio needs a real
+    // comment-level grant before anything is written.
+    const drive = getDriveReadonlyClient();
+    let fileInfo = null;
+    let accessError = null;
+    try {
+        const res = await drive.files.get({ fileId, supportsAllDrives: true, fields: FILE_GET_FIELDS });
+        fileInfo = res.data || null;
+    } catch (err) {
+        accessError = classifyGoogleError(err);
+        console.warn(`[ClassJoin] files.get failed (${accessError.status} ${accessError.reason})`);
+    }
+
+    if (!fileInfo) {
+        const status = (accessError && accessError.status) || 0;
+        if (!accessError || status === 401 || status === 429 || status >= 500 || looksLikeCredentialFailure(accessError)) {
+            return { ok: false, reason: 'retry', message: 'We could not check this document right now. Please try again in a moment.' };
+        }
+        return {
+            ok: false,
+            reason: 'no_access',
+            message: `We cannot open this document yet. Please share it with ${getBotEmail()} as a Commenter, or set access to "Anyone with the link can comment", then try again.`
+        };
+    }
+    if (fileInfo.mimeType && fileInfo.mimeType !== GOOGLE_DOC_MIME) {
+        return { ok: false, reason: 'not_a_doc', message: 'That link is not a Google Doc.' };
+    }
+    const caps = fileInfo.capabilities || {};
+    const commentVerified = caps.canComment === true || caps.canEdit === true;
+    const capsUnknown = caps.canComment === undefined && caps.canEdit === undefined;
+    if (!commentVerified && !capsUnknown) {
+        return {
+            ok: false,
+            reason: 'needs_comment',
+            message: `We can open "${fileInfo.name || 'this document'}", but only at a viewer level. Share it with ${getBotEmail()} as a Commenter, or change the access to "Anyone with the link can comment", and submit again.`
+        };
+    }
+
+    const db = admin.database();
+    const idPrefix = email.split('@')[0].replace(/\./g, '_');
+    const chatId = `group_${classId}`;
+
+    // Pre-create (or reuse) the account keyed by email. If the student later
+    // signs in with Microsoft, user.js resolves the same idPrefix from the
+    // email and the account becomes theirs.
+    const userRef = db.ref(`users/${idPrefix}`);
+    const existingUser = (await userRef.once('value')).val();
+    if (!existingUser) {
+        // firebase-admin v12 only exposes TIMESTAMP via the namespace
+        // (admin.database.ServerValue); the Database instance has no such getter.
+        const ts = admin.database.ServerValue.TIMESTAMP;
+        await userRef.set({
+            name: fullName,
+            role: 'student',
+            email: email,
+            lastSeen: ts,
+            registeredAt: ts,
+            hasAcceptedTerms: false,
+            joinedVia: 'class_link'
+        });
+        await db.ref(`user_search/${idPrefix}`).set({ name: fullName, email: email, avatar: null });
+    }
+
+    // The document belongs to the student, so it enters the class chat under
+    // their identity exactly like a message they had sent themselves.
+    const msgRef = db.ref(`messages/${chatId}`).push();
+    const messageKey = msgRef.key;
+    const senderName = (existingUser && existingUser.name) || fullName;
+    await msgRef.set({
+        senderId: idPrefix,
+        senderName: senderName,
+        timestamp: Date.now(),
+        text: docUrl,
+        type: 'text'
+    });
+
+    await db.ref(`classes/${classId}/students/${idPrefix}`).set(true);
+    const stamp = Date.now();
+    const touches = {
+        [`classes/${classId}/lastActivity`]: stamp,
+        [`user_chats/${idPrefix}/${chatId}`]: stamp
+    };
+    if (cls.teacherId) {
+        touches[`user_chats/${String(cls.teacherId).toLowerCase()}/${chatId}`] = stamp;
+    }
+    await db.ref().update(touches);
+
+    const sync = await runGoogleDocSync({ url: docUrl, chatId, messageKey });
+    return {
+        ok: true,
+        title: sync.title || fileInfo.name || 'Google Document',
+        existingAccount: !!existingUser
+    };
+});

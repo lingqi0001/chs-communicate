@@ -17,6 +17,8 @@ export const SidebarModule = {
     _isRenderingGetter: null,
     _isRenderingFlag: false,
     _queuedRender: false,
+    _renderStateKey: null,
+    _queuedStateKey: null,
     _refreshTimer: null,
     _subListLoadingTimer: null,
     _barLevel: null,
@@ -59,6 +61,9 @@ export const SidebarModule = {
     },
 
     _fetchUser(userId) {
+        if (typeof this._runtime.fetchUser === 'function') {
+            return this._runtime.fetchUser(userId);
+        }
         return Promise.race([
             window.fetchUser(userId),
             new Promise(resolve => setTimeout(() => resolve(null), this._offlineTimeoutMs()))
@@ -190,8 +195,9 @@ export const SidebarModule = {
         }, 60000);
     },
 
-    renderGuestSidebar(container) {
+    renderGuestSidebar(container, showRecentlyJoined = false) {
         if (!container) return;
+        delete container.dataset.sidebarListSignature;
         container.innerHTML = `
             <div id="guestSignInCard" class="flex-1 w-full flex flex-col justify-center items-center px-4 py-8 text-center select-none overflow-y-auto min-h-[360px] transition-all duration-300">
                 <div class="w-16 h-16 bg-[#E3F2FD] dark:bg-[#1e293b] rounded-[22px] rounded-bl-none flex items-center justify-center shadow-md mb-4 relative overflow-hidden">
@@ -242,23 +248,40 @@ export const SidebarModule = {
                 </div>
             </div>
         `;
+        if (showRecentlyJoined) {
+            const entry = document.createElement('button');
+            entry.type = 'button';
+            entry.className = 'w-full p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-left';
+            entry.innerHTML = `
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-[#007AFF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                </div>
+                <div class="flex flex-col overflow-hidden"><span class="font-bold text-base text-black dark:text-white leading-tight">Recently Joined</span><span class="text-xs text-gray-400 mt-0.5">Meet new community members</span></div>`;
+            entry.onclick = () => { window.sidebarMode = 'recent_joined'; this.renderSidebar(); };
+            container.insertBefore(entry, container.firstChild);
+        }
     },
 
     async _renderShell(isTabSwitch = false) {
+        const requestedStateKey = `${window.sidebarMode || 'recent'}:${window.currentClassId || ''}:${window.isLoggedIn ? 'auth' : 'guest'}:${window.isChatPreview ? 'preview' : 'live'}`;
         // A click (e.g. Back) that lands mid-render must not be swallowed —
-        // queue it and replay once the current render releases the flag.
+        // queue only a *different* destination.  Sync callbacks used to queue
+        // the same tab again and replay its complete entrance after the click.
         if (this.isRendering()) {
-            this._queuedRender = true;
+            if (requestedStateKey !== this._renderStateKey) {
+                this._queuedRender = true;
+                this._queuedStateKey = requestedStateKey;
+            }
             return;
         }
+        this._renderStateKey = requestedStateKey;
         const rt = this._runtime;
         const container = document.getElementById('sidebarList');
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container) return;
-        if (!currentUser || !window.isLoggedIn) {
-            this.renderGuestSidebar(container);
-            return;
-        }
+        // Preview data follows the authenticated renderer exactly.  Only its
+        // runtime source is local and fixed; real authentication stays false.
+        const isGuest = !currentUser || (!window.isLoggedIn && !window.isChatPreview);
 
         this._isRenderingFlag = true;
         try {
@@ -277,6 +300,27 @@ export const SidebarModule = {
             const level2Container = container.querySelector('#sidebarLevel2Container');
             const chrome = container.querySelector('#sidebarChrome');
             this._ensureChrome(chrome);
+
+            // Public mode uses the exact same sidebar chrome.  It simply never
+            // asks Firebase for a person's conversations or roster.
+            if (isGuest) {
+                if (window.sidebarMode === 'recent_joined') {
+                    level1Container.classList.add('hidden');
+                    level2Container.classList.remove('hidden');
+                    level2Container.innerHTML = '<div class="h-full flex flex-col"><div id="sidebarSubList" class="flex-1 overflow-y-auto"></div></div>';
+                    this._setBarLevel(2, 'Recently Joined');
+                    this.renderGuestSidebar(level2Container.querySelector('#sidebarSubList'));
+                } else {
+                    window.currentClassId = null;
+                    level2Container.classList.add('hidden');
+                    level1Container.classList.remove('hidden');
+                    level1Container.innerHTML = '<div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>';
+                    this._setBarLevel(1);
+                    const subList = level1Container.querySelector('#sidebarSubList');
+                    this.renderGuestSidebar(subList, window.sidebarMode === 'recent');
+                }
+                return;
+            }
 
             // Establish stacking context on Level 1 so Level 2 (z-index 20) naturally overlays Level 1 scrollbar (z-index 50)
             if (level1Container) {
@@ -440,8 +484,12 @@ export const SidebarModule = {
         } finally {
             this._isRenderingFlag = false;
             if (this._queuedRender) {
+                const queuedStateKey = this._queuedStateKey;
                 this._queuedRender = false;
-                this.renderSidebar();
+                this._queuedStateKey = null;
+                if (queuedStateKey && queuedStateKey !== this._renderStateKey) {
+                    this.renderSidebar();
+                }
             }
         }
     },
@@ -458,7 +506,14 @@ export const SidebarModule = {
         this._syncTabState();
 
         const subList = level1Container.querySelector('#sidebarSubList');
-        if (isTabSwitch || window._isPopNav) {
+        const tabAnimationKey = `${window.sidebarMode || 'recent'}:${window.currentClassId || ''}`;
+        // A sync-triggered render can be queued while the click render is
+        // still settling.  It carries the same tab state, so it must not
+        // restart the list entrance animation.
+        const shouldAnimateTab = isTabSwitch && this._lastTabAnimationKey !== tabAnimationKey;
+        if (shouldAnimateTab) this._lastTabAnimationKey = tabAnimationKey;
+        const shouldAnimateList = shouldAnimateTab || window._isPopNav;
+        if (shouldAnimateList) {
             subList?.classList.remove('sidebar-pop', 'sidebar-push', 'tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
         }
 
@@ -474,7 +529,7 @@ export const SidebarModule = {
         if (window.sidebarMode === 'class') this.renderClassLevel1(subList);
         else this.renderUserSidebarItems(subList);
 
-        if (isTabSwitch || window._isPopNav) {
+        if (shouldAnimateList) {
             void subList.offsetWidth;
             requestAnimationFrame(() => {
                 if (animType === 'micro') {
@@ -703,10 +758,6 @@ export const SidebarModule = {
         };
         this._spawnFlyPill(pending.name, fromRect, toRect, {
             morph: true, startScale: 1.25, endScale: 1, echoText: pending.echo,
-            anchor: () => {
-                const r = titleEl.getBoundingClientRect();
-                return r.width ? r : null;
-            },
             onDock: () => {
                 titleEl.classList.remove('title-handoff');
                 this._clearRowHandoff();
@@ -748,7 +799,6 @@ export const SidebarModule = {
         this._setRowHandoff(rf.id);
         this._spawnFlyPill(rf.name, rf.fromRect, toRect, {
             morph: false, startScale: 1, endScale: 1, echoText: rf.echo,
-            anchor: () => this._rowTextRect(rf.id),
             onDock: () => this._clearRowHandoff()
         });
         return undefined;
@@ -791,11 +841,11 @@ export const SidebarModule = {
             to: [Math.round(toRect.left), Math.round(toRect.width)],
             t: performance.now() | 0
         }));
-        // The path is rAF-driven, not a baked WAAPI endpoint: entering a
-        // class changes the chat's content height, the page scrollbar can
-        // appear/disappear mid-flight and shift the whole panel ~15px, which
-        // made any launch-time prediction stale on arrival. Every frame
-        // re-reads the live anchor, so the pill tracks its real target.
+        // The destination is the resting title/row geometry captured after
+        // the Level change.  Do not chase a live anchor here: while the bar
+        // is springing from centre to left and its title group is sliding in,
+        // a live target makes the flying label reverse horizontally several
+        // times.  The bar settles in 420ms, before this 480ms flight docks.
         const dur = 480;
         const easeOut = t => 1 - Math.pow(1 - t, 4);
         pill.style.transform = `translate(${sx}px, ${sy}px) scale(${startScale})`;
@@ -846,25 +896,13 @@ export const SidebarModule = {
             }).catch(() => {});
         };
         const t0 = performance.now();
-        // The anchor is a live rect, and reading one every frame forces a
-        // layout pass while the sheet is being clipped and the bar is
-        // transitioning — that is what dropped the flight to a few visible
-        // steps. Re-measure on a beat and coast between reads; the last frame
-        // always reads fresh so the dock stays pixel-exact.
-        let a = toRect, aAt = 0;
         const tick = (now) => {
             if (this._fly !== f || f.dissolving) return;
             const p = Math.min(1, (now - t0) / dur);
             const ex = easeOut(p);
             const ey = easeOut(Math.min(1, p * 0.92)); // y lags x: gentle arc
-            if (opts.anchor && (p >= 1 || now - aAt > 32)) {
-                const r = opts.anchor();
-                if (r) { a = r; aAt = now; }
-            }
-            const ax = a.left + a.width / 2 - cx;
-            const ay = a.top + a.height / 2 - cy;
             const s = startScale + (endScale - startScale) * ex;
-            pill.style.transform = `translate(${sx + (ax - sx) * ex}px, ${sy + (ay - sy) * ey}px) scale(${s})`;
+            pill.style.transform = `translate(${sx * (1 - ex)}px, ${sy * (1 - ey)}px) scale(${s})`;
             if (p < 1) { f.raf = requestAnimationFrame(tick); return; }
             dissolve();
         };
@@ -1304,7 +1342,22 @@ export const SidebarModule = {
                 const teacherActive = activeTargetId === c.teacherId;
                 const groupActive = activeTargetId === `group_${window.currentClassId}`;
 
-                let extensionHtml = '';
+                // The Class Join Link is a forced extension: it is never stored in
+                // class data and can never be switched off, so it renders first.
+                const joinLinkRow = `
+                    <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm text-black dark:text-white">Class Join Link</div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Class Tool · Always On</div>
+                        </div>
+                    </div>
+                `;
+                let extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + joinLinkRow;
                 if (c.extensions) {
                     const activeExts = Object.keys(c.extensions).filter(eid => c.extensions[eid] === true);
                     if (activeExts.length > 0) {
@@ -1327,9 +1380,7 @@ export const SidebarModule = {
                                 `;
                             }
                         });
-                        if (innerHtml) {
-                            extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + innerHtml;
-                        }
+                        extensionHtml += innerHtml;
                     }
                 }
 
@@ -1409,6 +1460,9 @@ export const SidebarModule = {
         const rt = this._runtime;
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
+        // The guest preview now feeds a fictional class through the same
+        // `classes` runtime contract, so the authenticated renderer paints
+        // it verbatim — same eagle row, same fly-into-roster transition.
         return (async () => {
             // The Level 1 list DOM is reused across tabs and the Recently
             // Joined entry also carries data-class-id, so "already showing
@@ -1476,6 +1530,11 @@ export const SidebarModule = {
                     });
                 }
 
+                container.dataset.listMode = 'class';
+                // The class rows replace the shared subList wholesale, so the
+                // user-list paint signature is no longer truthful — leaving it
+                // would make the next recent/all render skip its repaint.
+                delete container.dataset.sidebarListSignature;
                 container.replaceChildren(wrapper);
                 window._isPopNav = false;
             } catch (err) {
@@ -1492,6 +1551,12 @@ export const SidebarModule = {
         const rt = this._runtime;
         const currentUser = rt.getCurrentUser ? rt.getCurrentUser() : null;
         if (!container || !rt.db || !currentUser) return undefined;
+        if (window.isChatPreview) {
+            this._renderBarActions(null);
+            container.innerHTML = '<div class="flex flex-col h-full bg-white dark:bg-[#1C1C1E]"><div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div></div>';
+            this.renderGuestSidebar(container.querySelector('#sidebarSubList'));
+            return undefined;
+        }
         return (async () => {
             const stagger = this._rowsToStagger;
             this._rowsToStagger = false;
@@ -1684,6 +1749,17 @@ export const SidebarModule = {
             }
 
                 const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
+                // Sync and tab navigation can finish their reads in the same
+                // frame.  If they resolve to the same visible list, retaining
+                // the DOM prevents the second paint from replaying the list.
+                const listSignature = `${listMode}|${activeTargetId || ''}|${sortedIds.join('|')}`;
+                if (subList.dataset.sidebarListSignature === listSignature) {
+                    if (this._subListLoadingTimer) {
+                        clearTimeout(this._subListLoadingTimer);
+                        this._subListLoadingTimer = null;
+                    }
+                    return;
+                }
                 for (const id of sortedIds) {
                 if (id.toLowerCase() === currentUser.id.toLowerCase()) continue;
                 if (!id.startsWith('group_') && (id.includes('_gmail_') || id.includes('_inst_'))) continue;
@@ -1807,8 +1883,20 @@ export const SidebarModule = {
                     this._subListLoadingTimer = null;
                 }
                 if (currentListMode() !== listMode) return;
-                subList.innerHTML = '';
-                subList.appendChild(fragment);
+                subList.dataset.listMode = listMode;
+                subList.dataset.sidebarListSignature = listSignature;
+                if (window.isChatPreview && (listMode === 'recent' || listMode === 'all')) {
+                    // Reuse the original login card verbatim beneath the
+                    // preview rows; do not replace the authenticated list UI.
+                    const signInHost = document.createElement('div');
+                    this.renderGuestSidebar(signInHost);
+                    const signInCard = signInHost.querySelector('#guestSignInCard');
+                    if (signInCard) fragment.appendChild(signInCard);
+                }
+                // Insert every target row in a single DOM operation.  Appending
+                // the login card afterwards caused a second layout pass during
+                // the tab entrance, which read as a repeated animation.
+                subList.replaceChildren(fragment);
             } catch (err) {
                 if (this._subListLoadingTimer) {
                     clearTimeout(this._subListLoadingTimer);
@@ -1821,6 +1909,56 @@ export const SidebarModule = {
                 }
             }
         })();
+    },
+
+    openClassJoinLink(classId) {
+        const link = `${location.origin}/join.html?class=${classId}`;
+        const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
+        tEl.innerText = 'Class Join Link';
+        bEl.innerHTML = `
+            <div class="space-y-3 text-left">
+                <p class="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">This extension is built into every class and cannot be turned off. Students open the link, enter their school email and name, then submit a Google Doc shared at Commenter level. They join the class roster automatically and their document appears in the class chat.</p>
+                <input type="text" id="classJoinLinkInput" readonly value="${window.escapeHTML(link)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-sm text-black dark:text-white select-all">
+                <p class="text-[11px] text-gray-400">No sign-in needed. Anyone with the link can join, any time.</p>
+            </div>
+        `;
+        cancelBtn.classList.remove('hidden');
+        cancelBtn.innerText = 'Close';
+        confirmBtn.innerText = 'Copy Link';
+
+        let timer = null;
+        const close = () => {
+            if (timer) clearTimeout(timer);
+            modal.classList.add('opacity-0');
+            timer = setTimeout(() => {
+                modal.classList.add('hidden');
+                timer = null;
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            }, 300);
+        };
+
+        cancelBtn.onclick = close;
+        confirmBtn.onclick = () => {
+            const done = () => {
+                confirmBtn.innerText = 'Copied!';
+                setTimeout(close, 500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link).then(done).catch(done);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = link;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                ta.remove();
+                done();
+            }
+        };
+
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
     },
 
     openStudentSelector(classId) {
@@ -1896,6 +2034,26 @@ export const SidebarModule = {
                 extensionsState[eid] = !!isChecked;
             };
 
+            // Forced extension: rendered in every Edit Class dialog with the
+            // switch locked on. It is never written to class data.
+            const forcedExtRow = `
+                <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" /></svg>
+                        </div>
+                        <div class="flex flex-col text-left">
+                            <span class="font-bold text-sm text-black dark:text-white">Class Join Link</span>
+                            <span class="text-[10px] text-gray-400 uppercase tracking-tight">Built into every class · always on</span>
+                        </div>
+                    </div>
+                    <div class="relative inline-flex items-center opacity-60" title="Always on">
+                        <input type="checkbox" class="sr-only" checked disabled>
+                        <div class="w-11 h-6 rounded-full after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 bg-[#007AFF]"></div>
+                    </div>
+                </div>
+            `;
+
             const renderExtensionsList = (filter = '') => {
                 const termLower = filter.toLowerCase().trim();
                 const filteredKeys = registryKeys.filter(eid => {
@@ -1904,9 +2062,9 @@ export const SidebarModule = {
                     if (!item) return false;
                     return item.title.toLowerCase().includes(termLower) || (item.category || '').toLowerCase().includes(termLower);
                 });
-                if (filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
+                if (!'class join link'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
 
-                return filteredKeys.map(eid => {
+                return forcedExtRow + filteredKeys.map(eid => {
                     const regItem = registry[eid];
                     const isSelected = extensionsState[eid];
                     return `
