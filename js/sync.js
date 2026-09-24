@@ -118,6 +118,7 @@ export const SyncModule = {
         if (syncHint) syncHint.classList.add('opacity-100');
 
         const newsTabs = ['school', 'club'];
+        let newsCloudMiss = false;
         for (const tab of newsTabs) {
             try {
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
@@ -129,6 +130,7 @@ export const SyncModule = {
                     // Offline boot: the IndexedDB copy is the only source this
                     // session, so render it and skip the cloud listeners.
                     console.warn(`Sync: news/${tab} unreachable, serving local cache:`, remoteErr.message);
+                    newsCloudMiss = true;
                     const localOnly = await DBModule.Local.getNews(tab);
                     if (this.callbacks.renderNews) {
                         this.callbacks.renderNews(localOnly, containerId, tab);
@@ -185,6 +187,7 @@ export const SyncModule = {
                 }
             }
         }
+        this._newsCloudMiss = newsCloudMiss;
         console.log('Sync: News sync complete.');
 
         // 5. Synchronize Social Modules Feeds (Marketplace, Suggestion, etc.)
@@ -319,6 +322,15 @@ export const SyncModule = {
         if (prev === offline) return;
         window.isOffline = offline;
         console.log(`Sync: connection state → ${offline ? "offline" : "online"} (${source})`);
+        if (!offline && this._newsCloudMiss) {
+            // Boot raced the RTDB handshake: news was painted from cache only.
+            // One retry now that the socket is actually up.
+            this._newsCloudMiss = false;
+            console.log('Sync: back online - retrying news fetch');
+            setTimeout(() => {
+                try { if (typeof window.globalDataSync === 'function') window.globalDataSync(); } catch (e) {}
+            }, 300);
+        }
         document.dispatchEvent(new CustomEvent("connection:status", {
             detail: { offline, source }
         }));

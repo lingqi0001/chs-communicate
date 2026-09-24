@@ -160,7 +160,7 @@
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
-        "./js/sync.js": "./js/sync.js?v=20260924-offline-11",
+        "./js/sync.js": "./js/sync.js?v=20260924-offline-12",
         "./js/sidebar.js": "./js/sidebar.js?v=20260924-offline-11",
         "./js/extensions.js": "./js/extensions.js?v=20260924-apcsa-3",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
@@ -683,6 +683,8 @@
                         if (typeof window.openExtension === 'function') window.openExtension('honor_roll', 'extensions/staff/Honor Roll.html', 'Honor Roll');
                     } else if (openTarget === 'developer' || openTarget === 'developer_portal' || openTarget === 'docs' || openTarget === 'developer-portal') {
                         if (typeof window.openExtension === 'function') window.openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents');
+                    } else if (openTarget === 'apcsa' || openTarget === 'ap-csa' || openTarget === 'ap_csa_visual_lab') {
+                        if (typeof window.openExtension === 'function') window.openExtension('ap_csa_visual_lab', 'extensions/school/ap-csa/AP CSA Visual Lab.html', 'AP CSA Visual Lab');
                     } else if (typeof window.openModule === 'function') {
                         window.openModule(openTarget);
                     }

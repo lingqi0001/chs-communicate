@@ -85,6 +85,14 @@
       "destination": "/?open=suggestions&tab=tools"
     },
     {
+      "source": "/apcsa",
+      "destination": "/?open=ap_csa_visual_lab&tab=tools"
+    },
+    {
+      "source": "/ap-csa",
+      "destination": "/?open=ap_csa_visual_lab&tab=tools"
+    },
+    {
       "source": "/assets/:match*",
       "destination": "/extensions/fun/assets/:match*"
     }
