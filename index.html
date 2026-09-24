@@ -133,7 +133,7 @@
     <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#007AFF">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="vendor/tailwind-play.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -142,34 +142,34 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260921-germinate-v9">
+    <link rel="stylesheet" href="style.css?v=20260923-offline-12">
 
     <script type="importmap">
     {
       "imports": {
-        "./js/core.js": "./js/core.js?v=20260918-portfolio-delete-v1",
+        "./js/core.js": "./js/core.js?v=20260923-offline-10",
         "./js/config.js": "./js/config.js?v=20260516-2380",
-        "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
-        "./js/user.js": "./js/user.js?v=20260516-2380",
-        "./js/view.js": "./js/view.js?v=20260921-accentdisc-v2",
-        "./js/notify_v2.js": "./js/notify_v2.js?v=20260918-2",
-        "./js/modal.js": "./js/modal.js?v=20260921-modalglass-v7",
-        "./js/utils.js": "./js/utils.js?v=20260921-previewstatus-v1",
+        "./js/db.js": "./js/db.js?v=20260923-offline-2",
+        "./js/user.js": "./js/user.js?v=20260923-offline-6",
+        "./js/view.js": "./js/view.js?v=20260923-settings-sidebar-5",
+        "./js/notify_v2.js": "./js/notify_v2.js?v=20260923-offline-2",
+        "./js/modal.js": "./js/modal.js?v=20260922-lgpref-1",
+        "./js/utils.js": "./js/utils.js?v=20260923-offline-9",
         "./js/writing.js": "./js/writing.js?v=20260921-previewpostguard-v1",
         "./js/ui-components.js": "./js/ui-components.js?v=20260921-accentdisc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
-        "./js/gallery.js": "./js/gallery.js?v=20260516-2380",
-        "./js/sync.js": "./js/sync.js?v=20260519-0925",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260921-classjoinlink-v1",
-        "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
+        "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
+        "./js/sync.js": "./js/sync.js?v=20260923-offline-9",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260923-offline-9",
+        "./js/extensions.js": "./js/extensions.js?v=20260923-offline-12",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
-        "./js/auth.js": "./js/auth.js?v=20260519-0935",
+        "./js/auth.js": "./js/auth.js?v=20260923-offline-3",
         "./js/security.js": "./js/security.js?v=20260519-0935",
-        "./js/search.js": "./js/search.js?v=20260921-sidebar-tab-glass-v4",
-        "./js/settings.js": "./js/settings.js?v=20260522-structsplit-1",
+        "./js/search.js": "./js/search.js?v=20260922-lgpref-1",
+        "./js/settings.js": "./js/settings.js?v=20260923-settings-sidebar-5",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260921-previewtopscroll-v1"
+        "./js/chat.js": "./js/chat.js?v=20260923-offline-10"
       }
     }
     </script>
@@ -189,6 +189,9 @@
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
         import { GalleryModule } from './js/gallery.js';
         import { SyncModule } from './js/sync.js';
+        import { ConnectionModule } from './js/connection.js?v=20260923-offline-9';
+        import { DirectoryModule } from './js/directory.js?v=20260923-offline-8';
+        import { DraftsModule } from './js/drafts.js?v=20260923-offline-10';
         import { SidebarModule } from './js/sidebar.js';
         import { ExtensionModule } from './js/extensions.js';
         import { BridgeModule } from './js/bridge.js';
@@ -196,7 +199,7 @@
         import { SecurityModule } from './js/security.js';
         import { SearchModule } from './js/search.js';
         import { initChatEngine } from './js/chat.js';
-        import { createNewsModule } from './js/news.js?v=20260919-cafteaser-8';
+        import { createNewsModule } from './js/news.js?v=20260923-offline-3';
         import { SettingsModule } from './js/settings.js';
         window.SettingsModule = SettingsModule;
         if (typeof SettingsModule.ensureSettingsModal === 'function') {
@@ -205,7 +208,7 @@
         import { AdminModule } from './js/admin.js';
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
-        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260919-cafcalendar-7';
+        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260923-cafweekfull-1';
 
 
 
@@ -222,6 +225,9 @@
             Gallery: GalleryModule,
             UI: UIComponents,
             Sync: SyncModule,
+            Connection: ConnectionModule,
+            Directory: DirectoryModule,
+            Drafts: DraftsModule,
             Sidebar: SidebarModule,
             Extension: ExtensionModule,
             Bridge: BridgeModule,
@@ -326,7 +332,6 @@
         const APP_START_TIME = Date.now();
 
         window.isPhotoDisabled = false;
-        window.isSidebarAnimating = false;
         window.currentClassId = null;
 
         Object.defineProperty(window, 'isSyncDone', {
@@ -566,6 +571,10 @@
                 window.isLoggedIn = true;
                 document.body.classList.add('is-logged-in');
                 document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
+                if (window._localBootDone && String(user.email || '').toLowerCase() === String(AppModules.User.current?.email || '').toLowerCase()) {
+                    console.log('App: Auth resolved after local boot for the same account. Skipping re-entry.');
+                    return;
+                }
                 return AuthModule.setupUser(user);
             },
             () => {
@@ -573,9 +582,68 @@
                     const devId = 'device_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                     localStorage.setItem('deviceId', devId);
                 }
+                window._localBootDone = false;
                 window.initPublicGuestShell();
             }
         );
+
+        // Offline boot: Firebase Auth will not release the cached user until its
+        // own token refresh has failed (~10s of dead loading screen), and that
+        // wait lives inside the SDK. When the cloud is known-unreachable we enter
+        // straight from the last profile this browser saw; the real-time
+        // listeners mounted by enterApp reconcile everything once the network is
+        // back, and the late auth callback is skipped above when it is the same
+        // account.
+        window._localBootDone = false;
+        window.showOfflineLoadingStatus = (willLoadLocal) => {
+            const line1 = document.getElementById('loadingStatusLine1');
+            const line2 = document.getElementById('loadingStatusLine2');
+            if (line1) line1.textContent = "Couldn't reach the server.";
+            if (line2 && willLoadLocal) line2.classList.remove('hidden');
+        };
+        window.bootFromLocalProfile = (reason) => {
+            if (window._appEntered || window._localBootDone) return;
+            const cached = AppModules.User.cachedProfile();
+            if (!cached) {
+                // Nothing local to fall back to. Only say the server is
+                // unreachable when we actually know it is; a slow network must
+                // not put a false claim on the loading screen.
+                if (window.cloudUnreachable?.()) window.showOfflineLoadingStatus(false);
+                return;
+            }
+            console.log(`App: Local boot (${reason}) as ${cached.email}`);
+            window.showOfflineLoadingStatus(true);
+            window._localBootDone = true;
+            AppModules.User.current = cached;
+            window.isLoggedIn = true;
+            document.body.classList.add('is-logged-in');
+            document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
+            window.enterApp();
+        };
+
+        if (navigator.onLine === false) {
+            // One tick later: enterApp is defined further down this same script.
+            setTimeout(() => window.bootFromLocalProfile('offline at startup'), 0);
+        } else {
+            setTimeout(() => window.bootFromLocalProfile('no session after 3s'), 3000);
+        }
+
+        // Online, the user_chats listener picks a conversation on its own
+        // (chat.js pickFirstRegularChat). Offline that listener never fires, so
+        // reopen whatever the user was last reading; that is also what fills the
+        // chat name bar and the right-hand action bar.
+        window._offlineChatOpened = false;
+        window.openLastChatOffline = () => {
+            if (window._offlineChatOpened || !window.cloudUnreachable?.()) return;
+            const last = window.Directory?.lastChat();
+            if (!last || !window.switchChat) return;
+            window._offlineChatOpened = true;
+            console.log(`App: Offline, reopening last chat ${last}`);
+            window.switchChat(last);
+        };
+        document.addEventListener('connection:status', (e) => {
+            if (e.detail?.offline) window.openLastChatOffline();
+        });
 
         window.handleDirectRouteAndParams = () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -684,6 +752,8 @@
             window.isLoggedIn = false;
             window.currentUser = null;
             document.body.classList.remove('is-logged-in');
+            AppModules.Connection.init();
+            AppModules.Sync.initConnectionStatus(db);
             console.log('App: Initializing Public Guest Shell (Hub & Tools first)...');
 
             // Fixed, local-only preview data.  The Sidebar receives it through
@@ -1183,6 +1253,8 @@
 
 
         window.enterApp = async () => {
+            window._appEntered = true;
+            window.bootMark?.('enterApp start');
             // The public shell borrows the sidebar renderer, but it must never
             // survive into an authenticated session.
             window.isChatPreview = false;
@@ -1196,7 +1268,7 @@
             }
 
             try {
-                const settingsSnap = await get(ref(db, 'settings'));
+                const settingsSnap = await window.withNetworkTimeout(get(ref(db, 'settings')));
                 const settingsData = settingsSnap?.val() || {};
                 SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
                 SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl;
@@ -1246,11 +1318,13 @@
             });
 
 
-            if (AppModules.User.isAdmin()) {
-                document.getElementById('adminPanel')?.classList.remove('hidden');
-            } else {
-                document.getElementById('adminPanel')?.classList.add('hidden');
-            }
+            // #adminPanel visibility is managed by SettingsModule.initSettingsUI
+            // (settings sidebar gate). Do not toggle it here.
+            // if (AppModules.User.isAdmin()) {
+            //     document.getElementById('adminPanel')?.classList.remove('hidden');
+            // } else {
+            //     document.getElementById('adminPanel')?.classList.add('hidden');
+            // }
 
             AppModules.View.showPage('mainPage');
             AppModules.View.applyDesktopPanelLayout?.(localStorage.getItem('panelLayout') || 'three');
@@ -1342,6 +1416,9 @@
 
             AppModules.Sync.initPresence(db, currentUser);
 
+            AppModules.Sync.initConnectionStatus(db);
+            AppModules.Connection.init();
+
             AppModules.Sync.startGroupSync(db, currentUser);
 
             if (window.AppModules.Auth) {
@@ -1352,6 +1429,7 @@
             hideLoading();
 
             window.handleDirectRouteAndParams();
+            window.openLastChatOffline();
         };
 
 
@@ -1416,8 +1494,6 @@
 
         window.AppView = AppModules.View;
         window.switchLeftTab = (tab) => AppModules.View.switchLeftTab(tab);
-        window.goBackToClassList = () => AppModules.View.goBackToClassList();
-        window.goBackToRecent = () => AppModules.View.goBackToRecent();
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && activeTargetId) {
@@ -1547,7 +1623,6 @@
                     document.getElementById('chatSearchWrap')?.classList.add('hidden');
                 }
             },
-            getActiveTargetId: () => activeTargetId,
             getCtCache: () => ctCache,
             getSidebarClasses: () => sidebarClasses,
             getIsSyncDone: () => isSyncDone,
@@ -2488,7 +2563,6 @@
                             el.classList.remove('absolute', 'h-full', 'top-0', 'left-0', 'slide-in-left', 'slide-in-right');
                         }
                     });
-                    window.isTabAnimating = false;
 
                     if (!isMobile) {
                         // Switch to Desktop: Use AppView to show all panels
@@ -2638,52 +2712,6 @@
 
 
         // Class Management Functions
-        window.openClassEdit = async (classId) => {
-            const snap = await get(ref(db, `classes/${classId}`));
-            const c = snap.val();
-            if (!c) return;
-
-            // 1. Edit Name
-            const newName = await AppModules.Modal.prompt("Edit Class Name", "Enter the new name for this class:", c.name);
-            if (newName === null) return;
-            if (newName.trim() && newName.trim() !== c.name) {
-                await update(ref(db, `classes/${classId}`), { name: newName.trim() });
-            }
-
-            // 2. Manage Roster
-            const rosterAction = await AppModules.Modal.confirm("Manage Roster", "Would you like to add a new student by email?", "Add Student");
-            if (rosterAction) {
-                const email = await AppModules.Modal.prompt("Add Student", "Enter the student's HCPSS email address:");
-                if (email) {
-                    const usersSnap = await get(query(ref(db, 'users'), orderByChild('email'), equalTo(email.toLowerCase().trim())));
-                    if (!usersSnap.exists()) {
-                        await AppModules.Modal.alert("Error", "No registered user found with that email.");
-                    } else {
-                        const uid = Object.keys(usersSnap.val())[0];
-                        await update(ref(db, `classes/${classId}/students`), { [uid]: true });
-                        await AppModules.Modal.alert("Success", "Student added to the class roster.");
-                    }
-                }
-            }
-
-            const extAction = await AppModules.Modal.confirm("Manage Extensions", "Which extension would you like to manage?", "IR Hub", "3D Volume");
-            if (extAction !== null) {
-                const eid = extAction ? 'independent_research' : 'calc_volume_3d';
-                const name = extAction ? 'IR Navigator' : '3D Volume Visualizer';
-                const isEnabled = c.extensions && c.extensions[eid];
-                const toggle = await AppModules.Modal.confirm(
-                    name,
-                    `${name} is currently <b>${isEnabled ? 'ENABLED' : 'DISABLED'}</b>. Would you like to ${isEnabled ? 'REMOVE' : 'ACTIVATE'} it?`,
-                    isEnabled ? "DEACTIVATE" : "ACTIVATE"
-                );
-                if (toggle) {
-                    await update(ref(db, `classes/${classId}/extensions`), { [eid]: !isEnabled });
-                    await AppModules.Modal.alert("Success", `Extension updated successfully.`);
-                }
-            }
-
-            AppModules.Sidebar.renderSidebar();
-        };
 
         window.addNewClass = async () => {
             const name = await AppModules.Modal.prompt("Create New Class", "Enter the name for the new class:");
@@ -2748,6 +2776,13 @@
         // Global error helper
         window.showError = function (err) {
             console.error('App Error:', err);
+            const msg = (err && err.message) || String(err || '');
+            // Offline degrades through the red banners; a hung-then-timed-out
+            // read must not escalate into the full-screen failure overlay.
+            if (window.isOffline && /offline-timeout|network-timeout|ERR_CONNECTION|Failed to fetch|NetworkError/i.test(msg)) {
+                console.warn('App: Suppressed Startup Failure while offline:', msg);
+                return;
+            }
             const overlay = document.getElementById('errorOverlay');
             const msgEl = document.getElementById('errorMessage');
             if (overlay && msgEl) {
@@ -2841,6 +2876,10 @@
 
                 // Notify user about network timeout with an English native alert
                 setTimeout(() => {
+                    // Offline is already announced by the red banners; this one
+                    // is for slow-but-connected networks, where it is the only
+                    // signal the user gets.
+                    if (navigator.onLine === false) return;
                     alert("Network Timeout:\nIt is taking longer than usual to load application files due to a slow connection.\n\nIf the page remains empty or messages fail to load, please reload the page.");
                 }, 600);
             }
@@ -2898,6 +2937,12 @@
             </div>
             <div class="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6">
                 <div class="w-full h-full bg-[#007AFF] animate-progress origin-left"></div>
+            </div>
+            <div class="mt-5 text-center space-y-0.5 px-6">
+                <div id="loadingStatusLine1" class="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
+                    Loading from the server…</div>
+                <div id="loadingStatusLine2" class="hidden text-[13px] font-semibold text-black dark:text-white">
+                    Loading from this device.</div>
             </div>
         </div>
     </div>
@@ -3023,51 +3068,53 @@
 
     <div id="galleryModal"
         class="hidden fixed inset-0 z-[3000] bg-black/80 backdrop-blur-xl flex flex-col overflow-hidden">
-        <header class="flex-shrink-0 h-16 flex items-center justify-between px-6 pt-safe z-[3005] relative">
-            <button id="gallerySaveBtn" class="text-[#007AFF] text-[17px] font-medium hover:opacity-70 transition-opacity">Save</button>
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/10 dark:bg-white/5 border border-white/15 px-2 py-1 rounded-xl backdrop-blur-md shadow-lg z-[3010]">
-                <button id="galleryZoomOutBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Zoom Out">
-                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
-                    </svg>
-                </button>
-                <button id="galleryZoomInBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Zoom In">
-                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-                    </svg>
-                </button>
-                <div class="w-[1px] h-5 bg-white/15 mx-1"></div>
-                <button id="galleryRotateBtn" class="w-9 h-9 flex items-center justify-center hover:bg-white/10 active:bg-white/20 text-white rounded-lg transition-all active:scale-90" title="Rotate">
-                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12.5c0-3.3 2.7-6 6-6" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4 L11 6.5 L7.5 9" />
-                        <rect x="8" y="11.5" width="12" height="8" rx="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-            </div>
-            <button id="galleryDoneBtn" class="text-[#007AFF] text-[17px] font-semibold hover:opacity-70 transition-opacity">Done</button>
-        </header>
-
         <div class="flex-1 relative flex items-center justify-center p-4 lg:p-12">
-            <!-- Prev Button -->
-            <button id="galleryPrevBtn"
-                class="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg>
-            </button>
-
             <img id="mainGalleryImg" src=""
                 class="max-w-full max-h-full lg:max-w-[85vw] lg:max-h-[85vh] object-contain rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)] select-none">
+        </div>
+    </div>
 
-            <!-- Next Button -->
-            <button id="galleryNextBtn"
-                class="absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 z-[160] w-14 h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-md border border-white/10 active:scale-90">
-                <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+    <!-- Gallery floating controls (liquid glass, same as chat floating bars).
+         Must stay SIBLINGS of #galleryModal: the modal's own backdrop-filter +
+         opacity fade make it a backdrop root, which kills refraction inside it. -->
+    <div id="galleryControls" class="hidden fixed inset-0 z-[3001] pointer-events-none">
+        <div id="galleryBackDisc" class="ios26-liquid-glass pointer-events-auto absolute left-4 top-4 w-11 h-11 rounded-full flex items-center justify-center">
+            <button id="galleryDoneBtn" class="page-back-btn" title="Back"></button>
+        </div>
+        <div id="galleryToolbar" class="ios26-liquid-glass pointer-events-auto absolute left-1/2 top-4 -translate-x-1/2 flex items-center gap-1 px-1.5 py-1 rounded-full">
+            <button id="galleryZoomOutBtn" class="w-9 h-9 flex items-center justify-center accent-hover-soft active:bg-black/20 dark:active:bg-white/20 text-black dark:text-white rounded-full transition-all active:scale-90" title="Zoom Out">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
                 </svg>
             </button>
+            <button id="galleryZoomInBtn" class="w-9 h-9 flex items-center justify-center accent-hover-soft active:bg-black/20 dark:active:bg-white/20 text-black dark:text-white rounded-full transition-all active:scale-90" title="Zoom In">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                </svg>
+            </button>
+            <div class="w-[1px] h-5 bg-black/10 dark:bg-white/20 mx-1"></div>
+            <button id="galleryRotateBtn" class="w-9 h-9 flex items-center justify-center accent-hover-soft active:bg-black/20 dark:active:bg-white/20 text-black dark:text-white rounded-full transition-all active:scale-90" title="Rotate">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12.5c0-3.3 2.7-6 6-6" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4 L11 6.5 L7.5 9" />
+                    <rect x="8" y="11.5" width="12" height="8" rx="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="w-[1px] h-5 bg-black/10 dark:bg-white/20 mx-1"></div>
+            <button id="gallerySaveBtn" class="h-9 px-3 flex items-center justify-center text-black dark:text-white text-[13px] font-bold accent-hover-soft rounded-full transition-all active:scale-90" title="Save">Save</button>
         </div>
+        <button id="galleryPrevBtn"
+            class="ios26-liquid-glass pointer-events-auto absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 w-14 h-14 flex items-center justify-center text-black dark:text-white rounded-full transition-all active:scale-90">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+        <button id="galleryNextBtn"
+            class="ios26-liquid-glass pointer-events-auto absolute right-6 lg:right-10 top-1/2 -translate-y-1/2 w-14 h-14 flex items-center justify-center text-black dark:text-white rounded-full transition-all active:scale-90">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
     </div>
 
     <div id="mainPage"
@@ -3148,7 +3195,7 @@
                 <div id="newsTopTabsRowMobile" class="flex justify-between items-center h-9">
                     <h2 id="newsPanelTitle" class="text-2xl font-bold tracking-tight leading-none">Hub</h2>
                     <div id="newsTopButtonsContainer" class="flex items-center gap-3 mb-1">
-                        <button id="portfolioBtnNews" onclick="openPortfolio()"
+                        <button onclick="openPortfolio()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
@@ -3178,7 +3225,7 @@
 
                 <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
                 <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
-                    <div id="morphNavContainer" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-[72px] h-full items-center gap-1 overflow-hidden relative">
+                    <div class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-xl p-1 pr-[72px] h-full items-center gap-1 overflow-hidden relative">
                         <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
                             style="max-width: 50%;"
                             class="apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm">
@@ -3593,9 +3640,9 @@
             <!-- Header synchronized with News panel -->
             <div id="sidePanelHeader" class="flex-shrink-0 pt-6 pb-3 px-5 bg-white dark:bg-[#1C1C1E] z-30">
                 <div id="sidePanelHeaderTopRow" class="flex justify-between items-center h-9">
-                    <h2 class="text-2xl font-bold tracking-tight leading-none">Writting</h2>
+                    <h2 class="text-2xl font-bold tracking-tight leading-none">Writing</h2>
                     <div id="sidePanelActionBtns" class="flex items-center gap-3 mb-1">
-                        <button id="portfolioBtn" onclick="openPortfolio()"
+                        <button onclick="openPortfolio()"
                             class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
@@ -3603,7 +3650,7 @@
                                 <path d="M3 12h18" stroke-width="2" />
                             </svg>
                         </button>
-                        <button id="donationBtn" onclick="toggleDonation()"
+                        <button onclick="toggleDonation()"
                             class="text-[#007AFF] active:scale-90 transition-transform">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -3611,7 +3658,7 @@
                             </svg>
                         </button>
 
-                        <button id="settingsBtn" onclick="toggleSettings()"
+                        <button onclick="toggleSettings()"
                             class="text-[#007AFF] active:scale-90 transition-transform">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -3669,7 +3716,7 @@
 
             <!-- Left bar: back control + partner name/status, left-aligned. -->
             <div id="chatNameBar">
-                <button onclick="showSidebar()" class="chat-back-btn w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 active:scale-90 transition-all duration-200 cursor-pointer" title="Back to messages" aria-label="Back to messages">
+                <button onclick="showSidebar()" class="chat-back-btn accent-hover-soft w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 active:scale-90 transition-all duration-200 cursor-pointer" title="Back to messages" aria-label="Back to messages">
                     <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
@@ -3899,7 +3946,7 @@
                                 <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
 
                                 <!-- Request A Doc Button -->
-                                <button type="button" id="gdocRequestBtn" onclick="chooseGdocRequest()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
+                                <button type="button" onclick="chooseGdocRequest()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
                                     <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -4013,20 +4060,11 @@
             <!-- Writing Portfolio Panel (Covering full chatSection including its header) -->
             <div id="writingPortfolioDrawer"
                 class="hidden absolute inset-0 z-30 bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
-                <!-- Navigation Header (Synchronized with sidebar Level 2 header specifications) -->
-                <div id="writingPortfolioHeader" class="flex-shrink-0 flex items-center px-4 h-16 mt-safe bg-white dark:bg-[#1C1C1E] border-b border-gray-100 dark:border-white/5 relative z-10">
-                    <button onclick="closeWritingPortfolio()" title="Back"
-                        class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer z-10">
-                        <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                        </svg>
-                    </button>
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-16">
-                        <div id="writingPortfolioTitle" class="font-bold text-sm text-black dark:text-white uppercase tracking-widest text-center truncate max-w-full">
-                            Writing Portfolio
-                        </div>
-                    </div>
-                    <div class="ml-auto z-10 flex items-center gap-1">
+                <!-- Navigation Header (unified .page-header system) -->
+                <div id="writingPortfolioHeader" class="page-header">
+                    <button class="page-back-btn accent-hover-soft" onclick="closeWritingPortfolio()" title="Back"></button>
+                    <div class="page-head-title" id="writingPortfolioTitle">Writing Portfolio</div>
+                    <div class="page-head-actions">
                         <span id="writingPortfolioSubtitle" class="text-[11px] text-gray-400 font-medium truncate text-right"></span>
                         <button id="writingPortfolioExpandBtn" onclick="toggleWritingPortfolioExpand()" title="Expand"
                             class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
@@ -4196,19 +4234,10 @@
     <!-- Dedicated Module Pages for Stacked Navigation -->
     <div id="lostFoundPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Lost and Found</div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title module-title">Lost and Found</div>
+            <div class="page-head-actions">
                 <button onclick="openPostForm()"
                     class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
             </div>
@@ -4225,19 +4254,10 @@
 
     <div id="marketplacePage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Marketplace</div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title module-title">Marketplace</div>
+            <div class="page-head-actions">
                 <button onclick="openPostForm()"
                     class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
             </div>
@@ -4254,19 +4274,10 @@
 
     <div id="tutoringPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Peer Tutoring</div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title module-title">Peer Tutoring</div>
+            <div class="page-head-actions">
                 <button onclick="openPostForm()"
                     class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
             </div>
@@ -4283,19 +4294,10 @@
 
     <div id="suggestionsPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                Suggestions</div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title module-title">Suggestions</div>
+            <div class="page-head-actions">
                 <button onclick="openPostForm()"
                     class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
             </div>
@@ -4312,19 +4314,10 @@
 
     <div id="infoPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()"
-                    class="text-[#007AFF] text-[17px] flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="module-title font-semibold text-[17px] text-black dark:text-white truncate flex-1 text-center">
-                CHS Info</div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title module-title">CHS Info</div>
+            <div class="page-head-actions">
                 <button onclick="openPostForm()"
                     class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
             </div>
@@ -4411,16 +4404,9 @@
     <!-- Post Detail & Comments Page -->
     <div id="detailPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[510] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <button onclick="closeDetail()"
-                class="text-[#007AFF] text-base flex items-center w-20 active:opacity-50 transition-opacity">
-                <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                </svg> Back
-            </button>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Details</div>
-            <div class="w-20"></div>
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeDetail()" title="Back"></button>
+            <div class="page-head-title">Details</div>
         </div>
         <div id="detailContent" class="flex-1 overflow-y-auto p-4 space-y-6 pb-[90px] lg:pb-safe">
             <!-- Details and comments injected here -->
@@ -4449,19 +4435,10 @@
     <!-- Cafeteria Menu Page -->
     <div id="cafeteriaPage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#EDEFFA] dark:bg-[#1A1D22] flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeModule()" title="Back"
-                    class="w-9 h-9 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
-                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                    </svg>
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Cafeteria Menu
-            </div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
+            <div class="page-head-title">Cafeteria Menu</div>
+            <div class="page-head-actions">
                 <button id="cafeteriaEditBtn" onclick="openCafeteriaEdit()"
                     class="hidden text-[#007AFF] text-base font-medium active:opacity-50 transition-opacity">Edit</button>
             </div>
@@ -4537,19 +4514,10 @@
     <!-- CHS Eagle Time Full Screen Page -->
     <div id="eagleTimePage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[150] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeEagleTime()" title="Back"
-                    class="w-9 h-9 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
-                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                    </svg>
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Eagle Time
-            </div>
-            <div class="w-20 flex justify-end">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeEagleTime()" title="Back"></button>
+            <div class="page-head-title">Eagle Time</div>
+            <div class="page-head-actions">
                 <button id="eagleAddBtn" onclick="openCreateEagleForm()"
                     class="hidden text-[#007AFF] text-2xl font-bold active:opacity-50 transition-opacity">+</button>
             </div>
@@ -4583,19 +4551,10 @@
     <!-- Database Admin Console -->
     <div id="adminConsolePage"
         class="hidden fixed inset-0 desktop-dynamic-left z-[160] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button onclick="closeAdminConsole()"
-                    class="text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    <svg class="w-6 h-6 -ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                    </svg> Back
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Database Console
-            </div>
-            <div class="w-20 flex justify-end gap-2">
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeAdminConsole()" title="Back"></button>
+            <div class="page-head-title">Database Console</div>
+            <div class="page-head-actions" style="gap:8px">
                 <button id="adminShowAllBtn" onclick="resetAdminList()"
                     class="hidden text-[#007AFF] text-sm font-bold active:opacity-50 transition-opacity">Show
                     All</button>
@@ -4628,22 +4587,11 @@
     <!-- Extension View Page -->
     <div id="extensionPage"
         class="hidden fixed inset-0 z-[160] bg-white dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] overflow-hidden">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-10 relative">
-            <div class="flex items-center gap-2.5 min-w-0 flex-1 mr-3 z-10">
-                <button onclick="closeExtension()" title="Back"
-                    class="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-black dark:text-white accent-hover-soft active:scale-90 transition-all duration-200 cursor-pointer">
-                    <svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                    </svg>
-                </button>
-                <div id="extensionTitle"
-                    class="font-bold text-xl sm:text-2xl text-black dark:text-white tracking-tight truncate leading-tight transform -translate-y-0.5">
-                    Tool
-                </div>
-            </div>
+        <div class="page-header">
+            <button class="page-back-btn accent-hover-soft" onclick="closeExtension()" title="Back"></button>
+            <div class="page-head-title" id="extensionTitle">Tool</div>
 
-            <div class="w-auto flex justify-end items-center gap-1 z-10">
+            <div class="page-head-actions">
                 <button id="extensionCustomBtn"
                     class="hidden font-bold text-[#007AFF] px-2 py-1 text-base active:opacity-50 transition-opacity whitespace-nowrap">Post</button>
                 <button id="extensionThemeToggleBtn" onclick="toggleExtensionTheme()" title="Toggle Theme"
@@ -4686,18 +4634,12 @@
 
     <!-- Terms of Service Page -->
     <div id="tosPage" class="hidden fixed inset-0 z-[200] bg-[#F2F2F7] dark:bg-black flex flex-col">
-        <div
-            class="flex-shrink-0 flex items-center justify-between px-4 pt-safe h-16 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-white/10 z-10 relative">
-            <div class="w-20">
-                <button id="tosCloseBtn" onclick="closeTos()"
-                    class="hidden text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
-                    Done
-                </button>
-            </div>
-            <div class="font-semibold text-base text-black dark:text-white truncate flex-1 text-center">Terms of
-                Service
-            </div>
-            <div class="w-20"></div>
+        <div class="page-header">
+            <button id="tosCloseBtn" onclick="closeTos()"
+                class="hidden text-[#007AFF] text-base flex items-center active:opacity-50 transition-opacity">
+                Done
+            </button>
+            <div class="page-head-title">Terms of Service</div>
         </div>
         <div class="flex-1 overflow-y-auto p-6 text-[15px] leading-relaxed text-gray-800 dark:text-gray-300">
             <div class="max-w-2xl mx-auto space-y-6 pb-24">
@@ -4723,6 +4665,16 @@
     </div>
     <!-- Global tooltip for club icons to prevent clipping, appended to body for correct position:fixed containing block -->
     <div id="clubGlobalTooltip" class="fixed pointer-events-none z-[9999] bg-black/85 text-white dark:bg-white/95 dark:text-black px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shadow-md transition-all duration-150 opacity-0 transform -translate-x-1" style="display: none;"></div>
+
+    <script>
+        // Single source for the unified header Back chevron (fills every empty .page-back-btn)
+        (function () {
+            const svg = '<svg class="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>';
+            document.querySelectorAll('.page-back-btn').forEach(btn => {
+                if (!btn.firstElementChild) btn.innerHTML = svg;
+            });
+        })();
+    </script>
 </body>
 
 </html>

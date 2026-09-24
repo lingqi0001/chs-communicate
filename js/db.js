@@ -11,7 +11,7 @@
  * ==================================================================================
  */
 
-import { getDatabase, ref, get, set, update, push, remove, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, get, set, update, push, remove, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey } from "../vendor/firebase/10.7.1/firebase-database.js";
 
 // --- 1. 云端实例占位与注入 ---
 export let db, auth, storage;

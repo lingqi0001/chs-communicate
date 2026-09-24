@@ -13,7 +13,7 @@
  * ==================================================================================
  */
 
-import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "../vendor/firebase/10.7.1/firebase-database.js";
 import { DBModule } from './db.js';
 
 export const SyncModule = {
@@ -53,6 +53,17 @@ export const SyncModule = {
         if (this._heartbeatInterval) {
             clearInterval(this._heartbeatInterval);
             this._heartbeatInterval = null;
+        }
+        if (this._browserOfflineHandler) {
+            window.removeEventListener("offline", this._browserOfflineHandler);
+            window.removeEventListener("online", this._browserOnlineHandler);
+            this._browserOfflineHandler = null;
+            this._browserOnlineHandler = null;
+        }
+        if (this._connStatusUnsub) {
+            try { this._connStatusUnsub(); } catch (e) {}
+            this._connStatusUnsub = null;
+            this._connStatusRef = null;
         }
     },
 
@@ -103,8 +114,22 @@ export const SyncModule = {
         const newsTabs = ['school', 'club'];
         for (const tab of newsTabs) {
             try {
-                const remoteSnap = await get(ref(db, `news/${tab}`));
-                const remoteData = remoteSnap.val() || {};
+                const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+                let remoteData;
+                try {
+                    const remoteSnap = await window.withNetworkTimeout(get(ref(db, `news/${tab}`)));
+                    remoteData = remoteSnap.val() || {};
+                } catch (remoteErr) {
+                    // Offline boot: the IndexedDB copy is the only source this
+                    // session, so render it and skip the cloud listeners.
+                    console.warn(`Sync: news/${tab} unreachable, serving local cache:`, remoteErr.message);
+                    const localOnly = await DBModule.Local.getNews(tab);
+                    if (this.callbacks.renderNews) {
+                        this.callbacks.renderNews(localOnly, containerId, tab);
+                        window.bootMark?.(`news/${tab} painted from cache (${localOnly.length} items)`);
+                    }
+                    continue;
+                }
                 const remoteKeys = Object.keys(remoteData);
 
                 // 1. Read local keys to find synchronization delta
@@ -182,14 +207,14 @@ export const SyncModule = {
             if (isCacheEmpty && currentUser) {
                 const uid = (currentUser.id || currentUser.uid || '').toLowerCase();
                 if (uid) {
-                    const notifySnap = await get(ref(db, `user_notifications/${uid}`));
+                    const notifySnap = await window.withNetworkTimeout(get(ref(db, `user_notifications/${uid}`)));
                     const notifyData = notifySnap.val() || {};
                     const unreadChatIds = Object.keys(notifyData).filter(key => notifyData[key] === true).slice(0, 5);
                     
                     console.log(`Sync: Pre-fetching ${unreadChatIds.length} unread chats...`);
                     for (const chatId of unreadChatIds) {
                         try {
-                            const msgSnap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50)));
+                            const msgSnap = await window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))));
                             const msgs = msgSnap.val() || {};
                             for (const msgKey in msgs) {
                                 await DBModule.Local.saveMessage(chatId, msgKey, msgs[msgKey]);
@@ -254,16 +279,56 @@ export const SyncModule = {
         }, 60000);
     },
 
+    isOffline: () => window.isOffline === true,
+
+    /**
+     * RTDB connection watchdog. `.info/connected` flips false the moment the
+     * socket drops and true on reconnect, so the offline banners can update
+     * incrementally without ever reloading the page (a reload would blow away
+     * whatever the user was typing in the composer).
+     */
+    initConnectionStatus(db) {
+        if (this._connStatusRef) return;
+        this._connStatusRef = ref(db, ".info/connected");
+        this._connStatusUnsub = onValue(this._connStatusRef, (snap) => {
+            this._connSnapshotVal = snap.val();
+            this._setConnectionState(snap.val() !== true, "rtdb");
+        });
+
+        // Only the offline edge is trusted from the browser: navigator.onLine
+        // lies "true" on captive/school Wi-Fi. On the online edge we only flip
+        // back if the RTDB listener already agrees we're connected.
+        this._browserOfflineHandler = () => this._setConnectionState(true, "browser");
+        this._browserOnlineHandler = () => {
+            if (window.isOffline && this._connSnapshotVal === true) {
+                this._setConnectionState(false, "browser");
+            }
+        };
+        window.addEventListener("offline", this._browserOfflineHandler);
+        window.addEventListener("online", this._browserOnlineHandler);
+    },
+
+    _setConnectionState(offline, source) {
+        const prev = window.isOffline === true;
+        if (prev === offline) return;
+        window.isOffline = offline;
+        console.log(`Sync: connection state → ${offline ? "offline" : "online"} (${source})`);
+        document.dispatchEvent(new CustomEvent("connection:status", {
+            detail: { offline, source }
+        }));
+    },
+
     /**
      * Synchronize Group Chats / Classes (moved from index.html)
      * @param {Object} db - Firebase database instance
      * @param {Object} currentUser - Currently authenticated user
      */
-    async syncGroupChats(db, currentUser) {
+    async syncGroupChats(db, currentUser, classesFromListener = null) {
         if (!currentUser || !currentUser.id) return;
         try {
-            const snap = await get(query(ref(db, 'classes'), orderByKey(), limitToLast(200)));
-            const classes = snap.val() || {};
+            const classes = classesFromListener !== null
+                ? classesFromListener
+                : ((await window.withNetworkTimeout(get(query(ref(db, 'classes'), orderByKey(), limitToLast(200))))).val() || {});
             
             this.existingClassIds = {};
             Object.keys(classes).forEach(id => {
@@ -300,7 +365,7 @@ export const SyncModule = {
                 if (classData.lastActivity) {
                     const chatId = `group_${cid}`;
                     const localPath = `user_chats/${currentUser.id.toLowerCase()}/${chatId}`;
-                    const localSnap = await get(ref(db, localPath));
+                    const localSnap = await window.withNetworkTimeout(get(ref(db, localPath)));
                     if (!localSnap.exists() || localSnap.val() < classData.lastActivity) {
                         await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [chatId]: classData.lastActivity });
                     }
@@ -326,11 +391,13 @@ export const SyncModule = {
      * @param {Object} currentUser - Currently authenticated user
      */
     startGroupSync(db, currentUser) {
-        if (this._groupSyncInterval) clearInterval(this._groupSyncInterval);
-        this.syncGroupChats(db, currentUser);
-        this._groupSyncInterval = setInterval(() => {
-            this.syncGroupChats(db, currentUser);
-        }, 30000);
+        if (this._groupSyncInterval) { clearInterval(this._groupSyncInterval); this._groupSyncInterval = null; }
+        if (this._groupSyncUnsub) { this._groupSyncUnsub(); this._groupSyncUnsub = null; }
+        // One listener replaces the 30s full-node poll: the first callback
+        // carries the whole list, later ones only real changes as small deltas.
+        this._groupSyncUnsub = onValue(ref(db, 'classes'), (snap) => {
+            this.syncGroupChats(db, currentUser, snap.val() || {});
+        }, () => {});
     }
 };
 

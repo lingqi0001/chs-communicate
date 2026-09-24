@@ -108,7 +108,11 @@ export class LiquidGlassEffect {
     const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
     const isFirefox = /Firefox|FxiOS/i.test(ua);
 
-    this.isFallback = isIOS || isSafari || isFirefox;
+    // User preference: liquid glass can be switched off in Settings, which
+    // forces the same frosted fallback iOS/Safari/Firefox already use.
+    const prefOff = localStorage.getItem('liquidGlassEnabled') === 'off';
+
+    this.isFallback = isIOS || isSafari || isFirefox || prefOff;
 
     if (this.isFallback) {
       this.element.classList.add('liquid-glass-fallback');

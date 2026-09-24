@@ -178,7 +178,7 @@ export const AuthModule = {
             let dataFetchResult;
             try {
                 dataFetchResult = await Promise.all([
-                    get(ref(db, `user_private/${user.uid}`))
+                    window.withNetworkTimeout(get(ref(db, `user_private/${user.uid}`)))
                 ]);
             } catch (err) {
                 console.error('App: Global data fetch failed:', err);

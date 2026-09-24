@@ -6,8 +6,8 @@
  * ==================================================================================
  */
 
-import { onValue, ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+import { onValue, ref, update } from "../vendor/firebase/10.7.1/firebase-database.js";
+import { getToken } from "../vendor/firebase/10.7.1/firebase-messaging.js";
 import { db, auth, CloudDB, PATHS } from './db.js';
 
 export const NotifyModule = {
@@ -62,7 +62,10 @@ export const NotifyModule = {
     },
 
     isUnread(targetId) {
-        return this.unreadSet.has(this.notificationKey(targetId));
+        // Group chat notification keys keep the class-id's original casing
+        // (what sendNotification writes), while DM keys are already lowercase.
+        // Check both shapes so dots and alerts agree with the DB.
+        return this.unreadSet.has(targetId) || this.unreadSet.has(this.notificationKey(targetId));
     },
 
     hideChat(targetId) {
@@ -311,7 +314,10 @@ export const NotifyModule = {
 
         if (this.context.currentUser) {
             const uid = String(this.context.currentUser.id || '').toLowerCase();
-            const updates = { [notificationKey]: false };
+            // Clear the exact-cased key too: the server writes group unread
+            // flags with the class id's original casing, and a lowercase-only
+            // write left them stuck at true forever.
+            const updates = { [targetId]: false, [notificationKey]: false };
             if (targetKey !== notificationKey) updates[targetKey] = false;
             update(ref(db, `user_notifications/${uid}`), updates);
         }

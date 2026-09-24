@@ -101,6 +101,8 @@ export const UIUtils = {
             lp.classList.add('opacity-0');
             setTimeout(() => {
                 lp.classList.add('hidden');
+                window.bootMark?.('loading screen gone');
+                document.dispatchEvent(new CustomEvent('app:loading-hidden'));
                 if (!localStorage.getItem('compatibility_dismissed') && onFirstTimeCallback) {
                     onFirstTimeCallback();
                 }

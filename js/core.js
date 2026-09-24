@@ -6,12 +6,12 @@
  * ==================================================================================
  */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { getMessaging, isSupported } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+import { initializeApp } from "../vendor/firebase/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "../vendor/firebase/10.7.1/firebase-auth.js";
+import { getDatabase, ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved } from "../vendor/firebase/10.7.1/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "../vendor/firebase/10.7.1/firebase-storage.js";
+import { getMessaging, isSupported } from "../vendor/firebase/10.7.1/firebase-messaging.js";
+import { getFunctions, httpsCallable } from "../vendor/firebase/10.7.1/firebase-functions.js";
 
 
 export const CoreModule = {
@@ -71,6 +71,12 @@ export const CoreModule = {
         window.initGlobalNotificationMonitor = () => window.AppModules.Notify.initMonitor();
         window.handleSignOut = async () => {
             window.deviceRegistered = false;
+            // The offline boot reads this cache, so it must not outlive the
+            // session - otherwise the next person on this machine would be
+            // greeted with the previous user's name.
+            window.AppModules?.User?.clearCachedProfile?.();
+            window.Directory?.clear?.();
+            window.Drafts?.clearAll?.();
             try {
                 const user = auth.currentUser;
                 const uid = user && user.email ? user.email.split('@')[0].replace(/\./g, '_').toLowerCase() : null;
@@ -174,5 +180,5 @@ export const CoreModule = {
 };
 
 // Re-export Firebase Database and Storage API functions for index.html use
-export { ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-export { ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+export { ref, push, set, get, update, onValue, onChildAdded, onChildChanged, onChildRemoved, serverTimestamp, query, limitToLast, orderByKey, startAfter, startAt, endAt, limitToFirst, endBefore } from "../vendor/firebase/10.7.1/firebase-database.js";
+export { ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "../vendor/firebase/10.7.1/firebase-storage.js";

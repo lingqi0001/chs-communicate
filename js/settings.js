@@ -63,6 +63,7 @@ export const SettingsModule = {
         const isAuth = !!(window.isLoggedIn && (window.currentUser || window.AppModules?.User?.current));
         const profileLoggedIn = document.getElementById('settingsProfileLoggedIn');
         const profileGuest = document.getElementById('settingsProfileGuest');
+        const navDevices = document.getElementById('navDevices');
         const deviceSection = document.getElementById('settingsDeviceSection');
         const offlineRow = document.getElementById('offlineNotificationsRow');
         const signOutBtn = document.getElementById('settingsSignOutBtn');
@@ -70,16 +71,18 @@ export const SettingsModule = {
 
         if (profileLoggedIn) profileLoggedIn.classList.toggle('hidden', !isAuth);
         if (profileGuest) profileGuest.classList.toggle('hidden', isAuth);
-        if (deviceSection) deviceSection.classList.toggle('hidden', !isAuth);
+        if (navDevices) navDevices.classList.toggle('hidden', !isAuth);
         if (offlineRow) offlineRow.classList.toggle('hidden', !isAuth);
         if (signOutBtn) signOutBtn.classList.toggle('hidden', !isAuth);
         if (signInBtn) signInBtn.classList.toggle('hidden', isAuth);
 
-        if (AppModules.User && typeof AppModules.User.isAdmin === 'function' && AppModules.User.isAdmin()) {
-            document.getElementById('adminPanel')?.classList.remove('hidden');
-        } else {
-            document.getElementById('adminPanel')?.classList.add('hidden');
-        }
+        const isAdminUser = !!(AppModules.User && typeof AppModules.User.isAdmin === 'function' && AppModules.User.isAdmin());
+        const navAdmin = document.getElementById('navAdmin');
+        if (navAdmin) navAdmin.classList.toggle('hidden', !isAdminUser);
+        if (deviceSection) deviceSection.classList.toggle('hidden', !isAuth);
+        document.getElementById('adminPanel')?.classList.toggle('hidden', !isAdminUser);
+
+        setTimeout(() => window._settingsPaneSpy?.(), 0);
     },
 
     updateSettingsLabels() {
@@ -92,10 +95,18 @@ export const SettingsModule = {
         if (document.getElementById('currentThemeLabel')) {
             document.getElementById('currentThemeLabel').innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
         }
-        const transitionAnimation = localStorage.getItem('transitionAnimation') || 'fadeSlide';
-        if (document.getElementById('currentTransitionAnimationLabel')) {
-            document.getElementById('currentTransitionAnimationLabel').innerText = 
-                transitionAnimation === 'micro' ? 'Micro-Spring' : 'Full-Slide & Fade';
+        const liquidGlassToggle = document.getElementById('liquidGlassToggle');
+        if (liquidGlassToggle) {
+            const ua = navigator.userAgent;
+            const isIOSDevice = /iPad|iPhone|iPod/.test(ua) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isSafariBrowser = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
+            const lgUnsupported = isIOSDevice || isSafariBrowser;
+            liquidGlassToggle.disabled = lgUnsupported;
+            liquidGlassToggle.checked = lgUnsupported ? false
+                : (localStorage.getItem('liquidGlassEnabled') || 'on') === 'on';
+            const lgSetting = document.getElementById('liquidGlassSetting');
+            if (lgSetting) lgSetting.classList.toggle('opacity-50', lgUnsupported);
         }
         const panelLayout = localStorage.getItem('panelLayout') || 'three';
         const panelLayoutLabel = document.getElementById('currentPanelLayoutLabel');
@@ -376,17 +387,27 @@ export const SettingsModule = {
         if (document.getElementById('settingsModal')) return;
         document.body.insertAdjacentHTML('beforeend', `
     <div id="settingsModal" onclick="if(event.target === this) closeSettingsModal()"
-        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
+        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
         <div id="settingsModalCard" class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
             <div
                 class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0">
                 <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
                 <button onclick="closeSettingsModal()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>
-            <div id="settingsModalBody" class="p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
+            <div id="settingsModalBody" class="p-4 md:p-6 space-y-6 bg-white dark:bg-[#1C1C1E] rounded-b-2xl flex-1 overflow-y-auto">
 
-                <div id="settingsView" class="space-y-6">
-                    <div id="settingsProfileSection" class="relative">
+                <div id="settingsView" class="flex gap-4 md:gap-8 items-start">
+                    <nav id="settingsSidebar" class="w-24 md:w-44 shrink-0 self-start sticky top-0 border-r border-gray-200/60 dark:border-gray-800 pr-2 md:pr-4 flex flex-col gap-1">
+                        <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsProfileSection" onclick="scrollToSettingsSection('settingsProfileSection')">Profile</button>
+                        <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="themeDropdownContainer" onclick="scrollToSettingsSection('themeDropdownContainer')">Appearance</button>
+                        <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsNotifSection" onclick="scrollToSettingsSection('settingsNotifSection')">Notifications</button>
+                        <button id="navDevices" class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors hidden" data-target="settingsDeviceSection" onclick="scrollToSettingsSection('settingsDeviceSection')">Devices</button>
+                        <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsLegalSection" onclick="scrollToSettingsSection('settingsLegalSection')">Legal</button>
+                        <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsDataSection" onclick="scrollToSettingsSection('settingsDataSection')">Data</button>
+                        <button id="navAdmin" class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-red-500 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors hidden" data-target="adminPanel" onclick="scrollToSettingsSection('adminPanel')">Admin</button>
+                    </nav>
+                    <div id="settingsContentPane" class="flex-1 min-w-0 space-y-6 pb-[55vh]">
+                    <div id="settingsProfileSection" class="settings-section relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Profile</label>
                         <div id="settingsProfileLoggedIn" class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <div class="flex items-center px-4 py-1.5 border-b border-gray-200 dark:border-gray-700">
@@ -411,7 +432,7 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div id="themeDropdownContainer">
+                    <div id="themeDropdownContainer" class="settings-section">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Appearance</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl">
                             <!-- Theme Row -->
@@ -439,27 +460,14 @@ export const SettingsModule = {
                                 </div>
                             </div>
 
-                            <!-- Transition Animation Row -->
-                            <div class="relative border-b border-gray-200 dark:border-gray-700">
-                                <div onclick="toggleDropdown('transitionAnimationDropdown', event)"
-                                    class="flex items-center justify-between p-3.5 cursor-pointer">
-                                    <span class="font-medium text-sm">Transitions</span>
-                                    <div class="flex items-center text-gray-500">
-                                        <span id="currentTransitionAnimationLabel" class="mr-2 text-xs">Full-Slide & Fade</span>
-                                        <svg id="transitionAnimationDropdownIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
-                                            stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </div>
+                            <!-- Liquid Glass Row -->
+                            <div id="liquidGlassSetting" class="p-3.5 border-b border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between">
+                                    <label for="liquidGlassToggle" class="font-medium text-sm text-black dark:text-white">Liquid Glass</label>
+                                    <input type="checkbox" id="liquidGlassToggle" onchange="toggleLiquidGlass(this.checked)"
+                                        class="rounded-checkbox">
                                 </div>
-                                <div id="transitionAnimationDropdown"
-                                    class="custom-dropdown hidden absolute top-full mt-1 right-0 w-44 bg-white dark:bg-[#2C2C2E] shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 z-[115] overflow-hidden transform origin-top-right transition-all duration-200 opacity-0 scale-95">
-                                    <button onclick="selectTransitionAnimation('fadeSlide', event)"
-                                        class="w-full text-left px-4 py-3 text-sm border-b border-gray-100 dark:border-gray-700">Full-Slide & Fade</button>
-                                    <button onclick="selectTransitionAnimation('micro', event)"
-                                        class="w-full text-left px-4 py-3 text-sm">Micro-Spring</button>
-                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1 leading-normal">iOS devices (Safari browser included) don't support Liquid Glass, they always use the frosted effect.</p>
                             </div>
 
                             <!-- Desktop panel layout -->
@@ -551,7 +559,7 @@ export const SettingsModule = {
                             <div class="relative border-b border-gray-200 dark:border-gray-700">
                                 <div onclick="toggleDropdown('msgColorDropdown', event)"
                                     class="flex items-center justify-between p-3.5 cursor-pointer">
-                                    <span class="font-medium text-sm">Messaging List</span>
+                                    <span class="font-medium text-sm">Writing Panel</span>
                                     <div class="flex items-center text-gray-500">
                                         <span id="currentMsgColorLabel" class="mr-2 text-xs">Blue</span>
                                         <div id="currentMsgColorPreview" class="w-3.5 h-3.5 rounded-full border border-white/20 mr-2 bg-blue-500"></div>
@@ -746,7 +754,7 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="relative">
+                    <div id="settingsNotifSection" class="settings-section relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Notification</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <div class="p-3.5 border-b border-gray-200 dark:border-gray-700">
@@ -771,13 +779,13 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div id="settingsDeviceSection" class="relative mb-4">
+                    <div id="settingsDeviceSection" class="settings-section relative mb-4">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Device Management</label>
                         <div id="deviceManagementList" class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
                         </div>
                     </div>
 
-                    <div class="relative">
+                    <div id="settingsLegalSection" class="settings-section relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Legal</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <button onclick="showTos(false)"
@@ -802,7 +810,7 @@ export const SettingsModule = {
                         </div>
                     </div>
 
-                    <div class="relative">
+                    <div id="settingsDataSection" class="settings-section relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Data</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
                             <button id="settingsSignOutBtn" onclick="handleSignOut()"
@@ -875,7 +883,7 @@ export const SettingsModule = {
                     </div>
 
                     <div id="adminPanel"
-                        class="mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
+                        class="settings-section mt-6 pt-6 border-t border-gray-100 dark:border-white/5 hidden space-y-4">
                         <h3 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">Admin Security</h3>
                         <button onclick="openAdminConsole()"
                             class="w-full bg-[#007AFF] text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all mb-4">
@@ -905,6 +913,7 @@ export const SettingsModule = {
                                 </div>
                             </label>
                         </div>
+                    </div>
                     </div>
                 </div>
 
@@ -966,6 +975,11 @@ export const SettingsModule = {
         </div>
     </div>
         `);
+        const modalBody = document.getElementById('settingsModalBody');
+        if (modalBody && !modalBody._paneSpyBound) {
+            modalBody._paneSpyBound = true;
+            modalBody.addEventListener('scroll', () => window._settingsPaneSpy(), { passive: true });
+        }
     }
 };
 
@@ -1020,6 +1034,28 @@ window.togglePushNotification = async (enabled) => {
     }
 };
 
+window.scrollToSettingsSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Keep the sidebar highlight in sync with the section at the top of the view.
+window._settingsPaneSpy = () => {
+    const body = document.getElementById('settingsModalBody');
+    const view = document.getElementById('settingsView');
+    const modal = document.getElementById('settingsModal');
+    if (!body || !view || !modal) return;
+    if (modal.classList.contains('hidden') || view.classList.contains('hidden')) return;
+    const bodyTop = body.getBoundingClientRect().top;
+    let activeId = null;
+    view.querySelectorAll('.settings-section').forEach(sec => {
+        if (sec.classList.contains('hidden')) return;
+        if (sec.getBoundingClientRect().top - bodyTop <= 48) activeId = sec.id;
+    });
+    view.querySelectorAll('.settings-nav').forEach(b =>
+        b.classList.toggle('settings-nav-active', b.dataset.target === activeId));
+};
+
 window.showChangelog = () => {
     document.getElementById('settingsView').classList.add('hidden');
     document.getElementById('changelogView').classList.remove('hidden');
@@ -1063,11 +1099,21 @@ window.selectTheme = (val, e) => {
     window.toggleDropdown('themeDropdown', e);
 };
 
-window.selectTransitionAnimation = (val, e) => {
-    if (e) e.stopPropagation();
-    localStorage.setItem('transitionAnimation', val);
-    SettingsModule.updateSettingsLabels();
-    window.toggleDropdown('transitionAnimationDropdown', e);
+window.toggleLiquidGlass = async (checked) => {
+    const stored = (localStorage.getItem('liquidGlassEnabled') || 'on') === 'on';
+    if (checked === stored) return;
+    const Modal = window.AppModules?.Modal;
+    const effectName = checked ? "Liquid Glass" : "The frosted effect";
+    const refresh = Modal?.confirm
+        ? await Modal.confirm("Apply Changes", `${effectName} takes effect after the page refreshes. Refresh now?`, "Refresh")
+        : true;
+    if (refresh) {
+        localStorage.setItem('liquidGlassEnabled', checked ? 'on' : 'off');
+        location.reload();
+    } else {
+        const box = document.getElementById('liquidGlassToggle');
+        if (box) box.checked = stored;
+    }
 };
 
 window.selectPanelLayout = (val, e) => {

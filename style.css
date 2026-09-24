@@ -1422,6 +1422,20 @@ body.compact-four-panel-layout #searchResults {
     }
 }
 
+/* Settings sidebar navigation (macOS-style pane switcher) */
+.settings-nav {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.settings-nav-active {
+    background: rgba(0, 0, 0, 0.07);
+    font-weight: 600;
+}
+
+.dark .settings-nav-active {
+    background: rgba(255, 255, 255, 0.14);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Part 3: UI Components & Layouts                                           */
 /* -------------------------------------------------------------------------- */
@@ -2777,7 +2791,7 @@ body.is-guest-two-panel .bottom-gradient-shim {
 /* Site-wide Modal card — same glass surface as #chatInputPill / #attachMenu */
 #modalCard {
     border: 1px solid transparent;
-    background: rgba(222, 223, 229, 0.48);
+    background: rgba(252, 252, 253, 0.75);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
@@ -2799,24 +2813,48 @@ body.is-guest-two-panel .bottom-gradient-shim {
         0 20px 48px rgba(0, 0, 0, 0.55);
 }
 
+/* Light mode: the page behind a dialog should recede harder so the pale
+   glass card reads as the bright object on top. Dark mode keeps the
+   Tailwind defaults on #customModal. */
+html:not(.dark) #customModal {
+    background-color: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+/* Gallery floating controls: the accent hover fill is the only state ring;
+   the browser focus outline reads as a stray white border. */
+#galleryControls button:focus {
+    outline: none;
+}
+
+/* Prev/next arrows live on .ios26-liquid-glass whose fill is !important and
+   would swallow a plain hover background-color. The messaging-panel selected
+   colour therefore rides OVER the glass fill as a flat tint layer. */
+#galleryPrevBtn:hover,
+#galleryNextBtn:hover {
+    background-image: linear-gradient(var(--msg-accent-color-alpha20, rgba(120, 120, 128, 0.26)), var(--msg-accent-color-alpha20, rgba(120, 120, 128, 0.26))) !important;
+}
+
+.dark #galleryPrevBtn:hover,
+.dark #galleryNextBtn:hover {
+    background-image: linear-gradient(var(--msg-accent-color-dark-alpha20, rgba(255, 255, 255, 0.22)), var(--msg-accent-color-dark-alpha20, rgba(255, 255, 255, 0.22))) !important;
+}
+
 .ios26-active-pill {
-    background: rgba(0, 0, 0, 0.06) !important;
+    /* Flat tint, no bevel/shadow (glass weightless-state rule); JS paints the
+       user selection colour here per active tab. */
+    background: rgba(120, 120, 128, 0.24) !important;
     backdrop-filter: blur(16px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.6),
-        0 2px 8px rgba(0, 0, 0, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border: none !important;
 }
 
 .dark .ios26-active-pill {
     background: rgba(255, 255, 255, 0.15) !important;
     backdrop-filter: blur(16px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    box-shadow: 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.2),
-        0 4px 12px rgba(0, 0, 0, 0.25) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border: none !important;
 }
 
 
@@ -2848,6 +2886,15 @@ body.is-guest-two-panel .bottom-gradient-shim {
         inset 0 1px 2px rgba(255, 255, 255, 0.7), 
         inset 0 -1px 2px rgba(15, 23, 42, 0.02), 
         0 10px 28px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Mobile: the search dropdown hangs from #sidePanelHeader, which is a flex
+   item and so forms a stacking context. Its inline z-30 would trap the
+   dropdown below .sidebar-chrome (z-40, the Recent/Contacts/Class bar).
+   Raise the header above the chrome so the dropdown wins. Desktop layouts
+   override this with a z-60 !important, so only the phone falls back here. */
+#sidePanelHeader {
+    z-index: 45;
 }
 
 #globalSearchResults {
@@ -4602,4 +4649,242 @@ html:not(.dark) .text-gray-400 {
    keep that feedback instead of being pinned by the rule above. */
 html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     color: rgba(0, 0, 0, 0.85);
+}
+
+/* ==========================================================================
+   UNIFIED SUB-PAGE HEADER — single source for every full-screen overlay bar.
+   Structure: [ circular Back ] [ left title, one per page ] [ right actions,
+   page-specific ]. Used by index.html via .page-header; the Back chevron SVG
+   is injected once by the page-back-btn script at the bottom of index.html.
+   ========================================================================== */
+.page-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 4rem;
+    padding: 0 1rem;
+    position: relative;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.dark .page-header {
+    background: rgba(28, 28, 30, 0.8);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.page-back-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: #000;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.dark .page-back-btn {
+    color: #fff;
+}
+
+/* Hover disc follows the Hub accent too, overriding .accent-hover-soft's
+   msg-tinted fill (equal specificity, this block ships later in the file). */
+.page-back-btn:hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color, #007AFF) 14%, transparent);
+}
+
+.dark .page-back-btn:hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color-dark, #0A84FF) 22%, transparent);
+}
+
+/* Messaging panels (chat, Writing Portfolio drawer — anything tagged
+   .msg-theme-*) keep the Back disc on the messaging accent instead,
+   matching .accent-hover-soft. Higher specificity than the Hub rule above. */
+:is(.msg-theme-blue, .msg-theme-orange, .msg-theme-green, .msg-theme-purple, .msg-theme-custom) .page-back-btn:hover {
+    background-color: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark :is(.msg-theme-blue, .msg-theme-orange, .msg-theme-green, .msg-theme-purple, .msg-theme-custom) .page-back-btn:hover {
+    background-color: var(--msg-accent-color-dark-alpha10, rgba(10, 132, 255, 0.15));
+}
+
+.page-back-btn:active {
+    transform: scale(0.9);
+}
+
+.page-head-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #000;
+}
+
+.dark .page-head-title {
+    color: #fff;
+}
+
+.page-head-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* ===== Offline indicators (js/connection.js) =====
+   Same glass capsule family as .sidebar-tabs / #wpDocContextBar, with a
+   fixed red disc as the only coloured element: body text stays black on
+   light and white on dark. Floating only: nothing here resizes the page,
+   so the banners cannot "shrink the screen" when the network drops. */
+.conn-offline-pill {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    color: #000;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    background: rgba(228, 229, 234, 0.75);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+        inset 1px 0 0 rgba(60, 60, 67, 0.08),
+        inset -1px 0 0 rgba(60, 60, 67, 0.08),
+        inset 0 1px 0 rgba(60, 60, 67, 0.03),
+        inset 0 -1px 0 rgba(60, 60, 67, 0.05),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+        0 4px 14px rgba(15, 23, 42, 0.06);
+    animation: conn-offline-in 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark .conn-offline-pill {
+    color: #fff;
+    background: rgba(52, 52, 55, 0.7);
+    box-shadow:
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+        inset 0 -1px 1.5px rgba(0, 0, 0, 0.28),
+        0 12px 34px rgba(0, 0, 0, 0.34);
+}
+
+.conn-offline-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #FF3B30;
+}
+
+.dark .conn-offline-dot {
+    background: #FF453A;
+}
+
+.conn-offline-sidebar {
+    top: 62px;
+}
+
+/* Static fallback only: connection.js mirrors the real bottom edge of the
+   floating header bars, because JS repositions those. */
+.conn-offline-chat {
+    top: 116px;
+    z-index: 40;
+}
+
+/* Tool pages: floats over the iframe, above the "Launching Tool..." plate. */
+.conn-offline-extension {
+    top: 14px;
+    z-index: 20;
+    white-space: normal;
+    height: auto;
+    max-width: min(420px, calc(100% - 24px));
+    padding: 8px 14px;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.conn-offline-extension .conn-offline-dot {
+    align-self: center;
+}
+
+.conn-offline-closing {
+    animation: conn-offline-out 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes conn-offline-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -10px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+@keyframes conn-offline-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -10px);
+    }
+}
+
+/* Red card above the pinned Cafeteria teaser. Red is fixed by design and
+   does NOT follow the user accent-colour settings. */
+.conn-offline-newscard {
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 59, 48, 0.35);
+    background: rgba(255, 59, 48, 0.08);
+    animation: conn-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes conn-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dark .conn-offline-newscard {
+    border-color: rgba(255, 69, 58, 0.35);
+    background: rgba(255, 69, 58, 0.12);
+}
+
+.conn-offline-newscard h3 {
+    color: #FF3B30;
+}
+
+.dark .conn-offline-newscard h3 {
+    color: #FF453A;
 }

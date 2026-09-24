@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260920-iosglass-fb-v5';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260922-lgpref-1';
 
 /**
  * ==================================================================================
@@ -1461,57 +1461,65 @@ export const ViewModule = {
 
         const isDark = document.body.classList.contains('dark') || document.documentElement.classList.contains('dark');
 
-        // Derive active color: msgAccent for messages tab, annAccent for news/tools
-        let activeColor;
+        // Selection-pill fill follows the active tab's accent: msgAccent for
+        // messages, annAccent for news/tools. Icons/labels stay neutral.
+        const hexToRGBA = (h, alpha) => {
+            let cleanHex = h.replace('#', '');
+            if (cleanHex.length === 3) {
+                cleanHex = cleanHex.split('').map(char => char + char).join('');
+            }
+            const r = parseInt(cleanHex.substring(0, 2), 16);
+            const g = parseInt(cleanHex.substring(2, 4), 16);
+            const b = parseInt(cleanHex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        let accentLightHex, accentDarkHex;
         if (activeTab === 'messages') {
             const msgAccent = localStorage.getItem('msgAccentColor') || 'blue';
             if (msgAccent === 'orange') {
-                activeColor = isDark ? '#FB923C' : '#F97316';
-            } else if (msgAccent === 'blue') {
-                activeColor = isDark ? '#0A84FF' : '#007AFF';
+                accentLightHex = '#F97316'; accentDarkHex = '#FB923C';
             } else if (msgAccent === 'green') {
-                activeColor = isDark ? '#95FF14' : '#34C759';
+                accentLightHex = '#34C759'; accentDarkHex = '#95FF14';
             } else if (msgAccent === 'purple') {
-                activeColor = isDark ? '#A724FF' : '#AF52DE';
+                accentLightHex = '#AF52DE'; accentDarkHex = '#A724FF';
             } else if (msgAccent === 'custom') {
-                const customLight = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
-                const customDark  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
-                activeColor = isDark ? customDark : customLight;
+                accentLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+                accentDarkHex  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
             } else {
-                activeColor = isDark ? '#0A84FF' : '#007AFF';
+                accentLightHex = '#007AFF'; accentDarkHex = '#0A84FF';
             }
         } else {
             // Active tab is news (hub) or tools
             const annAccent = localStorage.getItem('annAccentColor') || 'orange';
-            if (annAccent === 'orange') {
-                activeColor = isDark ? '#FB923C' : '#F97316';
-            } else if (annAccent === 'blue') {
-                activeColor = isDark ? '#0A84FF' : '#007AFF';
+            if (annAccent === 'blue') {
+                accentLightHex = '#007AFF'; accentDarkHex = '#0A84FF';
             } else if (annAccent === 'green') {
-                activeColor = isDark ? '#95FF14' : '#34C759';
+                accentLightHex = '#34C759'; accentDarkHex = '#95FF14';
             } else if (annAccent === 'purple') {
-                activeColor = isDark ? '#A724FF' : '#AF52DE';
+                accentLightHex = '#AF52DE'; accentDarkHex = '#A724FF';
             } else if (annAccent === 'custom') {
-                const customLight = localStorage.getItem('annCustomColorLightHex') || '#F97316';
-                const customDark  = localStorage.getItem('annCustomColorDarkHex')  || '#A724FF';
-                activeColor = isDark ? customDark : customLight;
+                accentLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
+                accentDarkHex  = localStorage.getItem('annCustomColorDarkHex')  || '#A724FF';
             } else {
-                activeColor = isDark ? '#FB923C' : '#F97316';
+                accentLightHex = '#F97316'; accentDarkHex = '#FB923C';
             }
         }
+        const pillColor = isDark ? hexToRGBA(accentDarkHex, 0.25) : hexToRGBA(accentLightHex, 0.2);
 
-        const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(0, 0, 0, 0.65)';
+        const inactiveColor = isDark ? '#FFFFFF' : '#000000';
 
         const icons = {
-            newsActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${activeColor};"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
             newsInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${inactiveColor};"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>`,
-            toolsActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="color: ${activeColor};"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
             toolsInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="color: ${inactiveColor};"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-            msgActive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${activeColor};"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`,
             msgInactive: `<svg class="w-[22px] h-[22px] transition-[color,fill,stroke] duration-150" fill="currentColor" viewBox="0 0 24 24" style="color: ${inactiveColor};"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd" /></svg>`
         };
+        icons.newsActive = icons.newsInactive;
+        icons.toolsActive = icons.toolsInactive;
+        icons.msgActive = icons.msgInactive;
 
         if (activePill) {
+            activePill.style.setProperty('background', pillColor, 'important');
             if (activeTab === 'news') {
                 activePill.style.transform = 'translateX(0)';
             } else if (activeTab === 'tools') {
@@ -1523,19 +1531,19 @@ export const ViewModule = {
 
         if (newsBtn) {
             const active = (activeTab === 'news');
-            newsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Hub</span>`;
+            newsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? '' : 'text-gray-500 dark:text-gray-400'}`;
+            newsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.newsActive : icons.newsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${inactiveColor}">Hub</span>`;
         }
         if (toolsBtn) {
             const active = (activeTab === 'tools');
-            toolsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            toolsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.toolsActive : icons.toolsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Tool</span>`;
+            toolsBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? '' : 'text-gray-500 dark:text-gray-400'}`;
+            toolsBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.toolsActive : icons.toolsInactive}</div><span class="text-[11px] font-bold tracking-wide" style="color: ${inactiveColor}">Tool</span>`;
         }
         if (msgBtn) {
             const active = (activeTab === 'messages');
             const hasUnread = !!(window.AppModules && window.AppModules.Notify && window.AppModules.Notify.unreadCount > 0);
-            msgBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-gray-500 dark:text-gray-400'}`;
-            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="${hasUnread ? '' : 'hidden'} absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-[11px] font-bold tracking-wide" style="color: ${active ? activeColor : inactiveColor}">Messages</span>`;
+            msgBtn.className = `relative z-10 flex flex-col items-center justify-center flex-1 h-[56px] rounded-full transition-[color,fill,stroke] duration-150 ${active ? '' : 'text-gray-500 dark:text-gray-400'}`;
+            msgBtn.innerHTML = `<div class="relative inline-flex mb-1">${active ? icons.msgActive : icons.msgInactive}<div id="mainUnreadDot" class="${hasUnread ? '' : 'hidden'} absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#1C1C1E]"></div></div><span class="text-[11px] font-bold tracking-wide" style="color: ${inactiveColor}">Messages</span>`;
         }
     },
 
@@ -1575,6 +1583,7 @@ export const ViewModule = {
                 
                 if (card) {
                     card.classList.add('h-full');
+                    card.classList.add('md:max-w-3xl');
                 }
                 if (body) {
                     body.classList.remove('max-h-[70vh]');
@@ -1595,6 +1604,7 @@ export const ViewModule = {
                 
                 if (card) {
                     card.classList.remove('h-full');
+                    card.classList.remove('md:max-w-3xl');
                 }
                 if (body) {
                     body.classList.remove('flex-1');
@@ -1668,23 +1678,4 @@ export const ViewModule = {
             setTimeout(() => { if (dropdown.classList.contains('opacity-0')) dropdown.classList.add('hidden'); }, 200);
         }
     },
-
-    /**
-     * Sidebar navigation going back
-     */
-    goBackToClassList: function () {
-        window.currentClassId = null;
-        window._isPopNav = true;
-        if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
-            AppModules.Sidebar.renderSidebar(true);
-        }
-    },
-
-    goBackToRecent: function () {
-        window.sidebarMode = 'recent';
-        window._isPopNav = true;
-        if (AppModules.Sidebar && typeof AppModules.Sidebar.renderSidebar === 'function') {
-            AppModules.Sidebar.renderSidebar(true);
-        }
-    }
 };

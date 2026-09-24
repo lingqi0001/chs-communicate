@@ -216,12 +216,13 @@
 
         <div id="doneStep" class="hidden">
             <p id="doneText"></p>
+            <button id="againBtn" type="button">Continue Uploading</button>
         </div>
     </main>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+        import { initializeApp } from "vendor/firebase/10.7.1/firebase-app.js";
+        import { getFunctions, httpsCallable } from "vendor/firebase/10.7.1/firebase-functions.js";
         import { firebaseConfig } from "./js/config.js";
 
         const functions = getFunctions(initializeApp(firebaseConfig));
@@ -349,9 +350,24 @@
             identityStep.classList.remove('hidden');
         }
 
+        function shareAnother() {
+            showStatus(statusEl, '', '');
+            docInput.value = '';
+            doneStep.classList.add('hidden');
+            classSub.classList.remove('hidden');
+            headline.innerText = `Send Google Doc For ${className}`;
+            if (identity) {
+                docStep.classList.remove('hidden');
+                docInput.focus();
+            } else {
+                identityStep.classList.remove('hidden');
+            }
+        }
+
         continueBtn.addEventListener('click', goDocStep);
         submitBtn.addEventListener('click', submit);
         backBtn.addEventListener('click', backToIdentity);
+        document.getElementById('againBtn').addEventListener('click', shareAnother);
         document.getElementById('copyBotEmailBtn').addEventListener('click', (e) => {
             const btn = e.currentTarget;
             const done = () => {

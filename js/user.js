@@ -49,6 +49,26 @@ import { SYSTEM_USERS, APP_CONSTANTS } from './config.js';
 const ADMIN_EMAIL = APP_CONSTANTS.ADMIN_EMAIL;
 const MOSS_ID = 'moss104088';
 
+// Last successfully-read profile, kept per browser so an offline boot can
+// show the real name/avatar/role instead of an email-derived placeholder.
+const PROFILE_CACHE_KEY = 'chs_profile_cache';
+
+function readCachedProfile(idPrefix) {
+    try {
+        const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+        const cached = raw ? JSON.parse(raw) : null;
+        return cached && cached.id === idPrefix ? cached : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function writeCachedProfile(profile) {
+    try {
+        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } catch (e) { }
+}
+
 export const UserModule = {
     current: null, // 当前用户状态持有者
 
@@ -62,6 +82,23 @@ export const UserModule = {
 
     isStudent() {
         return this.current?.email?.toLowerCase().endsWith('@inst.hcpss.org');
+    },
+
+    /**
+     * [离线启动] 本机上一次登录会话的档案（未经云端确认）
+     */
+    cachedProfile() {
+        try {
+            const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+            const cached = raw ? JSON.parse(raw) : null;
+            return cached && cached.id ? cached : null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    clearCachedProfile() {
+        try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch (e) { }
     },
 
     /**
@@ -102,7 +139,27 @@ export const UserModule = {
         };
 
         // 使用 CloudDB 标准接口读取
-        const userData = await CloudDB.get(PATHS.user(idPrefix));
+        let userData = null;
+        let cloudReachable = true;
+        try {
+            userData = await window.withNetworkTimeout(CloudDB.get(PATHS.user(idPrefix)));
+        } catch (err) {
+            cloudReachable = false;
+            console.warn('User: Cloud profile unavailable, booting from local copy:', err.message);
+        }
+
+        if (!cloudReachable) {
+            // Offline boot: never write, never treat a timeout as a new user.
+            const cached = readCachedProfile(idPrefix) || profile;
+            // Anyone reaching this point already signed in, which requires a
+            // network, so their ToS acceptance is historical fact; defaulting
+            // to true keeps an offline boot from showing a form they cannot
+            // submit.
+            cached.hasAcceptedTerms = cached.hasAcceptedTerms !== false;
+            cached._offlineProfile = true;
+            this.current = cached;
+            return cached;
+        }
 
         if (userData) {
             profile = { ...profile, ...userData };
@@ -144,6 +201,7 @@ export const UserModule = {
             avatar: profile.avatar || null
         });
 
+        writeCachedProfile(profile);
         this.current = profile;
         return profile;
     },

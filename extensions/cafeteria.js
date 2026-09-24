@@ -62,21 +62,20 @@ export function initCafeteriaFeature(deps) {
         if (!grid) return;
 
         const firstDay = dateForOffset(0);
-        const lastDay = dateForOffset(MENU_SPAN_DAYS - 1);
         const dow = firstDay.getDay(); // 0 = Sun, 6 = Sat
         // On weekends the whole current week is over: start directly at next Monday.
         const startOffset = dow === 0 ? 1 : (dow === 6 ? 2 : -((dow + 6) % 7));
         const highlightOffset = startOffset < 0 ? 0 : startOffset;
 
         let html = '';
-        // One row per week; columns are Mon..Fri (school days only)
+        // One row per week; columns are Mon..Fri (school days only).
+        // The 30-day span only picks which weeks appear; every shown week is always full Mon-Fri.
         for (let w = startOffset; w <= MENU_SPAN_DAYS - 1; w += 7) {
             let row = '';
             let cellCount = 0;
             for (let col = 0; col < 5; col++) {
                 const offset = w + col;
                 const dayDate = dateForOffset(offset);
-                if (dayDate > lastDay) break;
 
                 cellCount++;
                 const isPast = offset < 0;
@@ -342,7 +341,8 @@ Here is the original menu text:
             const dateStr = String(entry?.date || '').trim();
             const items = Array.isArray(entry?.items) ? entry.items : [];
             const offset = offsetOfDateStr(dateStr);
-            if (!dateStr || Number.isNaN(offset) || offset < 0 || offset >= MENU_SPAN_DAYS) {
+            // Future dates are accepted without limit (stored early, UI shows the next 30 days); past dates are skipped
+            if (!dateStr || Number.isNaN(offset) || offset < 0) {
                 if (dateStr) skipped.push(dateStr);
                 return;
             }
@@ -367,14 +367,14 @@ Here is the original menu text:
         });
 
         if (dayCount === 0) {
-            AppModules.Modal.alert('Import Error', `No valid dates found. Dates must be within the next ${MENU_SPAN_DAYS} days (YYYY-MM-DD).`);
+            AppModules.Modal.alert('Import Error', 'No valid dates found. Dates must be today or later (YYYY-MM-DD).');
             return;
         }
 
         try {
             await update(ref(db), updates);
             let msg = `Imported ${dayCount} day(s)` + (newItemCount ? ` · ${newItemCount} new food(s) added to pool` : '');
-            if (skipped.length) msg += `. Skipped out-of-range: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}`;
+            if (skipped.length) msg += `. Skipped invalid/past dates: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}`;
             AppModules.Modal.alert('Success', msg);
             if (editOffset !== null) loadEditSelection();
             renderCafeteriaEditPool();

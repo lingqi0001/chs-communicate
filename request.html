@@ -147,8 +147,8 @@
     </main>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+        import { initializeApp } from "vendor/firebase/10.7.1/firebase-app.js";
+        import { getFunctions, httpsCallable } from "vendor/firebase/10.7.1/firebase-functions.js";
         import { firebaseConfig } from "./js/config.js";
 
         const functions = getFunctions(initializeApp(firebaseConfig));

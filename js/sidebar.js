@@ -11,10 +11,8 @@
 
 export const SidebarModule = {
     _initialized: false,
-    _legacyRawRender: null,
     _renderRaf: null,
     _pendingTabSwitch: false,
-    _isRenderingGetter: null,
     _isRenderingFlag: false,
     _queuedRender: false,
     _renderStateKey: null,
@@ -88,13 +86,7 @@ export const SidebarModule = {
         `;
     },
 
-    attachLegacyRender(rawRenderFn, opts = {}) {
-        this._legacyRawRender = (typeof rawRenderFn === 'function') ? rawRenderFn : null;
-        this._isRenderingGetter = (typeof opts.isRenderingGetter === 'function') ? opts.isRenderingGetter : null;
-    },
-
     isRendering() {
-        if (this._isRenderingGetter) return !!this._isRenderingGetter();
         return !!this._isRenderingFlag;
     },
 
@@ -327,8 +319,6 @@ export const SidebarModule = {
                 level1Container.classList.add('z-10');
             }
 
-            const animType = localStorage.getItem('transitionAnimation') || 'fadeSlide';
-
             // If we are in Level 2 mode
             const isLevel2 = (window.sidebarMode === 'class' && window.currentClassId) || (window.sidebarMode === 'recent_joined');
 
@@ -346,43 +336,44 @@ export const SidebarModule = {
                 if (!level1Container.querySelector('#sidebarSubList')) {
                     const origMode = window.sidebarMode;
                     window.sidebarMode = 'recent';
-                    await this._renderLevel1(level1Container, false, animType);
+                    await this._renderLevel1(level1Container, false);
                     window.sidebarMode = origMode;
                 }
 
                 // The shared bar becomes the sub-panel header: back + title, left-aligned.
                 this._setBarLevel(2, this._level2Title());
-                // Overlay-only: the row name flies its own mini-capsule into
-                // the title slot while the bar morphs underneath, untouched.
-                this._startEntryFly();
+                // A data refresh while the panel is already up (message sent,
+                // group sync, auto-refresh) must not replay the entrance:
+                // no title fly, no slide-in — only the rows update underneath.
+                const alreadyOpen = !level2Container.classList.contains('hidden');
+                if (!alreadyOpen) this._startEntryFly();
                 this._returnFly = null;
 
-                // A slide-out still in flight would otherwise hand its
-                // animationend to the old listener and wipe this panel.
-                if (level2Container._popEnd) {
-                    level2Container.removeEventListener('animationend', level2Container._popEnd);
-                    level2Container._popEnd = null;
-                }
+                if (!alreadyOpen) {
+                    // A slide-out still in flight would otherwise hand its
+                    // animationend to the old listener and wipe this panel.
+                    if (level2Container._popEnd) {
+                        level2Container.removeEventListener('animationend', level2Container._popEnd);
+                        level2Container._popEnd = null;
+                    }
 
-                // Show Level 2 container and start animation immediately
-                this._killGerminate(); // a rewind still running must not clip this panel
-                level2Container.classList.remove('hidden', 'sidebar-full-slide-out', 'sidebar-full-slide-in', 'sidebar-push');
-                this._rowsToStagger = false;
-                if (!isTabSwitch) {
-                    const seed = this._entrySeed;
-                    this._entrySeed = null;
-                    // A seed means the click came from a row, so the germination
-                    // outranks the stored transition style — and it needs Level 1
-                    // live underneath, because the growing window reveals it.
-                    if (this._germinate(level2Container, seed, 'in')) {
-                        this._rowsToStagger = true;
-                        level1Container.classList.remove('hidden');
-                    } else if (animType === 'micro') {
-                        level2Container.classList.add('sidebar-push');
-                        level1Container.classList.add('hidden'); // Hide level 1 in micro mode to keep clean look
-                    } else {
-                        level1Container.classList.remove('hidden'); // Ensure level 1 is visible underneath
-                        level2Container.classList.add('sidebar-full-slide-in');
+                    // Show Level 2 container and start animation immediately
+                    this._killGerminate(); // a rewind still running must not clip this panel
+                    level2Container.classList.remove('hidden', 'sidebar-full-slide-out', 'sidebar-full-slide-in');
+                    this._rowsToStagger = false;
+                    if (!isTabSwitch) {
+                        const seed = this._entrySeed;
+                        this._entrySeed = null;
+                        // A seed means the click came from a row, so the germination
+                        // outranks the stored transition style — and it needs Level 1
+                        // live underneath, because the growing window reveals it.
+                        if (this._germinate(level2Container, seed, 'in')) {
+                            this._rowsToStagger = true;
+                            level1Container.classList.remove('hidden');
+                        } else {
+                            level1Container.classList.remove('hidden'); // Ensure level 1 is visible underneath
+                            level2Container.classList.add('sidebar-full-slide-in');
+                        }
                     }
                 }
                 void level2Container.offsetWidth; // reflow
@@ -443,7 +434,7 @@ export const SidebarModule = {
                 this._returnSeed = null;
                 if (this._germinate(level2Container, seed, 'out', detach)) {
                     // the rewind calls detach itself when the sheet is gone
-                } else if (animType !== 'micro' && (window._isPopNav || wasLevel2)) {
+                } else if (window._isPopNav || wasLevel2) {
                     level2Container.classList.remove('sidebar-full-slide-in');
                     void level2Container.offsetWidth; // restart from the resting box
                     level2Container.classList.add('sidebar-full-slide-out');
@@ -458,7 +449,7 @@ export const SidebarModule = {
                 }
             }
 
-            await this._renderLevel1(level1Container, isTabSwitch, animType);
+            await this._renderLevel1(level1Container, isTabSwitch);
 
             const subList1 = level1Container.querySelector('#sidebarSubList');
             if (isTabSwitch && subList1 && !returnFired) {
@@ -478,9 +469,6 @@ export const SidebarModule = {
 
         } catch (err) {
             console.error('renderSidebar error:', err);
-            if (typeof this._legacyRawRender === 'function') {
-                await this._legacyRawRender(isTabSwitch);
-            }
         } finally {
             this._isRenderingFlag = false;
             if (this._queuedRender) {
@@ -494,7 +482,7 @@ export const SidebarModule = {
         }
     },
 
-    async _renderLevel1(level1Container, isTabSwitch, animType) {
+    async _renderLevel1(level1Container, isTabSwitch) {
         if (!level1Container.querySelector('#sidebarSubList')) {
             level1Container.innerHTML = `
                 <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
@@ -514,7 +502,7 @@ export const SidebarModule = {
         if (shouldAnimateTab) this._lastTabAnimationKey = tabAnimationKey;
         const shouldAnimateList = shouldAnimateTab || window._isPopNav;
         if (shouldAnimateList) {
-            subList?.classList.remove('sidebar-pop', 'sidebar-push', 'tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
+            subList?.classList.remove('tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
         }
 
         // When returning from Level 2, Level 1 was already populated underneath; preserve it to eliminate flickering
@@ -532,14 +520,9 @@ export const SidebarModule = {
         if (shouldAnimateList) {
             void subList.offsetWidth;
             requestAnimationFrame(() => {
-                if (animType === 'micro') {
-                    subList.classList.add('sidebar-pop');
-                } else {
-                    if (window._isPopNav) {
-                        // In fadeSlide, Level 1 stays stationary when popping, so we do not animate it
-                    } else {
-                        subList.classList.add('tab-fade-up');
-                    }
+                if (!window._isPopNav) {
+                    // In fadeSlide, Level 1 stays stationary when popping, so we do not animate it
+                    subList.classList.add('tab-fade-up');
                 }
                 window._isPopNav = false;
             });
@@ -614,7 +597,7 @@ export const SidebarModule = {
 
     _applyBarGlass(el) {
         if (!el || el._liquidGlass) return;
-        import('./liquid-glass.js?v=20260920-iosglass-fb-v5').then(({ LiquidGlassEffect }) => {
+        import('./liquid-glass.js?v=20260922-lgpref-1').then(({ LiquidGlassEffect }) => {
             if (!el.isConnected || el._liquidGlass) return;
             new LiquidGlassEffect(el, {
                 radius: 23,            // matches the 46px-tall capsule, same as the chat bars
@@ -1352,8 +1335,8 @@ export const SidebarModule = {
                             </svg>
                         </div>
                         <div>
-                            <div class="font-bold text-sm text-black dark:text-white">Class Join Link</div>
-                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Class Tool · Always On</div>
+                            <div class="font-bold text-sm text-black dark:text-white">Add Doc Link Accessible For Everyone</div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Students can upload their Google Docs</div>
                         </div>
                     </div>
                 `;
@@ -1472,12 +1455,24 @@ export const SidebarModule = {
                 if (window.sidebarMode === 'class') container.innerHTML = this._loadingHtml('Loading classes...');
             }, 100);
             try {
-                const snap = await this._fetch(rt.ref(rt.db, 'classes'));
-                if (window.sidebarMode !== 'class') return;
-                const allClasses = snap.val() || {};
-                const myClasses = Object.keys(allClasses)
-                    .map(id => ({ id, ...allClasses[id] }))
-                    .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
+                // Offline: the class rows come from the local index so the tab
+                // still opens and a cached group chat is still reachable. The
+                // stored shape matches the cloud one, so nothing below branches.
+                let myClasses;
+                if (window.cloudUnreachable?.() === true) {
+                    const cached = window.Directory?.classes() || {};
+                    myClasses = Object.keys(cached)
+                        .map(id => ({ id, ...cached[id] }))
+                        .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
+                } else {
+                    const snap = await this._fetch(rt.ref(rt.db, 'classes'));
+                    if (window.sidebarMode !== 'class') return;
+                    const allClasses = snap.val() || {};
+                    myClasses = Object.keys(allClasses)
+                        .map(id => ({ id, ...allClasses[id] }))
+                        .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
+                    window.Directory?.saveClasses(myClasses, currentUser.id);
+                }
 
                 const wrapper = document.createElement('div');
 
@@ -1676,11 +1671,20 @@ export const SidebarModule = {
                 }, 100);
             }
             try {
-                const chatSnap = await this._fetch(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
-                const chatMap = chatSnap.val() || {};
+                const offline = window.cloudUnreachable?.() === true;
+                let chatMap;
+                if (offline) {
+                    chatMap = window.Directory?.chats() || {};
+                    // Names come from the index too, so the rows below resolve
+                    // without touching the network.
+                    window.Directory?.hydrateAllUsers();
+                } else {
+                    const chatSnap = await this._fetch(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
+                    chatMap = chatSnap.val() || {};
+                }
                 let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-                if (Object.keys(chatMap).length === 0) {
+                if (!offline && Object.keys(chatMap).length === 0) {
                     try {
                         const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
                         if (recentSnap.exists()) {
@@ -1706,9 +1710,17 @@ export const SidebarModule = {
                         return;
                     }
                     let u = window.ALL_USERS[id];
-                    if (!u) u = await this._fetchUser(id);
+                    // Offline there is nothing to ask: a person shows up only if
+                    // their name is already in the index.
+                    if (!u && !offline) u = await this._fetchUser(id);
                     if (u && u.name) validIds.push(id);
                 }));
+
+                if (!offline) {
+                    const known = {};
+                    validIds.forEach(id => { if (window.ALL_USERS[id]) known[id] = window.ALL_USERS[id]; });
+                    window.Directory?.saveUsers(known);
+                }
 
                 let sortedIds = [];
                 if (listMode === 'recent') {
@@ -1885,6 +1897,7 @@ export const SidebarModule = {
                 if (currentListMode() !== listMode) return;
                 subList.dataset.listMode = listMode;
                 subList.dataset.sidebarListSignature = listSignature;
+                window.bootMark?.(`sidebar/${listMode} painted (${sortedIds.length} rows${offline ? ', from cache' : ''})`);
                 if (window.isChatPreview && (listMode === 'recent' || listMode === 'all')) {
                     // Reuse the original login card verbatim beneath the
                     // preview rows; do not replace the authenticated list UI.
@@ -1914,10 +1927,10 @@ export const SidebarModule = {
     openClassJoinLink(classId) {
         const link = `${location.origin}/join.html?class=${classId}`;
         const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
-        tEl.innerText = 'Class Join Link';
+        tEl.innerText = 'Add Doc Link Accessible For Everyone';
         bEl.innerHTML = `
             <div class="space-y-3 text-left">
-                <p class="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">This extension is built into every class and cannot be turned off. Students open the link, enter their school email and name, then submit a Google Doc shared at Commenter level. They join the class roster automatically and their document appears in the class chat.</p>
+                <p class="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">This extension is built into every class and cannot be turned off. Students open the link, enter their school email and name, then submit a Google Doc shared at Commenter level. They join the class roster automatically and their document is sent straight to you.</p>
                 <input type="text" id="classJoinLinkInput" readonly value="${window.escapeHTML(link)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-sm text-black dark:text-white select-all">
                 <p class="text-[11px] text-gray-400">No sign-in needed. Anyone with the link can join, any time.</p>
             </div>
@@ -2043,8 +2056,8 @@ export const SidebarModule = {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" /></svg>
                         </div>
                         <div class="flex flex-col text-left">
-                            <span class="font-bold text-sm text-black dark:text-white">Class Join Link</span>
-                            <span class="text-[10px] text-gray-400 uppercase tracking-tight">Built into every class · always on</span>
+                            <span class="font-bold text-sm text-black dark:text-white">Add Doc Link Accessible For Everyone</span>
+                            <span class="text-[10px] text-gray-400 uppercase tracking-tight">Students can upload their Google Docs · always on</span>
                         </div>
                     </div>
                     <div class="relative inline-flex items-center opacity-60" title="Always on">
@@ -2062,7 +2075,7 @@ export const SidebarModule = {
                     if (!item) return false;
                     return item.title.toLowerCase().includes(termLower) || (item.category || '').toLowerCase().includes(termLower);
                 });
-                if (!'class join link'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
+                if (!'add doc link accessible for everyone'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
 
                 return forcedExtRow + filteredKeys.map(eid => {
                     const regItem = registry[eid];

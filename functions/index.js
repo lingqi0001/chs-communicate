@@ -758,6 +758,25 @@ async function runGoogleDocSync(data) {
         }
     }
 
+    // Slim timer ledger: syncGoogleDocsTimer queues off writing_sync_index
+    // instead of downloading every doc's full snapshotComments each round.
+    const writeSyncIndex = async (msgKeyHint) => {
+        if (!stateRef) return;
+        try {
+            await db.ref(`writing_sync_index/${chatId}/${fileId}`).set({
+                docUrl: docUrl,
+                title: nextState.title,
+                lastSyncStatus: syncStatus,
+                lastSyncAttemptAt: startedAt,
+                lastSuccessfulSyncAt: lastSuccessfulSyncAt,
+                messageKey: msgKeyHint || null
+            });
+        } catch (e) {
+            console.warn('[GoogleDoc] Failed to persist writing_sync_index:', e.message);
+        }
+    };
+    await writeSyncIndex(messageKey || Object.keys((prevState && prevState.linkedMessageKeys) || {})[0] || null);
+
     // Lightweight, merge-safe display copy pushed onto each linked message.
     const docData = {
         fileId: fileId,
@@ -767,7 +786,6 @@ async function runGoogleDocSync(data) {
         createdTime: nextState.createdTime,
         modifiedTime: nextState.modifiedTime,
         commentsCount: lastKnownCommentCount,
-        comments: snapshotComments,
         lastSyncedAt: startedAt,
         lastSuccessfulSyncAt: lastSuccessfulSyncAt,
         lastKnownCommentCount: lastKnownCommentCount,
@@ -787,51 +805,87 @@ async function runGoogleDocSync(data) {
     const senderIdSet = new Set();
     let docCardKey = null;
     let docCardSender = { id: '', name: '' };
+    let fullScanDone = false;
+    const linkedKeys = new Set(Object.keys((nextState.linkedMessageKeys) || {}));
+    if (messageKey) linkedKeys.add(messageKey);
+
+    const absorbMessage = (mKey, mVal) => {
+        if (mVal && mVal.senderId) senderIdSet.add(String(mVal.senderId).toLowerCase());
+        if (mVal && mVal.type === 'comment_card' && mVal.commentCard && mVal.commentCard.comment && mVal.commentCard.comment.id) {
+            cardInfo[String(mVal.commentCard.comment.id)] = {
+                msgKey: mKey,
+                senderId: String(mVal.senderId || '').toLowerCase(),
+                senderName: mVal.senderName || '',
+                text: mVal.text || ''
+            };
+        }
+        return !!(mVal && mVal.text && mVal.text.includes(fileId));
+    };
+    const buildDocDataUpdate = (mVal) => {
+        const merged = { ...docData };
+        // When the file layer failed we could not verify metadata —
+        // never downgrade what a previous good sync already stored.
+        if (fileAccessStatus !== 'ok' && mVal.docData) {
+            const prevDoc = mVal.docData;
+            if (merged.title === PLACEHOLDER_DOC_TITLE) merged.title = firstRealTitle(prevDoc.title) || merged.title;
+            if (!merged.webViewLink && prevDoc.webViewLink) merged.webViewLink = prevDoc.webViewLink;
+            if (!merged.docUrl && prevDoc.docUrl) merged.docUrl = prevDoc.docUrl;
+            if (!merged.createdTime && prevDoc.createdTime) merged.createdTime = prevDoc.createdTime;
+            if (!merged.modifiedTime && prevDoc.modifiedTime) merged.modifiedTime = prevDoc.modifiedTime;
+        }
+        return merged;
+    };
+    const runFullScan = async () => {
+        const chatMsgsSnap = await db.ref(`messages/${chatId}`).once('value');
+        const allMsgs = chatMsgsSnap.val() || {};
+        const updates = {};
+        for (const [mKey, mVal] of Object.entries(allMsgs)) {
+            if (absorbMessage(mKey, mVal)) {
+                if (!docCardKey) {
+                    docCardKey = mKey;
+                    docCardSender = { id: String(mVal.senderId || '').toLowerCase(), name: mVal.senderName || '' };
+                }
+                updates[`messages/${chatId}/${mKey}/docData`] = buildDocDataUpdate(mVal);
+                linkedKeys.add(mKey);
+            }
+        }
+        if (Object.keys(updates).length > 0) {
+            await db.ref().update(updates);
+            console.log(`[GoogleDoc] Synced merged docData to ${Object.keys(updates).length} messages in ${chatId} (${syncStatus})`);
+        }
+        fullScanDone = true;
+    };
+
     if (chatId) {
         try {
-            const linkedKeys = new Set(Object.keys((nextState.linkedMessageKeys) || {}));
-            if (messageKey) linkedKeys.add(messageKey);
-            const chatMsgsSnap = await db.ref(`messages/${chatId}`).once('value');
-            const allMsgs = chatMsgsSnap.val() || {};
-            const updates = {};
-            for (const [mKey, mVal] of Object.entries(allMsgs)) {
-                if (mVal && mVal.senderId) senderIdSet.add(String(mVal.senderId).toLowerCase());
-                if (mVal && mVal.type === 'comment_card' && mVal.commentCard && mVal.commentCard.comment && mVal.commentCard.comment.id) {
-                    cardInfo[String(mVal.commentCard.comment.id)] = {
-                        msgKey: mKey,
-                        senderId: String(mVal.senderId || '').toLowerCase(),
-                        senderName: mVal.senderName || '',
-                        text: mVal.text || ''
-                    };
-                }
-                if (mVal && mVal.text && mVal.text.includes(fileId)) {
-                    if (!docCardKey) {
-                        docCardKey = mKey;
+            if (linkedKeys.size === 0) {
+                // Legacy docs predate the persisted link ledger — scan once to bootstrap it.
+                await runFullScan();
+            } else {
+                const keys = [...linkedKeys];
+                const snaps = await Promise.all(keys.map(k =>
+                    db.ref(`messages/${chatId}/${k}`).once('value').catch(() => null)));
+                const updates = {};
+                snaps.forEach((snap, i) => {
+                    const mVal = snap && snap.exists() ? snap.val() : null;
+                    if (!mVal) { linkedKeys.delete(keys[i]); return; }
+                    absorbMessage(keys[i], mVal);
+                    if (!docCardKey && mVal.text && mVal.text.includes(fileId)) {
+                        docCardKey = keys[i];
                         docCardSender = { id: String(mVal.senderId || '').toLowerCase(), name: mVal.senderName || '' };
                     }
-                    const merged = { ...docData };
-                    // When the file layer failed we could not verify metadata —
-                    // never downgrade what a previous good sync already stored.
-                    if (fileAccessStatus !== 'ok' && mVal.docData) {
-                        const prevDoc = mVal.docData;
-                        if (merged.title === PLACEHOLDER_DOC_TITLE) merged.title = firstRealTitle(prevDoc.title) || merged.title;
-                        if (!merged.webViewLink && prevDoc.webViewLink) merged.webViewLink = prevDoc.webViewLink;
-                        if (!merged.docUrl && prevDoc.docUrl) merged.docUrl = prevDoc.docUrl;
-                        if (!merged.createdTime && prevDoc.createdTime) merged.createdTime = prevDoc.createdTime;
-                        if (!merged.modifiedTime && prevDoc.modifiedTime) merged.modifiedTime = prevDoc.modifiedTime;
-                    }
-                    updates[`messages/${chatId}/${mKey}/docData`] = merged;
-                    linkedKeys.add(mKey);
+                    updates[`messages/${chatId}/${keys[i]}/docData`] = buildDocDataUpdate(mVal);
+                });
+                if (Object.keys(updates).length > 0) {
+                    await db.ref().update(updates);
+                    console.log(`[GoogleDoc] Synced merged docData to ${Object.keys(updates).length} linked messages in ${chatId} (${syncStatus})`);
                 }
-            }
-            if (Object.keys(updates).length > 0) {
-                await db.ref().update(updates);
-                console.log(`[GoogleDoc] Synced merged docData to ${Object.keys(updates).length} messages in ${chatId} (${syncStatus})`);
             }
             if (stateRef && linkedKeys.size) {
                 const lmk = {};
                 linkedKeys.forEach(k => { lmk[k] = true; });
                 await stateRef.child('linkedMessageKeys').set(lmk);
+                await writeSyncIndex(Object.keys(lmk)[0] || null);
             }
         } catch (dbErr) {
             console.warn(`[GoogleDoc] Failed to update docData in DB for ${chatId}:`, dbErr.message);
@@ -850,6 +904,14 @@ async function runGoogleDocSync(data) {
             const fresh = newItems.filter(it => String(it.content || '').trim() && !isBotCommentAuthor(it));
             console.log(`[GoogleDoc] Notice diff ${fileId} in ${chatId}: new=${newItems.length} fresh=${fresh.length} prevIds=${prevIds.size}`);
             if (fresh.length) {
+                if (!fullScanDone) {
+                    // Attribution needs every comment_card and every sender in the
+                    // chat: pay for a full scan only when Google produced real new
+                    // activity, never on a quiet refresh round.
+                    try { await runFullScan(); } catch (scanErr) {
+                        console.warn(`[GoogleDoc] Attribution scan failed for ${chatId}:`, scanErr.message);
+                    }
+                }
                 const isGroup = chatId.startsWith('group_');
                 const title = nextState.title || PLACEHOLDER_DOC_TITLE;
                 const directIds = [...senderIdSet].filter(s => s && s !== GDOC_BOT_SENDER_ID);
@@ -981,10 +1043,13 @@ async function runGoogleDocSync(data) {
     });
 
     const isSyncedResult = syncStatus === 'synced' || syncStatus === 'no_comments_yet';
+    // The response keeps the full comment snapshot: the client refreshes its
+    // open doc cards from it. Only the per-message display copy is slim.
     return {
         success: isSyncedResult,
         error: isSyncedResult ? null : (nextState.lastSyncErrorMessage || syncStatus),
-        ...docData
+        ...docData,
+        comments: snapshotComments
     };
 }
 
@@ -1004,12 +1069,36 @@ exports.syncGoogleDocsTimer = onSchedule({
     secrets: ['GOOGLE_SA_JSON']
 }, async () => {
     const db = admin.database();
-    const states = (await db.ref('writing_doc_state').once('value')).val() || {};
+    let ledger = (await db.ref('writing_sync_index').once('value')).val() || {};
+    if (!Object.keys(ledger).length) {
+        // First round after deploy: rebuild the ledger from the full state
+        // once, then no later round ever touches snapshotComments again.
+        const states = (await db.ref('writing_doc_state').once('value')).val() || {};
+        const built = {};
+        Object.entries(states).forEach(([chatId, files]) => {
+            Object.entries(files || {}).forEach(([fileId, st]) => {
+                if (!st) return;
+                if (!built[chatId]) built[chatId] = {};
+                built[chatId][fileId] = {
+                    docUrl: st.docUrl || null,
+                    title: st.title || null,
+                    lastSyncStatus: st.lastSyncStatus || null,
+                    lastSyncAttemptAt: st.lastSyncAttemptAt || null,
+                    lastSuccessfulSyncAt: st.lastSuccessfulSyncAt || null,
+                    messageKey: Object.keys(st.linkedMessageKeys || {})[0] || null
+                };
+            });
+        });
+        if (Object.keys(built).length) {
+            await db.ref('writing_sync_index').update(built);
+            ledger = built;
+        }
+    }
     const now = Date.now();
     const FRESH_MS = 13 * 60 * 1000;
     const SKIP = ['access_lost', 'access_lost_or_file_unavailable', 'file_unavailable', 'comments_access_lost'];
     const queue = [];
-    Object.entries(states).forEach(([chatId, files]) => {
+    Object.entries(ledger).forEach(([chatId, files]) => {
         Object.entries(files || {}).forEach(([fileId, st]) => {
             if (!st || !st.docUrl || SKIP.includes(st.lastSyncStatus)) return;
             const last = Math.max(Number(st.lastSyncAttemptAt) || 0, Number(st.lastSuccessfulSyncAt) || 0);
@@ -1018,7 +1107,7 @@ exports.syncGoogleDocsTimer = onSchedule({
                 chatId, fileId,
                 docUrl: st.docUrl,
                 knownTitle: (st.title && st.title !== PLACEHOLDER_DOC_TITLE) ? st.title : null,
-                messageKey: Object.keys(st.linkedMessageKeys || {})[0] || null,
+                messageKey: st.messageKey || null,
                 last
             });
         });
@@ -1342,7 +1431,13 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
 
     const db = admin.database();
     const idPrefix = email.split('@')[0].replace(/\./g, '_');
-    const chatId = `group_${classId}`;
+    const teacherId = String(cls.teacherId || '').toLowerCase();
+    if (!teacherId) {
+        return { ok: false, reason: 'invalid_class', message: 'This class link is not valid. Please ask your teacher for a fresh link.' };
+    }
+    // The document is delivered to the teacher privately, using the exact
+    // direct-chat id the client would derive: [idA, idB].sort().join('_').
+    const chatId = [idPrefix, teacherId].sort().join('_');
 
     // Pre-create (or reuse) the account keyed by email. If the student later
     // signs in with Microsoft, user.js resolves the same idPrefix from the
@@ -1365,28 +1460,29 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
         await db.ref(`user_search/${idPrefix}`).set({ name: fullName, email: email, avatar: null });
     }
 
-    // The document belongs to the student, so it enters the class chat under
-    // their identity exactly like a message they had sent themselves.
+    // The document belongs to the student, so it lands in the teacher chat
+    // under their identity exactly like a message they had sent themselves.
     const msgRef = db.ref(`messages/${chatId}`).push();
     const messageKey = msgRef.key;
     const senderName = (existingUser && existingUser.name) || fullName;
     await msgRef.set({
         senderId: idPrefix,
         senderName: senderName,
+        recipientId: teacherId,
         timestamp: Date.now(),
         text: docUrl,
         type: 'text'
     });
 
+    // Joining the class roster is independent of where the doc is sent.
     await db.ref(`classes/${classId}/students/${idPrefix}`).set(true);
     const stamp = Date.now();
+    // user_chats child keys are the peer's bare uid; the combined chatId only belongs to messages/.
     const touches = {
         [`classes/${classId}/lastActivity`]: stamp,
-        [`user_chats/${idPrefix}/${chatId}`]: stamp
+        [`user_chats/${idPrefix}/${teacherId}`]: stamp,
+        [`user_chats/${teacherId}/${idPrefix}`]: stamp
     };
-    if (cls.teacherId) {
-        touches[`user_chats/${String(cls.teacherId).toLowerCase()}/${chatId}`] = stamp;
-    }
     await db.ref().update(touches);
 
     const sync = await runGoogleDocSync({ url: docUrl, chatId, messageKey });
@@ -1395,4 +1491,72 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
         title: sync.title || fileInfo.name || 'Google Document',
         existingAccount: !!existingUser
     };
+});
+
+// ==========================================
+// Email announcement ingestion. The Apps Script bot forwards parsed
+// announcement items here with a shared secret; every write goes through
+// the Admin SDK, so client rules stay untouched. news_import_log keyed by
+// emailKey (gmailMessageId_index) makes re-posts idempotent server-side.
+// ==========================================
+exports.importAnnouncements = functions.runWith({ secrets: ['ANNOUNCE_IMPORT_TOKEN'] }).https.onRequest(async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, reason: 'use_post' });
+        return;
+    }
+    const expected = String(process.env.ANNOUNCE_IMPORT_TOKEN || '').trim();
+    const body = req.body || {};
+    if (!expected || String(body.token || '').trim() !== expected) {
+        console.warn('[ImportAnnouncements] rejected: bad token');
+        res.status(401).json({ ok: false, reason: 'bad_token' });
+        return;
+    }
+    const items = Array.isArray(body.items) ? body.items.slice(0, 60) : [];
+    if (items.length === 0) {
+        res.status(400).json({ ok: false, reason: 'no_items' });
+        return;
+    }
+
+    const db = admin.database();
+    const stripCtl = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]+/g, '').slice(0, max);
+    const safeKey = (k) => String(k == null ? '' : k).replace(/[.#$\[\]\/]/g, '_').slice(0, 120);
+
+    const logSnap = await db.ref('news_import_log').once('value');
+    const log = logSnap.val() || {};
+
+    const updates = {};
+    const results = [];
+    for (const raw of items) {
+        const emailKey = safeKey(raw && raw.emailKey);
+        const type = (raw && raw.type === 'club') ? 'club' : 'school';
+        if (!emailKey) { results.push({ emailKey: '', status: 'bad_key' }); continue; }
+        if (log[emailKey]) { results.push({ emailKey, status: 'duplicate' }); continue; }
+        const title = stripCtl(raw.title, 200);
+        const desc = stripCtl(raw.desc, 2000);
+        if (!title) { results.push({ emailKey, status: 'no_title' }); continue; }
+        const ts = Number(raw.timestamp);
+        const timestamp = (Number.isFinite(ts) && ts > 0 && ts < 4102444800000) ? ts : Date.now();
+        const newRef = db.ref(`news/${type}`).push();
+        updates[`news/${type}/${newRef.key}`] = {
+            title: title,
+            desc: desc,
+            image: null,
+            authorId: 'email-bot',
+            authorName: stripCtl(raw.author, 80) || 'CHS Announcements',
+            timestamp: timestamp,
+            type: type,
+            source: 'email-bot',
+            emailKey: emailKey
+        };
+        updates[`news_import_log/${emailKey}`] = { ref: newRef.key, tab: type, at: admin.database.ServerValue.TIMESTAMP };
+        results.push({ emailKey, status: 'published', id: newRef.key });
+    }
+
+    if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+    }
+    const published = results.filter(r => r.status === 'published').length;
+    const duplicates = results.filter(r => r.status === 'duplicate').length;
+    console.log(`[ImportAnnouncements] published=${published} duplicates=${duplicates} rejected=${results.length - published - duplicates}`);
+    res.json({ ok: true, published: published, duplicates: duplicates, results: results });
 });

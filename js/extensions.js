@@ -17,6 +17,33 @@ const ALIAS_MAP = {
 let _currentExtensionUrl = '';
 let _isPanelExtensionOpen = false;
 
+// Tool pages keep their math libraries and webfonts on public CDNs on purpose
+// (moving them local would cost over a megabyte each). They still open offline,
+// so say what actually degrades instead of pretending the tool is broken.
+const OFFLINE_TOOL_NOTE = 'This tool needs a connection for its formulas and fonts. Offline, those parts may not appear.';
+
+function renderExtensionOfflineNotice() {
+    const iframe = document.getElementById('extensionIframe');
+    const host = iframe && iframe.parentElement;
+    if (!host) return;
+    const existing = document.getElementById('extensionOfflineNotice');
+    if (window.cloudUnreachable?.() !== true) {
+        if (existing) existing.remove();
+        return;
+    }
+    if (existing) return;
+    const note = document.createElement('div');
+    note.id = 'extensionOfflineNotice';
+    note.className = 'conn-offline-pill conn-offline-extension';
+    note.innerHTML = '<span class="conn-offline-dot"></span><span>' + OFFLINE_TOOL_NOTE + '</span>';
+    host.appendChild(note);
+}
+
+if (!window._extensionOfflineWatchBound) {
+    window._extensionOfflineWatchBound = true;
+    document.addEventListener('connection:status', renderExtensionOfflineNotice);
+}
+
 const getDesktopLeftOffset = () => {
     if (window.innerWidth < 1024 || document.body.classList.contains('sidebar-collapsed')) return 0;
 
@@ -97,7 +124,12 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     if (titleEl) titleEl.innerText = title;
     updateExtensionThemeIcons();
     if (loader) loader.classList.remove('hidden');
-    if (iframe) iframe.src = url + '?v=' + Date.now();
+    // No ?v=Date.now() here: a fresh query every time is a cache miss every
+    // time, which is what kept a tool from opening offline. Freshness for
+    // /extensions/ is enforced in the service worker (cache: 'reload'), so the
+    // URL can stay stable and the cached copy becomes the offline fallback.
+    if (iframe) iframe.src = url;
+    renderExtensionOfflineNotice();
 
     if (iframe) {
         iframe.onload = () => {

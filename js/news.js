@@ -52,13 +52,27 @@ export function createNewsModule(deps) {
             container.innerHTML = sortedPosts.map(post => renderCard(post, tabType)).join('');
         }
 
-        if (containerId === 'schoolNewsContent') renderCafeteriaHighlight(containerId);
+        if (containerId === 'schoolNewsContent') {
+            renderCafeteriaHighlight(containerId);
+            renderOfflineNewsCard();
+        }
     }
 
     // ===== Pinned Cafeteria Teaser (top of School News) =====
-    function cafeteriaLocalDate(offset) {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
+    function marylandNow() {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/New_York',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', hour12: false
+        }).formatToParts(new Date());
+        const get = (t) => (parts.find(p => p.type === t) || {}).value;
+        let hour = parseInt(get('hour'), 10);
+        if (hour === 24) hour = 0;
+        return { key: `${get('year')}-${get('month')}-${get('day')}`, hour };
+    }
+
+    function cafeteriaDate(base, offset) {
+        const d = new Date(base);
         d.setDate(d.getDate() + offset);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -67,28 +81,35 @@ export function createNewsModule(deps) {
     }
 
     function resolveNextCafeteriaOffering(menus, pool) {
+        const { key: todayKey, hour } = marylandNow();
+        const base = new Date(`${todayKey}T12:00:00`);
+        let todayEntry = null;
         for (let i = 0; i < 30; i++) {
-            const { key, date } = cafeteriaLocalDate(i);
+            const { key, date } = cafeteriaDate(base, i);
             const ids = menus[key];
-            if (Array.isArray(ids) && ids.length) {
-                const firstId = ids.find((id) => pool[id] && pool[id].name);
-                if (firstId) return { name: pool[firstId].name, date };
-            }
+            if (!Array.isArray(ids) || !ids.length) continue;
+            const firstId = ids.find((id) => pool[id] && pool[id].name);
+            if (!firstId) continue;
+            const entry = { name: pool[firstId].name, date, isToday: i === 0 };
+            // After 14:00 Maryland time today's service is over: jump to the next menu day
+            if (i === 0 && hour >= 14) { todayEntry = entry; continue; }
+            return entry;
         }
-        return null;
+        return todayEntry;
     }
 
     function buildCafeteriaHighlightHTML(info) {
         const esc = window.escapeHTML || ((s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
         const dateLabel = info.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
         const name = esc(info.name);
+        const leadIn = info.isToday ? "We're serving" : 'We will be serving';
         return `
             <div id="cafeteriaNewsHighlight" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <div class="flex items-center gap-2 mb-1">
                     <h3 class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF] leading-snug">Cafeteria</h3>
                 </div>
-                <p class="text-[15px] font-bold text-gray-700 dark:text-gray-200 leading-relaxed mt-1">
-                    We're serving <span class="text-black dark:text-white">${name}</span> on <span class="text-black dark:text-white">${dateLabel}</span>.
+                <p class="text-[15px] font-bold text-black dark:text-white leading-relaxed mt-1">
+                    ${leadIn} ${name} on ${dateLabel}.
                     <button onclick="openCafeteria()" class="text-[#007AFF] dark:text-[#0A84FF] font-bold hover:underline active:opacity-60 transition-opacity">Check it out</button>
                 </p>
             </div>`;
@@ -108,10 +129,20 @@ export function createNewsModule(deps) {
             if (!info) return;
             const wrapper = document.createElement('div');
             wrapper.innerHTML = buildCafeteriaHighlightHTML(info).trim();
-            container.insertBefore(wrapper.firstChild, container.firstChild);
+            // The offline notice owns row zero; this card lands under it even
+            // when it re-renders after the notice was already inserted.
+            const offlineCard = document.getElementById('offlineNewsCard');
+            container.insertBefore(wrapper.firstChild, offlineCard ? offlineCard.nextSibling : container.firstChild);
         } catch (e) {
             console.error('Cafeteria highlight failed:', e);
         }
+    }
+
+    // ===== Offline notice (pinned above the Cafeteria card) =====
+    function renderOfflineNewsCard() {
+        const container = document.getElementById('schoolNewsContent');
+        if (!container) return;
+        window.AppModules?.Connection?.sync?.();
     }
 
     async function deleteNews(id, tabType) {

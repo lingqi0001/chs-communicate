@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260920-iosglass-fb-v5';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260922-lgpref-1';
 import { initWritingBehavior, WritingDocCard } from './writing.js';
 
 export function initChatEngine(deps) {
@@ -264,7 +264,7 @@ export function initChatEngine(deps) {
 
         // Fetch recent messages from Firebase to reconcile with local cache (restores any messages deleted locally but still in Firebase)
         if (!isPreviewChat) try {
-            const remoteSnap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50)));
+            const remoteSnap = await window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))));
             if (remoteSnap.exists()) {
                 const remoteVal = remoteSnap.val() || {};
                 const localKeySet = new Set((currentLocalMsgs || []).map(m => m.key));
@@ -356,7 +356,7 @@ export function initChatEngine(deps) {
                             endBefore(currentOldestLoadedKey),
                             limitToLast(50)
                         );
-                        const olderSnap = await get(olderQuery);
+                        const olderSnap = await window.withNetworkTimeout(get(olderQuery));
                         const olderMsgs = olderSnap.val() || {};
                         const olderKeys = Object.keys(olderMsgs).sort();
 
@@ -601,6 +601,34 @@ export function initChatEngine(deps) {
         quoteAreaCloseTimer = setTimeout(() => {
             quoteArea.classList.add('hidden');
         }, 230);
+    }
+
+    function captureDraftFromComposer(chatId) {
+        if (!chatId) return;
+        const input = document.getElementById('u-msg');
+        window.Drafts?.save(chatId, { text: input ? input.value : '', quote: currentQuote });
+    }
+
+    function applyDraftToComposer(chatId) {
+        const input = document.getElementById('u-msg');
+        if (!input) return;
+        const draft = window.Drafts?.peek(chatId);
+        input.value = draft?.text || '';
+        if (draft?.quote) {
+            currentQuote = draft.quote;
+            const userEl = document.getElementById('quoteUser');
+            const textEl = document.getElementById('quoteText');
+            if (userEl) userEl.innerText = currentQuote.senderName;
+            if (textEl) textEl.innerText = (currentQuote.text || '').replace(/\r?\n/g, ' ');
+            showQuoteArea();
+        } else {
+            // No quote for this chat: the strip must not keep showing the one
+            // the previous conversation was quoting.
+            clearQuote();
+        }
+        // Let the composer's own input listener resize the textarea around the
+        // restored text rather than duplicating that math here.
+        input.dispatchEvent(new Event('input'));
     }
 
     function exitDocReplyMode() {
@@ -981,6 +1009,7 @@ export function initChatEngine(deps) {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
         if (!targetId || targetId === currentUser.id) return;
+        window.Directory?.rememberLastChat(targetId);
 
         // The preview ships a fixed set of conversations.  Roster rows
         // (classmates, the teacher) are visible but have no local thread;
@@ -1011,7 +1040,11 @@ export function initChatEngine(deps) {
         // A pending doc-comment reply belongs to the chat it was started in.
         if (docReplyTarget) clearQuote();
 
+        // Unsent text travels with its own conversation: park the outgoing one,
+        // then put back whatever this chat had when we last left it.
+        captureDraftFromComposer(activeTargetId);
         safeSetActiveTargetId(targetId);
+        applyDraftToComposer(targetId);
 
         const composerWrap = document.getElementById('chatComposerWrap');
         if (composerWrap) composerWrap.classList.remove('hidden');
@@ -1502,6 +1535,7 @@ export function initChatEngine(deps) {
         onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
             const chatMap = snapshot.val() || {};
             lastKnownChatMap = chatMap;
+            window.Directory?.saveChats(chatMap);
             const chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
             const fetchPromises = chatIds.map(id => safeFetchUser(id).catch(e => console.warn(e)));
@@ -1721,6 +1755,7 @@ export function initChatEngine(deps) {
             if (!customVal) {
                 input.value = '';
                 input.style.height = 'auto';
+                window.Drafts?.clear(getActiveTargetId());
             }
 
             // Auto-sync Google Doc metadata and created date in background
@@ -1860,6 +1895,7 @@ export function initChatEngine(deps) {
 
         let hasAlertedLimit = false;
         let resizeTimeout;
+        let draftSaveTimer = null;
 
         const adjustHeight = () => {
             if (!input.value) {
@@ -1901,6 +1937,12 @@ export function initChatEngine(deps) {
             } else {
                 hasAlertedLimit = false;
             }
+            // A reload or a closed tab must not cost the draft either, so the
+            // text is parked shortly after typing rather than only on switch.
+            if (draftSaveTimer) clearTimeout(draftSaveTimer);
+            draftSaveTimer = setTimeout(() => {
+                window.Drafts?.save(getActiveTargetId(), { text: input.value, quote: currentQuote });
+            }, 400);
         });
 
         input.addEventListener('keydown', (e) => {
@@ -2323,7 +2365,6 @@ export function initChatEngine(deps) {
     // "Created by <platform user>: <text>" so real attribution survives
     // the round trip (UIComponents.docCommentDisplay strips it back out).
     // ============================================================
-    const BOT_DOCS_EMAIL = 'chscommunication@appspot.gserviceaccount.com';
 
     // Shared send path for both the whole-doc note composer and per-comment
     // reply boxes. Returns true when the comment was posted.
@@ -2476,7 +2517,6 @@ export function initChatEngine(deps) {
             window.promptSignIn?.('Sign in to view the writing history connected to your conversations.', 'Sign in to view Writing Portfolio');
             return;
         }
-        console.group('%c🟢 [WritingPortfolio] Opening', 'color:#0A84FF;font-weight:bold');
         
         const drawer = document.getElementById('writingPortfolioDrawer');
         const content = document.getElementById('writingPortfolioContent');
@@ -2484,9 +2524,6 @@ export function initChatEngine(deps) {
 
         if (!drawer || !content) {
             console.error('%c❌ Portfolio DOM elements not found!', 'color:red');
-            console.log('drawer:', drawer);
-            console.log('content:', content);
-            console.groupEnd();
             return;
         }
 
@@ -2495,12 +2532,9 @@ export function initChatEngine(deps) {
         // #chatSection. It returns to its original parent once fully closed.
         if (drawer.parentElement !== document.body) {
             window._wpDrawerHome = drawer.parentElement;
-            console.log('Moving drawer to body (parent was:', drawer.parentElement.tagName + ')');
             document.body.appendChild(drawer);
         }
         
-        console.log('\n%c✅ Step 1: Drawer Initialized', 'color:green');
-        console.log('   Drawer state before:', drawer.className);
         
         drawer.classList.remove('hidden');
         drawer.classList.add('wp-drawer-open');
@@ -2510,14 +2544,11 @@ export function initChatEngine(deps) {
             drawer.classList.remove('translate-x-full');
         });
         
-        console.log('   Drawer state after:', drawer.className);
-        console.log('   Animating drawer from right...');
 
         const activeTargetId = getActiveTargetId();
         const currentUser = getCurrentUser();
         if (!activeTargetId) {
             console.error('%c❌ No active target chat!', 'color:red');
-            console.groupEnd();
             return;
         }
 
@@ -2553,25 +2584,15 @@ export function initChatEngine(deps) {
 
         const requestTargetId = activeTargetId;
         
-        console.log('\n%c✅ Step 2: Context Setup', 'color:green');
-        console.log('   Target Chat ID:', chatId);
-        console.log('   Chat Partner:', chatPartnerName);
-        console.log('   Is Group Chat:', isGroup);
-        console.log('   Title Set To:', titleEl?.innerText);
         
         if (targetDocId) {
-            console.log('\n⚡ Target Document Specified:');
-            console.log('   targetDocId:', targetDocId);
         }
         if (targetMsgKey) {
-            console.log('   targetMsgKey:', targetMsgKey);
         }
         if (targetCommentId) {
-            console.log('   targetCommentId:', targetCommentId);
         }
 
         try {
-            console.log('\n%c📡 Step 3: Loading Messages from Firebase', 'color:green');
             
             // Retrieve all messages for this chat (merge local IndexedDB with Firebase RTDB for 100% sync)
             const fetchStart = Date.now();
@@ -2582,29 +2603,24 @@ export function initChatEngine(deps) {
                 ? Object.entries(previewMessages).map(([key, message]) => ({ key, ...message }))
                 : (await getLocalMessages(chatId)) || [];
             const localFetchTime = Date.now() - fetchStart;
-            console.log(`   IndexedDB loaded ${localMsgs.length} messages in ${localFetchTime}ms`);
             
             const msgMap = new Map();
             localMsgs.forEach(m => {
                 if (m && m.key) msgMap.set(m.key, m);
             });
-            console.log('   IndexedDB messages indexed into Map:', msgMap.size);
 
             if (!previewMessages) try {
                 // Increased limit to ensure we capture documents that may be grouped
                 // but not visible in the most recent 150 messages. This prevents
                 // "doc not found" errors when opening portfolio from All Projects bar.
-                console.log('   Querying Firebase RTDB (limitToLast(500))...');
                 const snap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(500)));
                 if (snap.exists()) {
                     const val = snap.val();
                     const rtdbKeys = Object.keys(val).length;
-                    console.log(`   Firebase returned ${rtdbKeys} messages`);
                     
                     Object.keys(val).forEach(k => {
                         msgMap.set(k, { key: k, ...val[k] });
                     });
-                    console.log('   Merged Firebase data into Map:', msgMap.size);
                 } else {
                     console.warn('%c⚠️ No messages found in Firebase for this chat', 'color:orange');
                 }
@@ -2615,13 +2631,11 @@ export function initChatEngine(deps) {
             const finalMsgCount = msgMap.size;
             localMsgs = Array.from(msgMap.values());
             
-            console.log(`\n%c✅ Total messages ready: ${finalMsgCount}`, 'color:green');
             if (targetDocId) {
                 const docMatchCount = localMsgs.filter(m => 
                     (m.docData?.fileId === targetDocId) || 
                     (m.text?.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1] === targetDocId)
                 ).length;
-                console.log(`   Documents matching targetDocId "${targetDocId}":`, docMatchCount);
                 if (docMatchCount === 0) {
                     console.warn('%c⚠️ WARNING: Target doc NOT FOUND in message list!', 'color:orange;font-weight:bold');
                 }
@@ -2642,7 +2656,6 @@ export function initChatEngine(deps) {
                         if (stateSnap.exists()) {
                             const docState = normalizeDocSyncState(stateSnap.val());
                             if (docState) {
-                                console.log(`[Portfolio] Found target doc ${targetDocId} in writing_doc_state, enriching with cached data`);
                                 // Merge cached doc info into message processing
                                 mergeDocViewIntoCache(targetDocId, docState);
                             }
@@ -2656,7 +2669,6 @@ export function initChatEngine(deps) {
             // Ensure user hasn't switched to another chat while fetching
             if (getActiveTargetId() !== requestTargetId) {
                 console.warn('%c⚠️ Chat switched during loading, aborting', 'color:orange');
-                console.groupEnd();
                 return;
             }
 
@@ -2671,12 +2683,9 @@ export function initChatEngine(deps) {
                 return timeB - timeA;
             });
             
-            console.log('\n%c📊 Step 4: Processing Documents', 'color:green');
-            console.log('   Total raw doc messages:', rawDocMsgs.length);
             
             // Debug: Show each doc message's docId extraction
             if (rawDocMsgs.length > 0) {
-                console.log('\n%c   📋 Document Extraction Details', 'color:blue');
                 rawDocMsgs.forEach((m, idx) => {
                     const text = m.text || '';
                     const match = text.match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
@@ -2684,19 +2693,11 @@ export function initChatEngine(deps) {
                     const extractedId = match ? match[1] : null;
                     const finalId = fileId || extractedId || (m.key || `doc-${idx}`);
                     
-                    console.log(`   [${idx}] ID: ${finalId}`);
                     if (finalId === targetDocId) {
-                        console.log('       ^^^ MATCHES TARGET!');
                     }
                 });
             }
             
-            // Use correct check BEFORE _portfolioDocId is set
-            console.log(`   Target docId "${targetDocId}" present in rawMsgs:`, 
-                rawDocMsgs.some(m => 
-                    (m.docData?.fileId === targetDocId) || 
-                    ((m.text || '').match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)?.[1] === targetDocId)
-                ));
 
             // Deduplicate: multiple cards sharing the same doc link/ID should only appear once
             // Also maintain a map of docId -> all corresponding message keys
@@ -2716,10 +2717,6 @@ export function initChatEngine(deps) {
                 
                 // Debug: Show if this matches target
                 if (targetDocId && docId === targetDocId) {
-                    console.log(`   ✅ MATCH FOUND at index ${i}: ${docId}`);
-                    console.log('      Message key:', m.key);
-                    console.log('      Has docData?:', !!m.docData);
-                    console.log('      Has text?:', !!m.text);
                 }
 
                 if (!docIdToKeys.has(docId)) {
@@ -2735,12 +2732,7 @@ export function initChatEngine(deps) {
                 }
             }
             
-            console.log('\n%c📝 Mapping Table Created', 'color:green');
-            console.log('   Total unique docIds:', docIdToKeys.size);
-            console.log('   All keys:', Array.from(docIdToKeys.keys()));
             if (targetDocId) {
-                console.log(`   Target "${targetDocId}" in mapping:`, docIdToKeys.has(targetDocId));
-                console.log(`   Target keys:`, docIdToKeys.get(targetDocId) || []);
             }
 
             // Save docIdToKeys mapping for quick message lookup on delete
@@ -3201,60 +3193,40 @@ export function initChatEngine(deps) {
                     }
                 }, 150);
             } else if (targetDocId) {
-                console.log('\n%c🔍 Step 7: Locating Target Doc Card', 'color:green');
-                console.log('   Target DocID:', targetDocId);
                 
                 // Capture mapping state IMMEDIATELY (before any async operations)
                 const currentMappings = window._portfolioDocIdToKeys || new Map();
-                console.log('   Mapping captured BEFORE timeout:', currentMappings.size, 'entries');
                 
                 // Find and expand the card for this docId - use captured reference
                 setTimeout(() => {
                     const mappings = window._portfolioDocIdToKeys || new Map();
                     
                     // Debug: Check if it's the same object or different
-                    console.log('%c⚡ Mapping check after timeout', 'color:blue');
-                    console.log('   Mappings size:', mappings.size);
-                    console.log('   Same object?', mappings === currentMappings);
-                    console.log('   All keys (Map):', Array.from(mappings.keys()));
                     
                     const keys = mappings.get(targetDocId) || [];
                     
-                    console.log(`   Keys for target doc:`, keys.length);
                     if (keys.length > 0) {
-                        console.log('%c✅ Found card!', 'color:green');
                         const firstKey = keys[0];
                         const targetEl = document.getElementById(`portfolio-item-${firstKey}`);
                         if (targetEl) {
-                            console.log('   Element ID: portfolio-item-' + firstKey);
-                            console.log('   Element exists:', !!targetEl);
                             
                             const content = document.getElementById('writingPortfolioContent');
                             const needsScroll = content && content.scrollHeight > content.clientHeight;
-                            console.log('   Needs scroll:', needsScroll, '(scrollHeight:', content?.scrollHeight, ', clientHeight:', content?.clientHeight, ')');
                             
                             if (needsScroll) {
                                 targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                console.log('   ✓ Scrolled to card');
                             }
                             
                             const drawer = document.getElementById(`docDrawer-portfolio-${firstKey}`) || targetEl.querySelector('[id^="docDrawer-"]');
                             const arrow = document.getElementById(`docArrow-portfolio-${firstKey}`) || targetEl.querySelector('[id^="docArrow-"]');
                             
-                            console.log('   Drawer element:', !!drawer);
-                            console.log('   Arrow element:', !!arrow);
-                            console.log('   Drawer is hidden:', drawer?.classList.contains('hidden'));
-                            console.log('   Drawer expanded:', drawer?.classList.contains('expanded'));
                             
                             if (drawer && !drawer.classList.contains('expanded') && drawer.classList.contains('hidden')) {
-                                console.log('   Expanding drawer...');
                                 drawer.classList.remove('hidden');
                                 void drawer.offsetHeight;  // Force reflow for transition
                                 drawer.classList.add('expanded');
-                                console.log('   ✓ Drawer expanded');
                                 if (arrow) {
                                     arrow.style.transform = 'rotate(180deg)';
-                                    console.log('   ✓ Arrow rotated');
                                 }
                             }
                         } else {
@@ -3262,19 +3234,14 @@ export function initChatEngine(deps) {
                         }
                     } else {
                         console.warn('%c❌ Doc not in _portfolioDocIdToKeys mapping!', 'color:red;font-weight:bold');
-                        console.log('   Available keys in mapping:', Object.keys(mappings).slice(0, 20));
-                        console.log('   Tip: Document may be too old or from another chat!');
                     }
                 }, 150);
             }
         } catch (err) {
             console.error('%c❌ Failed to load timeline:', 'color:red', err);
-            console.groupEnd();
             return;
         }
         
-        console.log('\n%c🎉 Portfolio loading complete!', 'color:green;font-weight:bold');
-        console.groupEnd();
     }
 
     // Switch between Cards View, Comments View, and Timeline View
@@ -4318,33 +4285,20 @@ export function initChatEngine(deps) {
     async function openPortfolioForSelectedProject(e) {
         e?.stopPropagation(); // Prevent triggering toggleWpProjectMenu
         
-        console.group('%c🔵 [AllProjects→Portfolio] Starting', 'color:#0A84FF;font-weight:bold');
         
         const selected = wpActiveProject();
         if (!selected) {
             console.warn('%c❌ No project selected (currently "All Projects")', 'color:orange');
-            console.log('Current active chat project:', _activeChatProject);
-            console.log('Available projects in _chatProjects:', _chatProjects.length);
-            console.log(_chatProjects);
             console.warn('Hint: Please select a specific project first, then click the folder icon.');
-            console.groupEnd();
             return; // If all projects selected, do nothing
         }
         
         const activeDocId = Array.from(selected.docIds)[0];
         if (!activeDocId) {
             console.warn('%c❌ Project has no docIds', 'color:orange');
-            console.log('Project details:', selected);
-            console.groupEnd();
             return;
         }
         
-        console.log('%c✅ Step 1: Target Identified', 'color:green');
-        console.log('   Project Name:', selected.name);
-        console.log('   Project ID:', selected.id);
-        console.log('   Doc Count:', selected.docIds.size);
-        console.log('   Target DocID:', activeDocId);
-        console.log('   All DocIDs in project:', Array.from(selected.docIds));
         
         // Get current chat context
         const activeTargetId = getActiveTargetId();
@@ -4352,24 +4306,14 @@ export function initChatEngine(deps) {
         const isGroup = activeTargetId.startsWith('group_');
         const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
         
-        console.log('\n%c✅ Step 2: Chat Context', 'color:green');
-        console.log('   Current Chat ID:', chatId);
-        console.log('   Chat Partner:', activeTargetId.replace('group_', ''));
-        console.log('   Is Group Chat:', isGroup);
-        console.log('   Current User:', currentUser?.id || 'Not logged in');
         
         // Check if target doc exists in writing_doc_state BEFORE opening
-        console.log('\n%c⚡ Pre-check: Looking for doc in writing_doc_state...', 'color:blue');
         try {
             const stateRef = ref(db, `writing_doc_state/${chatId}/${activeDocId}`);
             const stateSnap = await get(stateRef);
             if (stateSnap.exists()) {
                 const docState = normalizeDocSyncState(stateSnap.val());
                 if (docState) {
-                    console.log('%c✅ Found in writing_doc_state!', 'color:green');
-                    console.log('   Title:', docState.title);
-                    console.log('   Last Synced:', new Date(docState.lastSyncedAt || 0).toLocaleString());
-                    console.log('   Comment Count:', docState.commentsCount || 0);
                 }
             } else {
                 console.warn('%c⚠️ Not found in writing_doc_state', 'color:orange');
@@ -4378,47 +4322,14 @@ export function initChatEngine(deps) {
             console.error('%c❌ Error checking writing_doc_state:', 'color:red', e);
         }
         
-        console.log('\n%c📊 Step 3: Opening Writing Portfolio', 'color:green');
-        console.log('Calling openWritingPortfolio(null, null, "' + activeDocId + '")...');
         
         // Open Writing Portfolio with targetDocId - let internal logic handle auto-expand
         const startTime = Date.now();
         await openWritingPortfolio(null, null, activeDocId);
         const endTime = Date.now();
-        console.log(`✅ Portfolio opened in ${endTime - startTime}ms`);
         
-        console.groupEnd();
     }
     
-    // Helper to scroll to and expand a specific portfolio card
-    function openPortfolioCard(targetMsgKey) {
-        if (!targetMsgKey) return;
-        
-        setTimeout(() => {
-            const targetEl = document.getElementById(`portfolio-item-${targetMsgKey}`);
-            if (targetEl) {
-                // Check if we actually need to scroll
-                const content = document.getElementById('writingPortfolioContent');
-                const needsScroll = content && content.scrollHeight > content.clientHeight;
-                
-                if (needsScroll) {
-                    // Scroll to the card only if there's content to scroll
-                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-                
-                // Auto-expand the card only if it's not already expanded
-                const drawer = document.getElementById(`docDrawer-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docDrawer-"]');
-                const arrow = document.getElementById(`docArrow-portfolio-${targetMsgKey}`) || targetEl.querySelector('[id^="docArrow-"]');
-                
-                if (drawer && !drawer.classList.contains('expanded') && drawer.classList.contains('hidden')) {
-                    drawer.classList.remove('hidden');
-                    void drawer.offsetHeight;
-                    drawer.classList.add('expanded');
-                    if (arrow) arrow.style.transform = 'rotate(180deg)';
-                }
-            }
-        }, 150);
-    }
 
     function wpCountLabel(count, noun) {
         if (!count) return '';
@@ -4930,43 +4841,6 @@ export function initChatEngine(deps) {
                 card._wpOpenOrigin = null;
             };
 
-            /* Old closing path (clip/scale the expanded card, swap the real DOM
-               only at finish) — kept until the ghost version is confirmed good:
-            const duration = 220;
-            const expandedWidth = card.offsetWidth;
-            const origin = card._wpOpenOrigin || {};
-            const collapsedWidth = origin.width || expandedWidth;
-            const widthScale = expandedWidth ? Math.min(1, collapsedWidth / expandedWidth) : 1;
-            const clipBottom = Math.max(0, card.offsetHeight - 46);
-            const animation = card.animate([
-                { clipPath: 'inset(0 0 0 0 round 24px)', webkitClipPath: 'inset(0 0 0 0 round 24px)', transform: 'translateX(-50%) scaleX(1)', opacity: 1 },
-                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(-50%) scaleX(${widthScale})`, opacity: 0.98 }
-            ], {
-                duration,
-                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-                fill: 'forwards'
-            });
-            card._wpCloseAnimation?.cancel?.();
-            card._wpCloseAnimation = animation;
-            card._wpAnimUntil = Date.now() + duration + 60;
-            animation.onfinish = () => {
-                if (card._wpCloseAnimation !== animation) return;
-                card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible', 'wp-project-menu-closing', 'wp-project-menu-closing-active', 'wp-project-menu-open');
-                card.classList.toggle('wp-bar-compact', !!origin.wasCompact);
-                listWrap.classList.add('hidden');
-                card.style.maxWidth = '';
-                if (header) header.setAttribute('aria-expanded', 'false');
-                updateWpProjectHeader(false);
-                if (card._hideListener) {
-                    document.removeEventListener('mousedown', card._hideListener);
-                    document.removeEventListener('touchstart', card._hideListener);
-                    card._hideListener = null;
-                }
-                animation.cancel();
-                card._wpCloseAnimation = null;
-                card._wpOpenOrigin = null;
-            };
-            */
         }
     }
 
@@ -4975,8 +4849,6 @@ export function initChatEngine(deps) {
         const card = document.getElementById('wpDocContextBar');
         if (!card) return;
         
-        console.log('%c🔵 [AllProjects] Toggle button clicked', 'color:#0A84FF');
-        console.log('   Current active project:', _activeChatProject);
         
         // Check if "All Projects" is selected
         const selected = wpActiveProject();
@@ -4985,9 +4857,7 @@ export function initChatEngine(deps) {
         // Opening/closing the list should NOT change the current project selection
         // Only clicking a specific project item should trigger state changes
         if (showingAll) {
-            console.log('   Status: Already in "All Projects", toggling list...');
         } else {
-            console.log('   Status: Viewing', selected.name, '- just toggling list without changing selection');
         }
         
         // buildChatProjects is awaited before the card opens, so a second click
@@ -5020,16 +4890,12 @@ export function initChatEngine(deps) {
         const selected = wpActiveProject();
         const showingAll = !selected;
         
-        console.log('%c📁 [AllProjects] Icon clicked', 'color:blue');
-        console.log('   Current mode:', showingAll ? 'All Projects' : 'Specific project - ' + selected.name);
         
         // When All Projects is selected, clicking the icon should just expand/close the list
         if (showingAll) {
-            console.log('   Action: Opening/closing project list...');
             await toggleWpProjectMenu(e);
         } else {
             // When specific project is selected, clicking the icon opens portfolio
-            console.log('   Action: Opening Writing Portfolio for current project...');
             await openPortfolioForSelectedProject(e);
         }
     };
@@ -5613,7 +5479,6 @@ export function initChatEngine(deps) {
                 throw new Error('The original chat message could not be located. It was not removed locally.');
             }
 
-            console.log('[WritingPortfolio] Deleting messages from chat and Firebase:', Array.from(targetKeys));
 
             // 2. Delete from RTDB first.  This must succeed before touching IndexedDB
             // or the DOM; otherwise the UI would only hide a still-live chat message.

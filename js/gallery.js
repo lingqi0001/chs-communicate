@@ -12,6 +12,8 @@
  * ==================================================================================
  */
 
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260922-lgpref-1';
+
 export const GalleryModule = {
     state: {
         images: [],
@@ -35,7 +37,8 @@ export const GalleryModule = {
             zoomOutBtn: document.getElementById('galleryZoomOutBtn'),
             rotateBtn: document.getElementById('galleryRotateBtn'),
             saveBtn: document.getElementById('gallerySaveBtn'),
-            doneBtn: document.getElementById('galleryDoneBtn')
+            doneBtn: document.getElementById('galleryDoneBtn'),
+            controls: document.getElementById('galleryControls')
         };
     },
 
@@ -130,6 +133,20 @@ export const GalleryModule = {
             });
         }
 
+        // Floating controls: same liquid-glass surface as #chatInputPill
+        [['galleryToolbar', 22], ['galleryBackDisc', 22], ['galleryPrevBtn', 28], ['galleryNextBtn', 28]].forEach(([id, radius]) => {
+            const el = document.getElementById(id);
+            if (el) {
+                new LiquidGlassEffect(el, {
+                    radius,
+                    refractionWidth: 12,   // matches chatInputPill bevel width
+                    maxDisplacement: 8,    // matches chatInputPill refraction strength
+                    mouseRadius: 55,       // matches chatInputPill hover ripple
+                    mouseStrength: 6       // matches chatInputPill ripple strength
+                });
+            }
+        });
+
         // 4. Prevent dragging defaults on desktop
         img.addEventListener('dragstart', (e) => e.preventDefault());
 
@@ -176,6 +193,7 @@ export const GalleryModule = {
         img.style.transform = 'scale(0.95)';
         modal.classList.remove('hidden');
         modal.style.opacity = '0';
+        this.els.controls?.classList.remove('hidden');
 
         // Unlock scroll locks if ViewModule is mounted
         if (window.AppModules?.View?.lockScroll) {
@@ -198,6 +216,7 @@ export const GalleryModule = {
         const { modal, img } = this.els;
         if (!modal) return;
 
+        this.els.controls?.classList.add('hidden');
         modal.style.opacity = '0';
         img.style.transform = 'scale(0.95)';
         img.style.opacity = '0';
