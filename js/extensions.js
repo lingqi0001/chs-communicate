@@ -278,6 +278,13 @@ export const ExtensionModule = {
             category: 'Learning Tools',
             description: 'Created for Miss. Ireland'
         },
+        'ap_csa_visual_lab': {
+            eid: 'ap_csa_visual_lab',
+            url: 'extensions/school/ap-csa/AP CSA Visual Lab.html',
+            title: 'AP CSA Visual Lab',
+            category: 'Learning Tools',
+            description: 'Try this out if you feel confused about how code runs'
+        },
         'face_of_the_good_and_evil': {
             eid: 'face_of_the_good_and_evil',
             url: 'extensions/fun/Face of the good and evil.html',

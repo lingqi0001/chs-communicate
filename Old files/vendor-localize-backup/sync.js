@@ -13,7 +13,7 @@
  * ==================================================================================
  */
 
-import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "../vendor/firebase/10.7.1/firebase-database.js";
+import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { DBModule } from './db.js';
 
 export const SyncModule = {
@@ -54,23 +54,17 @@ export const SyncModule = {
             clearInterval(this._heartbeatInterval);
             this._heartbeatInterval = null;
         }
-        // The .info/connected listener and the browser online/offline handlers
-        // are deliberately NOT torn down here. They are the session-lifetime
-        // connection watchdog: globalDataSync re-runs constantly, and killing
-        // the watchdog mid-boot swallows the "back online" edge, leaving the
-        // offline banners latched forever. initConnectionStatus guards against
-        // double-attaching.
-        // if (this._browserOfflineHandler) {
-        //     window.removeEventListener("offline", this._browserOfflineHandler);
-        //     window.removeEventListener("online", this._browserOnlineHandler);
-        //     this._browserOfflineHandler = null;
-        //     this._browserOnlineHandler = null;
-        // }
-        // if (this._connStatusUnsub) {
-        //     try { this._connStatusUnsub(); } catch (e) {}
-        //     this._connStatusUnsub = null;
-        //     this._connStatusRef = null;
-        // }
+        if (this._browserOfflineHandler) {
+            window.removeEventListener("offline", this._browserOfflineHandler);
+            window.removeEventListener("online", this._browserOnlineHandler);
+            this._browserOfflineHandler = null;
+            this._browserOnlineHandler = null;
+        }
+        if (this._connStatusUnsub) {
+            try { this._connStatusUnsub(); } catch (e) {}
+            this._connStatusUnsub = null;
+            this._connStatusRef = null;
+        }
     },
 
     /**
@@ -120,22 +114,8 @@ export const SyncModule = {
         const newsTabs = ['school', 'club'];
         for (const tab of newsTabs) {
             try {
-                const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
-                let remoteData;
-                try {
-                    const remoteSnap = await window.withNetworkTimeout(get(ref(db, `news/${tab}`)));
-                    remoteData = remoteSnap.val() || {};
-                } catch (remoteErr) {
-                    // Offline boot: the IndexedDB copy is the only source this
-                    // session, so render it and skip the cloud listeners.
-                    console.warn(`Sync: news/${tab} unreachable, serving local cache:`, remoteErr.message);
-                    const localOnly = await DBModule.Local.getNews(tab);
-                    if (this.callbacks.renderNews) {
-                        this.callbacks.renderNews(localOnly, containerId, tab);
-                        window.bootMark?.(`news/${tab} painted from cache (${localOnly.length} items)`);
-                    }
-                    continue;
-                }
+                const remoteSnap = await get(ref(db, `news/${tab}`));
+                const remoteData = remoteSnap.val() || {};
                 const remoteKeys = Object.keys(remoteData);
 
                 // 1. Read local keys to find synchronization delta
@@ -213,14 +193,14 @@ export const SyncModule = {
             if (isCacheEmpty && currentUser) {
                 const uid = (currentUser.id || currentUser.uid || '').toLowerCase();
                 if (uid) {
-                    const notifySnap = await window.withNetworkTimeout(get(ref(db, `user_notifications/${uid}`)));
+                    const notifySnap = await get(ref(db, `user_notifications/${uid}`));
                     const notifyData = notifySnap.val() || {};
                     const unreadChatIds = Object.keys(notifyData).filter(key => notifyData[key] === true).slice(0, 5);
                     
                     console.log(`Sync: Pre-fetching ${unreadChatIds.length} unread chats...`);
                     for (const chatId of unreadChatIds) {
                         try {
-                            const msgSnap = await window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))));
+                            const msgSnap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50)));
                             const msgs = msgSnap.val() || {};
                             for (const msgKey in msgs) {
                                 await DBModule.Local.saveMessage(chatId, msgKey, msgs[msgKey]);
@@ -334,7 +314,7 @@ export const SyncModule = {
         try {
             const classes = classesFromListener !== null
                 ? classesFromListener
-                : ((await window.withNetworkTimeout(get(query(ref(db, 'classes'), orderByKey(), limitToLast(200))))).val() || {});
+                : ((await get(query(ref(db, 'classes'), orderByKey(), limitToLast(200)))).val() || {});
             
             this.existingClassIds = {};
             Object.keys(classes).forEach(id => {
@@ -371,7 +351,7 @@ export const SyncModule = {
                 if (classData.lastActivity) {
                     const chatId = `group_${cid}`;
                     const localPath = `user_chats/${currentUser.id.toLowerCase()}/${chatId}`;
-                    const localSnap = await window.withNetworkTimeout(get(ref(db, localPath)));
+                    const localSnap = await get(ref(db, localPath));
                     if (!localSnap.exists() || localSnap.val() < classData.lastActivity) {
                         await update(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), { [chatId]: classData.lastActivity });
                     }

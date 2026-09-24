@@ -1671,7 +1671,10 @@ export const SidebarModule = {
                 }, 100);
             }
             try {
-                const offline = window.cloudUnreachable?.() === true;
+                // Preview rows live in the local mock (previewGet), not in the
+                // Directory index, so the boot-time .info/connected blip must
+                // not push guests down the offline branch.
+                const offline = !window.isChatPreview && window.cloudUnreachable?.() === true;
                 let chatMap;
                 if (offline) {
                     chatMap = window.Directory?.chats() || {};

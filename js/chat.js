@@ -1008,7 +1008,7 @@ export function initChatEngine(deps) {
     async function switchChat(targetId) {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
-        if (!targetId || targetId === currentUser.id) return;
+        if (!targetId || !currentUser || targetId === currentUser.id) return;
         window.Directory?.rememberLastChat(targetId);
 
         // The preview ships a fixed set of conversations.  Roster rows

@@ -133,7 +133,7 @@
     <link rel="apple-touch-icon" href="resources/apple-touch-icon.svg">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#007AFF">
-    <script src="vendor/tailwind-play.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -142,34 +142,34 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260923-offline-12">
+    <link rel="stylesheet" href="style.css?v=20260923-offline-1">
 
     <script type="importmap">
     {
       "imports": {
-        "./js/core.js": "./js/core.js?v=20260923-offline-10",
+        "./js/core.js": "./js/core.js?v=20260918-portfolio-delete-v1",
         "./js/config.js": "./js/config.js?v=20260516-2380",
-        "./js/db.js": "./js/db.js?v=20260923-offline-2",
-        "./js/user.js": "./js/user.js?v=20260923-offline-6",
+        "./js/db.js": "./js/db.js?v=20260918-portfolio-v7",
+        "./js/user.js": "./js/user.js?v=20260516-2380",
         "./js/view.js": "./js/view.js?v=20260923-settings-sidebar-5",
-        "./js/notify_v2.js": "./js/notify_v2.js?v=20260923-offline-2",
+        "./js/notify_v2.js": "./js/notify_v2.js?v=20260922-casedunread-1",
         "./js/modal.js": "./js/modal.js?v=20260922-lgpref-1",
-        "./js/utils.js": "./js/utils.js?v=20260923-offline-9",
+        "./js/utils.js": "./js/utils.js?v=20260921-previewstatus-v1",
         "./js/writing.js": "./js/writing.js?v=20260921-previewpostguard-v1",
         "./js/ui-components.js": "./js/ui-components.js?v=20260921-accentdisc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
-        "./js/sync.js": "./js/sync.js?v=20260924-offline-11",
-        "./js/sidebar.js": "./js/sidebar.js?v=20260924-offline-11",
-        "./js/extensions.js": "./js/extensions.js?v=20260924-apcsa-3",
+        "./js/sync.js": "./js/sync.js?v=20260923-offline-1",
+        "./js/sidebar.js": "./js/sidebar.js?v=20260923-notransition-1",
+        "./js/extensions.js": "./js/extensions.js?v=20260610-1226",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
-        "./js/auth.js": "./js/auth.js?v=20260923-offline-3",
+        "./js/auth.js": "./js/auth.js?v=20260519-0935",
         "./js/security.js": "./js/security.js?v=20260519-0935",
         "./js/search.js": "./js/search.js?v=20260922-lgpref-1",
         "./js/settings.js": "./js/settings.js?v=20260923-settings-sidebar-5",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260924-offline-11"
+        "./js/chat.js": "./js/chat.js?v=20260922-lgpref-1"
       }
     }
     </script>
@@ -189,9 +189,7 @@
         import { CHANGELOG_CONTENT, TOS_CONTENT } from './js/content.js';
         import { GalleryModule } from './js/gallery.js';
         import { SyncModule } from './js/sync.js';
-        import { ConnectionModule } from './js/connection.js?v=20260923-offline-9';
-        import { DirectoryModule } from './js/directory.js?v=20260923-offline-8';
-        import { DraftsModule } from './js/drafts.js?v=20260923-offline-10';
+        import { ConnectionModule } from './js/connection.js?v=20260923-offline-1';
         import { SidebarModule } from './js/sidebar.js';
         import { ExtensionModule } from './js/extensions.js';
         import { BridgeModule } from './js/bridge.js';
@@ -199,7 +197,7 @@
         import { SecurityModule } from './js/security.js';
         import { SearchModule } from './js/search.js';
         import { initChatEngine } from './js/chat.js';
-        import { createNewsModule } from './js/news.js?v=20260923-offline-3';
+        import { createNewsModule } from './js/news.js?v=20260923-offline-1';
         import { SettingsModule } from './js/settings.js';
         window.SettingsModule = SettingsModule;
         if (typeof SettingsModule.ensureSettingsModal === 'function') {
@@ -208,7 +206,7 @@
         import { AdminModule } from './js/admin.js';
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
-        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260923-cafweekfull-1';
+        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260922-cafbatch-8';
 
 
 
@@ -226,8 +224,6 @@
             UI: UIComponents,
             Sync: SyncModule,
             Connection: ConnectionModule,
-            Directory: DirectoryModule,
-            Drafts: DraftsModule,
             Sidebar: SidebarModule,
             Extension: ExtensionModule,
             Bridge: BridgeModule,
@@ -474,7 +470,6 @@
                 'face_of_the_good_and_evil': 'Made for Mr. Bartholomew',
                 'find_the_gao_kao_cheater': "Calculus game created in Miss. Li's class",
                 'ir_navigator': 'Created for Miss. Ireland',
-                'ap_csa_visual_lab': 'Try this out if you feel confused about how code runs',
                 'honor_roll': 'Made for Miss. Cipriano and Miss. Dow'
             };
 
@@ -572,10 +567,6 @@
                 window.isLoggedIn = true;
                 document.body.classList.add('is-logged-in');
                 document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
-                if (window._localBootDone && String(user.email || '').toLowerCase() === String(AppModules.User.current?.email || '').toLowerCase()) {
-                    console.log('App: Auth resolved after local boot for the same account. Skipping re-entry.');
-                    return;
-                }
                 return AuthModule.setupUser(user);
             },
             () => {
@@ -583,68 +574,9 @@
                     const devId = 'device_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                     localStorage.setItem('deviceId', devId);
                 }
-                window._localBootDone = false;
                 window.initPublicGuestShell();
             }
         );
-
-        // Offline boot: Firebase Auth will not release the cached user until its
-        // own token refresh has failed (~10s of dead loading screen), and that
-        // wait lives inside the SDK. When the cloud is known-unreachable we enter
-        // straight from the last profile this browser saw; the real-time
-        // listeners mounted by enterApp reconcile everything once the network is
-        // back, and the late auth callback is skipped above when it is the same
-        // account.
-        window._localBootDone = false;
-        window.showOfflineLoadingStatus = (willLoadLocal) => {
-            const line1 = document.getElementById('loadingStatusLine1');
-            const line2 = document.getElementById('loadingStatusLine2');
-            if (line1) line1.textContent = "Couldn't reach the server.";
-            if (line2 && willLoadLocal) line2.classList.remove('hidden');
-        };
-        window.bootFromLocalProfile = (reason) => {
-            if (window._appEntered || window._localBootDone) return;
-            const cached = AppModules.User.cachedProfile();
-            if (!cached) {
-                // Nothing local to fall back to. Only say the server is
-                // unreachable when we actually know it is; a slow network must
-                // not put a false claim on the loading screen.
-                if (window.cloudUnreachable?.()) window.showOfflineLoadingStatus(false);
-                return;
-            }
-            console.log(`App: Local boot (${reason}) as ${cached.email}`);
-            window.showOfflineLoadingStatus(true);
-            window._localBootDone = true;
-            AppModules.User.current = cached;
-            window.isLoggedIn = true;
-            document.body.classList.add('is-logged-in');
-            document.body.classList.remove('is-guest-three-panel', 'is-guest-two-panel');
-            window.enterApp();
-        };
-
-        if (navigator.onLine === false) {
-            // One tick later: enterApp is defined further down this same script.
-            setTimeout(() => window.bootFromLocalProfile('offline at startup'), 0);
-        } else {
-            setTimeout(() => window.bootFromLocalProfile('no session after 3s'), 3000);
-        }
-
-        // Online, the user_chats listener picks a conversation on its own
-        // (chat.js pickFirstRegularChat). Offline that listener never fires, so
-        // reopen whatever the user was last reading; that is also what fills the
-        // chat name bar and the right-hand action bar.
-        window._offlineChatOpened = false;
-        window.openLastChatOffline = () => {
-            if (window._offlineChatOpened || !window.isLoggedIn || !window.cloudUnreachable?.()) return;
-            const last = window.Directory?.lastChat();
-            if (!last || !window.switchChat) return;
-            window._offlineChatOpened = true;
-            console.log(`App: Offline, reopening last chat ${last}`);
-            window.switchChat(last);
-        };
-        document.addEventListener('connection:status', (e) => {
-            if (e.detail?.offline) window.openLastChatOffline();
-        });
 
         window.handleDirectRouteAndParams = () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -754,7 +686,6 @@
             window.currentUser = null;
             document.body.classList.remove('is-logged-in');
             AppModules.Connection.init();
-            AppModules.Sync.initConnectionStatus(db);
             console.log('App: Initializing Public Guest Shell (Hub & Tools first)...');
 
             // Fixed, local-only preview data.  The Sidebar receives it through
@@ -1254,8 +1185,6 @@
 
 
         window.enterApp = async () => {
-            window._appEntered = true;
-            window.bootMark?.('enterApp start');
             // The public shell borrows the sidebar renderer, but it must never
             // survive into an authenticated session.
             window.isChatPreview = false;
@@ -1269,7 +1198,7 @@
             }
 
             try {
-                const settingsSnap = await window.withNetworkTimeout(get(ref(db, 'settings')));
+                const settingsSnap = await get(ref(db, 'settings'));
                 const settingsData = settingsSnap?.val() || {};
                 SETTINGS.soundEnabled = settingsData.soundEnabled !== undefined ? settingsData.soundEnabled : true;
                 SETTINGS.soundUrl = settingsData.soundUrl || SETTINGS.soundUrl;
@@ -1430,7 +1359,6 @@
             hideLoading();
 
             window.handleDirectRouteAndParams();
-            window.openLastChatOffline();
         };
 
 
@@ -2777,13 +2705,6 @@
         // Global error helper
         window.showError = function (err) {
             console.error('App Error:', err);
-            const msg = (err && err.message) || String(err || '');
-            // Offline degrades through the red banners; a hung-then-timed-out
-            // read must not escalate into the full-screen failure overlay.
-            if (window.isOffline && /offline-timeout|network-timeout|ERR_CONNECTION|Failed to fetch|NetworkError/i.test(msg)) {
-                console.warn('App: Suppressed Startup Failure while offline:', msg);
-                return;
-            }
             const overlay = document.getElementById('errorOverlay');
             const msgEl = document.getElementById('errorMessage');
             if (overlay && msgEl) {
@@ -2877,10 +2798,6 @@
 
                 // Notify user about network timeout with an English native alert
                 setTimeout(() => {
-                    // Offline is already announced by the red banners; this one
-                    // is for slow-but-connected networks, where it is the only
-                    // signal the user gets.
-                    if (navigator.onLine === false) return;
                     alert("Network Timeout:\nIt is taking longer than usual to load application files due to a slow connection.\n\nIf the page remains empty or messages fail to load, please reload the page.");
                 }, 600);
             }
@@ -2938,12 +2855,6 @@
             </div>
             <div class="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-6">
                 <div class="w-full h-full bg-[#007AFF] animate-progress origin-left"></div>
-            </div>
-            <div class="mt-5 text-center space-y-0.5 px-6">
-                <div id="loadingStatusLine1" class="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
-                    Loading from the server…</div>
-                <div id="loadingStatusLine2" class="hidden text-[13px] font-semibold text-black dark:text-white">
-                    Loading from this device.</div>
             </div>
         </div>
     </div>

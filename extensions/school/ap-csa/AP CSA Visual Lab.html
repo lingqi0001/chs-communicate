@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP CSA Visual Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/visualizers.css?v=20260924-12">
+<style>
+    :root {
+        --bg: #EDEFFA;
+        --sidebar-bg: #FFFFFF;
+        --text: #09090B;
+        --text-secondary: #71717A;
+        --border: #E2E5EE;
+        --row-hover: rgba(0, 0, 0, 0.04);
+        --row-selected: rgba(0, 0, 0, 0.06);
+        --accent: #007AFF;
+        --card-bg: #FFFFFF;
+        --subtle: #F8F9FD;
+        --scrim: rgba(0, 0, 0, 0.2);
+    }
+    html.dark {
+        --bg: #1A1D22;
+        --sidebar-bg: #22262B;
+        --text: #F4F4F5;
+        --text-secondary: #9AA0A6;
+        --border: #32363C;
+        --row-hover: rgba(255, 255, 255, 0.07);
+        --row-selected: rgba(255, 255, 255, 0.12);
+        --accent: #0A84FF;
+        --card-bg: #22262B;
+        --subtle: #1A1D22;
+        --scrim: rgba(0, 0, 0, 0.5);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .topbar {
+        flex: none;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+    }
+    .topbar h1 {
+        display: none;
+        font-size: 18px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    body.standalone .topbar h1 { display: block; }
+    .crumb {
+        font-size: 17px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: right;
+    }
+    body.standalone .crumb { margin-left: auto; }
+    .theme-btn {
+        display: none;
+        width: 34px;
+        height: 34px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        margin-left: 4px;
+    }
+    .theme-btn:hover { background: var(--row-hover); }
+    body.standalone .theme-btn { display: flex; }
+    body:not(.standalone) .topbar { display: none; }
+    .theme-btn .icon-sun { display: none; }
+    html.dark .theme-btn .icon-sun { display: block; }
+    html.dark .theme-btn .icon-moon { display: none; }
+    .menu-btn {
+        display: none;
+        width: 34px;
+        height: 34px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+    }
+    .menu-btn:hover { background: var(--row-hover); }
+
+    .shell {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+    }
+
+    .sidebar {
+        flex: none;
+        width: 320px;
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+        padding: 0 10px 30px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+        transition: margin-left 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    html.dark .sidebar { scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
+    .sidebar::-webkit-scrollbar { width: 10px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.14);
+        border-radius: 999px;
+        border: 3px solid transparent;
+        background-clip: padding-box;
+    }
+    .sidebar::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 0, 0, 0.28); }
+    html.dark .sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); background-clip: padding-box; border: 3px solid transparent; border-radius: 999px; }
+    html.dark .sidebar::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.3); }
+    body.nav-collapsed .sidebar { margin-left: -321px; }
+
+    .side-label {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--sidebar-bg);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        padding: 14px 8px 10px 8px;
+    }
+    .side-collapse {
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .side-collapse:hover { background: var(--row-hover); color: var(--text); }
+
+    .unit { margin-bottom: 2px; }
+    .unit-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 18px;
+        font-weight: 600;
+        text-align: left;
+        padding: 9px 8px;
+        border-radius: 9px;
+        cursor: pointer;
+    }
+    .unit-header:hover { background: var(--row-hover); }
+    .unit-num {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--row-selected);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    .unit-name { flex: 1; min-width: 0; line-height: 1.25; }
+    .unit-count { flex: none; font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+    .chevron {
+        flex: none;
+        width: 16px;
+        height: 16px;
+        color: var(--text-secondary);
+        transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .unit.open .chevron { transform: rotate(90deg); }
+
+    .unit-topics {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.32s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .unit.open .unit-topics { grid-template-rows: 1fr; }
+    .unit-topics-inner {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .topic {
+        display: flex;
+        align-items: baseline;
+        gap: 7px;
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 17px;
+        text-align: left;
+        padding: 7px 10px 7px 38px;
+        border-radius: 8px;
+        cursor: pointer;
+        line-height: 1.35;
+    }
+    .topic:hover { background: var(--row-hover); }
+    .topic.selected { background: var(--row-selected); font-weight: 600; }
+    .topic-id {
+        flex: none;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        width: 38px;
+        font-variant-numeric: tabular-nums;
+    }
+    .topic.selected .topic-id { color: var(--text); }
+    .topic-title { min-width: 0; }
+
+    .stage {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+    }
+    .stage-view {
+        flex: 1;
+        overflow-y: auto;
+        display: none;
+    }
+    .stage-view.active { display: block; }
+
+    .welcome {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 64px 28px;
+    }
+    .welcome h2 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+    .welcome p { font-size: 18px; line-height: 1.65; color: var(--text-secondary); margin-bottom: 14px; }
+    .unit-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+        margin-top: 26px;
+    }
+    .unit-chip {
+        border: 1px solid var(--border);
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--text);
+        transition: background 0.2s ease;
+    }
+    .unit-chip:hover { background: var(--row-hover); }
+    .unit-chip .chip-unit { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-bottom: 3px; }
+    .unit-chip .chip-name { font-size: 17px; font-weight: 600; }
+
+    .topic-head {
+        padding: 26px 30px 0;
+        max-width: 900px;
+    }
+    .topic-head .kicker {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--accent);
+        margin-bottom: 6px;
+    }
+    .topic-head h2 { font-size: 23px; font-weight: 700; line-height: 1.3; }
+
+    .not-ready {
+        margin: 30px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--card-bg);
+        padding: 46px 28px;
+        text-align: center;
+        max-width: 560px;
+    }
+    .not-ready .nr-mark {
+        width: 44px;
+        height: 44px;
+        margin: 0 auto 16px;
+        border-radius: 50%;
+        background: var(--row-selected);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+    }
+    .not-ready h3 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .not-ready p { font-size: 17px; line-height: 1.6; color: var(--text-secondary); }
+    .not-ready .nr-planned { margin-top: 14px; font-size: 16px; }
+    .not-ready .nr-planned strong { font-weight: 600; color: var(--text); }
+
+    .viz-frame {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+    }
+
+    .scrim {
+        display: none;
+        position: fixed;
+        inset: 52px 0 0 0;
+        background: var(--scrim);
+        z-index: 40;
+    }
+
+    .nav-fab {
+        display: none;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 60;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--card-bg);
+        color: var(--text);
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    }
+    body.nav-collapsed .nav-fab { display: flex; }
+
+    @media (max-width: 760px) {
+        body:not(.standalone) .nav-fab { display: flex; }
+        body:not(.standalone) .sidebar { top: 0; }
+        body:not(.standalone) .scrim { top: 0; }
+        .menu-btn { display: flex; }
+        .sidebar {
+            position: fixed;
+            top: 52px;
+            bottom: 0;
+            left: 0;
+            z-index: 50;
+            transform: translateX(-100%);
+            transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            box-shadow: none;
+        }
+        body.nav-open .sidebar {
+            transform: translateX(0);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+        }
+        body.nav-open .scrim { display: block; }
+        .topic-head { padding: 20px 18px 0; }
+        .not-ready { margin: 20px 14px; }
+    }
+</style>
+</head>
+<body>
+    <header class="topbar">
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle curriculum">
+            <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <h1>AP CSA Visual Lab</h1>
+        <div class="crumb" id="crumb"></div>
+        <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
+            <svg class="icon-moon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+    </header>
+
+    <div class="shell">
+        <aside class="sidebar" id="sidebar">
+            <div class="side-label">
+                <span>Curriculum</span>
+                <button class="side-collapse" id="sideCollapse" aria-label="Collapse curriculum" title="Collapse">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg>
+                </button>
+            </div>
+            <nav id="unitTree"></nav>
+        </aside>
+
+        <main class="stage">
+            <section class="stage-view active" id="welcomeView">
+                <div class="welcome">
+                    <h2>AP CSA Visual Lab</h2>
+                    <p>A visual companion to the AP Computer Science A course (CED, Effective Fall 2025). Pick a topic from the curriculum on the left to open its step-by-step visualizer.</p>
+                    <p>Visualizers are added over time. Topics without one yet are marked Not Available.</p>
+                    <div class="unit-chips" id="unitChips"></div>
+                </div>
+            </section>
+
+            <section class="stage-view" id="topicView">
+                <div class="topic-head">
+                    <div class="kicker" id="topicKicker"></div>
+                    <h2 id="topicTitle"></h2>
+                </div>
+                <div id="topicBody"></div>
+            </section>
+        </main>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+    <button class="nav-fab" id="navFab" aria-label="Toggle curriculum">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+
+<script src="js/curriculum.js"></script>
+<script>
+(function () {
+    const units = window.CSA_CURRICULUM || [];
+    const tree = document.getElementById('unitTree');
+    const chips = document.getElementById('unitChips');
+    const crumb = document.getElementById('crumb');
+    const welcomeView = document.getElementById('welcomeView');
+    const topicView = document.getElementById('topicView');
+    const topicKicker = document.getElementById('topicKicker');
+    const topicTitle = document.getElementById('topicTitle');
+    const topicBody = document.getElementById('topicBody');
+
+    function selectTopic(unitNum, topicId) {
+        let foundUnit = null, foundTopic = null;
+        for (const u of units) {
+            for (const t of u.topics) {
+                if (u.num === unitNum && t.id === topicId) { foundUnit = u; foundTopic = t; }
+            }
+        }
+        if (!foundTopic) return;
+
+        document.querySelectorAll('.topic').forEach(el => {
+            el.classList.toggle('selected', el.dataset.uid === String(foundUnit.num) && el.dataset.tid === foundTopic.id);
+        });
+        const unitEl = document.querySelector('.unit[data-uid="' + foundUnit.num + '"]');
+        if (unitEl && !unitEl.classList.contains('open')) unitEl.classList.add('open');
+
+        crumb.textContent = 'Unit ' + foundUnit.num + ' \u00B7 ' + foundTopic.id + ' ' + foundTopic.title;
+        topicKicker.textContent = 'Unit ' + foundUnit.num + ': ' + foundUnit.name;
+        topicTitle.textContent = foundTopic.id + ' ' + foundTopic.title;
+
+        topicBody.innerHTML = '';
+        if (foundTopic.module) {
+            topicView.classList.add('active');
+            welcomeView.classList.remove('active');
+            const holder = document.createElement('div');
+            holder.appendChild(document.createTextNode('Loading visualizer...'));
+            topicBody.appendChild(holder);
+            Promise.all([
+                import('./js/visualizer-runtime.js'),
+                import('./' + foundTopic.module)
+            ]).then(([rt, lesson]) => {
+                holder.replaceChildren();
+                const mod = lesson.default;
+                const def = mod.topics ? mod.topics[foundTopic.id] : mod;
+                if (def) rt.mountWorkspace(holder, def);
+                else holder.textContent = 'Not Available';
+            }).catch(err => {
+                holder.textContent = 'This visualizer failed to load: ' + err.message;
+            });
+            document.body.classList.remove('nav-open');
+            return;
+        }
+        if (foundTopic.file) {
+            const frame = document.createElement('iframe');
+            frame.className = 'viz-frame';
+            frame.src = foundTopic.file;
+            frame.allowFullscreen = true;
+            topicView.style.height = '100%';
+            topicView.classList.add('active');
+            welcomeView.classList.remove('active');
+            topicBody.appendChild(frame);
+            document.body.classList.remove('nav-open');
+            return;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'not-ready';
+        card.innerHTML =
+            '<div class="nr-mark"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/></svg></div>' +
+            '<h3>Not Available</h3>' +
+            '<p>The visualizer for this topic has not been built yet.</p>';
+        if (foundTopic.planned) {
+            const planned = document.createElement('p');
+            planned.className = 'nr-planned';
+            planned.innerHTML = 'Planned: <strong></strong>';
+            planned.querySelector('strong').textContent = foundTopic.planned;
+            card.appendChild(planned);
+        }
+        topicView.classList.add('active');
+        welcomeView.classList.remove('active');
+        topicBody.appendChild(card);
+        document.body.classList.remove('nav-open');
+    }
+
+    units.forEach(u => {
+        const unitEl = document.createElement('div');
+        unitEl.className = 'unit';
+        unitEl.dataset.uid = u.num;
+
+        const header = document.createElement('button');
+        header.className = 'unit-header';
+        header.innerHTML =
+            '<span class="unit-num">' + u.num + '</span>' +
+            '<span class="unit-name"></span>' +
+            '<span class="unit-count">' + u.topics.length + '</span>' +
+            '<svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
+        header.querySelector('.unit-name').textContent = u.name;
+        header.addEventListener('click', () => unitEl.classList.toggle('open'));
+        unitEl.appendChild(header);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'unit-topics';
+        const inner = document.createElement('div');
+        inner.className = 'unit-topics-inner';
+        u.topics.forEach(t => {
+            const row = document.createElement('button');
+            row.className = 'topic';
+            row.dataset.uid = u.num;
+            row.dataset.tid = t.id;
+            row.innerHTML = '<span class="topic-id"></span><span class="topic-title"></span>';
+            row.querySelector('.topic-id').textContent = t.id;
+            row.querySelector('.topic-title').textContent = t.title;
+            row.addEventListener('click', () => {
+                location.hash = 'topic=' + t.id;
+                selectTopic(u.num, t.id);
+            });
+            inner.appendChild(row);
+        });
+        wrap.appendChild(inner);
+        unitEl.appendChild(wrap);
+        tree.appendChild(unitEl);
+
+        const chip = document.createElement('button');
+        chip.className = 'unit-chip';
+        chip.innerHTML = '<div class="chip-unit"></div><div class="chip-name"></div>';
+        chip.querySelector('.chip-unit').textContent = 'Unit ' + u.num + ' \u00B7 ' + u.topics.length + ' topics';
+        chip.querySelector('.chip-name').textContent = u.name;
+        chip.addEventListener('click', () => {
+            unitEl.classList.add('open');
+            unitEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        chips.appendChild(chip);
+    });
+
+    const parts = (location.hash.match(/^#topic=(\d+\.\d+)$/) || [])[1];
+    if (parts) {
+        const [un, tid] = [Number(parts.split('.')[0]), parts];
+        selectTopic(un, tid);
+    }
+
+    window.addEventListener('hashchange', () => {
+        const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
+        if (m) selectTopic(Number(m[1].split('.')[0]), m[1]);
+    });
+
+    document.getElementById('menuBtn').addEventListener('click', () => {
+        document.body.classList.toggle('nav-open');
+    });
+    document.getElementById('navFab').addEventListener('click', () => {
+        if (document.body.classList.contains('nav-collapsed')) {
+            document.body.classList.remove('nav-collapsed');
+            return;
+        }
+        document.body.classList.toggle('nav-open');
+    });
+    document.getElementById('sideCollapse').addEventListener('click', () => {
+        if (window.innerWidth <= 760) document.body.classList.remove('nav-open');
+        else document.body.classList.add('nav-collapsed');
+    });
+    document.getElementById('scrim').addEventListener('click', () => {
+        document.body.classList.remove('nav-open');
+    });
+
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', !!isDark);
+    }
+    applyTheme(localStorage.getItem('theme') === 'dark');
+    window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'THEME_UPDATE') applyTheme(event.data.isDarkMode);
+    });
+
+    const isStandalone = new URLSearchParams(location.search).get('standalone') === 'true' || window.self === window.top;
+    document.body.classList.toggle('standalone', isStandalone);
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+        const dark = !document.documentElement.classList.contains('dark');
+        applyTheme(dark);
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+})();
+</script>
+</body>
+</html>
