@@ -139,6 +139,15 @@ async function visit(req, res) {
         const t = await getAccessToken();
         return res.status(200).json({ ok: true, stage: 'token', tokLen: t.length });
     }
+    if (body.probe === 'dbget') {
+        const t = await getAccessToken();
+        const r = await fetch(`${DB_URL}/tool_visits/.json?shallow=true&auth=${t}`, { signal: AbortSignal.timeout(4000) });
+        return res.status(200).json({ ok: true, stage: 'dbget', http: r.status, body: (await r.text()).slice(0, 150) });
+    }
+    if (body.probe === 'geo') {
+        const g = await resolveLocation('8.8.8.8');
+        return res.status(200).json({ ok: true, stage: 'geo', geo: g });
+    }
 
     // Canonical eid, same normalisation the client and scans use.
     const tool = clean(body.tool, 64).toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
