@@ -112,7 +112,7 @@ else
                     { type: 'stack.push', label: 'binarySearch(4, 6)', vars: [{ name: 'mid', value: '5 → 17' }] },
                     { type: 'extra.set', value: bsearch({ checked: 4, sel: 5, markers: [{ at: 6, label: 'high' }], note: 'FOUND at index 5 after 2 comparisons' }) }
                 ] },
-                { line: 3, message: 'Each frame tested one middle and returned an index or a smaller range. Halving means about log2(n) comparisons: 7 cells in 2 probes, 1000 cells in about 10. Sorted order is the price of admission.', mutations: [
+                { line: 3, message: 'Extra insight, not exam wording: each frame tested one middle and returned an index or a smaller range. Halving means about log2(n) comparisons, 7 cells in 2 probes, 1000 in about 10. What the CED does require: binary search eliminates half each step, so it is usually faster than linear. Sorted order is the price of admission.', mutations: [
                     { type: 'stack.pop' },
                     { type: 'stack.pop' }
                 ] }
@@ -146,7 +146,7 @@ void mergeSort(int[] a)
                     { type: 'expression.reduce', text: '[8]+[3] → [3,8]', note: '3 < 8' },
                     { type: 'extra.set', value: tree(['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6'], 'n1', 'merge sorted pairs back together') }
                 ] },
-                { line: 7, message: 'Final merge: [3,8] + [1,6] → 1, 3, 6, 8. Every element moved through log levels, n elements per level: reliable n log n work, no lucky or unlucky input.', mutations: [
+                { line: 7, message: 'Final merge: [3,8] + [1,6] → 1, 3, 6, 8. Extra insight, not exam wording: every element moved through log levels, n elements per level, so the work is reliable n log n, no lucky or unlucky input. The CED requirement is the pattern itself: split to single elements, merge back up.', mutations: [
                     { type: 'expression.reduce', text: '[3,8]+[1,6] → [1,3,6,8]' },
                     { type: 'extra.set', value: tree(['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6'], 'n0', 'merged: [1, 3, 6, 8]') }
                 ] }

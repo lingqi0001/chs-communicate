@@ -29,12 +29,12 @@ for (int i = 0; i < n; i++)
         ] },
         { line: 6, message: 'Double the input to n = 10. A doubles to 10. B does not double, it quadruples: 10 x 10 = 100.', mutations: [
             { type: 'extra.set', value: growth([[5, 5, 25], [10, 10, 100]]) }
-        ], predict: { q: 'n doubled from 5 to 10. A went 5 → 10. B sat at 25: what does it become?', choices: ['100 - it quadruples', '50 - it doubles too'], a: 0, why: 'n x n with a doubled n is (2n)(2n) = 4n x n: squaring multiplies the doubling. "Nested loop + double input = four times the work" is the exact FR sentence.' } },
+        ], predict: { q: 'n doubled from 5 to 10. A went 5 → 10. B sat at 25: what does it become?', choices: ['100 - it quadruples', '50 - it doubles too'], a: 0, why: 'n x n with a doubled n is (2n)(2n) = 4n x n: squaring multiplies the doubling. "Nested loop + double input = four times the work" is the classic AP-style reasoning sentence.' } },
         { line: 6, message: 'n = 20: A is 20, B is 400. Watch the bars, not the numbers: B’s bar races away.', mutations: [
             { type: 'extra.set', value: growth([[5, 5, 25], [10, 10, 100], [20, 20, 400]]) }
         ] },
         { line: 6, message: 'A grows linearly: work is proportional to n. B grows quadratically: work is proportional to n squared. Double n and A doubles while B becomes four times heavier.', mutations: [
-            { type: 'extra.set', value: growth([[5, 5, 25], [10, 10, 100], [20, 20, 400]], 'AP CSA asks exactly this question: what happens to the run time when the input size doubles?') }
+            { type: 'extra.set', value: growth([[5, 5, 25], [10, 10, 100], [20, 20, 400]], 'AP-style reasoning drill: what happens to the run time when the input size doubles?') }
         ] },
         { line: 2, message: 'You never need the exact operation count Java performs. Count the statements inside the loops and compare growth shapes: constant, linear, quadratic.', mutations: [] }
     ],
@@ -57,7 +57,7 @@ for (int i = 0; i < n; i++)
         { line: 1, message: 'Drag the slider. Ops counts update live above each bar.', mutations: [
             { type: 'extra.set', value: GLAB }
         ] },
-        { line: 3, message: 'A test you can run with the slider: park n at 10 and double it to 20, twice. C: unchanged. A: 10 → 20 → 40, it doubled each time - LINEAR. B: 100 → 400 → 1600, it quadrupled each time - QUADRATIC. That double-the-input sentence is the exact wording of the FRMC question.', mutations: [] },
+        { line: 3, message: 'A test you can run with the slider: park n at 10 and double it to 20, twice. C: unchanged. A: 10 → 20 → 40, it doubled each time - LINEAR. B: 100 → 400 → 1600, it quadrupled each time - QUADRATIC. That double-the-input test is exactly the reasoning AP asks for.', mutations: [] },
         { line: 6, message: 'C is the third shape exam tables love: a statement outside every loop runs the SAME number of times no matter what n does. Constant, linear, quadratic: name the shape, never the seconds.', mutations: [] }
     ],
     summary: {
