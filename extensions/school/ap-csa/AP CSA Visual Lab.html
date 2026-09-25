@@ -453,6 +453,12 @@
     const topicTitle = document.getElementById('topicTitle');
     const topicBody = document.getElementById('topicBody');
 
+    let importRetry = 0;
+    let lastFailed = null;
+    function modUrl(path) {
+        return importRetry ? path + '?r=' + importRetry : path;
+    }
+
     function selectTopic(unitNum, topicId) {
         let foundUnit = null, foundTopic = null;
         for (const u of units) {
@@ -480,16 +486,29 @@
             holder.appendChild(document.createTextNode('Loading visualizer...'));
             topicBody.appendChild(holder);
             Promise.all([
-                import('./js/visualizer-runtime.js'),
-                import('./' + foundTopic.module)
+                import(modUrl('./js/visualizer-runtime.js')),
+                import(modUrl('./' + foundTopic.module))
             ]).then(([rt, lesson]) => {
+                lastFailed = null;
                 holder.replaceChildren();
                 const mod = lesson.default;
                 const def = mod.topics ? mod.topics[foundTopic.id] : mod;
                 if (def) rt.mountWorkspace(holder, def);
                 else holder.textContent = 'Not Available';
             }).catch(err => {
-                holder.textContent = 'This visualizer failed to load: ' + err.message;
+                lastFailed = { unit: foundUnit.num, topic: foundTopic.id };
+                holder.replaceChildren();
+                holder.appendChild(document.createTextNode('This visualizer failed to load: ' + err.message + ' '));
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'wbtn';
+                retry.textContent = 'Retry';
+                retry.addEventListener('click', () => {
+                    importRetry++;
+                    if (/components\.js/.test(err.message)) location.reload();
+                    else selectTopic(foundUnit.num, foundTopic.id);
+                });
+                holder.appendChild(retry);
             });
             document.body.classList.remove('nav-open');
             return;
@@ -585,6 +604,14 @@
     window.addEventListener('hashchange', () => {
         const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
         if (m) selectTopic(Number(m[1].split('.')[0]), m[1]);
+    });
+
+    window.addEventListener('online', () => {
+        if (lastFailed) {
+            const t = lastFailed;
+            importRetry++;
+            selectTopic(t.unit, t.topic);
+        }
     });
 
     document.getElementById('menuBtn').addEventListener('click', () => {
