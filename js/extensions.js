@@ -80,8 +80,9 @@ const bindExtensionPanelOffsetSync = () => {
     window.addEventListener('news-panel-width-change', syncExtensionPanelOffset);
 };
 
-// Visit beacon: one record per browser session per tool, keyed by the device
-// id that already exists for guests, so unique devices == unique keys.
+// Visit beacon: runs on every open.  The row is keyed by the device id that
+// already exists for guests, so unique devices == unique keys and repeat
+// opens only move lastSeen/opens instead of inflating the head count.
 // The visitor's own browser writes the row; /api/visit only supplies the
 // location.  Nothing here is awaited by openExtension and every failure is
 // silent: a blocked or slow network costs a statistic, never a tool.
@@ -113,11 +114,6 @@ const trackToolVisit = async (eid) => {
         const deviceId = localStorage.getItem('deviceId');
         const db = window.firebaseDb;
         if (!key || !deviceId || !db || !window.fRef || !window.fGet || !window.fUpdate) return;
-        const flag = 'chs_visit_' + key;
-        try {
-            if (sessionStorage.getItem(flag)) return;
-            sessionStorage.setItem(flag, '1');
-        } catch (e) { /* private mode: fall back to counting every open */ }
 
         const user = window.AppModules?.User?.current;
         const uid = user?.id ? String(user.id).toLowerCase() : '';
