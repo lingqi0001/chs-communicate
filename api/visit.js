@@ -1,12 +1,12 @@
 /**
  * POST /api/visit
  *
- * Answers "where is this requester from?".  The browser cannot see its own IP,
- * but Cloudflare hands it to us in x-forwarded-for (and a country code in
- * cf-ipcountry), so this endpoint is the only place that can resolve a
- * location.  It is deliberately read-only and credential-free: the visitor's
- * own browser writes the tool_visits record.  If this endpoint fails, visits
- * are still counted, just without a location.
+ * Answers "where is this requester from?".  The browser cannot see its own IP.
+ * Cloudflare terminates the visitor's request and forwards the real address in
+ * cf-connecting-ip plus a country code in cf-ipcountry, so this endpoint is the
+ * only place that can resolve a location.  It is deliberately read-only and
+ * credential-free: the visitor's own browser writes the tool_visits record.
+ * If this endpoint fails, visits are still counted, just without a location.
  */
 
 function maskIp(ip) {
@@ -36,7 +36,8 @@ async function resolveLocation(ip, ccHint) {
             if (g) {
                 const p = src.pick(g);
                 if (p.cc || p.country) {
-                    return { ...p, loc: [p.cc, p.region, p.city].filter(Boolean).join(' / ') };
+                    const cc = (ccHint && ccHint !== 'XX' && ccHint !== 'T1') ? ccHint : p.cc;
+                    return { ...p, cc, loc: [cc, p.region, p.city].filter(Boolean).join(' / ') };
                 }
             }
         } catch (e) { /* try next source */ }
@@ -58,10 +59,16 @@ export default async function handler(req, res) {
         if (req.method === 'OPTIONS') return res.status(204).end();
         if (req.method !== 'POST') return res.status(405).json({ ok: false });
 
-        const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-            || String(req.headers['x-real-ip'] || '');
+        const ip = String(req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || '').trim();
         const ccHint = String(req.headers['cf-ipcountry'] || '').toUpperCase();
-        const geo = await resolveLocation(ip, ccHint);
+        // Without Cloudflare's client IP we only trust its country code: the
+        // x-forwarded-for we would otherwise see is a Cloudflare address, and
+        // resolving that would label every visitor as Cloudflare's datacenter.
+        const geo = ip
+            ? await resolveLocation(ip, ccHint)
+            : (ccHint && ccHint !== 'XX' && ccHint !== 'T1'
+                ? { cc: ccHint, country: '', region: '', city: '', isp: '', loc: ccHint }
+                : null);
 
         return res.status(200).json({
             ok: true,
