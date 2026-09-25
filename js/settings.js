@@ -1791,10 +1791,6 @@ window.toggleToolAnalytics = async () => {
         return;
     }
     panel.classList.remove('hidden');
-    if (_analyticsState.data) {
-        renderToolAnalytics();
-        return;
-    }
     panel.innerHTML = '<div class="text-xs text-gray-400 text-center py-3">Loading...</div>';
     try {
         const db = window.firebaseDb;

@@ -41,9 +41,10 @@ async function getAccessToken() {
         body: new URLSearchParams({
             grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             assertion: `${signingInput}.${signature}`
-        })
+        }),
+        signal: AbortSignal.timeout(4000)
     });
-    if (!resp.ok) throw new Error('token exchange failed: ' + resp.status);
+    if (!resp.ok) throw new Error('token exchange failed: ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
     const data = await resp.json();
     _cachedToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in - 120) * 1000 };
     return _cachedToken.value;
@@ -97,12 +98,22 @@ const clean = (s, max) => String(s || '').slice(0, max);
 const KEY_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 export default async function handler(req, res) {
+    try {
+        return await visit(req, res);
+    } catch (e) {
+        // Surface the real failure instead of letting the edge turn it into a
+        // generic 502 page nobody can read.
+        return res.status(500).json({ ok: false, stage: 'unhandled', err: String(e && e.message || e).slice(0, 300) });
+    }
+}
+
+async function visit(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(204).end();
     if (req.method !== 'POST') return res.status(405).json({ ok: false });
-    if (!process.env.GOOGLE_SA_JSON) return res.status(500).json({ ok: false });
+    if (!process.env.GOOGLE_SA_JSON) return res.status(500).json({ ok: false, stage: 'env', err: 'GOOGLE_SA_JSON missing' });
 
     const body = req.body || {};
     // Canonical eid, same normalisation the client and scans use.
@@ -110,14 +121,14 @@ export default async function handler(req, res) {
     const deviceId = clean(body.deviceId, 64);
     const uid = clean(body.uid, 64);
     if (!tool || !KEY_RE.test(tool) || !KEY_RE.test(deviceId)) {
-        return res.status(400).json({ ok: false });
+        return res.status(400).json({ ok: false, stage: 'input' });
     }
 
     let token;
     try {
         token = await getAccessToken();
     } catch (e) {
-        return res.status(500).json({ ok: false });
+        return res.status(500).json({ ok: false, stage: 'token', err: String(e && e.message || e).slice(0, 300) });
     }
 
     const path = `tool_visits/${tool}/${encodeURIComponent(deviceId)}.json`;
@@ -125,10 +136,19 @@ export default async function handler(req, res) {
     const now = Date.now();
 
     let existing = null;
+    let readErr = null;
     try {
         const cur = await fetch(`${DB_URL}/${path}${auth}`, { signal: AbortSignal.timeout(3000) });
         if (cur.ok) existing = await cur.json();
-    } catch (e) { /* treat as new */ }
+        else readErr = `HTTP ${cur.status}: ${(await cur.text()).slice(0, 200)}`;
+    } catch (e) {
+        readErr = String(e && e.message || e).slice(0, 200);
+    }
+    // A denied read means the credential has no DB access at all; stop early
+    // with the reason instead of writing a doomed record.
+    if (readErr && /401|403/.test(readErr)) {
+        return res.status(502).json({ ok: false, stage: 'db-read', err: readErr });
+    }
 
     // Repeat visit: cheap merge, never re-resolve an already-known location.
     if (existing && typeof existing === 'object') {
@@ -147,13 +167,21 @@ export default async function handler(req, res) {
             }
         }
         try {
-            await fetch(`${DB_URL}/${path}${auth}`, {
+            const patchResp = await fetch(`${DB_URL}/${path}${auth}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(patch),
                 signal: AbortSignal.timeout(3000)
             });
-        } catch (e) { /* best effort */ }
+            if (!patchResp.ok) {
+                return res.status(502).json({
+                    ok: false, stage: 'db-patch',
+                    err: `HTTP ${patchResp.status}: ${(await patchResp.text()).slice(0, 200)}`
+                });
+            }
+        } catch (e) {
+            return res.status(502).json({ ok: false, stage: 'db-patch', err: String(e && e.message || e).slice(0, 200) });
+        }
         return res.status(200).json({ ok: true, known: true });
     }
 
@@ -176,9 +204,18 @@ export default async function handler(req, res) {
             body: JSON.stringify(record),
             signal: AbortSignal.timeout(3000)
         });
-        if (!put.ok) return res.status(502).json({ ok: false });
+        if (!put.ok) {
+            return res.status(502).json({
+                ok: false, stage: 'db-write',
+                err: `HTTP ${put.status}: ${(await put.text()).slice(0, 200)}`,
+                readErr
+            });
+        }
     } catch (e) {
-        return res.status(502).json({ ok: false });
+        return res.status(502).json({
+            ok: false, stage: 'db-write',
+            err: String(e && e.message || e).slice(0, 200), readErr
+        });
     }
     return res.status(200).json({ ok: true });
 }
