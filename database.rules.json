@@ -231,8 +231,16 @@
         "$dev": {
           ".read": true,
           ".write": "$eid.matches(/^[a-z0-9_]{1,64}$/) && $dev.matches(/^[A-Za-z0-9_-]{1,64}$/)",
-          ".validate": "newData.hasChildren(['deviceId','c','lastSeen','opens']) && newData.child('deviceId').isString() && newData.child('c').isNumber() && newData.child('lastSeen').isNumber() && newData.child('opens').isNumber() && (!newData.child('uid').exists() || newData.child('uid').isString()) && (!newData.child('loc').exists() || newData.child('loc').isString()) && (!newData.child('cc').exists() || newData.child('cc').isString()) && (!newData.child('country').exists() || newData.child('country').isString()) && (!newData.child('region').exists() || newData.child('region').isString()) && (!newData.child('city').exists() || newData.child('city').isString()) && (!newData.child('isp').exists() || newData.child('isp').isString()) && (!newData.child('ipMask').exists() || newData.child('ipMask').isString())"
+          ".validate": "newData.hasChildren(['deviceId','c','lastSeen','opens']) && newData.child('deviceId').isString() && newData.child('c').isNumber() && newData.child('lastSeen').isNumber() && newData.child('opens').isNumber() && (!newData.child('cnt').exists() || newData.child('cnt').isNumber()) && (!newData.child('uid').exists() || newData.child('uid').isString()) && (!newData.child('loc').exists() || newData.child('loc').isString()) && (!newData.child('cc').exists() || newData.child('cc').isString()) && (!newData.child('country').exists() || newData.child('country').isString()) && (!newData.child('region').exists() || newData.child('region').isString()) && (!newData.child('city').exists() || newData.child('city').isString()) && (!newData.child('isp').exists() || newData.child('isp').isString()) && (!newData.child('ipMask').exists() || newData.child('ipMask').isString())"
         }
+      }
+    },
+
+    "tool_visits_count": {
+      ".read": true,
+      "$eid": {
+        ".write": "$eid.matches(/^[a-z0-9_]{1,64}$/) && newData.child('n').isNumber()",
+        ".validate": "newData.hasChildren(['n']) && newData.child('n').isNumber()"
       }
     },
 

@@ -85,13 +85,31 @@ const bindExtensionPanelOffsetSync = () => {
 // The visitor's own browser writes the row; /api/visit only supplies the
 // location.  Nothing here is awaited by openExtension and every failure is
 // silent: a blocked or slow network costs a statistic, never a tool.
+const toolVisitKey = (eid) => String(eid || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+
+const showVisitCount = async (key) => {
+    const badge = document.getElementById('extensionVisitsBadge');
+    if (!badge) return;
+    badge.classList.add('hidden');
+    badge.textContent = '';
+    if (!key || !window.firebaseDb || !window.fRef || !window.fGet) return;
+    try {
+        const snap = await window.fGet(window.fRef(window.firebaseDb, `tool_visits_count/${key}`));
+        const n = Number(snap.val()?.n) || 0;
+        if (n > 0) {
+            badge.textContent = `${n} visited`;
+            badge.classList.remove('hidden');
+        }
+    } catch (e) { /* count is optional decoration */ }
+};
+
 const trackToolVisit = async (eid) => {
     try {
-        const key = String(eid || '')
-            .toLowerCase()
-            .replace(/[^a-z0-9_-]+/g, '_')
-            .replace(/^_+|_+$/g, '')
-            .slice(0, 64);
+        const key = toolVisitKey(eid);
         const deviceId = localStorage.getItem('deviceId');
         const db = window.firebaseDb;
         if (!key || !deviceId || !db || !window.fRef || !window.fGet || !window.fUpdate) return;
@@ -125,7 +143,11 @@ const trackToolVisit = async (eid) => {
             deviceId,
             c: existing?.c || now,
             lastSeen: now,
-            opens: (existing?.opens || 0) + 1
+            opens: (existing?.opens || 0) + 1,
+            // cnt marks that this device is already included in the public
+            // counter, so devices recorded before counters existed add themselves
+            // exactly once instead of being silently dropped.
+            cnt: 1
         };
         if (uid) record.uid = uid;
         // Keep the location captured on the first visit stable.
@@ -135,6 +157,13 @@ const trackToolVisit = async (eid) => {
             });
         }
         await window.fUpdate(window.fRef(db, path), record);
+
+        const countPath = `tool_visits_count/${key}`;
+        if (!existing || existing.cnt == null) {
+            const current = (await window.fGet(window.fRef(db, countPath))).val();
+            await window.fUpdate(window.fRef(db, countPath), { n: (Number(current?.n) || 0) + 1 });
+        }
+        await showVisitCount(key);
     } catch (e) { /* analytics must never break the tool */ }
 };
 
@@ -188,7 +217,9 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     // URL can stay stable and the cached copy becomes the offline fallback.
     if (iframe) iframe.src = url;
     renderExtensionOfflineNotice();
-    trackToolVisit(customUrl ? (customTitle || eid || url) : eid);
+    const visitKey = toolVisitKey(customUrl ? (customTitle || eid || url) : eid);
+    showVisitCount(visitKey);
+    trackToolVisit(visitKey);
 
     if (iframe) {
         iframe.onload = () => {
