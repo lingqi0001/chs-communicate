@@ -57,30 +57,38 @@ function maskIp(ip) {
     return v4.split(':').slice(0, 3).join(':') + '::/48';
 }
 
-async function resolveLocation(ip) {
-    if (!ip) return null;
-    // Primary is ip-api.com (free, HTTP-only); ipapi.com is the HTTPS fallback.
-    const sources = [
-        {
-            url: `http://api.ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,regionName,city,isp&lang=en`,
-            parse: g => g && g.status === 'success' ? g : null,
-            pick: g => ({ cc: g.countryCode, country: g.country, region: g.regionName, city: g.city, isp: g.isp })
-        },
-        {
-            url: `https://api.ipapi.com/api/check/?access_key=${process.env.IPAPI_ACCESS_KEY || ''}&fields=country_name,country_code,region_name,city`,
-            parse: g => g && !g.error ? g : null,
-            pick: g => ({ cc: g.country_code, country: g.country_name, region: g.region_name, city: g.city, isp: '' })
-        }
-    ];
+async function resolveLocation(ip, ccHint) {
+    const sources = [];
+    if (ip) {
+        sources.push(
+            {
+                url: `https://ipwho.is/${encodeURIComponent(ip)}?language=en`,
+                parse: g => g && g.success !== false ? g : null,
+                pick: g => ({ cc: g.country_code, country: g.country, region: g.region, city: g.city, isp: g.connection?.isp || '' })
+            },
+            {
+                url: `https://ipapi.co/${encodeURIComponent(ip)}/json/`,
+                parse: g => g && !g.error ? g : null,
+                pick: g => ({ cc: g.country_code, country: g.country_name, region: g.region, city: g.city, isp: g.org })
+            }
+        );
+    }
     for (const src of sources) {
         try {
             const resp = await fetch(src.url, { signal: AbortSignal.timeout(1500) });
             const g = src.parse(await resp.json());
             if (g) {
                 const p = src.pick(g);
-                return { ...p, loc: [p.cc, p.region, p.city].filter(Boolean).join(' / ') };
+                if (p.cc || p.country) {
+                    return { ...p, loc: [p.cc, p.region, p.city].filter(Boolean).join(' / ') };
+                }
             }
         } catch (e) { /* try next source */ }
+    }
+    // Cloudflare terminates the visitor's request, so it already tells us the
+    // country without any third-party lookup.
+    if (ccHint && ccHint !== 'XX') {
+        return { cc: ccHint, country: '', region: '', city: '', isp: '', loc: ccHint };
     }
     return null;
 }
@@ -145,8 +153,17 @@ async function visit(req, res) {
         return res.status(200).json({ ok: true, stage: 'dbget', http: r.status, body: (await r.text()).slice(0, 150) });
     }
     if (body.probe === 'geo') {
-        const g = await resolveLocation('8.8.8.8');
+        const g = await resolveLocation('8.8.8.8', String(req.headers['cf-ipcountry'] || '').toUpperCase());
         return res.status(200).json({ ok: true, stage: 'geo', geo: g });
+    }
+    if (body.probe === 'hdr') {
+        return res.status(200).json({
+            ok: true, stage: 'hdr',
+            xff: String(req.headers['x-forwarded-for'] || ''),
+            cfCountry: String(req.headers['cf-ipcountry'] || ''),
+            realIp: String(req.headers['x-real-ip'] || ''),
+            vercelIp: String(req.headers['x-vercel-forwarded-for'] || '')
+        });
     }
 
     // Canonical eid, same normalisation the client and scans use.
@@ -164,6 +181,12 @@ async function visit(req, res) {
         return res.status(500).json({ ok: false, stage: 'token', err: String(e && e.message || e).slice(0, 300) });
     }
 
+    // Cloudflare terminates the visitor's request, so x-forwarded-for carries
+    // the real client IP and cf-ipcountry already gives the country.
+    const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || String(req.headers['x-real-ip'] || '');
+    const ccHint = String(req.headers['cf-ipcountry'] || '').toUpperCase();
+
     const path = `tool_visits/${tool}/${encodeURIComponent(deviceId)}.json`;
     const auth = `?auth=${token}`;
     const now = Date.now();
@@ -180,22 +203,20 @@ async function visit(req, res) {
     // A denied read means the credential has no DB access at all; stop early
     // with the reason instead of writing a doomed record.
     if (readErr && /401|403/.test(readErr)) {
-        return res.status(502).json({ ok: false, stage: 'db-read', err: readErr });
+        return res.status(500).json({ ok: false, stage: 'db-read', err: readErr });
     }
 
     // Repeat visit: cheap merge, never re-resolve an already-known location.
     if (existing && typeof existing === 'object') {
-        const fwdNow = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-        const ipNow = fwdNow || String(req.headers['x-real-ip'] || '');
         const patch = {
             lastSeen: now,
             opens: (existing.opens || 1) + 1,
             uid: uid || existing.uid || null
         };
-        if (!existing.loc && ipNow) {
-            const geoRetry = await resolveLocation(ipNow);
+        if (!existing.loc) {
+            const geoRetry = await resolveLocation(ip, ccHint);
             if (geoRetry) {
-                patch.ipMask = maskIp(ipNow);
+                if (ip) patch.ipMask = maskIp(ip);
                 Object.assign(patch, geoFields(geoRetry));
             }
         }
@@ -207,20 +228,20 @@ async function visit(req, res) {
                 signal: AbortSignal.timeout(3000)
             });
             if (!patchResp.ok) {
-                return res.status(502).json({
+                // 500, not 502: Cloudflare replaces 502 bodies with its own
+                // error page, which hides the actual reason.
+                return res.status(500).json({
                     ok: false, stage: 'db-patch',
                     err: `HTTP ${patchResp.status}: ${(await patchResp.text()).slice(0, 200)}`
                 });
             }
         } catch (e) {
-            return res.status(502).json({ ok: false, stage: 'db-patch', err: String(e && e.message || e).slice(0, 200) });
+            return res.status(500).json({ ok: false, stage: 'db-patch', err: String(e && e.message || e).slice(0, 200) });
         }
         return res.status(200).json({ ok: true, known: true });
     }
 
-    const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    const ip = fwd || String(req.headers['x-real-ip'] || '');
-    const geo = await resolveLocation(ip);
+    const geo = await resolveLocation(ip, ccHint);
     const record = {
         deviceId,
         uid: uid || null,
@@ -238,14 +259,14 @@ async function visit(req, res) {
             signal: AbortSignal.timeout(3000)
         });
         if (!put.ok) {
-            return res.status(502).json({
+            return res.status(500).json({
                 ok: false, stage: 'db-write',
                 err: `HTTP ${put.status}: ${(await put.text()).slice(0, 200)}`,
                 readErr
             });
         }
     } catch (e) {
-        return res.status(502).json({
+        return res.status(500).json({
             ok: false, stage: 'db-write',
             err: String(e && e.message || e).slice(0, 200), readErr
         });
