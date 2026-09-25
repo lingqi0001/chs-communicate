@@ -227,7 +227,13 @@
 
     "tool_visits": {
       ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
-      ".write": false
+      "$eid": {
+        "$dev": {
+          ".read": true,
+          ".write": "$eid.matches(/^[a-z0-9_]{1,64}$/) && $dev.matches(/^[A-Za-z0-9_-]{1,64}$/)",
+          ".validate": "newData.hasChildren(['deviceId','c','lastSeen','opens']) && newData.child('deviceId').isString() && newData.child('c').isNumber() && newData.child('lastSeen').isNumber() && newData.child('opens').isNumber() && (!newData.child('uid').exists() || newData.child('uid').isString()) && (!newData.child('loc').exists() || newData.child('loc').isString()) && (!newData.child('cc').exists() || newData.child('cc').isString()) && (!newData.child('country').exists() || newData.child('country').isString()) && (!newData.child('region').exists() || newData.child('region').isString()) && (!newData.child('city').exists() || newData.child('city').isString()) && (!newData.child('isp').exists() || newData.child('isp').isString()) && (!newData.child('ipMask').exists() || newData.child('ipMask').isString())"
+        }
+      }
     },
 
     "cafeteria": {

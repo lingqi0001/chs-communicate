@@ -80,34 +80,61 @@ const bindExtensionPanelOffsetSync = () => {
     window.addEventListener('news-panel-width-change', syncExtensionPanelOffset);
 };
 
-// Visit beacon: one POST per browser session per tool, answered by our own
-// serverless endpoint (the only place that can see the caller's IP). Strictly
-// fire-and-forget: never awaited, failures are silent so a blocked or slow
-// network can't affect opening the tool itself.
-const trackToolVisit = (eid) => {
+// Visit beacon: one record per browser session per tool, keyed by the device
+// id that already exists for guests, so unique devices == unique keys.
+// The visitor's own browser writes the row; /api/visit only supplies the
+// location.  Nothing here is awaited by openExtension and every failure is
+// silent: a blocked or slow network costs a statistic, never a tool.
+const trackToolVisit = async (eid) => {
     try {
         const key = String(eid || '')
             .toLowerCase()
             .replace(/[^a-z0-9_-]+/g, '_')
             .replace(/^_+|_+$/g, '')
             .slice(0, 64);
-        if (!key) return;
+        const deviceId = localStorage.getItem('deviceId');
+        const db = window.firebaseDb;
+        if (!key || !deviceId || !db || !window.fRef || !window.fGet || !window.fUpdate) return;
         const flag = 'chs_visit_' + key;
         try {
             if (sessionStorage.getItem(flag)) return;
             sessionStorage.setItem(flag, '1');
-        } catch (e) { /* private mode: just send every open */ }
+        } catch (e) { /* private mode: fall back to counting every open */ }
+
         const user = window.AppModules?.User?.current;
-        fetch('/api/visit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                tool: key,
-                deviceId: localStorage.getItem('deviceId') || '',
-                uid: user?.id || ''
-            }),
-            keepalive: true
-        }).catch(() => { });
+        const uid = user?.id ? String(user.id).toLowerCase() : '';
+        const path = `tool_visits/${key}/${deviceId}`;
+
+        let geo = null;
+        try {
+            const resp = await fetch('/api/visit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+                keepalive: true
+            });
+            if (resp.ok) {
+                const parsed = await resp.json();
+                if (parsed?.ok) geo = parsed;
+            }
+        } catch (e) { /* location is optional */ }
+
+        const existing = (await window.fGet(window.fRef(db, path))).val();
+        const now = Date.now();
+        const record = {
+            deviceId,
+            c: existing?.c || now,
+            lastSeen: now,
+            opens: (existing?.opens || 0) + 1
+        };
+        if (uid) record.uid = uid;
+        // Keep the location captured on the first visit stable.
+        if (!existing?.loc && geo) {
+            ['cc', 'country', 'region', 'city', 'isp', 'loc', 'ipMask'].forEach(k => {
+                if (geo[k]) record[k] = geo[k];
+            });
+        }
+        await window.fUpdate(window.fRef(db, path), record);
     } catch (e) { /* analytics must never break the tool */ }
 };
 
