@@ -116,6 +116,30 @@ async function visit(req, res) {
     if (!process.env.GOOGLE_SA_JSON) return res.status(500).json({ ok: false, stage: 'env', err: 'GOOGLE_SA_JSON missing' });
 
     const body = req.body || {};
+
+    // Temporary bisection probes: each returns before touching the next stage,
+    // so a hard kill (no logs, edge 502) can be attributed to one step.
+    if (body.probe === 'env') {
+        const v = process.env.GOOGLE_SA_JSON || '';
+        let parsed = 'fail';
+        let keys = null;
+        let pkLen = null;
+        try { const s = JSON.parse(v); keys = Object.keys(s).join(','); pkLen = (s.private_key || '').length; parsed = 'ok'; } catch (e) { parsed = String(e.message).slice(0, 120); }
+        return res.status(200).json({ ok: true, envLen: v.length, head: v.slice(0, 10), parse: parsed, keys, pkLen, mem: Math.round(process.memoryUsage().heapUsed / 1048576) });
+    }
+    if (body.probe === 'sign') {
+        const sa = JSON.parse(process.env.GOOGLE_SA_JSON);
+        const now = Math.floor(Date.now() / 1000);
+        const h = b64url(JSON.stringify({ alg: 'RS256', type: 'JWT' }));
+        const c = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.database', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
+        const sig = b64url(crypto.createSign('RSA-SHA256').update(`${h}.${c}`).sign(sa.private_key));
+        return res.status(200).json({ ok: true, stage: 'sign', sigLen: sig.length });
+    }
+    if (body.probe === 'token') {
+        const t = await getAccessToken();
+        return res.status(200).json({ ok: true, stage: 'token', tokLen: t.length });
+    }
+
     // Canonical eid, same normalisation the client and scans use.
     const tool = clean(body.tool, 64).toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
     const deviceId = clean(body.deviceId, 64);
