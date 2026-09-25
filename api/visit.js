@@ -59,11 +59,13 @@ export default async function handler(req, res) {
         if (req.method === 'OPTIONS') return res.status(204).end();
         if (req.method !== 'POST') return res.status(405).json({ ok: false });
 
-        const ip = String(req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || '').trim();
+        const cfIp = String(req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || '').trim();
         const ccHint = String(req.headers['cf-ipcountry'] || '').toUpperCase();
-        // Without Cloudflare's client IP we only trust its country code: the
-        // x-forwarded-for we would otherwise see is a Cloudflare address, and
-        // resolving that would label every visitor as Cloudflare's datacenter.
+        const viaCf = !!(cfIp || ccHint);
+        // Behind Cloudflare, x-forwarded-for is Cloudflare's own address, so it
+        // can only be trusted on requests that never passed through it.
+        const ip = cfIp || (viaCf ? ''
+            : String(req.headers['x-forwarded-for'] || '').split(',')[0].trim());
         const geo = ip
             ? await resolveLocation(ip, ccHint)
             : (ccHint && ccHint !== 'XX' && ccHint !== 'T1'

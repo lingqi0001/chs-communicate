@@ -1821,7 +1821,7 @@ const renderToolAnalytics = () => {
         const totalOpens = devices.reduce((s, d) => s + (d.opens || 1), 0);
         const locCount = {};
         devices.forEach(d => {
-            const key = d.cc || 'Unknown';
+            const key = d.cc || 'Pending';
             locCount[key] = (locCount[key] || 0) + 1;
         });
         const locSummary = Object.entries(locCount).sort((a, b) => b[1] - a[1])
@@ -1837,7 +1837,7 @@ const renderToolAnalytics = () => {
                 <span class="font-medium text-sm text-black dark:text-white break-all">${_esc(tool)}</span>
                 <span class="text-[11px] text-gray-400 shrink-0">${deviceCount} devices</span>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">${_esc(locSummary || 'no location')}</div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">${_esc(locSummary || 'Location pending')}</div>
             <div class="text-[10px] text-gray-400 mt-0.5">${userCount} signed-in · ${totalOpens} opens</div>
         `;
         const expanded = _analyticsState.expanded.has(tool);
@@ -1848,7 +1848,7 @@ const renderToolAnalytics = () => {
             devices.forEach(d => {
                 const row = document.createElement('div');
                 row.className = 'py-2 px-2 border-b border-gray-200/40 dark:border-white/5 last:border-0';
-                const fullLoc = [d.country, d.region, d.city].filter(Boolean).join(' / ') || d.loc || 'Unknown';
+                const fullLoc = [d.country, d.region, d.city].filter(Boolean).join(' / ') || d.loc || 'Location pending, retried on next visit';
                 row.innerHTML = `
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-mono text-[10px] text-gray-500 dark:text-gray-400">${_esc(String(d.deviceId || '').slice(0, 18))}</span>
