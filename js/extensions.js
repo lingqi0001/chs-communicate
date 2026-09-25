@@ -80,6 +80,37 @@ const bindExtensionPanelOffsetSync = () => {
     window.addEventListener('news-panel-width-change', syncExtensionPanelOffset);
 };
 
+// Visit beacon: one POST per browser session per tool, answered by our own
+// serverless endpoint (the only place that can see the caller's IP). Strictly
+// fire-and-forget: never awaited, failures are silent so a blocked or slow
+// network can't affect opening the tool itself.
+const trackToolVisit = (eid) => {
+    try {
+        const key = String(eid || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 64);
+        if (!key) return;
+        const flag = 'chs_visit_' + key;
+        try {
+            if (sessionStorage.getItem(flag)) return;
+            sessionStorage.setItem(flag, '1');
+        } catch (e) { /* private mode: just send every open */ }
+        const user = window.AppModules?.User?.current;
+        fetch('/api/visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tool: key,
+                deviceId: localStorage.getItem('deviceId') || '',
+                uid: user?.id || ''
+            }),
+            keepalive: true
+        }).catch(() => { });
+    } catch (e) { /* analytics must never break the tool */ }
+};
+
 export const openExtension = (eid, customUrl = null, customTitle = null) => {
     if (!window.isLoggedIn && typeof window.isPublicTool === 'function' && !window.isPublicTool(eid, customUrl)) {
         if (typeof window.promptSignIn === 'function') {
@@ -130,6 +161,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     // URL can stay stable and the cached copy becomes the offline fallback.
     if (iframe) iframe.src = url;
     renderExtensionOfflineNotice();
+    trackToolVisit(customUrl ? (customTitle || eid || url) : eid);
 
     if (iframe) {
         iframe.onload = () => {
@@ -544,6 +576,7 @@ if (window) {
     window.AppModules.Extension = ExtensionModule;
     window.ExtensionRegistry = ExtensionModule.registry;
     window.openExtension = openExtension;
+    window.trackToolVisit = trackToolVisit;
     window.closeExtension = closeExtension;
     window.reloadExtension = reloadExtension;
     window.openExtensionExternally = openExtensionExternally;

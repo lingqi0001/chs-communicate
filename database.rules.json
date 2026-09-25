@@ -225,6 +225,11 @@
       ".write": "auth != null"
     },
 
+    "tool_visits": {
+      ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+      ".write": false
+    },
+
     "cafeteria": {
       ".read": true,
       ".write": "auth != null && auth.token.email == 'moss104088@gmail.com'"

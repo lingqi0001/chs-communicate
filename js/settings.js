@@ -913,6 +913,14 @@ export const SettingsModule = {
                                 </div>
                             </label>
                         </div>
+
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Analytics
+                        </h3>
+                        <button onclick="toggleToolAnalytics()"
+                            class="w-full bg-gray-100 dark:bg-white/10 text-black dark:text-white py-4 rounded-2xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-[0.98]">
+                            Tool Visit Analytics
+                        </button>
+                        <div id="toolAnalyticsPanel" class="hidden space-y-2"></div>
                     </div>
                     </div>
                 </div>
@@ -1758,4 +1766,112 @@ window.renderDevicesUI = (devices) => {
             });
         }
     }
+};
+
+// ==========================================
+// Tool Visit Analytics (admin-only, reads tool_visits written by /api/visit)
+// ==========================================
+const _analyticsState = { data: null, expanded: new Set() };
+
+const _esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+const _fmtDate = (ms) => {
+    if (!ms) return '-';
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+window.toggleToolAnalytics = async () => {
+    const panel = document.getElementById('toolAnalyticsPanel');
+    if (!panel) return;
+    if (!panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    if (_analyticsState.data) {
+        renderToolAnalytics();
+        return;
+    }
+    panel.innerHTML = '<div class="text-xs text-gray-400 text-center py-3">Loading...</div>';
+    try {
+        const db = window.firebaseDb;
+        const snap = await window.fGet(window.fRef(db, 'tool_visits'));
+        _analyticsState.data = snap.val() || {};
+        renderToolAnalytics();
+    } catch (e) {
+        panel.innerHTML = '<div class="text-xs text-red-500 text-center py-3">Failed to load visit data</div>';
+    }
+};
+
+const renderToolAnalytics = () => {
+    const panel = document.getElementById('toolAnalyticsPanel');
+    if (!panel || !_analyticsState.data) return;
+    const data = _analyticsState.data;
+    const tools = Object.keys(data).sort((a, b) => {
+        return Object.keys(data[b] || {}).length - Object.keys(data[a] || {}).length;
+    });
+    if (tools.length === 0) {
+        panel.innerHTML = '<div class="text-xs text-gray-400 text-center py-3">No visits recorded yet</div>';
+        return;
+    }
+    panel.innerHTML = '';
+    tools.forEach(tool => {
+        const devices = Object.values(data[tool] || {}).filter(Boolean);
+        const deviceCount = devices.length;
+        const userCount = devices.filter(d => d.uid).length;
+        const totalOpens = devices.reduce((s, d) => s + (d.opens || 1), 0);
+        const locCount = {};
+        devices.forEach(d => {
+            const key = d.cc || 'Unknown';
+            locCount[key] = (locCount[key] || 0) + 1;
+        });
+        const locSummary = Object.entries(locCount).sort((a, b) => b[1] - a[1])
+            .map(([k, n]) => `${k} ${n}`).join(' · ');
+
+        const card = document.createElement('div');
+        card.className = 'bg-gray-100 dark:bg-white/5 rounded-2xl overflow-hidden';
+
+        const head = document.createElement('button');
+        head.className = 'w-full text-left p-3.5 hover:bg-gray-200/60 dark:hover:bg-white/10 transition-colors';
+        head.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+                <span class="font-medium text-sm text-black dark:text-white break-all">${_esc(tool)}</span>
+                <span class="text-[11px] text-gray-400 shrink-0">${deviceCount} devices</span>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">${_esc(locSummary || 'no location')}</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">${userCount} signed-in · ${totalOpens} opens</div>
+        `;
+        const expanded = _analyticsState.expanded.has(tool);
+        const list = document.createElement('div');
+        list.className = 'hidden border-t border-gray-200/60 dark:border-white/10 px-2 py-1';
+        if (expanded) {
+            devices.sort((a, b) => (b.lastSeen || b.c || 0) - (a.lastSeen || a.c || 0));
+            devices.forEach(d => {
+                const row = document.createElement('div');
+                row.className = 'py-2 px-2 border-b border-gray-200/40 dark:border-white/5 last:border-0';
+                const fullLoc = [d.country, d.region, d.city].filter(Boolean).join(' / ') || d.loc || 'Unknown';
+                row.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-mono text-[10px] text-gray-500 dark:text-gray-400">${_esc(String(d.deviceId || '').slice(0, 18))}</span>
+                        <span class="text-[10px] text-gray-400 shrink-0">${d.opens || 1} opens</span>
+                    </div>
+                    <div class="text-[11px] text-black dark:text-white mt-0.5">${_esc(fullLoc)}${d.isp ? ' · ' + _esc(d.isp) : ''}</div>
+                    <div class="text-[10px] text-gray-400 mt-0.5">${d.uid ? 'uid: ' + _esc(d.uid) : 'guest'} · first ${_fmtDate(d.c)} · last ${_fmtDate(d.lastSeen || d.c)}</div>
+                `;
+                list.appendChild(row);
+            });
+        }
+        head.onclick = () => {
+            if (_analyticsState.expanded.has(tool)) _analyticsState.expanded.delete(tool);
+            else _analyticsState.expanded.add(tool);
+            renderToolAnalytics();
+        };
+        card.appendChild(head);
+        card.appendChild(list);
+        if (expanded) list.classList.remove('hidden');
+        panel.appendChild(card);
+    });
 };
