@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AP CSA Visual Lab</title>
+<title>AP Calculus Visual Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/visualizers.css?v=20260924-12">
+<link rel="stylesheet" href="css/calc-workspace.css?v=20260925-calc-30">
 <style>
     :root {
         --bg: #EDEFFA;
@@ -155,7 +155,7 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-secondary);
-        padding: 14px 8px 10px 8px;
+        padding: 14px 8px 6px 8px;
     }
     .side-collapse {
         width: 28px;
@@ -265,6 +265,14 @@
     }
     .topic.selected .topic-id { color: var(--text); }
     .topic-title { min-width: 0; }
+    .topic-col { min-width: 0; display: flex; flex-direction: column; }
+    .topic-bc {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-top: 1px;
+    }
 
     .stage {
         flex: 1;
@@ -345,6 +353,7 @@
     .not-ready p { font-size: 17px; line-height: 1.6; color: var(--text-secondary); }
     .not-ready .nr-planned { margin-top: 14px; font-size: 16px; }
     .not-ready .nr-planned strong { font-weight: 600; color: var(--text); }
+    .not-ready .nr-type { margin-top: 4px; font-size: 15px; }
 
     .viz-frame {
         width: 100%;
@@ -380,6 +389,9 @@
     }
     body.nav-collapsed .nav-fab { display: flex; }
 
+    .wbtn { font: inherit; font-size: 16px; font-weight: 500; line-height: 22px; color: var(--text); background: var(--card-bg); border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer; transition: background 0.18s ease; display: inline-flex; align-items: center; gap: 8px; }
+    .wbtn:hover { background: var(--row-hover); }
+
     @media (max-width: 760px) {
         body:not(.standalone) .nav-fab { display: flex; }
         body:not(.standalone) .sidebar { top: 0; }
@@ -410,7 +422,7 @@
         <button class="menu-btn" id="menuBtn" aria-label="Toggle curriculum">
             <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
-        <h1>AP CSA Visual Lab</h1>
+        <h1>AP Calculus Visual Lab</h1>
         <div class="crumb" id="crumb"></div>
         <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
             <svg class="icon-moon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -426,14 +438,15 @@
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg>
                 </button>
             </div>
+            <div class="course-note">Topics marked BC only appear on the AP Calculus BC exam only. Unmarked topics count for both AB and BC.</div>
             <nav id="unitTree"></nav>
         </aside>
 
         <main class="stage">
             <section class="stage-view active" id="welcomeView">
                 <div class="welcome">
-                    <h2>AP CSA Visual Lab</h2>
-                    <p>A visual companion to the AP Computer Science A course (CED, Effective Fall 2025). Pick a topic from the curriculum on the left to open its step-by-step visualizer.</p>
+                    <h2>AP Calculus Visual Lab</h2>
+                    <p>A visual companion to the AP Calculus AB and BC courses (CED, Effective Fall 2025). Both exams share one curriculum: topics marked BC only belong to the BC exam, everything else counts for AB and BC. Pick a topic from the list on the left to open its visualizer.</p>
                     <p>Visualizers are added over time. Topics without one yet are marked Not Available.</p>
                     <div class="unit-chips" id="unitChips"></div>
                 </div>
@@ -454,10 +467,10 @@
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
 
-<script src="js/curriculum.js"></script>
+<script src="js/curriculum.js?v=20260925-calc-16"></script>
 <script>
 (function () {
-    const units = window.CSA_CURRICULUM || [];
+    const units = window.CALC_CURRICULUM || [];
     const tree = document.getElementById('unitTree');
     const chips = document.getElementById('unitChips');
     const crumb = document.getElementById('crumb');
@@ -469,48 +482,54 @@
 
     let importRetry = 0;
     let lastFailed = null;
+    let selected = null;
     function modUrl(path) {
-        return importRetry ? path + '?r=' + importRetry : path;
+        return path + '?v=20260925-calc-36' + (importRetry ? '&r=' + importRetry : '');
+    }
+
+    function findTopic(topicId) {
+        for (const u of units) {
+            const t = u.topics.find(x => x.id === topicId);
+            if (t) return { unit: u, topic: t };
+        }
+        return null;
     }
 
     function selectTopic(unitNum, topicId) {
-        let foundUnit = null, foundTopic = null;
-        for (const u of units) {
-            for (const t of u.topics) {
-                if (u.num === unitNum && t.id === topicId) { foundUnit = u; foundTopic = t; }
-            }
-        }
-        if (!foundTopic) return;
+        const hit = findTopic(topicId);
+        if (!hit || hit.unit.num !== unitNum) return;
+        selected = { unit: unitNum, topic: topicId };
 
         document.querySelectorAll('.topic').forEach(el => {
-            el.classList.toggle('selected', el.dataset.uid === String(foundUnit.num) && el.dataset.tid === foundTopic.id);
+            el.classList.toggle('selected', el.dataset.uid === String(unitNum) && el.dataset.tid === topicId);
         });
-        const unitEl = document.querySelector('.unit[data-uid="' + foundUnit.num + '"]');
+        const unitEl = document.querySelector('.unit[data-uid="' + unitNum + '"]');
         if (unitEl && !unitEl.classList.contains('open')) unitEl.classList.add('open');
 
-        crumb.textContent = 'Unit ' + foundUnit.num + ' \u00B7 ' + foundTopic.id + ' ' + foundTopic.title;
-        topicKicker.textContent = 'Unit ' + foundUnit.num + ': ' + foundUnit.name;
-        topicTitle.textContent = foundTopic.id + ' ' + foundTopic.title;
+        const bcOnly = hit.topic.courses.length === 1;
+        crumb.textContent = 'Unit ' + hit.unit.num + ' \u00B7 ' + hit.topic.id + ' ' + hit.topic.title;
+        topicKicker.textContent = 'Unit ' + hit.unit.num + ': ' + hit.unit.name + (bcOnly ? ' \u00B7 BC only' : '');
+        topicTitle.textContent = hit.topic.id + ' ' + hit.topic.title;
 
         topicBody.innerHTML = '';
-        if (foundTopic.module) {
+        if (hit.topic.module) {
             topicView.classList.add('active');
             welcomeView.classList.remove('active');
             const holder = document.createElement('div');
             holder.appendChild(document.createTextNode('Loading visualizer...'));
             topicBody.appendChild(holder);
             Promise.all([
-                import(modUrl('./js/visualizer-runtime.js')),
-                import(modUrl('./' + foundTopic.module))
+                import(modUrl('./js/calc-runtime.js')),
+                import(modUrl('./' + hit.topic.module))
             ]).then(([rt, lesson]) => {
                 lastFailed = null;
                 holder.replaceChildren();
                 const mod = lesson.default;
-                const def = mod.topics ? mod.topics[foundTopic.id] : mod;
+                const def = mod.topics ? mod.topics[hit.topic.id] : mod;
                 if (def) rt.mountWorkspace(holder, def);
                 else holder.textContent = 'Not Available';
             }).catch(err => {
-                lastFailed = { unit: foundUnit.num, topic: foundTopic.id };
+                lastFailed = { unit: unitNum, topic: topicId };
                 holder.replaceChildren();
                 holder.appendChild(document.createTextNode('This visualizer failed to load: ' + err.message + ' '));
                 const retry = document.createElement('button');
@@ -520,17 +539,17 @@
                 retry.addEventListener('click', () => {
                     importRetry++;
                     if (/components\.js/.test(err.message)) location.reload();
-                    else selectTopic(foundUnit.num, foundTopic.id);
+                    else selectTopic(unitNum, topicId);
                 });
                 holder.appendChild(retry);
             });
             document.body.classList.remove('nav-open');
             return;
         }
-        if (foundTopic.file) {
+        if (hit.topic.file) {
             const frame = document.createElement('iframe');
             frame.className = 'viz-frame';
-            frame.src = foundTopic.file;
+            frame.src = hit.topic.file;
             frame.allowFullscreen = true;
             topicView.style.height = '100%';
             topicView.classList.add('active');
@@ -546,12 +565,18 @@
             '<div class="nr-mark"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/></svg></div>' +
             '<h3>Not Available</h3>' +
             '<p>The visualizer for this topic has not been built yet.</p>';
-        if (foundTopic.planned) {
+        if (hit.topic.planned) {
             const planned = document.createElement('p');
             planned.className = 'nr-planned';
             planned.innerHTML = 'Planned: <strong></strong>';
-            planned.querySelector('strong').textContent = foundTopic.planned;
+            planned.querySelector('strong').textContent = hit.topic.planned;
             card.appendChild(planned);
+        }
+        if (hit.topic.vtype) {
+            const type = document.createElement('p');
+            type.className = 'nr-type';
+            type.textContent = hit.topic.vtype;
+            card.appendChild(type);
         }
         topicView.classList.add('active');
         welcomeView.classList.remove('active');
@@ -559,59 +584,96 @@
         document.body.classList.remove('nav-open');
     }
 
-    units.forEach(u => {
-        const unitEl = document.createElement('div');
-        unitEl.className = 'unit';
-        unitEl.dataset.uid = u.num;
+    function renderTree() {
+        tree.innerHTML = '';
+        chips.innerHTML = '';
 
-        const header = document.createElement('button');
-        header.className = 'unit-header';
-        header.innerHTML =
-            '<span class="unit-num">' + u.num + '</span>' +
-            '<span class="unit-name"></span>' +
-            '<span class="unit-count">' + u.topics.length + '</span>' +
-            '<svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
-        header.querySelector('.unit-name').textContent = u.name;
-        header.addEventListener('click', () => unitEl.classList.toggle('open'));
-        unitEl.appendChild(header);
+        units.forEach(u => {
+            const unitEl = document.createElement('div');
+            unitEl.className = 'unit';
+            unitEl.dataset.uid = u.num;
 
-        const wrap = document.createElement('div');
-        wrap.className = 'unit-topics';
-        const inner = document.createElement('div');
-        inner.className = 'unit-topics-inner';
-        u.topics.forEach(t => {
-            const row = document.createElement('button');
-            row.className = 'topic';
-            row.dataset.uid = u.num;
-            row.dataset.tid = t.id;
-            row.innerHTML = '<span class="topic-id"></span><span class="topic-title"></span>';
-            row.querySelector('.topic-id').textContent = t.id;
-            row.querySelector('.topic-title').textContent = t.title;
-            row.addEventListener('click', () => {
-                location.hash = 'topic=' + t.id;
-                selectTopic(u.num, t.id);
+            const header = document.createElement('button');
+            header.className = 'unit-header';
+            header.innerHTML =
+                '<span class="unit-num">' + u.num + '</span>' +
+                '<span class="unit-name"></span>' +
+                '<span class="unit-count">' + u.topics.length + '</span>' +
+                '<svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
+            header.querySelector('.unit-name').textContent = u.name;
+            header.addEventListener('click', () => unitEl.classList.toggle('open'));
+            unitEl.appendChild(header);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'unit-topics';
+            const inner = document.createElement('div');
+            inner.className = 'unit-topics-inner';
+            u.topics.forEach(t => {
+                const row = document.createElement('button');
+                row.className = 'topic';
+                row.dataset.uid = u.num;
+                row.dataset.tid = t.id;
+                const id = document.createElement('span');
+                id.className = 'topic-id';
+                id.textContent = t.id;
+                const col = document.createElement('span');
+                col.className = 'topic-col';
+                const title = document.createElement('span');
+                title.className = 'topic-title';
+                title.textContent = t.title;
+                col.appendChild(title);
+                if (t.courses.length === 1) {
+                    const bc = document.createElement('span');
+                    bc.className = 'topic-bc';
+                    bc.textContent = 'BC only';
+                    col.appendChild(bc);
+                }
+                row.append(id, col);
+                row.addEventListener('click', () => {
+                    location.hash = 'topic=' + t.id;
+                    selectTopic(u.num, t.id);
+                });
+                inner.appendChild(row);
             });
-            inner.appendChild(row);
-        });
-        wrap.appendChild(inner);
-        unitEl.appendChild(wrap);
-        tree.appendChild(unitEl);
+            wrap.appendChild(inner);
+            unitEl.appendChild(wrap);
+            tree.appendChild(unitEl);
 
-        const chip = document.createElement('button');
-        chip.className = 'unit-chip';
-        chip.innerHTML = '<div class="chip-unit"></div><div class="chip-name"></div>';
-        chip.querySelector('.chip-unit').textContent = 'Unit ' + u.num + ' \u00B7 ' + u.topics.length + ' topics';
-        chip.querySelector('.chip-name').textContent = u.name;
-        chip.addEventListener('click', () => {
-            const mobile = window.innerWidth <= 760;
-            if (mobile) document.body.classList.add('nav-open');
-            unitEl.classList.add('open');
-            setTimeout(() => {
+            const chip = document.createElement('button');
+            chip.className = 'unit-chip';
+            chip.innerHTML = '<div class="chip-unit"></div><div class="chip-name"></div>';
+            chip.querySelector('.chip-unit').textContent = 'Unit ' + u.num + ' \u00B7 ' + u.topics.length + ' topics';
+            chip.querySelector('.chip-name').textContent = u.name;
+            chip.addEventListener('click', () => {
+                unitEl.classList.add('open');
                 unitEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, mobile ? 380 : 0);
+            });
+            chips.appendChild(chip);
         });
-        chips.appendChild(chip);
-    });
+
+        if (selected) {
+            const hit = findTopic(selected.topic);
+            if (hit) {
+                selectTopic(selected.unit, selected.topic);
+                return;
+            }
+            selected = null;
+            crumb.textContent = '';
+            topicView.classList.remove('active');
+            welcomeView.classList.add('active');
+            topicBody.innerHTML = '';
+        }
+    }
+
+    function openFromHash() {
+        const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
+        if (!m) return;
+        const hit = findTopic(m[1]);
+        if (!hit) return;
+        selectTopic(hit.unit.num, hit.topic.id);
+    }
+
+    renderTree();
 
     // Pinned unit bars: an OPEN unit keeps its bar locked under the sticky
     // labels at the top of the sidebar while its topics scroll by, and the
@@ -619,8 +681,13 @@
     const sidebar = document.getElementById('sidebar');
     const sideLabel = document.querySelector('.side-label');
     const courseNote = document.querySelector('.course-note');
-    const unitEls = Array.from(document.querySelectorAll('#unitTree > .unit'));
-    const unitBars = unitEls.map(el => el.querySelector('.unit-header'));
+    let unitEls = [];
+    let unitBars = [];
+    function bindUnitBars() {
+        unitEls = Array.from(document.querySelectorAll('#unitTree > .unit'));
+        unitBars = unitEls.map(el => el.querySelector('.unit-header'));
+        unitBars.forEach(b => b.addEventListener('click', pinSoon));
+    }
     let wasOpen = [];
     function barStaticTop(bar) {
         const m = new DOMMatrixReadOnly(getComputedStyle(bar).transform);
@@ -686,23 +753,13 @@
     }
     sidebar.addEventListener('scroll', pinUnitBars, { passive: true });
     window.addEventListener('resize', pinUnitBars);
-    units.forEach(u => {
-        const el = document.querySelector('.unit[data-uid="' + u.num + '"]');
-        if (el) el.querySelector('.unit-header').addEventListener('click', pinSoon);
-    });
     if (window.ResizeObserver) new ResizeObserver(() => pinUnitBars()).observe(tree);
+    bindUnitBars();
     pinUnitBars();
 
-    const parts = (location.hash.match(/^#topic=(\d+\.\d+)$/) || [])[1];
-    if (parts) {
-        const [un, tid] = [Number(parts.split('.')[0]), parts];
-        selectTopic(un, tid);
-    }
+    openFromHash();
 
-    window.addEventListener('hashchange', () => {
-        const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
-        if (m) selectTopic(Number(m[1].split('.')[0]), m[1]);
-    });
+    window.addEventListener('hashchange', openFromHash);
 
     window.addEventListener('online', () => {
         if (lastFailed) {

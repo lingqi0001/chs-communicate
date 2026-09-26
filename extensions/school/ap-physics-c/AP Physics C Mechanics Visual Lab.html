@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AP CSA Visual Lab</title>
+<title>AP Physics C: Mechanics Visual Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/visualizers.css?v=20260924-12">
 <style>
     :root {
         --bg: #EDEFFA;
@@ -216,7 +215,17 @@
         font-weight: 700;
     }
     .unit-name { flex: 1; min-width: 0; line-height: 1.25; }
-    .unit-count { flex: none; font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+    .unit-meta {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        line-height: 1.25;
+    }
+    .unit-weight { font-size: 13px; }
     .chevron {
         flex: none;
         width: 16px;
@@ -345,6 +354,7 @@
     .not-ready p { font-size: 17px; line-height: 1.6; color: var(--text-secondary); }
     .not-ready .nr-planned { margin-top: 14px; font-size: 16px; }
     .not-ready .nr-planned strong { font-weight: 600; color: var(--text); }
+    .not-ready .nr-type { margin-top: 4px; font-size: 15px; }
 
     .viz-frame {
         width: 100%;
@@ -380,6 +390,9 @@
     }
     body.nav-collapsed .nav-fab { display: flex; }
 
+    .wbtn { font: inherit; font-size: 16px; font-weight: 500; line-height: 22px; color: var(--text); background: var(--card-bg); border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer; transition: background 0.18s ease; display: inline-flex; align-items: center; gap: 8px; }
+    .wbtn:hover { background: var(--row-hover); }
+
     @media (max-width: 760px) {
         body:not(.standalone) .nav-fab { display: flex; }
         body:not(.standalone) .sidebar { top: 0; }
@@ -410,7 +423,7 @@
         <button class="menu-btn" id="menuBtn" aria-label="Toggle curriculum">
             <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
-        <h1>AP CSA Visual Lab</h1>
+        <h1>AP Physics C: Mechanics</h1>
         <div class="crumb" id="crumb"></div>
         <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
             <svg class="icon-moon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -432,8 +445,8 @@
         <main class="stage">
             <section class="stage-view active" id="welcomeView">
                 <div class="welcome">
-                    <h2>AP CSA Visual Lab</h2>
-                    <p>A visual companion to the AP Computer Science A course (CED, Effective Fall 2025). Pick a topic from the curriculum on the left to open its step-by-step visualizer.</p>
+                    <h2>AP Physics C: Mechanics Visual Lab</h2>
+                    <p>A visual companion to the AP Physics C: Mechanics course (CED, Effective Fall 2025). Pick a topic from the curriculum on the left to open its step-by-step visualizer.</p>
                     <p>Visualizers are added over time. Topics without one yet are marked Not Available.</p>
                     <div class="unit-chips" id="unitChips"></div>
                 </div>
@@ -454,10 +467,10 @@
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
 
-<script src="js/curriculum.js"></script>
+<script src="js/curriculum.js?v=20260925-phmech-1"></script>
 <script>
 (function () {
-    const units = window.CSA_CURRICULUM || [];
+    const units = window.PHYS_CURRICULUM || [];
     const tree = document.getElementById('unitTree');
     const chips = document.getElementById('unitChips');
     const crumb = document.getElementById('crumb');
@@ -469,48 +482,53 @@
 
     let importRetry = 0;
     let lastFailed = null;
+    let selected = null;
     function modUrl(path) {
-        return importRetry ? path + '?r=' + importRetry : path;
+        return path + '?v=20260925-phmech-1' + (importRetry ? '&r=' + importRetry : '');
     }
 
-    function selectTopic(unitNum, topicId) {
-        let foundUnit = null, foundTopic = null;
+    function findTopic(topicId) {
         for (const u of units) {
-            for (const t of u.topics) {
-                if (u.num === unitNum && t.id === topicId) { foundUnit = u; foundTopic = t; }
-            }
+            const t = u.topics.find(x => x.id === topicId);
+            if (t) return { unit: u, topic: t };
         }
-        if (!foundTopic) return;
+        return null;
+    }
+
+    function selectTopic(topicId) {
+        const hit = findTopic(topicId);
+        if (!hit) return;
+        selected = hit.topic.id;
 
         document.querySelectorAll('.topic').forEach(el => {
-            el.classList.toggle('selected', el.dataset.uid === String(foundUnit.num) && el.dataset.tid === foundTopic.id);
+            el.classList.toggle('selected', el.dataset.tid === hit.topic.id);
         });
-        const unitEl = document.querySelector('.unit[data-uid="' + foundUnit.num + '"]');
+        const unitEl = document.querySelector('.unit[data-uid="' + hit.unit.num + '"]');
         if (unitEl && !unitEl.classList.contains('open')) unitEl.classList.add('open');
 
-        crumb.textContent = 'Unit ' + foundUnit.num + ' \u00B7 ' + foundTopic.id + ' ' + foundTopic.title;
-        topicKicker.textContent = 'Unit ' + foundUnit.num + ': ' + foundUnit.name;
-        topicTitle.textContent = foundTopic.id + ' ' + foundTopic.title;
+        crumb.textContent = 'Unit ' + hit.unit.num + ' \u00B7 ' + hit.topic.id + ' ' + hit.topic.title;
+        topicKicker.textContent = 'Unit ' + hit.unit.num + ': ' + hit.unit.name + (hit.unit.weight ? ' \u00B7 ' + hit.unit.weight : '');
+        topicTitle.textContent = hit.topic.id + ' ' + hit.topic.title;
 
         topicBody.innerHTML = '';
-        if (foundTopic.module) {
+        if (hit.topic.module) {
             topicView.classList.add('active');
             welcomeView.classList.remove('active');
             const holder = document.createElement('div');
             holder.appendChild(document.createTextNode('Loading visualizer...'));
             topicBody.appendChild(holder);
             Promise.all([
-                import(modUrl('./js/visualizer-runtime.js')),
-                import(modUrl('./' + foundTopic.module))
+                import(modUrl('./js/physics-runtime.js')),
+                import(modUrl('./' + hit.topic.module))
             ]).then(([rt, lesson]) => {
                 lastFailed = null;
                 holder.replaceChildren();
                 const mod = lesson.default;
-                const def = mod.topics ? mod.topics[foundTopic.id] : mod;
+                const def = mod.topics ? mod.topics[hit.topic.id] : mod;
                 if (def) rt.mountWorkspace(holder, def);
                 else holder.textContent = 'Not Available';
             }).catch(err => {
-                lastFailed = { unit: foundUnit.num, topic: foundTopic.id };
+                lastFailed = hit.topic.id;
                 holder.replaceChildren();
                 holder.appendChild(document.createTextNode('This visualizer failed to load: ' + err.message + ' '));
                 const retry = document.createElement('button');
@@ -519,18 +537,17 @@
                 retry.textContent = 'Retry';
                 retry.addEventListener('click', () => {
                     importRetry++;
-                    if (/components\.js/.test(err.message)) location.reload();
-                    else selectTopic(foundUnit.num, foundTopic.id);
+                    selectTopic(hit.topic.id);
                 });
                 holder.appendChild(retry);
             });
             document.body.classList.remove('nav-open');
             return;
         }
-        if (foundTopic.file) {
+        if (hit.topic.file) {
             const frame = document.createElement('iframe');
             frame.className = 'viz-frame';
-            frame.src = foundTopic.file;
+            frame.src = hit.topic.file;
             frame.allowFullscreen = true;
             topicView.style.height = '100%';
             topicView.classList.add('active');
@@ -546,12 +563,18 @@
             '<div class="nr-mark"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/></svg></div>' +
             '<h3>Not Available</h3>' +
             '<p>The visualizer for this topic has not been built yet.</p>';
-        if (foundTopic.planned) {
+        if (hit.topic.planned) {
             const planned = document.createElement('p');
             planned.className = 'nr-planned';
             planned.innerHTML = 'Planned: <strong></strong>';
-            planned.querySelector('strong').textContent = foundTopic.planned;
+            planned.querySelector('strong').textContent = hit.topic.planned;
             card.appendChild(planned);
+        }
+        if (hit.topic.vtype) {
+            const type = document.createElement('p');
+            type.className = 'nr-type';
+            type.textContent = hit.topic.vtype;
+            card.appendChild(type);
         }
         topicView.classList.add('active');
         welcomeView.classList.remove('active');
@@ -569,9 +592,11 @@
         header.innerHTML =
             '<span class="unit-num">' + u.num + '</span>' +
             '<span class="unit-name"></span>' +
-            '<span class="unit-count">' + u.topics.length + '</span>' +
+            '<span class="unit-meta"><span class="unit-count"></span><span class="unit-weight"></span></span>' +
             '<svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
         header.querySelector('.unit-name').textContent = u.name;
+        header.querySelector('.unit-count').textContent = u.topics.length;
+        header.querySelector('.unit-weight').textContent = u.weight || '';
         header.addEventListener('click', () => unitEl.classList.toggle('open'));
         unitEl.appendChild(header);
 
@@ -589,7 +614,7 @@
             row.querySelector('.topic-title').textContent = t.title;
             row.addEventListener('click', () => {
                 location.hash = 'topic=' + t.id;
-                selectTopic(u.num, t.id);
+                selectTopic(t.id);
             });
             inner.appendChild(row);
         });
@@ -600,7 +625,7 @@
         const chip = document.createElement('button');
         chip.className = 'unit-chip';
         chip.innerHTML = '<div class="chip-unit"></div><div class="chip-name"></div>';
-        chip.querySelector('.chip-unit').textContent = 'Unit ' + u.num + ' \u00B7 ' + u.topics.length + ' topics';
+        chip.querySelector('.chip-unit').textContent = 'Unit ' + u.num + ' \u00B7 ' + u.topics.length + ' topics' + (u.weight ? ' \u00B7 ' + u.weight : '');
         chip.querySelector('.chip-name').textContent = u.name;
         chip.addEventListener('click', () => {
             const mobile = window.innerWidth <= 760;
@@ -613,9 +638,16 @@
         chips.appendChild(chip);
     });
 
-    // Pinned unit bars: an OPEN unit keeps its bar locked under the sticky
-    // labels at the top of the sidebar while its topics scroll by, and the
-    // next unit's bar pushes it out when it reaches it.
+    function openFromHash() {
+        const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
+        if (m) selectTopic(m[1]);
+    }
+    openFromHash();
+
+    // Pinned unit bars: an OPEN unit keeps its bar locked under the
+    // "Curriculum" label while its topics scroll by (position:relative +
+    // transform, so the bar leaves with its unit at the end), and a pinned
+    // bar is pushed out by the next unit's bar reaching it.
     const sidebar = document.getElementById('sidebar');
     const sideLabel = document.querySelector('.side-label');
     const courseNote = document.querySelector('.course-note');
@@ -628,8 +660,7 @@
     }
     function pinUnitBars() {
         const sbRect = sidebar.getBoundingClientRect();
-        let pinTop = sideLabel.getBoundingClientRect().bottom - sbRect.top;
-        if (courseNote) pinTop = Math.max(pinTop, courseNote.getBoundingClientRect().bottom - sbRect.top);
+        const pinTop = sideLabel.getBoundingClientRect().bottom - sbRect.top;
         const sTop = sidebar.scrollTop;
         const n = unitBars.length;
         // Static (untransformed) positions derived without clearing
@@ -690,25 +721,16 @@
         const el = document.querySelector('.unit[data-uid="' + u.num + '"]');
         if (el) el.querySelector('.unit-header').addEventListener('click', pinSoon);
     });
-    if (window.ResizeObserver) new ResizeObserver(() => pinUnitBars()).observe(tree);
+    if (window.ResizeObserver) new ResizeObserver(() => pinUnitBars()).observe(document.getElementById('unitTree'));
     pinUnitBars();
 
-    const parts = (location.hash.match(/^#topic=(\d+\.\d+)$/) || [])[1];
-    if (parts) {
-        const [un, tid] = [Number(parts.split('.')[0]), parts];
-        selectTopic(un, tid);
-    }
-
-    window.addEventListener('hashchange', () => {
-        const m = location.hash.match(/^#topic=(\d+\.\d+)$/);
-        if (m) selectTopic(Number(m[1].split('.')[0]), m[1]);
-    });
+    window.addEventListener('hashchange', openFromHash);
 
     window.addEventListener('online', () => {
         if (lastFailed) {
             const t = lastFailed;
             importRetry++;
-            selectTopic(t.unit, t.topic);
+            selectTopic(t);
         }
     });
 

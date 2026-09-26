@@ -93,6 +93,18 @@
       "destination": "/?open=ap_csa_visual_lab&tab=tools"
     },
     {
+      "source": "/apcal",
+      "destination": "/?open=ap_calculus_visual_lab&tab=tools"
+    },
+    {
+      "source": "/apphy/mechanics",
+      "destination": "/?open=ap_physics_c_mechanics_visual_lab&tab=tools"
+    },
+    {
+      "source": "/ap-physics-c",
+      "destination": "/?open=ap_physics_c_mechanics_visual_lab&tab=tools"
+    },
+    {
       "source": "/assets/:match*",
       "destination": "/extensions/fun/assets/:match*"
     }

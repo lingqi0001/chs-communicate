@@ -371,6 +371,20 @@ export const ExtensionModule = {
             category: 'Learning Tools',
             description: 'Try this out if you feel confused about how code runs'
         },
+        'ap_calculus_visual_lab': {
+            eid: 'ap_calculus_visual_lab',
+            url: 'extensions/school/ap-calc/AP Calculus Visual Lab.html',
+            title: 'AP Calculus Visual Lab',
+            category: 'Learning Tools',
+            description: 'See what the calculus actually looks like'
+        },
+        'ap_physics_c_mechanics_visual_lab': {
+            eid: 'ap_physics_c_mechanics_visual_lab',
+            url: 'extensions/school/ap-physics-c/AP Physics C Mechanics Visual Lab.html',
+            title: 'AP Physics C Mechanics Visual Lab',
+            category: 'Learning Tools',
+            description: 'See how the mechanics actually move'
+        },
         'face_of_the_good_and_evil': {
             eid: 'face_of_the_good_and_evil',
             url: 'extensions/fun/Face of the good and evil.html',

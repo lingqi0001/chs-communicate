@@ -162,7 +162,7 @@
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
         "./js/sync.js": "./js/sync.js?v=20260924-offline-12",
         "./js/sidebar.js": "./js/sidebar.js?v=20260924-offline-11",
-        "./js/extensions.js": "./js/extensions.js?v=20260925-visits-5",
+        "./js/extensions.js": "./js/extensions.js?v=20260925-phmech-1",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260923-offline-3",
         "./js/security.js": "./js/security.js?v=20260519-0935",
@@ -475,6 +475,8 @@
                 'find_the_gao_kao_cheater': "Calculus game created in Miss. Li's class",
                 'ir_navigator': 'Created for Miss. Ireland',
                 'ap_csa_visual_lab': 'Try this out if you feel confused about how code runs',
+                'ap_calculus_visual_lab': 'See what the calculus actually looks like',
+                'ap_physics_c_mechanics_visual_lab': 'See how the mechanics actually move',
                 'honor_roll': 'Made for Miss. Cipriano and Miss. Dow'
             };
 
@@ -685,6 +687,10 @@
                         if (typeof window.openExtension === 'function') window.openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents');
                     } else if (openTarget === 'apcsa' || openTarget === 'ap-csa' || openTarget === 'ap_csa_visual_lab') {
                         if (typeof window.openExtension === 'function') window.openExtension('ap_csa_visual_lab', 'extensions/school/ap-csa/AP CSA Visual Lab.html', 'AP CSA Visual Lab');
+                    } else if (openTarget === 'apcal' || openTarget === 'ap_calculus_visual_lab') {
+                        if (typeof window.openExtension === 'function') window.openExtension('ap_calculus_visual_lab', 'extensions/school/ap-calc/AP Calculus Visual Lab.html', 'AP Calculus Visual Lab');
+                    } else if (openTarget === 'apphysics' || openTarget === 'ap-physics-c' || openTarget === 'apphy/mechanics' || openTarget === 'apphymechanics' || openTarget === 'ap_physics_c_mechanics_visual_lab') {
+                        if (typeof window.openExtension === 'function') window.openExtension('ap_physics_c_mechanics_visual_lab', 'extensions/school/ap-physics-c/AP Physics C Mechanics Visual Lab.html', 'AP Physics C Mechanics Visual Lab');
                     } else if (typeof window.openModule === 'function') {
                         window.openModule(openTarget);
                     }
