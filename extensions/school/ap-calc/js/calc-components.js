@@ -543,8 +543,15 @@ export function tree(spec, env, host) {
 }
 
 // ---------------- Geometry: rectangle area model (product rule) ----------------
+/* Optional spec fields, all backward compatible:
+   labels.base / labels.rightStrip / labels.topStrip / labels.corner
+       text written inside the matching block (empty resolves to no label).
+   show: { base, rightStrip, topStrip, corner }
+       booleans or env fns gating which blocks are drawn (default: all shown).
+   emphasis: a block name or env fn returning one
+       that block keeps full opacity, the other shown blocks fade back. */
 export function rectarea(spec, env, host) {
-    const g = dyn(resolve(spec, env), env, ["labels","note"]);
+    const g = dyn(resolve(spec, env), env, ["labels","note","show","emphasis"]);
     const W = g.width || 420, H = g.height || 340;
     const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'cv-graph' });
     svg.style.width = '100%';
@@ -552,21 +559,47 @@ export function rectarea(spec, env, host) {
     const scale = Math.min((W - 90) / Math.max(f + df, 0.001), (H - 90) / Math.max(fg + dfg, 0.001));
     const ox = 50, oy = H - 50;
     const rw = f * scale, rh = fg * scale, dw = df * scale, dh = dfg * scale;
-    const r = (x, y, w, h, fill, stroke) => {
-        const rect = sv('rect', { x, y: y - h, width: Math.max(w, 1), height: Math.max(h, 1), fill, stroke, 'stroke-width': 1.5 });
+    /* r() takes the BOTTOM edge of a rect: it draws from y - h up to y. So the
+       top strip and the corner sit on top of the base at oy - rh. The old code
+       passed oy + rh, which pushed both pieces below the base and mostly out
+       of the viewBox, breaking the product-rule figure. */
+    const showSpec = resolve(g.show, env) || {};
+    const shown = {};
+    ['base', 'rightStrip', 'topStrip', 'corner'].forEach(k => {
+        shown[k] = showSpec[k] === undefined ? true : Boolean(resolve(showSpec[k], env));
+    });
+    const emph = resolve(g.emphasis, env);
+    const r = (x, y, w, h, fill, stroke, k) => {
+        const rect = sv('rect', { x, y: y - h, width: Math.max(w, 1), height: Math.max(h, 1), fill, stroke,
+            'stroke-width': emph && emph === k ? 3 : 1.5, opacity: emph && emph !== k ? 0.25 : 1 });
         svg.appendChild(rect);
     };
-    r(ox, oy, rw, rh, 'color-mix(in srgb, var(--accent) 20%, transparent)', COLORS.accent);
-    r(ox + rw, oy, dw, rh, 'color-mix(in srgb, #FF9F0A 30%, transparent)', COLORS.aux);
-    r(ox, oy + rh, rw, dh, 'color-mix(in srgb, #2FB86A 26%, transparent)', COLORS.up);
-    r(ox + rw, oy + rh, dw, dh, 'color-mix(in srgb, var(--text-secondary) 18%, transparent)', COLORS.auxInk);
+    if (shown.base) r(ox, oy, rw, rh, 'color-mix(in srgb, var(--accent) 20%, transparent)', COLORS.accent, 'base');
+    if (shown.rightStrip) r(ox + rw, oy, dw, rh, 'color-mix(in srgb, #FF9F0A 30%, transparent)', COLORS.aux, 'rightStrip');
+    if (shown.topStrip) r(ox, oy - rh, rw, dh, 'color-mix(in srgb, #2FB86A 26%, transparent)', COLORS.up, 'topStrip');
+    if (shown.corner) r(ox + rw, oy - rh, dw, dh, 'color-mix(in srgb, var(--text-secondary) 18%, transparent)', COLORS.auxInk, 'corner');
     const labels = [];
-    const lab = (x, y, t, anchor, color) => labels.push({ x, y, s: String(t), color, anchor: anchor || 'middle', prio: 1 });
-    lab(ox + rw / 2, oy + 20, resolve(g.labels && g.labels.w, env) || 'f(x)', 'middle', 'accent');
-    lab(ox - 8, oy - rh / 2, resolve(g.labels && g.labels.h, env) || 'g(x)', 'end', 'aux');
-    lab(ox + rw + dw / 2, oy + 20, resolve(g.labels && g.labels.dw, env) || 'f′Δx', 'middle', 'up');
-    lab(ox - 8, oy + rh + dh / 2, resolve(g.labels && g.labels.dh, env) || 'g′Δx', 'end', 'aux');
-    lab(ox + rw / 2, oy - rh - 8, resolve(g.labels && g.labels.area, env) || 'f·g', 'middle', 'ink');
+    const lab = (x, y, t, anchor, color) => {
+        const s = t === undefined || t === null ? '' : String(t);
+        if (s) labels.push({ x, y, s, color, anchor: anchor || 'middle', prio: 1 });
+    };
+    /* each dimension label rides with the block it measures, so a hidden
+       block never leaves its Δ tag floating in empty space */
+    if (shown.base) {
+        lab(ox + rw / 2, oy + 20, resolve(g.labels && g.labels.w, env) || 'f(x)', 'middle', 'accent');
+        lab(ox - 8, oy - rh / 2, resolve(g.labels && g.labels.h, env) || 'g(x)', 'end', 'aux');
+    }
+    if (shown.rightStrip) lab(ox + rw + dw / 2, oy + 20, resolve(g.labels && g.labels.dw, env) || 'f′Δx', 'middle', 'aux');
+    if (shown.topStrip) lab(ox - 8, oy - rh - dh / 2, resolve(g.labels && g.labels.dh, env) || 'g′Δx', 'end', 'up');
+    const blockLab = (key, x, y, color) => {
+        if (!shown[key]) return;
+        lab(x, y, resolve(g.labels && g.labels[key], env), 'middle', color);
+    };
+    blockLab('base', ox + rw / 2, oy - rh / 2, 'accent');
+    blockLab('rightStrip', ox + rw + dw / 2, oy - rh / 2, 'aux');
+    blockLab('topStrip', ox + rw / 2, oy - rh - dh / 2, 'up');
+    blockLab('corner', ox + rw + dw / 2, oy - rh - dh / 2, 'auxInk');
+    lab(ox + rw / 2, oy - rh - 8, (g.labels && g.labels.area !== undefined) ? resolve(g.labels.area, env) : 'f·g', 'middle', 'ink');
     if (g.note) labels.push({ x: ox, y: 24, s: String(resolve(g.note, env)), color: 'auxInk', anchor: 'start', prio: 2 });
     placeLabels(labels, W, H).forEach(L => {
         emitLabel(svg, L);
@@ -730,99 +763,128 @@ export const RENDERERS = {
         const box = el('div', 'cv-note' + (g.tone === 'warn' ? ' warn' : ''), resolve(g.text, env));
         host.appendChild(box);
     },
-    playbar: (spec, env, host, ctx) => {
-        // This will be overridden by lesson-specific implementation
-        const row = el('div', 'cv-readout');
-        row.textContent = 'Play control';
-        host.appendChild(row);
-    },
+    /* Spec-driven transport bar: Play animates one param (usually time) in a
+       loop, landmark buttons jump to notable instants. Module-level playing
+       state survives the pane rebuild on every frame: each tick cancels its
+       own timer, and the freshly-built bar reattaches before the next one. */
+    playbar: (() => {
+        let timer = null;
+        let playing = false;
+        const halt = () => { if (timer) { clearInterval(timer); timer = null; } };
+        return function (spec, env, host, ctx) {
+            const key = spec.timeKey || 't';
+            const max = spec.max ?? 4;
+            const stepv = spec.step || 0.03;
+            const unit = spec.unit || ' s';
+            const disp = spec.display || 'tt';
+            const row = document.createElement('div');
+            row.className = 'cv-timeline-bar';
+
+            const btn = document.createElement('button');
+            btn.className = 'wbtn cv-play-btn';
+            btn.textContent = playing ? 'Pause' : 'Play';
+            btn.addEventListener('click', () => {
+                if (playing) { playing = false; halt(); btn.textContent = 'Play'; return; }
+                playing = true;
+                btn.textContent = 'Pause';
+                let cur = env[disp] || 0;
+                halt();
+                timer = setInterval(() => {
+                    timer = null;
+                    if (!playing) { halt(); return; }
+                    cur = cur + stepv > max ? 0 : cur + stepv;
+                    ctx.dragFrame(key, cur);
+                }, 45);
+            });
+
+            const clock = document.createElement('span');
+            clock.className = 'cv-ro-val cv-time-display';
+            clock.textContent = (spec.clockLabel || 't') + ' = ' + r2(env[disp]) + unit;
+
+            const landmarks = document.createElement('div');
+            landmarks.className = 'cv-landmarks';
+            (spec.landmarks || []).forEach(m => {
+                const mark = document.createElement('button');
+                mark.className = 'cv-landmark';
+                mark.textContent = m.label;
+                mark.title = m.desc || '';
+                mark.addEventListener('click', () => {
+                    playing = false; halt();
+                    ctx.setParam(key, m.pos);
+                    ctx.render();
+                });
+                landmarks.appendChild(mark);
+            });
+
+            row.append(btn, clock, landmarks);
+            host.appendChild(row);
+
+            if (playing && !timer) {
+                let cur = env[disp] || 0;
+                timer = setInterval(() => {
+                    timer = null;
+                    if (!playing) { halt(); return; }
+                    cur = cur + stepv > max ? 0 : cur + stepv;
+                    ctx.dragFrame(key, cur);
+                }, 45);
+            }
+        };
+    })(),
     particleTrail: (spec, env, host, ctx) => {
+        // Dots sit at true positions on a fixed feet axis so gap width carries
+        // the meaning. Arrows (SVG) only on the current particle. The status
+        // line reads below the canvas; v/a values live in the side readout.
+        const sMin = spec.sMin ?? -1;
+        const sMax = spec.sMax ?? 5;
         const wrap = el('div', 'cv-trail-container');
-        
-        const title = el('h3', 'cv-section-title', 'Particle trail');
-        wrap.appendChild(title);
-        
-        const subtitle = el('p', 'cv-subtitle', 'One dot every ' + r2(env.trail?.D || 0.18) + ' s');
-        wrap.appendChild(subtitle);
-        
+        wrap.appendChild(el('h3', 'cv-section-title', 'Particle trail'));
+        wrap.appendChild(el('p', 'cv-subtitle', 'One flash every ' + r2(env.trail?.D || 0.18) + ' s · wider gaps = faster motion'));
+
         const viz = el('div', 'cv-trail-viz');
-        
-        const origin = el('div', 'cv-origin', 'origin');
-        viz.appendChild(origin);
-        
-        const dots = el('div', 'cv-dots');
-        
+        const pct = s => ((Math.min(Math.max(s, sMin), sMax) - sMin) / (sMax - sMin)) * 100;
+
+        if (sMin <= 0 && sMax >= 0) {
+            const tick = el('div', 'cv-origin-tick');
+            tick.style.left = pct(0) + '%';
+            tick.appendChild(el('span', 'cv-origin-caption', 'origin (s = 0)'));
+            viz.appendChild(tick);
+        }
+
         (env.trail?.pts || []).forEach((p, i) => {
             const isNow = i === 0;
-            const dot = el('div', 'cv-dot' + (isNow ? ' cv-now' : ''));
-            
-            const dotCircle = el('div', 'cv-dot-circle');
+            const dot = el('div', 'cv-pos-dot' + (isNow ? ' cv-now' : ''));
+            dot.style.left = pct(p.s) + '%';
+            dot.title = (isNow ? 'Now · ' : '') + 't = ' + r2(p.t) + ' s · s = ' + r2(p.s) + ' ft';
             if (isNow) {
-                dotCircle.textContent = '●';
-                dotCircle.style.fontSize = '20px';
-            } else {
-                dotCircle.textContent = '•';
-            }
-            dot.appendChild(dotCircle);
-            
-            const vt = Math.abs(p.v) > 0.1 ? p.v : 0;
-            if (Math.abs(vt) > 0.1) {
-                const arrow = el('div', 'cv-arrow cv-v-arrow');
-                arrow.style.width = Math.min(Math.abs(vt) * 30, 80) + 'px';
-                arrow.innerHTML = '<span style="font-size:12px;line-height:1">←</span>';
-                if (vt > 0) arrow.style.flexDirection = 'row-reverse';
-                else arrow.style.flexDirection = 'row';
-                dot.appendChild(arrow);
-            }
-            
-            const at = Math.abs(p.a) > 0.1 && i === 0 ? p.a : 0;
-            if (Math.abs(at) > 0.1 && i === 0) {
-                const arrow = el('div', 'cv-arrow cv-a-arrow');
-                arrow.style.width = Math.min(Math.abs(at) * 40, 80) + 'px';
-                arrow.innerHTML = '<span style="font-size:12px;line-height:1">←</span>';
-                if (at > 0) {
-                    arrow.style.flexDirection = 'row-reverse';
-                } else {
-                    arrow.style.flexDirection = 'row';
+                if (Math.abs(p.v) > 0.15) {
+                    const va = el('div', 'cv-vector cv-vector-v');
+                    va.innerHTML = '<svg width="24" height="16" viewBox="0 0 24 16"' + (p.v < 0 ? ' transform="rotate(180 12 8)"' : '') + ' style="display:block"><line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><polyline points="14,3 19,8 14,13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                    va.appendChild(el('span', null, 'v'));
+                    dot.appendChild(va);
                 }
-                dot.appendChild(arrow);
+                if (Math.abs(p.a) > 0.15) {
+                    const aa = el('div', 'cv-vector cv-vector-a');
+                    aa.innerHTML = '<svg width="24" height="16" viewBox="0 0 24 16"' + (p.a < 0 ? ' transform="rotate(180 12 8)"' : '') + ' style="display:block"><line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><polyline points="14,3 19,8 14,13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                    aa.appendChild(el('span', null, 'a'));
+                    dot.appendChild(aa);
+                }
             }
-            
-            if (isNow) {
-                const nowLabel = el('div', 'cv-now-label', 'Now');
-                dot.appendChild(nowLabel);
-            }
-            
-            dots.appendChild(dot);
+            viz.appendChild(dot);
         });
-        
-        viz.appendChild(dots);
-        
+
+        wrap.appendChild(viz);
+
         const status = el('div', 'cv-status-summary');
         const vt = env.vt || 0;
         const at = env.at || 0;
-        const movingLeft = vt < -0.05;
-        const speedingUp = (vt > 0 && at > 0) || (vt < 0 && at < 0);
-        status.textContent = movingLeft ? 'Moving left' : 'Moving right';
-        if (speedingUp) {
-            const span = el('span', 'cv-speed-indicator up', '· gaps widening');
-            status.appendChild(span);
-        } else if (!env.rest && Math.abs(at) > 0.05) {
-            const span = el('span', 'cv-speed-indicator down', '· gaps narrowing');
-            status.appendChild(span);
+        status.textContent = Math.abs(vt) < 0.05 ? 'Stopped for an instant' : (vt > 0 ? 'Moving right' : 'Moving left');
+        if (Math.abs(vt) >= 0.05 && Math.abs(at) > 0.05) {
+            const speedingUp = (vt > 0 && at > 0) || (vt < 0 && at < 0);
+            status.appendChild(el('span', 'cv-speed-indicator ' + (speedingUp ? 'up' : 'down'),
+                speedingUp ? '· speeding up, gaps widen' : '· slowing down, gaps narrow'));
         }
-        viz.appendChild(status);
-        
-        const readout = el('div', 'cv-quick-readout');
-        const vVal = r2(vt);
-        const aVal = r2(at);
-        readout.innerHTML = `
-            <div class="cv-v-metric"><span class="cv-v-label">v</span><span class="cv-v-value">${vVal}</span></div>
-            <div class="cv-a-metric"><span class="cv-a-label">a</span><span class="cv-a-value">${aVal}</span></div>
-        `;
-        viz.appendChild(readout);
-        
-        wrap.appendChild(viz);
+        wrap.appendChild(status);
+
         host.appendChild(wrap);
     },
     predictionBox: (spec, env, host, ctx) => {

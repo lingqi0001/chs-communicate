@@ -1,92 +1,181 @@
-/* 3.4 Inverse Trig Derivative Explorer — each formula is built, not handed over.
+/* 3.4 Inverse Trig Derivative Explorer. Each formula is built, not handed over.
    Four phases run one centre visual at a time: the inverse relationship, the
-   implicit differentiation of it, the triangle that converts the leftover trig
-   quantity back into x, and finally the graph that agrees with the answer. */
+   implicit differentiation of it, the reference triangle or identity that
+   converts the leftover trig quantity back into x, and finally the graph that
+   agrees with the answer. The triangle is drawn from |x|, so its labels say
+   |x|, and the range of each inverse function is what picks the positive root. */
 
 import { derivative } from '../../js/calc-math.js?v=20260925-calc-15';
 
 const n = v => String(Math.round(v * 1000) / 1000);
 const root1 = x => Math.sqrt(Math.max(0, 1 - x * x));
 
+/* Per case, the triangle is drawn from the magnitude mag = |x| (for arctan the
+   legs are 1 and mag), so every *_Side field below must name a magnitude, never
+   a bare x. The *_Domain strings belong to the final rule card, and derivCheck
+   recomputes each closed-form slope from the inverse function itself at the test
+   points in CHECK_PTS, which gates the card that claims all three agree. */
 const CASES = {
     asin: {
         inverse: 'arcsin x', angle: 'y', rewritten: 'sin y = x',
         base: (x) => Math.sin(x), baseFrom: -1.5708, baseTo: 1.5708, baseLabel: 'sin x, restricted',
         inv: x => Math.asin(x), dy: x => 1 / root1(x),
         diffLine: 'cos y · dy/dx = 1', solveLine: 'dy/dx = 1 / cos y',
-        convert: 'cos y = √(1 − x²)', final: 'd/dx arcsin x = 1 / √(1 − x²)',
-        adj: x => root1(x), adjLabel: 'adj: √(1 − x²)', opp: x => x, oppLabel: 'opp: x', hypLabel: 'hyp: 1',
-        mirror: [-1.9, 1.9, -1.9, 1.9], drag: [-0.99, 0.99],
-        winX: [-1.04, 1.04], winF: [-1.62, 1.62], winD: [0, 6]
+        leftover: 'cos y',
+        xLines: [
+            { t: 'cos y = +√(1 − x²)', rule: 'sin²y + cos²y = 1, and cos y ≥ 0 on [−π/2, π/2]' }
+        ],
+        final: 'd/dx arcsin x = 1 / √(1 − x²)',
+        rangeSide: '[−π/2, π/2]',
+        signSentence: 'arcsin x has range [−π/2, π/2], and cosine is nonnegative across that whole interval, so cos y takes the positive root √(1 − x²).',
+        adj: mag => root1(mag), opp: mag => mag,
+        adjSide: '√(1 − x²)', oppSide: '|x|', hypSide: '1',
+        fnDomain: '[−1, 1]', derivDomain: '(−1, 1)',
+        derivDomainWhy: '1 / √(1 − x²) is finite for −1 < x < 1',
+        domainNote: 'At x = 1 and at x = −1 the denominator √(1 − x²) equals 0, so 1 / √(1 − x²) has no finite value there.',
+        domainLink: 'A function can be defined at a point where its derivative is not. Lesson 2.4 met that gap at corners, vertical tangents and endpoints.',
+        derivCheck: x => Math.abs(1 / root1(x) - derivative(Math.asin, x, 1e-5)) < 1e-6
     },
     acos: {
         inverse: 'arccos x', angle: 'y', rewritten: 'cos y = x',
         base: (x) => Math.cos(x), baseFrom: 0, baseTo: 3.1416, baseLabel: 'cos x, restricted',
         inv: x => Math.acos(x), dy: x => -1 / root1(x),
         diffLine: '−sin y · dy/dx = 1', solveLine: 'dy/dx = −1 / sin y',
-        convert: 'sin y = √(1 − x²)', final: 'd/dx arccos x = −1 / √(1 − x²)',
-        adj: x => x, adjLabel: 'adj: x', opp: x => root1(x), oppLabel: 'opp: √(1 − x²)', hypLabel: 'hyp: 1',
-        mirror: [-1.9, 3.5, -1.9, 3.5], drag: [-0.99, 0.99],
-        winX: [-1.04, 1.04], winF: [-0.3, 3.5], winD: [-6, 0]
+        leftover: 'sin y',
+        xLines: [
+            { t: 'sin y = +√(1 − x²)', rule: 'sin²y + cos²y = 1, and sin y ≥ 0 on [0, π]' }
+        ],
+        final: 'd/dx arccos x = −1 / √(1 − x²)',
+        rangeSide: '[0, π]',
+        signSentence: 'arccos x has range [0, π], and sine is nonnegative across that whole interval, so sin y takes the positive root √(1 − x²).',
+        adj: mag => mag, opp: mag => root1(mag),
+        adjSide: '|x|', oppSide: '√(1 − x²)', hypSide: '1',
+        fnDomain: '[−1, 1]', derivDomain: '(−1, 1)',
+        derivDomainWhy: '−1 / √(1 − x²) is finite for −1 < x < 1',
+        domainNote: 'At x = 1 and at x = −1 the denominator √(1 − x²) equals 0, so −1 / √(1 − x²) has no finite value there.',
+        domainLink: 'arccos is defined at both endpoints and its derivative is not, which is the same gap lesson 2.4 found at corners, vertical tangents and endpoints.',
+        derivCheck: x => Math.abs(-1 / root1(x) - derivative(Math.acos, x, 1e-5)) < 1e-6
     },
     atan: {
         inverse: 'arctan x', angle: 'y', rewritten: 'tan y = x',
         base: (x) => Math.tan(x), baseFrom: -1.4, baseTo: 1.4, baseLabel: 'tan x, restricted',
         inv: x => Math.atan(x), dy: x => 1 / (1 + x * x),
         diffLine: 'sec²y · dy/dx = 1', solveLine: 'dy/dx = 1 / sec²y',
-        convert: 'sec²y = 1 + tan²y = 1 + x²', final: 'd/dx arctan x = 1 / (1 + x²)',
-        adj: x => 1, adjLabel: 'adj: 1', opp: x => x, oppLabel: 'opp: x', hypLabel: 'hyp: √(1 + x²)',
-        mirror: [-2.4, 2.4, -2.4, 2.4], drag: [-3.8, 3.8],
-        winX: [-4, 4], winF: [-1.7, 1.7], winD: [0, 1.2]
+        leftover: 'sec²y',
+        xLines: [
+            { t: 'sec y = +√(1 + x²)', rule: 'cos y > 0 on (−π/2, π/2)' },
+            { t: 'sec²y = 1 + tan²y = 1 + x²', rule: 'Pythagorean identity sec²y = 1 + tan²y' }
+        ],
+        final: 'd/dx arctan x = 1 / (1 + x²)',
+        rangeSide: '(−π/2, π/2)',
+        signSentence: 'arctan x has range (−π/2, π/2), and cosine is positive across that whole interval, so sec y = +√(1 + x²). The identity squares that ratio, so sec²y = 1 + x² never asks a sign question.',
+        adj: () => 1, opp: mag => mag,
+        adjSide: '1', oppSide: '|x|', hypSide: '√(1 + x²)',
+        fnDomain: 'all real numbers', derivDomain: 'all real numbers',
+        derivDomainWhy: '1 / (1 + x²) is finite for every real x',
+        domainNote: 'The denominator 1 + x² is at least 1 for every real x, so 1 / (1 + x²) has a finite value everywhere.',
+        domainLink: 'Here the two domains match, and lesson 2.4 is the case where they do not match.',
+        derivCheck: x => Math.abs(1 / (1 + x * x) - derivative(Math.atan, x, 1e-5)) < 1e-6
     }
 };
 
 const caseOf = env => CASES[env.kase];
-const phase = p => env => Math.round(env.phase) === p;
 
-/* Magnitudes are drawn, so the triangle never flips inside-out on a negative x.
-   The algebra labels stay symbolic: the picture is about which side is which. */
-function trianglePanes(env) {
-    const c = caseOf(env);
-    const cap = env.kase === 'atan' ? 1.3 : 1;
-    const mag = Math.min(Math.max(Math.abs(env.x0), 0.2), cap);
-    const s = 1.3, ox = 0.3;
-    const adj = Math.max(c.adj(mag) * s, 0.25), opp = c.opp(mag) * s;
+/* Fixed graph windows, literal so that the geometry, the drag limits and the
+   slider limits can never disagree with the formula cards. */
+const VIEW = {
+    asin: { mirror: [-1.9, 1.9, -1.9, 1.9], drag: [-0.99, 0.99], winX: [-1.04, 1.04], winF: [-1.62, 1.62], winD: [0, 6] },
+    acos: { mirror: [-1.9, 3.5, -1.9, 3.5], drag: [-0.99, 0.99], winX: [-1.04, 1.04], winF: [-0.3, 3.5], winD: [-6, 0] },
+    atan: { mirror: [-2.4, 2.4, -2.4, 2.4], drag: [-3.8, 3.8], winX: [-4, 4], winF: [-1.7, 1.7], winD: [0, 1.2] }
+};
+const viewOf = env => VIEW[env.kase];
+const phase = p => env => Math.round(env.phase) === p;
+const phaseFrom = p => env => Math.round(env.phase) >= p;
+/* The arctan transfer reveal stays on the Phase 3 index, so the reference
+   triangle and the plain arctan x cards would otherwise reappear beside a
+   message about arctan(3x). On that one screen every case-specific visual
+   retires and only the symbolic bridge stays. transfer is never a control, so
+   this fires on exactly the final screen and on nothing earlier. */
+const bridgeScreen = env => env.transfer > 0.5 && Math.round(env.phase) === 3;
+
+/* The legs are drawn at right angles, so the figure is a reference triangle:
+   for a negative x the angle y itself is not acute, and the picture carries the
+   magnitudes of its ratios. Every leg below is a positive magnitude taken from
+   |x|, and the labels in triNotes say exactly that, so no side is ever drawn at
+   one length and named at another. The whole sketch is scaled by one factor k,
+   which keeps the two legs in their true ratio for every x in the slider range
+   and keeps the figure inside the fixed window. */
+const TRI_BUDGET_ADJ = 1.75, TRI_BUDGET_OPP = 1.8, TRI_BASE = 1.4;
+
+function triangleSketch(env) {
+    const c = caseOf(env), v = viewOf(env);
+    const mag = Math.min(Math.abs(env.x0), v.drag[1]);
+    const legAdj = c.adj(mag), legOpp = c.opp(mag);
+    const k = Math.min(TRI_BASE, TRI_BUDGET_ADJ / Math.max(legAdj, 1e-9), TRI_BUDGET_OPP / Math.max(legOpp, 1e-9));
+    const adj = legAdj * k, opp = legOpp * k;
+    const ox = 0.3;
     const C = { x: ox, y: 0 }, A = { x: ox + adj, y: 0 }, B = { x: A.x, y: opp };
-    const r = 0.14;
+    /* the right-angle tick and the angle chord shrink with the shorter leg, so a
+       nearly flat triangle still gets decorations that fit inside it */
+    const small = Math.min(adj, opp);
+    const r = Math.min(0.14, small * 0.45), rad = Math.min(0.3, small * 0.5);
     const segs = [
         { x1: C.x, y1: C.y, x2: A.x, y2: A.y, color: 'curveC' },
         { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: 'curveB' },
         { x1: B.x, y1: B.y, x2: C.x, y2: C.y, color: 'auxInk' }
     ];
-    /* right-angle tick at A, then a chord arc for the angle at A, swept from the
-       direction of C to the direction of B */
-    segs.push({ x1: A.x - r, y1: A.y, x2: A.x - r, y2: A.y + r, color: 'auxInk' });
-    segs.push({ x1: A.x - r, y1: A.y + r, x2: A.x, y2: A.y + r, color: 'auxInk' });
-    const a0 = Math.PI, a1 = Math.PI / 2, rad = 0.32;
-    for (let i = 0; i < 5; i++) {
-        const t0 = a0 + (a1 - a0) * (i / 5), t1 = a0 + (a1 - a0) * ((i + 1) / 5);
-        segs.push({
-            x1: A.x + rad * Math.cos(t0), y1: A.y + rad * Math.sin(t0),
-            x2: A.x + rad * Math.cos(t1), y2: A.y + rad * Math.sin(t1),
-            color: 'accent'
-        });
+    if (small > 0.02) {
+        segs.push({ x1: A.x - r, y1: A.y, x2: A.x - r, y2: A.y + r, color: 'auxInk' });
+        segs.push({ x1: A.x - r, y1: A.y + r, x2: A.x, y2: A.y + r, color: 'auxInk' });
+        const theta = Math.atan2(opp, adj);
+        for (let i = 0; i < 5; i++) {
+            const t0 = theta * (i / 5), t1 = theta * ((i + 1) / 5);
+            segs.push({
+                x1: C.x + rad * Math.cos(t0), y1: C.y + rad * Math.sin(t0),
+                x2: C.x + rad * Math.cos(t1), y2: C.y + rad * Math.sin(t1),
+                color: 'accent'
+            });
+        }
     }
-    return {
-        segs, C, A, B,
-        notes: [
-            { x: (C.x + A.x) / 2, y: 0.02, t: c.adjLabel, color: 'curveC' },
-            { x: A.x + 0.05, y: (A.y + B.y) / 2, t: c.oppLabel, color: 'curveB' },
-            { x: (C.x + B.x) / 2 - 0.1, y: (C.y + B.y) / 2 + 0.1, t: c.hypLabel, color: 'auxInk' },
-            { x: A.x - 0.5, y: 0.34, t: 'angle = ' + c.angle, color: 'accent' }
-        ]
-    };
+    return { segs, C, A, B };
+}
+
+function triNotes(env) {
+    const c = caseOf(env);
+    const t = triangleSketch(env);
+    return [
+        { x: (t.C.x + t.A.x) / 2, y: 0.02, t: 'adjacent: ' + c.adjSide, color: 'curveC' },
+        { x: t.A.x + 0.05, y: (t.A.y + t.B.y) / 2, t: 'opposite: ' + c.oppSide, color: 'curveB' },
+        { x: (t.C.x + t.B.x) / 2 - 0.1, y: (t.C.y + t.B.y) / 2 + 0.1, t: 'hypotenuse: ' + c.hypSide, color: 'auxInk' },
+        { x: t.C.x + 0.16, y: 0.26, t: 'reference angle for ' + c.angle, color: 'accent' }
+    ];
+}
+
+/* The last xLines entry is the conversion step, so the recap card and the
+   Phase 3 card can never quote different versions of it. */
+const convertOf = c => c.xLines[c.xLines.length - 1].t;
+const finalRhs = c => c.final.split('= ')[1];
+/* Test points for the numerical recheck of every closed-form slope, kept inside
+   each function's own domain. The two cards that quote all three formulas are
+   gated on allDerived(), so they cannot claim agreement before all three hold. */
+const CHECK_PTS = { asin: [0.4, -0.4, 0.9], acos: [0.4, -0.4, 0.9], atan: [0.4, -0.4, 3.8] };
+const allDerived = () => Object.keys(CASES).every(k => CHECK_PTS[k].every(CASES[k].derivCheck));
+
+/* The Phase 3 chain. The triangle line states magnitudes, the identity lines
+   state what the range of the inverse function decides, and the final line
+   closes the gap back to x. */
+function deriveLines(env) {
+    const c = caseOf(env);
+    return [
+        { t: c.rewritten + ', with ' + c.angle + ' on ' + c.rangeSide, rule: 'inverse meaning' },
+        { t: 'Reference triangle sides: opposite ' + c.oppSide + ', adjacent ' + c.adjSide + ', hypotenuse ' + c.hypSide, color: 'auxInk', rule: 'side lengths are magnitudes' }
+    ].concat(c.xLines, [{ t: c.final, hl: true, color: 'accent' }]);
 }
 
 export default {
     id: 'u3-inverse-trig',
     meta: { unit: 3, topic: '3.4', title: 'Differentiating Inverse Trigonometric Functions', visualizerTitle: 'Inverse Trig Derivative Explorer' },
-    intro: 'Write the inverse function as a trig equation. Differentiate both sides implicitly, then use a right triangle or an identity to finish.',
+    intro: 'Write the inverse function as a trig equation. Differentiate both sides implicitly, then use a reference triangle or an identity to finish.',
     params: { kase: 'asin', phase: 1, x0: 0.5, mistake: 0, transfer: 0 },
     controls: [
         {
@@ -102,12 +191,12 @@ export default {
             options: [
                 { v: 1, label: '1: the inverse relationship' },
                 { v: 2, label: '2: differentiate both sides' },
-                { v: 3, label: '3: triangle back to x' },
+                { v: 3, label: '3: reference triangle back to x' },
                 { v: 4, label: '4: check the graphs' }
             ]
         },
-        { key: 'x0', label: 'x', min: -0.98, max: 0.98, step: 0.01, when: env => phaseTest(env, 4) && env.kase !== 'atan' },
-        { key: 'x0', label: 'x', min: -3.8, max: 3.8, step: 0.02, when: env => phaseTest(env, 4) && env.kase === 'atan' }
+        { key: 'x0', label: 'x', min: -0.98, max: 0.98, step: 0.01, when: env => phaseFrom(3)(env) && env.kase !== 'atan' && !bridgeScreen(env) },
+        { key: 'x0', label: 'x', min: -3.8, max: 3.8, step: 0.02, when: env => phaseFrom(3)(env) && env.kase === 'atan' && !bridgeScreen(env) }
     ],
     fns: {
         baseCurve: (x, env) => caseOf(env).base(x),
@@ -117,8 +206,8 @@ export default {
         cscCurve: x => 1 / Math.sin(x)
     },
     compute: env => {
-        const c = caseOf(env);
-        const x = Math.max(Math.min(env.x0, c.winX[1] - 0.06), c.winX[0] + 0.06);
+        const c = caseOf(env), v = viewOf(env);
+        const x = Math.max(Math.min(env.x0, v.winX[1] - 0.06), v.winX[0] + 0.06);
         return { xq: x, fx: c.inv(x), dx: c.dy(x) };
     },
     panes: {
@@ -126,7 +215,7 @@ export default {
             {
                 kind: 'graph', width: 460, height: 460, title: env => 'Phase 1: y = ' + caseOf(env).inverse + ' means ' + caseOf(env).rewritten,
                 when: phase(1),
-                window: env => caseOf(env).mirror,
+                window: env => viewOf(env).mirror,
                 curves: env => {
                     const c = caseOf(env);
                     return [
@@ -151,41 +240,44 @@ export default {
                 }
             },
             {
-                kind: 'graph', height: 300, title: env => 'Phase 3: the right triangle for ' + caseOf(env).rewritten,
-                when: phase(3),
-                window: [-0.4, 2.6, -0.5, 2.3],
-                segments: env => trianglePanes(env).segs,
-                notes: env => trianglePanes(env).notes
+                kind: 'graph', height: 300, window: [-0.4, 2.6, -0.5, 2.3],
+                title: 'Reference triangle for the trig ratio',
+                when: env => phase(3)(env) && !bridgeScreen(env),
+                segments: env => triangleSketch(env).segs,
+                notes: env => triNotes(env)
             },
             {
                 kind: 'eq', title: 'Phase 3: the trig quantity rewritten in x',
-                when: phase(3),
-                lines: env => {
-                    const c = caseOf(env);
-                    const triLine = env.kase === 'atan'
-                        ? 'From the triangle, ' + c.adjLabel.replace('adj: ', 'adjacent = ') + ' and ' + c.oppLabel.replace('opp: ', 'opposite = ') + '. The hypotenuse is √(1 + x²), so sec y = √(1 + x²).'
-                        : 'From the triangle, ' + c.oppLabel.replace('opp: ', 'opposite = ') + '. For arcsin and arccos the hypotenuse is 1.';
-                    return [
-                        { t: c.rewritten + ', and ' + c.angle + ' is on the range of ' + c.inverse },
-                        { t: triLine, color: 'auxInk' },
-                        { t: c.convert, rule: 'Pythagorean identity' },
-                        { t: c.final, hl: true, color: 'accent' }
-                    ];
-                }
+                when: env => phase(3)(env) && !bridgeScreen(env),
+                lines: env => deriveLines(env)
+            },
+            {
+                /* The arctan(3x) reveal. No triangle is redrawing arctan x here,
+                   so the card carries the whole step in symbols: the inner input,
+                   the arctan rule, the inner rate, then the chain rule product. */
+                kind: 'eq', title: 'Symbolic bridge from arctan u to arctan(3x)',
+                when: bridgeScreen,
+                lines: () => [
+                    { t: 'u = 3x', rule: 'the inner input' },
+                    { t: 'd/du arctan(u) = 1 / (1 + u²)', rule: 'the arctan derivative' },
+                    { t: 'du/dx = 3', rule: 'the inner rate' },
+                    { t: 'd/dx arctan(3x) = 1 / (1 + (3x)²) · 3' },
+                    { t: 'd/dx arctan(3x) = 3 / (1 + 9x²)', hl: true, color: 'accent' }
+                ]
             },
             {
                 kind: 'graph', height: 200, title: env => 'Phase 4: the curve and its tangent line',
                 when: phase(4),
-                window: env => [caseOf(env).winX[0], caseOf(env).winX[1], caseOf(env).winF[0], caseOf(env).winF[1]],
+                window: env => { const v = viewOf(env); return [v.winX[0], v.winX[1], v.winF[0], v.winF[1]]; },
                 curves: env => [{ fn: 'invCurve', color: 'curveA', label: caseOf(env).inverse }],
-                points: env => [{ x: 'xq', fn: 'invCurve', color: 'accent', r: 6, drag: { key: 'x0', min: caseOf(env).drag[0], max: caseOf(env).drag[1] }, label: 'x = ' + n(env.xq) }],
+                points: env => [{ x: 'xq', fn: 'invCurve', color: 'accent', r: 6, drag: { key: 'x0', min: viewOf(env).drag[0], max: viewOf(env).drag[1] }, label: 'x = ' + n(env.xq) }],
                 tangents: env => [{ fn: 'invCurve', x: 'xq', m: 'dx', color: 'down', reach: 0.3 }]
             },
             {
                 kind: 'graph', height: 200, title: env => 'Phase 4: the derivative from the tangent slope',
                 when: phase(4),
-                window: env => [caseOf(env).winX[0], caseOf(env).winX[1], caseOf(env).winD[0], caseOf(env).winD[1]],
-                curves: env => [{ fn: 'slopeCurve', color: 'curveC', label: caseOf(env).final.split('= ')[1] }],
+                window: env => { const v = viewOf(env); return [v.winX[0], v.winX[1], v.winD[0], v.winD[1]]; },
+                curves: env => [{ fn: 'slopeCurve', color: 'curveC', label: finalRhs(caseOf(env)) }],
                 points: env => [{ x: 'xq', y: 'dx', color: 'accent', r: 5, label: 'slope = ' + n(env.dx) }],
                 vlines: env => [{ x: 'xq', color: 'auxInk', label: '' }]
             },
@@ -197,9 +289,44 @@ export default {
                     return [
                         { t: c.rewritten },
                         { t: c.diffLine },
-                        { t: c.convert },
+                        { t: convertOf(c) },
                         { t: c.final, hl: true, color: 'accent' }
                     ];
+                }
+            },
+            {
+                /* A short bridge back to lesson 3.3. The same derivative also
+                   falls out of the inverse function rule (f⁻¹)′ = 1 / f′, so the
+                   two lessons are not isolated. This card stays on the arcsin
+                   Phase 4 screens and never on the notation check screen. */
+                kind: 'eq', title: 'The same result from the lesson 3.3 rule',
+                when: env => env.kase === 'asin' && phase(4)(env) && env.mistake < 0.5,
+                lines: () => [
+                    { t: '(arcsin x)′ = 1 / cos y', rule: 'lesson 3.3 inverse rule, with y = arcsin x' },
+                    { t: 'cos y = √(1 − x²)', rule: 'the Phase 3 reference triangle' },
+                    { t: '(arcsin x)′ = 1 / √(1 − x²)', hl: true, color: 'accent' }
+                ]
+            },
+            {
+                /* The rule card. A function can be defined further than its
+                   derivative can be evaluated, which is the lesson 2.4 gap. */
+                kind: 'eq', title: 'Domain of the function and domain of the derivative',
+                when: phase(4),
+                lines: env => {
+                    const c = caseOf(env);
+                    const lines = [
+                        { t: 'domain of ' + c.inverse + ': ' + c.fnDomain, rule: 'the function' },
+                        { t: 'domain of d/dx ' + c.inverse + ': ' + c.derivDomain, rule: c.derivDomainWhy, hl: true },
+                        { t: c.domainNote, color: 'auxInk' },
+                        { t: c.domainLink, color: 'auxInk' }
+                    ];
+                    /* That claim covers all three formulas, so it is printed only
+                       while every formula matches a numerical slope at its own
+                       test points. */
+                    if (allDerived()) {
+                        lines.push({ t: 'The three formulas agree with the numerical slopes at their test points.', color: 'auxInk' });
+                    }
+                    return lines;
                 }
             }
         ],
@@ -217,21 +344,28 @@ export default {
             {
                 kind: 'note', title: 'Why the chain rule appears here',
                 when: phase(2),
-                text: env => 'The angle y is not a constant. When x moves, the angle y moves too. So differentiating sin y needs the chain rule, the same step used on implicit curves in lesson 3.2.'
+                text: env => {
+                    const c = caseOf(env);
+                    return 'The angle y is not a constant. When x moves, the angle y moves too. So differentiating ' + c.rewritten
+                        + ' needs the chain rule on the left side, the same step used on implicit curves in lesson 3.2. After solving, the leftover quantity '
+                        + c.leftover + ' still talks about the angle, and Phase 3 turns it into x.';
+                }
             },
             {
-                kind: 'note', title: 'Reading the right triangle',
-                when: phase(3),
-                text: env => 'Look at the angle ' + caseOf(env).angle + '. The equation ' + caseOf(env).rewritten + ' fixes the opposite side and the adjacent side. For arcsin and arccos the hypotenuse is 1, since only ratios of sides matter to sine and cosine. For arctan the legs are 1 and x, so the hypotenuse is √(1 + x²).'
+                kind: 'note', title: 'Magnitudes from the triangle, sign from the range',
+                when: env => phase(3)(env) && !bridgeScreen(env),
+                text: env => 'The triangle gives magnitudes. The allowed range of the inverse function determines the sign. '
+                    + caseOf(env).signSentence
+                    + ' When x is negative, the angle y is not the acute angle drawn here, so the figure is a reference triangle, and its side lengths stay correct.'
             },
             {
                 kind: 'note', tone: 'warn', title: 'Why the arccos derivative stays negative',
                 when: env => caseOf(env).kase === 'acos' && phaseTest(env, 2),
-                text: 'The derivative of cos y is −sin y · dy/dx, so the minus sign is already in the equation. arccos is a decreasing function. The derivative of a decreasing function stays negative.'
+                text: 'The derivative of cos y is −sin y · dy/dx, so the minus sign is already in the equation. A differentiable decreasing function has derivative ≤ 0 where the derivative exists. For arccos the algebra gives the strict case. The angle y lives in (0, π), where sin y is positive, so dy/dx = −1 / sin y = −1 / √(1 − x²) stays below 0 at every point of (−1, 1).'
             },
             {
                 kind: 'compare', title: 'Two meanings of the exponent −1',
-                when: env => env.mistake > 0.5,
+                when: env => env.mistake > 0.5 && env.kase === 'asin',
                 sides: [
                     {
                         title: 'sin⁻¹(x) means arcsin', tone: 'right',
@@ -291,7 +425,7 @@ export default {
         },
         {
             params: { phase: 3, x0: 0.6 },
-            message: 'The expression dy/dx = 1/cos y is still written in terms of y, but the answer must be in terms of x. Draw a right triangle with hypotenuse 1 and angle y. The opposite side is x, so the adjacent side is √(1 − x²).'
+            message: 'The line dy/dx = 1 / cos y still talks about the angle y, and the answer must talk about x. The reference triangle has hypotenuse 1, opposite side |x| and adjacent side √(1 − x²). The absolute value keeps every side a positive length when x is negative. Arcsin keeps y inside [−π/2, π/2], and cos y ≥ 0 there, so cos y = +√(1 − x²).'
         },
         {
             params: { phase: 4 },
@@ -312,7 +446,7 @@ export default {
         },
         {
             params: { x0: 0.96 },
-            message: 'At x = 0.96 the slope is already about 3.6. As x approaches 1, the tangent line becomes vertical and its slope grows without bound. At the same x value the derivative graph grows without bound.'
+            message: 'At x = 0.96 the slope is already about 3.6. As x approaches 1, the tangent line becomes vertical and its slope grows without bound. At the same x value the derivative graph grows without bound. The last card lists the two domains. arcsin x is defined on [−1, 1], and its derivative 1 / √(1 − x²) is finite only on (−1, 1).'
         },
         {
             params: { kase: 'acos', phase: 1, x0: 0.5 },
@@ -321,43 +455,47 @@ export default {
         {
             params: { phase: 2 },
             predict: {
-                q: 'The function arccos x decreases as x increases over the whole domain −1 < x < 1. What sign must the derivative of arccos x have?',
+                q: 'The graph of arccos is decreasing, so its derivative cannot be positive. After differentiating cos y = x, what sign does the algebra force on (−1, 1)?',
                 choices: [
-                    'The derivative is negative everywhere on −1 < x < 1, because a decreasing function has a negative derivative.',
-                    'The derivative is positive everywhere on −1 < x < 1, because the square root in the formula is positive.',
-                    'The derivative changes sign at the x value where the arccos curve crosses 0.'
+                    'The derivative is negative on (−1, 1). Differentiating gives dy/dx = −1 / sin y, and sin y is positive on (0, π).',
+                    'The derivative is positive on (−1, 1). The final formula has a square root, and a square root is positive.',
+                    'The derivative is zero on (−1, 1). A decreasing graph can be flat, so its slope can rest at 0.'
                 ], a: 0,
                 whyBy: [
-                    'A decreasing function has a negative derivative everywhere on its domain. The algebra agrees. The derivative of cos y is −sin y, so the minus sign is already in the equation.',
-                    'The square root √(1 − x²) is positive, but the fraction −1 / √(1 − x²) has a minus in front. Because arccos x decreases, its derivative must be negative.',
-                    'The arccos curve decreases across the whole domain −1 < x < 1, so the derivative never changes sign. The derivative is never 0 either, because arccos x has no turning points.'
+                    'The minus sign comes from differentiating cos y. On (0, π) sine is positive, so −1 / sin y = −1 / √(1 − x²) is strictly negative for every x in (−1, 1).',
+                    'The square root √(1 − x²) is positive, but the formula carries a minus in front. So −1 / √(1 − x²) is negative, not positive.',
+                    'A differentiable decreasing function has derivative ≤ 0, so a value of 0 is allowed in general. For arccos the algebra forces −1 / sin y with sin y positive, so the derivative is strictly negative and never 0.'
                 ]
             },
             message: 'Solve −sin y · dy/dx = 1 for dy/dx and you get dy/dx = −1/sin y. The minus sign came from the derivative of cos y. The negative sign agrees with the decreasing arccos curve.'
         },
         {
             params: { phase: 3 },
-            message: 'For arccos the labels on the triangle change. The adjacent side is now x, and the opposite side is √(1 − x²). So sin y = √(1 − x²), and the derivative is −1/√(1 − x²). This is the negative of the arcsin derivative.'
+            message: 'For arccos the labels on the triangle swap places. The adjacent side is |x|, and the opposite side is √(1 − x²). Arccos keeps y inside [0, π], and sin y ≥ 0 there, so sin y = +√(1 − x²). The derivative is therefore −1 / √(1 − x²), the negative of the arcsin derivative.'
         },
         {
             params: { phase: 4, x0: 0 },
-            message: 'Look at the lower graph. The derivative of arccos is negative everywhere. Its size grows without bound at both endpoints x = −1 and x = 1. Those are exactly the points where the arccos curve becomes vertical.'
+            message: 'Look at the lower graph. The derivative of arccos is negative everywhere. Its size grows without bound at both endpoints x = −1 and x = 1. Those are exactly the points where the arccos curve becomes vertical. The card below lists the two domains: arccos x is defined on [−1, 1], and its derivative is finite only on (−1, 1).'
         },
         {
-            params: { mistake: 1, phase: 4 },
-            message: 'One more notation check: sin⁻¹ x is the inverse function arcsin, an angle between −π/2 and π/2. The reciprocal 1/sin x is csc x, a different function with a vertical asymptote at x = 0. The exponent −1 belongs to the function name, not to the value.'
+            params: { kase: 'asin', mistake: 1, phase: 4, x0: 0.5 },
+            message: 'One more notation check: sin⁻¹ x is the inverse function arcsin, an angle between −π/2 and π/2. The reciprocal 1/sin x is csc x, a different function with a vertical asymptote at x = 0. The exponent −1 belongs to the function name, not to the value. The two domains on the last card are the other difference that matters. arcsin x has a value at x = 1, and its derivative does not. Lesson 2.4 met that gap before.'
         },
         {
             params: { kase: 'atan', mistake: 0, phase: 1, x0: 0.8 },
-            message: 'The arctan case needs no square root. Differentiating tan y = x gives sec²y · dy/dx = 1. The identity sec²y = 1 + tan²y then gives dy/dx = 1 / (1 + x²).'
+            message: 'Now the arctan case. The equation y = arctan x means tan y = x, and the angle y stays inside (−π/2, π/2). The setup is the same as the first two cases, and the graph shows the same mirror image across y = x.'
         },
         {
             params: { phase: 2 },
-            message: 'This time an identity does the work on the Phase 3 line, instead of a triangle. The goal is the same as before: rewrite the remaining trig quantity as an expression in x.'
+            message: 'Differentiate both sides of tan y = x. The derivative of tan y is sec²y, and y changes as x changes, so the chain rule gives sec²y · dy/dx = 1. Solving leaves dy/dx = 1 / sec²y, and the leftover quantity sec²y still talks about the angle.'
+        },
+        {
+            params: { phase: 3 },
+            message: 'The reference triangle for tan y = x has adjacent side 1 and opposite side |x|, so the hypotenuse is √(1 + x²). The Pythagorean identity then turns the leftover quantity into sec²y = 1 + tan²y = 1 + x². Substituting gives dy/dx = 1 / (1 + x²), and no square root was needed.'
         },
         {
             params: { phase: 4, x0: 2 },
-            message: 'The arctan curve never becomes vertical, because 1 + x² never approaches 0. The derivative of arctan stays positive, and the derivative approaches 0 as the arctan curve flattens toward ±π/2.'
+            message: 'The arctan curve never becomes vertical, because 1 + x² never approaches 0. The derivative of arctan stays positive, and the derivative approaches 0 as the arctan curve flattens toward ±π/2. The card below lists both domains as all real numbers, because 1 + x² is at least 1 for every real x. Here the function and its derivative agree on where they exist.'
         },
         {
             params: { transfer: 1 },
@@ -369,9 +507,9 @@ export default {
         }
     ],
     summary: {
-        idea: 'Each inverse trig derivative comes from differentiating the inverse relationship, then rewriting the remaining trig quantity in terms of x.',
-        mistake: 'Students read sin⁻¹ x as 1/sin x, which is csc x, a different function with a different domain. Students also copy the positive sign from arcsin onto arccos, but arccos is decreasing and its derivative is negative.',
-        transfer: 'Work through d/dx arcsin(2x) with the same four steps. Write the inverse relationship as a trig equation and differentiate both sides. Then rewrite the leftover trig quantity in x, and multiply by the inner rate 2.'
+        idea: 'Each inverse trig derivative comes from differentiating the inverse relationship, then rewriting the remaining trig quantity in terms of x. The reference triangle supplies the magnitudes |x|, √(1 − x²) and 1, and the range of the inverse function decides the sign, which is why √(1 − x²) is taken as the positive root for arcsin and arccos.',
+        mistake: 'Students read sin⁻¹ x as 1/sin x, which is csc x, a different function with a different domain. Students also copy the positive sign from arcsin onto arccos, but arccos is decreasing and its derivative is negative. A third slip is to assume the two domains match: arcsin x and arccos x are defined on [−1, 1], while their derivatives are finite only on (−1, 1). The arctan formulas are the case where both domains are all real numbers.',
+        transfer: 'Work through d/dx arcsin(2x) with the same four steps. Write the inverse relationship as a trig equation and differentiate both sides. Then rewrite the leftover trig quantity in x, and multiply by the inner rate 2. Finish by naming both domains for your answer.'
     }
 };
 

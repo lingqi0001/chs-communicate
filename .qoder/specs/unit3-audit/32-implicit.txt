@@ -1,0 +1,180 @@
+---
+
+# 3.2 Implicit Differentiation
+
+这一节 visual concept 也很好：
+
+> Point P 被限制在 relation 上  
+> x 动的时候 y 也跟着动  
+> 所以 y term 求导必须带 dy/dx
+
+这是非常适合 visualizer 的。
+
+但现在有三个问题。
+
+---
+
+## 第一：Predict 又泄题了
+
+学生要回答：
+
+> \(d/dx(y^2)\) 是什么？
+
+但当 Predict 出现时，equation pane 已经进入前一个 stage，屏幕上已经写：
+
+\[
+\frac d{dx}(y^2)=2y\frac{dy}{dx}
+\]
+
+所以 Predict 没有意义。
+
+### 应该改成
+
+Predict 前只显示：
+
+```text
+x² + y² = 25
+```
+
+和 moving point/table：
+
+```text
+x changes
+y changes too
+```
+
+然后问：
+
+> y² 对 x 求导时，为什么不能只写 2y？
+
+回答后才 reveal：
+
+\[
+2y\frac{dy}{dx}
+\]
+
+---
+
+# 第二：当前 compare 里有一句数学上不准确
+
+现在正确一侧写：
+
+> A slope at every point of the circle
+
+但：
+
+\[
+\frac{dy}{dx}=-\frac{x}{y}
+\]
+
+在：
+
+\[
+(\pm5,0)
+\]
+
+没有有限值，是 vertical tangent。
+
+所以应该改成：
+
+> The formula gives the finite tangent slope wherever \(y\neq0\), and identifies vertical tangents when \(y=0\).
+
+这与课程后面的 vertical tangent example 正好一致。
+
+---
+
+# 第三：应该更明确解释“local branch”
+
+圆：
+
+\[
+x^2+y^2=25
+\]
+
+根本不是全局函数 \(y=f(x)\)。
+
+同一个：
+
+\[
+x=3
+\]
+
+有：
+
+\[
+y=4,\quad y=-4
+\]
+
+而且两个点的 slope 不一样。
+
+这恰恰是 Implicit Differentiation 很重要的 conceptual point：
+
+> Equation 不需要 globally solve 成一个 function；我们可以在某一个 local branch 上讨论 \(dy/dx\)。
+
+当前 visual 显示整个圆，但没有真正把这个讲出来。
+
+### 很适合加一个小 visual
+
+固定：
+
+```text
+x = 3
+```
+
+在圆上标两个点：
+
+```text
+(3,4)
+(3,-4)
+```
+
+然后：
+
+\[
+dy/dx=-3/4
+\]
+
+和：
+
+\[
+dy/dx=+3/4
+\]
+
+学生一下就理解：
+
+> “dy/dx depends on which point / branch I am on.”
+
+不需要做成新模式，一个 short compare 就够。
+
+---
+
+## Ellipse 还有一个类似问题
+
+现在 ellipse 图画上下两条 branch，但 draggable point 永远只使用：
+
+```js
+eY(x)
+```
+
+也就是 upper branch。
+
+最好要么增加：
+
+```text
+upper branch / lower branch
+```
+
+selector，
+
+要么至少明确写：
+
+> P is following the upper branch.
+
+否则学生看到两条曲线，却只能研究一条。
+
+### 3.2 结论
+
+内容总体好，但要修：
+
+**Predict reveal、vertical tangent 文案、local branch 概念。**
+

@@ -1,0 +1,1392 @@
+我重新用 **Fixed** 把当前 Unit 3 六个文件又读了一遍。这次是按你已经修改后的版本重新判断，不沿用上一轮结论。
+
+整体变化非常大：你上一轮的大多数结构性问题确实已经修掉了。**3.1 现在真的在用 finite change、3.2 有 branch 概念、3.3 有 Chain Rule proof 和无公式 table、3.4 reference triangle/sign/domain 已补、3.5 已经变成 Unit 3 procedure router、3.6 notation 和 symbolic calculation 也补进去了。**
+
+但是我现在仍然**不会说 Unit 3 完成了**。详细检查后，我认为还有 **3 个比较重要的数学/教学问题，以及一批 flow polish**。College Board 也确认 2026–27 AP Calculus 只是澄清，课程内容本身没有改变，所以现在仍然可以直接按现行 CED 来审。:chatgpt-content-reference{index="0"}
+
+---
+
+## 3.1 The Chain Rule
+
+这一节相比之前进步最大。你现在终于不是拿
+
+\[
+g'(x)\Delta x
+\]
+
+冒充真实的 \(\Delta u\)，而是真的计算：
+
+\[
+\Delta u=g(x+\Delta x)-g(x)
+\]
+
+以及：
+
+\[
+\Delta y=h(u+\Delta u)-h(u)
+\]
+
+然后先得到 finite identity：
+
+\[
+\frac{\Delta y}{\Delta x}
+=
+\frac{\Delta y}{\Delta u}
+\frac{\Delta u}{\Delta x}
+\]
+
+再缩小 \(\Delta x\)，最后进入 Chain Rule。**这个教学逻辑现在非常漂亮，我会保留。**
+
+但当前 visual 仍然有一个 **P0 级别数学语义冲突**。
+
+### 问题一：图画的是 finite change，顶部的 `× rate` 却还是 instantaneous derivative
+
+现在 `mapSteps()` 里：
+
+```js
+riseLabel: 'rise Δu = ' + env.duReal
+gain: '× ' + env.dux
+```
+
+也就是下面的 rise 是真实：
+
+\[
+\Delta u
+\]
+
+但上面那个乘数还是：
+
+\[
+g'(x)
+\]
+
+以默认：
+
+\[
+g(x)=3x^2+1,\quad x=0.8,\quad \Delta x=0.05
+\]
+
+为例：
+
+\[
+g'(0.8)=4.8
+\]
+
+所以 visual 顶部写：
+
+> × 4.8
+
+但是实际：
+
+\[
+\Delta u
+=
+g(0.85)-g(0.8)
+=
+0.2475
+\]
+
+而：
+
+\[
+4.8(0.05)=0.24
+\]
+
+两者并不相等。
+
+也就是说 visual 同时表达：
+
+> run = 0.05  
+> × 4.8  
+> rise = 0.2475
+
+学生自然会理解成：
+
+\[
+0.05\times4.8=0.2475
+\]
+
+但这是假的。
+
+而且你后面还故意把 \(\Delta x\) 放大到 0.18，强调 finite change 与 tangent prediction 会分开，这会让这个冲突更加明显。
+
+### 应该怎么改
+
+在 Chain Rule reveal 之前，顶部 multiplier 应该显示真正 finite ratio：
+
+\[
+\times\frac{\Delta u}{\Delta x}
+\]
+
+第二层显示：
+
+\[
+\times\frac{\Delta y}{\Delta u}
+\]
+
+例如：
+
+```text
+finite rate × 4.95
+```
+
+而不是：
+
+```text
+× 4.80
+```
+
+等进入 instantaneous-rate screen 后，再把顶部切换成：
+
+```text
+du/dx = 4.80
+dy/du = ...
+```
+
+也就是说 visual 本身应该经历：
+
+```text
+finite ratios
+       ↓ Δx → 0
+instantaneous rates
+```
+
+这才能和你现在非常好的教学流程完全一致。
+
+三层 transfer `mapSteps3()` 也有同样的问题。现在它画的是每层真实 finite rise，但顶部 `deepR1 / deepR2 / deepR3` 是 derivatives。需要一起改。
+
+---
+
+### 问题二：\(\Delta u=0\) 时，你现在偷偷把 undefined ratio 换成 derivative
+
+当前：
+
+```js
+const ryu =
+    Math.abs(duReal) < 1e-12
+        ? dyu
+        : measStep / duReal;
+```
+
+这是为了不显示 NaN，但数学上不成立。
+
+例如：
+
+\[
+u=x^2
+\]
+
+选择：
+
+\[
+x=-\frac{\Delta x}{2}
+\]
+
+那么：
+
+\[
+(x+\Delta x)^2=x^2
+\]
+
+所以：
+
+\[
+\Delta u=0
+\]
+
+同时：
+
+\[
+\Delta y=0
+\]
+
+于是：
+
+\[
+\frac{\Delta y}{\Delta u}
+=
+\frac00
+\]
+
+**这个 finite ratio 是 undefined。**
+
+但当前程序会把它直接换成：
+
+\[
+\frac{dy}{du}
+\]
+
+然后屏幕仍然写：
+
+> Δy/Δu = ...
+
+以及：
+
+> Δy/Δx = (Δy/Δu)(Δu/Δx) holds exactly for every step.
+
+这就不对了。
+
+### 正确处理
+
+遇到：
+
+\[
+\Delta u=0
+\]
+
+的时候就应该直接显示：
+
+```text
+Δy/Δu: undefined for this finite step
+```
+
+然后一句：
+
+> The factorization of finite ratios requires Δu ≠ 0. Move the step slightly. The derivative form is obtained from the limiting rates, not by dividing 0 by 0.
+
+这其实反而是非常好的 teaching moment。
+
+不要为了 UI 干净而把 undefined 悄悄替换掉。
+
+---
+
+### 还有一个小文案问题
+
+stage ≥ 3 以后 caption 还写：
+
+> Each graph multiplies its own run by its own rate
+
+当你随后把 \(\Delta x\) 扩大到 0.18 时，这句话又会变得像 finite equality。
+
+更准确：
+
+> For an infinitesimal change, each local derivative describes how that layer scales the incoming change. For a visible finite step, the secant ratio and derivative need not match exactly.
+
+### 3.1 当前评价
+
+**视觉理念已经非常强，但上面两个问题必须修。**
+
+尤其第一个属于：
+
+> 图告诉学生的数学和旁边公式不是同一件事。
+
+这是我当前 Unit 3 最优先的问题之一。
+
+---
+
+# 3.2 Implicit Differentiation
+
+这一节上一轮的问题基本都修了。
+
+现在第一道：
+
+\[
+\frac d{dx}(y^2)
+\]
+
+Predict 前不再把 \(2y\,dy/dx\) 直接显示出来，这个很好。
+
+你也已经把错误的：
+
+> A slope at every point of the circle
+
+改成：
+
+> finite slope wherever \(y\neq0\), vertical tangent where \(y=0\)
+
+这是正确的。
+
+Ellipse 也已经真的能选择：
+
+```text
+upper branch
+lower branch
+```
+
+所以主体已经很不错。
+
+但是现在发现一个新的 **local branch visual flow 问题**。
+
+### “x = 3 两个点”画面里，P 其实还停在 (0,5)
+
+你现在进入 local example：
+
+```js
+params: { local: 1, theta: 90 }
+```
+
+message 却是：
+
+> Now fix x = 3.
+
+此时普通的 Point P 是：
+
+\[
+(0,5)
+\]
+
+然后 graph 又额外画：
+
+\[
+(3,4)
+\]
+
+和：
+
+\[
+(3,-4)
+\]
+
+所以学生实际看到的是：
+
+```text
+P = (0,5) + tangent
+(3,4)
+(3,-4)
+vertical line x=3
+```
+
+到了 local=2，还会加上两个 x=3 的 tangents。
+
+也就是说这一屏实际上有 **三个 highlighted points / 三条 tangent 信息**，但文案在说：
+
+> One x value, two points.
+
+右边 `Values at point P` 甚至还继续显示：
+
+```text
+x = 0
+y = 5
+dy/dx = 0
+```
+
+这会明显抢走焦点。
+
+### 正确设计
+
+当：
+
+```js
+local > 0
+```
+
+时，普通 Point P、radius、普通 P tangent、Values at P readout 都应该暂时隐藏。
+
+屏幕只留下：
+
+```text
+        ● (3,4)
+        │
+x = 3   │
+        │
+        ● (3,-4)
+```
+
+local=1：
+
+只显示两点。
+
+Predict：
+
+> same x, lower branch slope?
+
+local=2：
+
+再 reveal 两条 tangent：
+
+\[
+-3/4,\qquad +3/4
+\]
+
+这样整个 visual 一眼就能看明白。
+
+这其实是典型的：
+
+> **不是信息不够，而是旧 interaction 没退场。**
+
+---
+
+### 另一个真实 UI bug：table 只到 180°，slider 到 360°
+
+表格 samples：
+
+```js
+[0,30,60,90,135,180]
+```
+
+但 theta slider 是：
+
+```text
+0° → 360°
+```
+
+表格通过“离当前 theta 最近的 sample”标：
+
+> here
+
+所以如果学生把 P 拖到：
+
+\[
+270^\circ
+\]
+
+表格会把：
+
+\[
+180^\circ
+\]
+
+那一行标成：
+
+> here
+
+这是错的。
+
+可以直接扩成：
+
+```text
+0, 45, 90, 135, 180, 225, 270, 315
+```
+
+或者不要写 `here`，写：
+
+> nearest sample
+
+最好前者。
+
+### 3.2 当前评价
+
+**主教学已经完成。**
+
+剩下主要是 local branch screen 要真正成为“专注的局部 visual”，以及 table marker bug。
+
+---
+
+# 3.3 Differentiating Inverse Functions
+
+这一节现在也比之前完整很多。
+
+当前流程：
+
+```text
+mirror geometry
+→ Predict reciprocal
+→ reveal rule
+→ Chain Rule proof
+→ input mistake
+→ reciprocal vs negative reciprocal
+→ decreasing example
+→ arbitrary table
+```
+
+结构已经很好。
+
+而且 table 已经不再是 \(x^3\)，这一点改得很对。
+
+不过还有一个重要 mathematical condition 没有写完整。
+
+College Board 对这一条明确写的是：用 inverse definition + Chain Rule 可以求 inverse derivative，**provided the derivative exists**。:chatgpt-content-reference{index="1"}
+
+### 当前 rule 太绝对
+
+现在：
+
+\[
+(f^{-1})'(b)=\frac1{f'(a)}
+\]
+
+但最好直接写条件：
+
+\[
+\boxed{
+f(a)=b,\quad f'(a)\neq0
+\Rightarrow
+(f^{-1})'(b)=\frac1{f'(a)}
+}
+\]
+
+因为你自己后面马上就展示：
+
+\[
+f(x)=x^3,\quad f'(0)=0
+\]
+
+inverse：
+
+\[
+\sqrt[3]{x}
+\]
+
+在 0 有 vertical tangent，没有 finite derivative。
+
+所以当前 side note：
+
+> One is always the reciprocal of the other.
+
+其实与你后面自己的 origin example 矛盾。
+
+应该改成：
+
+> Wherever \(f'(a)\neq0\), the two finite tangent slopes are reciprocals. If \(f'(a)=0\), the inverse may have a vertical tangent instead.
+
+summary 里也最好加这个条件。
+
+---
+
+## “inverse tangent” 这个词最好全部换掉
+
+当前有不少：
+
+> inverse tangent
+
+例如：
+
+> Inverse tangents are reciprocals.
+
+下一节恰好就是：
+
+\[
+\arctan
+\]
+
+而 “inverse tangent” 本身在英语数学里通常就是 arctan。
+
+所以这里非常容易造成歧义。
+
+统一改成：
+
+> tangent to the inverse function
+
+例如：
+
+> Tangent slopes of inverse functions are reciprocals at corresponding points, when both slopes are finite.
+
+---
+
+## AP Table Mode 现在仍然有点过度手把手
+
+你已经成功去掉公式，这是非常好的。
+
+但是第一道 Predict 是：
+
+> The row x = 4 shows f(4)=8 and f′(4)=5. What is \((f^{-1})'(8)\)?
+
+这直接把最关键的 skill：
+
+> **自己寻找哪一行 f(x)=8**
+
+替学生做了。
+
+建议：
+
+第一道可以保持 scaffold。
+
+第二道一定改成：
+
+> Find \((f^{-1})'(3)\).
+
+不告诉：
+
+```text
+x = 2
+f′(2)=7
+```
+
+让学生自己扫 table。
+
+第三道：
+
+\[
+(f^{-1})'(13)
+\]
+
+也不要 message 直接说 matching row + answer。
+
+你的 table visual 已经足够清楚了，不需要再把答案读给学生。
+
+---
+
+## decreasing example 有一点同步问题
+
+`panel=3` 的 compare card 固定写：
+
+> at x=1, slope = -3
+
+但下一步把 draggable point 改到：
+
+\[
+a=0.5
+\]
+
+graph 显示：
+
+\[
+-0.75
+\]
+
+message 也讲：
+
+\[
+-0.75\rightarrow -1.333
+\]
+
+可 compare card 仍在显示 x=1 的固定数字。
+
+不算数学错误，但学生会看到两套数字。
+
+要么 compare 跟 env.a 动态更新，要么进入 panel=3 时固定 P 不允许拖。
+
+### 3.3 当前评价
+
+**已经很强。**
+
+主要补：
+
+\[
+f'(a)\neq0
+\]
+
+这个条件，再减少 table 的 scaffolding。
+
+---
+
+# 3.4 Inverse Trigonometric Functions
+
+你上一轮对 triangle 的修改基本是我想要的版本了。
+
+现在代码明确使用：
+
+```text
+|x|
+```
+
+并且写：
+
+> Reference triangle
+
+同时明确：
+
+```text
+triangle gives magnitudes
+range determines sign
+```
+
+这比之前严谨很多。
+
+Function domain / derivative domain 也已经补上。
+
+而且 arctan 现在没有 Phase 1 就直接把最终答案讲掉了。
+
+所以主体已经很好。
+
+不过我现在发现一个新的 **transfer screen 不一致**。
+
+### arctan(3x) 最后一屏，message 和 main visual 在讲两个不同函数
+
+你进入：
+
+```js
+transfer: 1
+```
+
+practice 问：
+
+\[
+\frac d{dx}\arctan(3x)
+\]
+
+很好。
+
+下一步：
+
+```js
+params: { phase: 3 }
+```
+
+message 说：
+
+> For arctan(3x) ...
+
+并得出：
+
+\[
+\frac{3}{1+9x^2}
+\]
+
+但主 visual 因为 `kase` 仍然是 `atan`，Phase 3 继续调用普通：
+
+```text
+tan y = x
+```
+
+reference triangle。
+
+equation pane 仍然显示：
+
+\[
+\tan y=x
+\]
+
+最后：
+
+\[
+\frac d{dx}\arctan x
+=
+\frac1{1+x^2}
+\]
+
+所以同一屏会出现：
+
+**主面板：**
+
+\[
+\arctan x
+\]
+
+**message：**
+
+\[
+\arctan(3x)
+\]
+
+这是明显不一致。
+
+### 怎么处理最好
+
+我反而不建议重新造一套 arctan(3x) triangle visual。
+
+最后 transfer screen 直接不要回 Phase 3 graph。
+
+显示一个很简单的 symbolic bridge：
+
+```text
+u = 3x
+
+d/du arctan(u) = 1/(1+u²)
+
+du/dx = 3
+
+d/dx arctan(3x)
+= 1/(1+(3x)²) · 3
+= 3/(1+9x²)
+```
+
+因为 triangle 已经在前面完成教学使命了。
+
+---
+
+## 还有一句泛化过度的数学文案
+
+当前 arccos 部分说：
+
+> A decreasing function has a negative derivative everywhere on its domain.
+
+以及：
+
+> The derivative of a decreasing function stays negative.
+
+一般数学上不成立。
+
+一个 differentiable decreasing function 可以在某些点 derivative = 0。
+
+准确说法是：
+
+> A differentiable decreasing function has derivative \(\le 0\) where the derivative exists.
+
+而对于 **arccos 特别地**，我们可以进一步知道：
+
+\[
+-\frac1{\sqrt{1-x^2}}<0
+\]
+
+在：
+
+\[
+-1<x<1
+\]
+
+所以它这里确实严格 negative。
+
+最好把问题改成：
+
+> The graph of arccos is decreasing, so its derivative cannot be positive. After differentiating \( \cos y=x \), what sign does the algebra force on \((-1,1)\)?
+
+这样比拿一个错误的一般规则来解释更严谨。
+
+---
+
+## 可以加一个很小的 3.3 → 3.4 bridge
+
+不是必须，但非常值得。
+
+College Board 明确允许通过 inverse-function derivative formula 来得到 inverse-trig derivatives。:chatgpt-content-reference{index="2"}
+
+你现在全程走 implicit route。
+
+可以在 arcsin 最后加两行：
+
+\[
+(\arcsin)'(x)
+=
+\frac1{\cos(\arcsin x)}
+\]
+
+再：
+
+\[
+\cos(\arcsin x)
+=
+\sqrt{1-x^2}
+\]
+
+于是：
+
+\[
+(\arcsin)'(x)
+=
+\frac1{\sqrt{1-x^2}}
+\]
+
+这样学生会看到：
+
+> 3.3 和 3.4 不是两个孤立章节。
+
+不需要新 visual。
+
+### 3.4 当前评价
+
+**非常接近完成。**
+
+主要修 `arctan(3x)` transfer screen 和 decreasing-function 文案。
+
+---
+
+# 3.5 Selecting Procedures
+
+这一节现在跟上一版已经不是同一个东西了。
+
+你现在真的已经把：
+
+```text
+composite
+implicit
+inverse
+inverse trig
+product
+quotient
+```
+
+放进 classifier。
+
+这才符合 Topic 3.5 的意义。College Board 对 3.5 明确强调的是：训练学生选择合适的 derivative procedure，并给学生机会练习如何选择此前与求导有关的 learning objectives。:chatgpt-content-reference{index="3"}
+
+现在最大的 scope 问题已经解决。
+
+但还有几个教学一致性问题。
+
+### 问题一：你现在同时有两种“第一条规则”的定义
+
+在：
+
+> Outer Rule and Composition
+
+你非常正确地教：
+
+\[
+(x^2+1)^5
+\]
+
+outer derivative rule：
+
+> Power Rule
+
+然后：
+
+> Chain Rule joins.
+
+但是在：
+
+> Plans and Choices
+
+同一个 family 的 `first rule` 又写：
+
+> Chain Rule
+
+学生会产生一个非常合理的问题：
+
+> 所以第一条到底是 Power Rule 还是 Chain Rule？
+
+其实两者指的是不同概念。
+
+建议术语彻底统一：
+
+```text
+Problem-level procedure:
+Chain Rule
+
+Outer derivative rule:
+Power Rule
+```
+
+例如：
+
+\[
+(x^2+1)^5
+\]
+
+应该显示：
+
+```text
+Procedure: Chain Rule
+Outer derivative rule: Power Rule
+Inner derivative: 2x
+```
+
+这样就完全没有冲突。
+
+---
+
+## 问题二：Outer Rule mode 的 yes/no 问题永远是 Yes
+
+你现在：
+
+> Is the input a function of x?
+
+但是 `COMPOSITE_KEYS` 本身就是只挑：
+
+```js
+compose: true
+```
+
+所以所有题答案永远都是：
+
+> yes
+
+学生做第一题以后，就不需要再看 expression 了。
+
+这个 interaction 没有 diagnostic value。
+
+### 应该加入 contrast
+
+例如混入：
+
+\[
+\sin x
+\]
+
+\[
+e^x
+\]
+
+\[
+x^5
+\]
+
+与：
+
+\[
+\sin(x^2)
+\]
+
+\[
+e^{3x}
+\]
+
+\[
+(x^2+1)^5
+\]
+
+然后问题改成：
+
+> Is the input more complicated than just \(x\)?
+
+这样：
+
+```text
+sin x → no extra inner derivative
+sin(x²) → yes, multiply by 2x
+```
+
+学生才真的在判断 Chain Rule 是否需要额外 factor。
+
+---
+
+## 问题三：Quotient 的 Step 2 仍然太绝对
+
+当前写：
+
+> A fraction whose denominator still contains x after rewriting → Quotient Rule
+
+你的右侧 note 其实已经写得更准确：
+
+> if useful algebra does not simplify the expression first...
+
+所以主流程也应该跟 side note 一致。
+
+例如：
+
+\[
+\frac{x^2}{x}
+\]
+
+有 x denominator，但直接变 x。
+
+\[
+\frac{x^2+1}{x}
+\]
+
+也能：
+
+\[
+x+x^{-1}
+\]
+
+所以不是“denominator has x”决定 Quotient Rule。
+
+应该改：
+
+> If no useful algebraic rewrite simplifies the fraction, the Quotient Rule is a direct procedure.
+
+---
+
+## “covers Unit 3 as a whole” 这句话不准确
+
+现在 note：
+
+> This router now covers Unit 3 as a whole.
+
+但 3.6 Higher-Order Derivatives 还在后面，而且并不在 router。
+
+可以写：
+
+> This router now covers the derivative procedures learned through Topic 3.5.
+
+---
+
+## 可以再补一点 direct-rule contrast
+
+3.5 官方的定位很 cumulative。:chatgpt-content-reference{index="4"}
+
+你目前 complex procedures 已经齐了，但可以很轻地补两张“不需要复杂规则”的题：
+
+\[
+4x^5-3x+7
+\]
+
+→ Sum + Power + Constant Multiple
+
+和：
+
+\[
+e^x+\sin x
+\]
+
+→ known rules + sum
+
+目的不是教新东西，而是让学生知道：
+
+> **不是每道 Unit 3 的题都需要 Chain/Product/Quotient。**
+
+不需要新模式，放两道 practice 就够。
+
+### 3.5 当前评价
+
+从上一版的“scope 不完整”已经变成：
+
+**scope 基本完整，现在主要需要统一语言和让 choices 真正具有判断意义。**
+
+---
+
+# 3.6 Higher-Order Derivatives
+
+这一节你已经把上一轮最大的内容缺口补了。
+
+现在有：
+
+\[
+f''(x)=y''=\frac{d^2y}{dx^2}
+\]
+
+也有：
+
+\[
+f^{(n)}(x)
+\]
+
+以及 symbolic：
+
+\[
+f=e^{x^2}
+\]
+
+\[
+f'=2xe^{x^2}
+\]
+
+再 Product + Chain 求 \(f''\)。
+
+这已经符合 3.6 “determine higher-order derivatives” 而不是只看图。College Board 也明确要求 repeated differentiation 以及多种 higher-order notation。:chatgpt-content-reference{index="5"}
+
+但是这里还剩一个非常明显的 **P0 Reveal bug**。
+
+---
+
+## Predict 问 f″ 是什么形状时，屏幕已经把 f″=6x 写出来了
+
+你当前步骤：
+
+```js
+depth: 2
+```
+
+然后下一步 Predict：
+
+> f′ = 3x² − 3 is quadratic. What shape should f″ have?
+
+运行语义下，这个 Predict 出现时仍然是：
+
+```text
+depth = 2
+```
+
+但是 `ladderRows()`：
+
+```js
+max = Math.round(env.depth) + 1;
+```
+
+所以 depth=2 时 machine 已经显示三行：
+
+```text
+f
+f′
+f″ = 6x
+```
+
+而右侧也有：
+
+```js
+if (env.depth > 1.5)
+    slope of f′ = f″
+```
+
+并且把数值直接显示出来。
+
+所以题目问：
+
+> f″ 应该是什么 shape？
+
+学生抬头就看到：
+
+\[
+f''=6x
+\]
+
+答案已经在屏幕上。
+
+### 应该这样 gate
+
+如果定义：
+
+```text
+depth 1 = f
+depth 2 = f + f′
+depth 3 = f + f′ + f″
+depth 4 = ...
+```
+
+那么：
+
+```js
+max = Math.round(env.depth)
+```
+
+而不是：
+
+```js
+depth + 1
+```
+
+同时 side readout：
+
+```text
+depth 1:
+f value
+slope of f = f′
+
+depth 2:
+f value
+f′ value
+[不要显示 f″]
+
+Predict:
+what should f″ look like?
+
+depth 3:
+reveal f″ = 6x
+```
+
+你甚至可以保留 f′ 上面的 tangent，让学生**从 slope behavior 推测下一层**。
+
+但不能把下一层名字和公式直接打印出来。
+
+这是当前 3.6 最需要修的地方。
+
+---
+
+## notation / symbolic practice 没有退出，后半段会越来越挤
+
+你执行：
+
+```js
+notation: 1
+```
+
+之后从来没 reset。
+
+后来：
+
+```js
+symbolic: 1
+```
+
+也没有 reset。
+
+然后切：
+
+```js
+kase: 'sine'
+```
+
+却没有：
+
+```js
+notation: 0,
+symbolic: 0
+```
+
+所以学生进入 sine cycle 时，很可能屏幕上还挂着：
+
+> One derivative, written many ways
+
+以及右边：
+
+> Symbolic side practice: differentiate e^(x²) twice
+
+再加：
+
+> sin / cos derivative ladder
+
+之后 edge、motion 也继续带着。
+
+这就是典型的页面内容“学过了但没有退场”。
+
+### 建议
+
+进入 sine 时：
+
+```js
+params: {
+  kase: 'sine',
+  depth: 2,
+  x0: 1,
+  notation: 0,
+  symbolic: 0
+}
+```
+
+notation 卡片在对应 notation 教学 screen 出现即可。
+
+symbolic practice 完成后也退出。
+
+---
+
+## notation 文案可以更标准一点
+
+现在：
+
+> dⁿy over dxⁿ
+
+建议直接：
+
+\[
+\frac{d^ny}{dx^n}
+\]
+
+在字符串里至少：
+
+```text
+dⁿy / dxⁿ
+```
+
+这样学生看到的就是标准 notation。
+
+---
+
+## 有一句小泛化也建议改
+
+Predict explanation：
+
+> Only sin and cos keep their shape.
+
+这个太绝对。
+
+例如 \(e^x\) 也保持自身，很多函数的 higher derivatives 也有周期/结构。
+
+换成：
+
+> Polynomials lose one degree at each differentiation. Sine and cosine behave differently: their derivatives cycle instead of running down to 0.
+
+会准确很多。
+
+---
+
+## Concavity 现在已经处理好了
+
+这一点不用再改。
+
+你现在说的是：
+
+\[
+f''>0\Rightarrow f'\text{ increasing}
+\]
+
+\[
+f''<0\Rightarrow f'\text{ decreasing}
+\]
+
+然后：
+
+> Unit 5 gives this bending behavior the name concavity.
+
+这样就刚刚好，没有再把 Unit 5 的 formal concept 提前变成 Unit 3 核心。
+
+---
+
+# 当前 Unit 3 的优先级
+
+| 优先级 | 小节 | 当前真正还要改的东西 |
+|---|---|---|
+| **P0** | **3.1** | finite rise 配的 `× gain` 仍是 instantaneous derivative，visual 数学不一致 |
+| **P0** | **3.1** | \(\Delta u=0\) 时 \(\Delta y/\Delta u=0/0\)，不能偷偷替换成 \(dy/du\) |
+| **P0** | **3.6** | f″ Predict 前 machine/readout 已经显示 \(f''=6x\)，严重泄题 |
+| **P1** | **3.2** | local branch screen 仍保留 P=(0,5) 和它的 tangent/readout，导致“两点比较”变成三点混在一起 |
+| **P1** | **3.3** | inverse derivative rule 缺 \(f'(a)\neq0\) 条件，“always reciprocal” 与 origin example 冲突 |
+| **P1** | **3.3** | Table Mode 仍过度告诉学生 matching row，应该至少有 unscaffolded target |
+| **P1** | **3.4** | arctan(3x) 最后一屏 message 是 3x，但 main visual 仍是普通 arctan x |
+| **P1** | **3.4** | “decreasing function has negative derivative everywhere” 一般性表述错误 |
+| **P1** | **3.5** | `first rule = Chain Rule` 与 `outer rule = Power Rule` 的术语需要统一 |
+| **P1** | **3.5** | composition yes/no 在所有题里永远是 Yes，interaction 没有判断价值 |
+| **P1** | **3.6** | notation/symbolic cards 后面不 reset，sine/edge/motion 页面会越来越拥挤 |
+| **P2** | **3.2** | theta 到 360°，table 只采样到 180°，“here” 会标错 |
+| **P2** | **3.3** | “inverse tangent” 容易与 arctan 混淆；decreasing compare 与 draggable x 数字不同步 |
+| **P2** | **3.4** | 可以加一个很短的 3.3 inverse-derivative-formula bridge |
+| **P2** | **3.5** | Quotient Step 2 再弱化成“没有 useful rewrite 时” |
+| **P2** | **3.5** | “covers Unit 3 as a whole” 改成 “through Topic 3.5”；可补 plain sum/known-rule contrast |
+| **P2** | **3.6** | `dⁿy over dxⁿ` 换标准 `/` notation；“only sin and cos...” 改准确 |
+
+我的判断是：**你上一次修改已经把 Unit 3 从“大量结构问题”提升到了“整体课程已经成立，但还有几个必须精修的数学/interaction 边界”。**
+
+其中最值得马上动的不是再增加 visualizer，而是修 **3.1 两个 finite-vs-instantaneous 语义问题、3.6 Predict 泄题、3.2 local branch 退场逻辑、3.4 transfer visual 不一致**。这几个修完以后，Unit 3 的整体完成度会和你现在的 Unit 1/2 非常接近。
+
+另外我检查了 Fixed 的执行记录，目前 **没有测试/运行记录**，所以以上是对当前源码和教学状态机的静态审查；我没有假装这些页面已经实际浏览器跑过。

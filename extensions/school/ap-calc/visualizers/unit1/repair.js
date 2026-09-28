@@ -1,4 +1,4 @@
-/* 1.13 Continuity Repair Lab — a parameter can heal a break ONLY when the
+/* 1.13 Continuity Repair Lab - a parameter can heal a break ONLY when the
    destination already exists. One dot, or one branch slope, or nothing. */
 
 export default {
@@ -8,7 +8,7 @@ export default {
         {
             label: 'One dot (k at the hole)',
             intro: 'Here f(x) = (x² − 4)/(x − 2) when x ≠ 2, and f(2) = k. Use the slider to move the point (2, k). Place that point where the two branches meet.',
-            params: { k: 1 },
+            params: { k: 1, stage: 0 },
             controls: [{ key: 'k', label: 'k = f(2)', min: -1, max: 9, step: 0.05 }],
             fns: { f: (x) => x === 2 ? NaN : x + 2 },
             panes: {
@@ -16,10 +16,10 @@ export default {
                     {
                         kind: 'graph', title: 'y = f(x)', height: 330,
                         window: [-1, 6, -1, 9],
-                        curves: [{ fn: 'f', from: -1, to: 1.94, color: 'curveA' }, { fn: 'f', from: 2.06, to: 6, color: 'curveA' }],
+                        curves: [{ fn: 'x + 2', from: -1, to: 6, color: 'curveA' }],
                         points: env => [
-                            { x: 2, y: 4, open: true, color: 'auxInk', label: 'target: 4' },
-                            { x: 2, y: env.k, color: 'accent', label: 'f(2) = k', drag: { key: 'k', min: -1, max: 9 } }
+                            { x: 2, y: 4, open: true, color: 'auxInk', label: env.stage >= 1 ? 'target: 4' : 'gap at x = 2' },
+                            { x: 2, y: env.k, color: 'accent', label: 'f(2) = k', drag: { key: 'k', min: -1, max: 9, snap: 0.05 } }
                         ]
                     }
                 ],
@@ -27,27 +27,27 @@ export default {
                     {
                         kind: 'checklist', title: 'Repair board',
                         items: env => [
-                            { t: '① f(2) is defined (= ' + round2(env.k) + ')', state: true },
-                            { t: '② the limit at 2 exists (= 4)', state: true },
-                            { t: '③ the limit at 2 equals f(2)', state: Math.abs(env.k - 4) < 0.026 }
+                            { t: '1. f(2) is defined (= ' + round2(env.k) + ')', state: true },
+                            { t: '2. the limit at 2 exists' + (env.stage >= 1 ? ' (= 4)' : ''), state: true },
+                            { t: '3. the limit at 2 equals f(2)', state: Math.abs(env.k - 4) < 0.026 }
                         ],
                         verdict: env => Math.abs(env.k - 4) < 0.026 ? 'Repaired. f(2) equals the limit, so f is continuous at 2.' : 'Condition 3 still fails, so f is not continuous at 2.',
                         verdictOk: env => Math.abs(env.k - 4) < 0.026
                     },
-                    { kind: 'note', title: 'Why does the limit equal 4?', text: 'Every input near 2, except 2 itself, gives the value x + 2, and x + 2 approaches 4. The number 4 is not invented. It is the limit that the two branches already have.' }
+                    { kind: 'note', title: 'Why does the limit equal 4?', when: env => env.stage >= 1, text: 'Every input near 2, except 2 itself, gives the value x + 2, and x + 2 approaches 4. The number 4 is not invented. It is the limit that the two branches already have.' }
                 ]
             },
             steps: [
                 {
-                    params: { k: 1 },
+                    params: { k: 1, stage: 1 },
                     predict: {
                         q: 'Before moving the slider, which value of k makes the function continuous at 2?',
                         choices: ['Use k = 4, because f(2) must equal the limit at 2.', 'Use k = 0, because the formula has no value at 2.', 'Use k = 2, because 2 is the x-value of the hole.', 'Use no value of k, because a hole breaks continuity.'], a: 0,
                         why: 'Continuity needs condition 3, so the point f(2) must equal the limit. Near x = 2 the formula equals x + 2, so the limit is 4 and k must be 4 too.'
                     },
-                    message: 'Drag the point or use the slider. Watch the repair board change as k passes 4.'
+                    message: 'The open circle marks the gap in the branches, and its height is now named. Drag the point or use the slider and watch the repair board change as k passes 4.'
                 },
-                { params: { k: 4 }, message: 'All three rows are green now. The hole was never a break in either branch. Only the point value at x = 2 was wrong.' }
+                { params: { k: 4, stage: 1 }, message: 'All three rows are green now. The hole was never a break in either branch. Only the point value at x = 2 was wrong.' }
             ],
             summary: {
                 idea: 'A single point repairs continuity only when the limit around that point already exists. The point must be set equal to that limit.',
@@ -58,8 +58,8 @@ export default {
         {
             label: 'One slope (piecewise k)',
             intro: 'Here f = kx + 1 for x < 2, and f = x² − 1 for x ≥ 2. Tilt the left branch with k until the two branches meet.',
-            params: { k: -0.5 },
-            controls: [{ key: 'k', label: 'k (left slope)', min: -2, max: 3, step: 0.05 }],
+            params: { k: -0.5, stage: 0 },
+            controls: [{ key: 'k', label: 'k (left slope)', min: -2, max: 3, step: 0.05, when: env => env.stage >= 1 }],
             fns: {
                 left: (x, env) => env.k * x + 1,
                 right: (x) => x * x - 1
@@ -78,19 +78,23 @@ export default {
                 ],
                 side: [
                     {
-                        kind: 'eq', title: 'The equation you are solving',
-                        lines: env => [
-                            { t: 'Left branch end:  k·2 + 1 = ' + round3(env.k * 2 + 1), color: 'up' },
-                            { t: 'Right branch value:  2² − 1 = 3', color: 'down' },
-                            { t: 'Repair means 2k + 1 = 3, so k = 1', hl: Math.abs(env.k - 1) < 0.026 }
-                        ]
+                        kind: 'eq', title: env => env.stage >= 1 ? 'The equation you are solving' : 'The two heights at x = 2',
+                        lines: env => {
+                            const out = [
+                                { t: 'Left branch end:  k·2 + 1 = ' + round3(env.k * 2 + 1), color: 'up' },
+                                { t: 'Right branch value:  2² − 1 = 3', color: 'down' }
+                            ];
+                            if (env.stage >= 1) out.push({ t: 'Repair means 2k + 1 = 3', hl: Math.abs(env.k * 2 + 1 - 3) < 0.026 });
+                            if (env.stage >= 2) out.push({ t: 'so k = 1', hl: Math.abs(env.k - 1) < 0.026 });
+                            return out;
+                        }
                     },
                     {
                         kind: 'checklist', title: 'Repair board',
                         items: env => [
-                            { t: '① f(2) exists (= 3)', state: true },
-                            { t: '② both branches agree at x = 2 (' + round3(env.k * 2 + 1) + ' vs 3)', state: Math.abs(env.k * 2 + 1 - 3) < 0.026 },
-                            { t: '③ the limit equals f(2)', state: Math.abs(env.k * 2 + 1 - 3) < 0.026 }
+                            { t: '1. f(2) exists (= 3)', state: true },
+                            { t: '2. both branches agree at x = 2 (' + round3(env.k * 2 + 1) + ' vs 3)', state: Math.abs(env.k * 2 + 1 - 3) < 0.026 },
+                            { t: '3. the limit equals f(2)', state: Math.abs(env.k * 2 + 1 - 3) < 0.026 }
                         ],
                         verdict: env => Math.abs(env.k * 2 + 1 - 3) < 0.026 ? 'Repaired. The left branch meets f(2) = 3, so f is continuous at 2.' : 'Condition 2 still fails, so f is not continuous at 2.',
                         verdictOk: env => Math.abs(env.k * 2 + 1 - 3) < 0.026
@@ -99,15 +103,15 @@ export default {
             },
             steps: [
                 {
-                    params: { k: -0.5 },
+                    params: { k: -0.5, stage: 1 },
                     predict: {
                         q: 'Predict k before you slide. Which value of k makes the two branches meet at x = 2?',
                         choices: ['Use k = 1, because then 2k + 1 equals 3.', 'Use k = 3, because the right branch already gives 3.', 'Use k = 0.5, because then 2k + 1 equals 2.', 'Use k = −1, because then the left branch tilts down.'], a: 0,
                         why: 'Set the limit from the left equal to f(2), which the right branch supplies. That gives 2k + 1 = 3, so k = 1. This is the standard parameter problem for continuity.'
                     },
-                    message: 'Slide k. The open circle marks where the left branch ends at x = 2. Move that circle onto the solid dot.'
+                    message: 'The equation pane now states the condition in symbols. Slide k, and move the open circle onto the solid dot at f(2) = 3.'
                 },
-                { params: { k: 1 }, message: 'Now the branches meet. You proved three things: the limit at 2 exists, f(2) exists, and the two values are equal. That is a complete continuity justification for a parameter problem.' }
+                { params: { k: 1, stage: 2 }, message: 'Now the branches meet. You proved three things: the limit at 2 exists, f(2) exists, and the two values are equal. That is a complete continuity justification for a parameter problem.' }
             ],
             summary: {
                 idea: 'A piecewise parameter problem asks you to make the two branches meet. Set the limit from the left equal to the value of f at the shared x.',
@@ -118,14 +122,14 @@ export default {
         {
             label: 'Unrepairable jump',
             intro: 'The controls look the same here, and the outcome will not be. The left branch approaches 2 and the right branch approaches 5. Move the point (2, k) wherever you like.',
-            params: { k: 3.5 },
+            params: { k: 3.5, stage: 0 },
             controls: [{ key: 'k', label: 'k = f(2)', min: -1, max: 8, step: 0.05 }],
             panes: {
                 main: [
                     {
                         kind: 'graph', title: 'y = f(x), a jump at 2', height: 330,
                         window: [-1, 6, -1, 8],
-                        curves: [{ fn: '0.5x + 1', from: -1, to: 1.94, color: 'curveA', label: 'Left branch goes to 2' }, { fn: 'x + 3', from: 2.06, to: 6, color: 'curveA', label: 'Right branch goes to 5' }],
+                        curves: [{ fn: '0.5x + 1', from: -1, to: 1.999, color: 'curveA', label: 'Left branch goes to 2' }, { fn: 'x + 3', from: 2.001, to: 6, color: 'curveA', label: 'Right branch goes to 5' }],
                         points: env => [
                             { x: 2, y: 2, open: true, color: 'up' },
                             { x: 2, y: 5, open: true, color: 'down' },
@@ -136,26 +140,32 @@ export default {
                 side: [
                     {
                         kind: 'checklist', title: 'Repair board',
-                        items: env => [
-                            { t: '① f(2) is defined', state: true },
-                            { t: '② the limit at 2 exists: the branches give 2 and 5', state: false },
-                            { t: '③ the limit equals f(2), and here there is no limit', state: false }
-                        ],
-                        verdict: () => 'No value of k fixes this jump, because condition 2 fails.',
+                        items: env => env.stage >= 1
+                            ? [
+                                { t: '1. f(2) is defined', state: true },
+                                { t: '2. the limit at 2 exists: the branches give 2 and 5', state: false },
+                                { t: '3. the limit equals f(2), and here there is no limit', state: false }
+                            ]
+                            : [
+                                { t: '1. f(2) is defined', state: true },
+                                { t: '2. the limit at 2 exists', state: 'na' },
+                                { t: '3. the limit equals f(2)', state: 'na' }
+                            ],
+                        verdict: env => env.stage >= 1 ? 'No value of k fixes this jump, because condition 2 fails.' : '',
                         verdictOk: 0
                     },
-                    { kind: 'note', tone: 'warn', title: 'Why one point cannot help', text: 'A jump fails at condition 2, before the point value matters. The point (2, k) controls conditions 1 and 3 only, so no single point can join two different branch limits.' }
+                    { kind: 'note', tone: 'warn', title: 'Why one point cannot help', when: env => env.stage >= 1, text: 'A jump fails at condition 2, before the point value matters. The point (2, k) controls conditions 1 and 3 only, so no single point can join two different branch limits.' }
                 ]
             },
             steps: [
                 {
-                    params: { k: 3.5 },
+                    params: { k: 3.5, stage: 1 },
                     predict: {
                         q: 'Before you drag the point: for which value of k does this function become continuous at 2?',
                         choices: ['Use no value of k, because a jump is not a one-point problem.', 'Use k = 3.5, the average of the two branch limits 2 and 5.', 'Use k = 5, to match the branch on the right of 2.', 'Use k = 2, to match the branch on the left of 2.'], a: 0,
                         why: 'Continuity requires the limit at 2 to exist first. The two branches approach 2 and 5, so no limit exists for any value of k to equal.'
                     },
-                    message: 'Try it anyway. Drag k across its full range from −1 to 8. The repair board never turns green, because no value of k works.'
+                    message: 'Conditions 2 and 3 are now judged, and the board reads them as failures. Try it anyway. Drag k across its full range from −1 to 8. The repair board never turns green, because no value of k works.'
                 }
             ],
             summary: {

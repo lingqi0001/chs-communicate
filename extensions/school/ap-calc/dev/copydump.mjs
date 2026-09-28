@@ -14,8 +14,8 @@ function makeNode(tag) {
         },
         setAttribute(k, v) { n['attr_' + k] = String(v); if (k === 'class') n.className = String(v); },
         getAttribute(k) { return n['attr_' + k]; },
-        appendChild(c) { n.children.push(c); c.parent = n; return c; },
-        removeChild(c) { const i = n.children.indexOf(c); if (i >= 0) n.children.splice(i, 1); return c; },
+        appendChild(c) { n.children.push(c); c.parent = n; c.parentNode = n; return c; },
+        removeChild(c) { const i = n.children.indexOf(c); if (i >= 0) n.children.splice(i, 1); c.parentNode = null; return c; },
         append(...cs) { cs.forEach(c => n.appendChild(c)); },
         prepend(...cs) { n.children.unshift(...cs); },
         replaceChildren() { n.children = []; },
@@ -125,7 +125,7 @@ function dumpSet(label, def, set) {
         const out = [];
         const grab = n => {
             const cls = n.className || '';
-            if (/cv-ro-label|cv-ro-val|cv-ro-unit|cv-note|cv-label|cv-ticktext|cv-ctl-label|wbtn|cv-chingelabel|cv-cgain|prompt-|summary|work-msg|cv-pane-title|text/.test(cls) && n._text) out.push(cls + ' | ' + n._text);
+            if (/cv-ro-label|cv-ro-val|cv-ro-unit|cv-note|cv-label|cv-ticktext|cv-ctl-label|wbtn|cv-chingelabel|cv-cgain|prompt-|summary|work-msg|cv-pane-title|card-label|cv-eqline|cv-cmp-|cv-ccaption|cv-check|cv-pitem|cv-pq|cv-mbox|cv-mval|cv-mrate|cv-mstage|cv-trule|cv-texpr|cv-tval|cv-tnode|mh-|pred-|text/.test(cls) && n._text) out.push(cls + ' | ' + n._text);
             n.children.forEach(grab);
         };
         grab(host);

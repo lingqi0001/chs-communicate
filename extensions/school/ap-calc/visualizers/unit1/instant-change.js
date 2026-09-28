@@ -1,14 +1,14 @@
-/* 1.1 Instant Change Zoom Lab — average rates over shrinking intervals
+/* 1.1 Instant Change Zoom Lab - average rates over shrinking intervals
    settle toward one number: the instantaneous rate. */
 
 import { evaluate } from '../../js/calc-math.js?v=20260925-calc-15';
 
-const HL = [3, 2, 1, 0.5, 0.1, 0.01];
+const HMAG = [1, 0.5, 0.1, 0.01];
 
 export default {
     id: 'u1-instant-change',
     meta: { unit: 1, topic: '1.1', title: 'Introducing Calculus: Can Change Occur at an Instant?', visualizerTitle: 'Instant Change Zoom Lab' },
-    intro: 'Points A and B on the curve determine a secant line whose slope is the average rate between the two instants. Drag point B toward point A and watch the average rates settle toward one number. That number is the instantaneous rate at t = a.',
+    intro: 'Points A and B on the curve determine a secant line whose slope is the average rate between the two instants. Drag point B toward point A from either side and watch both columns of average rates settle toward one number. That number is the instantaneous rate at t = a.',
     params: { a: 2, h: 2, src: 'x*x' },
     fns: {
         s: (x, env) => evaluate(env.src, { x })
@@ -61,18 +61,23 @@ export default {
         side: [
             {
                 kind: 'table', title: env => 'Average rates at t = ' + trim(env.a),
-                cols: ['h', 'average rate'],
-                rows: (env) => HL.map(hh => {
-                    const sign = hh;
-                    return [String(sign), { v: (env.s(env.a + sign) - env.s(env.a)) / sign, bold: Math.abs(sign - env.h) < 1e-9 }];
+                cols: ['gap |h|', 'B before A (h < 0)', 'B after A (h > 0)'],
+                rows: (env) => HMAG.map(mag => {
+                    const rate = (hh) => (env.s(env.a + hh) - env.s(env.a)) / hh;
+                    return [String(mag),
+                        { v: rate(-mag), bold: Math.abs(env.h + mag) < 1e-9 },
+                        { v: rate(mag), bold: Math.abs(env.h - mag) < 1e-9 }];
                 }),
-                note: 'Every row uses two distinct points, so the gap h is never 0. Each row is the average rate over that gap, not the rate at one instant.'
+                note: 'Every entry uses two distinct points, so the gap h is never 0. The left column places B before A with h < 0, and the right column places B after A with h > 0. Each entry is an average rate over its own gap, not the rate at one instant. Both columns close in on the same number as the gap shrinks.'
             },
             {
                 kind: 'compare', title: 'Setting h to 0 compared with keeping h small',
                 when: (env) => Math.abs(env.h) < 0.05,
                 sides: (env) => {
                     const dS = env.s(env.a + env.h) - env.s(env.a);
+                    /* the slider can land on exactly h = 0, where the ratio has
+                       no value, so the text must not print a NaN rate */
+                    const rate = env.h === 0 ? NaN : dS / env.h;
                     return [
                         {
                             title: 'Setting h to 0', tone: 'wrong', lines: [
@@ -83,11 +88,16 @@ export default {
                             ]
                         },
                         {
-                            title: 'Keeping h away from 0', tone: 'right', lines: [
+                            title: 'Keeping h away from 0', tone: 'right', lines: Number.isFinite(rate) ? [
                                 'Here h = ' + trim4(env.h) + ', and that gap is not 0.',
                                 'The change Δs = ' + trim4(dS) + ' is small and not 0.',
-                                'The average rate Δs / Δt = ' + trim4(dS / env.h),
+                                'The average rate Δs / Δt = ' + trim4(rate),
                                 'The table shows the trend as h approaches 0.'
+                            ] : [
+                                'Right now h is 0, so this side is empty too.',
+                                'Nudge h to any nonzero value and the average rate comes back.',
+                                'The table rows are all computed with nonzero gaps.',
+                                'The trend of those rows as h approaches 0 is the answer.'
                             ]
                         }
                     ];
@@ -102,22 +112,25 @@ export default {
         {
             params: { h: 0.3 },
             predict: {
-                q: 'At t = 2 the average rates shown in the table read 7, 6, 5, 4.5, 4.1 and 4.01. Which number is the instantaneous rate at t = 2 closest to?',
-                choices: ['About 4. The average rates settle toward 4 as the gap h shrinks.', 'About 0. The gap h shrinks toward 0, so the average rate shrinks with the gap.', 'No single value. An average rate over a shrinking gap never settles on one number.'],
+                q: 'At t = 2 the table shows 3, 3.5, 3.9 and 3.99 in the h < 0 column, and 5, 4.5, 4.1 and 4.01 in the h > 0 column. Which number is the instantaneous rate at t = 2 closest to?',
+                choices: ['About 4. Both columns settle toward 4 as the gap h shrinks.', 'About 0. The gap h shrinks toward 0, so the average rate shrinks with the gap.', 'No single value. Average rates over shrinking gaps from the two sides never settle on one number.'],
                 a: 0,
-                why: 'The interval shrinks and the average rates do not shrink with it. They settle toward 4, and 4 is the instantaneous rate at t = 2.'
+                why: 'The gap shrinks toward 0 from both the negative and the positive side. The average rates do not shrink with the gap. Both columns close in on 4, and 4 is the instantaneous rate at t = 2.'
             },
-            message: 'Keep shrinking the gap h. The average rate settles on one value even while the gap keeps shrinking.'
+            message: 'The gap is now h = 0.3, and the readout shows the average rate 4.3. Both table columns already point toward one number. Press Next to shrink the gap again.'
         },
-        { params: { h: 0.01 }, message: 'Now the gap is h = 0.01 and the average rate reads 4.01. Calculus never divides by 0. Calculus looks at the number that the average rates approach.' },
+        { params: { h: 0.01 }, message: 'The gap is now small. The h > 0 column reads 4.01 and the h < 0 column reads 3.99, so B closing in on A from either side points to the same number. Calculus never divides by 0. Calculus looks at the number that both columns approach.' },
         {
             params: { src: 'x*x+x', a: 1, h: 1.5 },
+            message: 'The graph now shows s(t) = t² + t, and the target instant is t = 1. The gap is h = 1.5, so point B sits after point A. The table lists the average rates at t = 1.'
+        },
+        {
             predict: {
-                q: 'The function is now s(t) = t² + t at the instant t = 1. Shrink the gap h by hand. Which number is the instantaneous rate at t = 1 closest to: 2, 3, or 5?',
-                choices: ['Closest to 2. The rate of t² alone at t = 1 is 2, and the term t is left out.', 'Closest to 3. The average rate works out to 3 + h, so it settles on 3.', 'Closest to 5. The function value 2 and the rate 3 get added together.'], a: 1,
+                q: 'The table on screen lists the average rates at t = 1. The h < 0 column reads 2, 2.5, 2.9 and 2.99, and the h > 0 column reads 4, 3.5, 3.1 and 3.01. Shrink the gap h by hand and watch those rows. Which number is the instantaneous rate at t = 1 closest to: 2, 3, or 5?',
+                choices: ['Closest to 2. That is the rate of t² alone at t = 1, and it leaves out the term t.', 'Closest to 3. For s(t) = t² + t each average rate works out to 3 + h, so both columns settle on 3.', 'Closest to 5. This adds the function value 2 and the rate 3 together.'], a: 1,
                 why: 'The average rates over shrinking gaps settle at 3, so the instantaneous rate at t = 1 is 3. The method did not change when the function changed.'
             },
-            message: 'The function changed and the method did not. Drag the gap h toward 0 and check the answer you predicted. One warning: not every point has an instantaneous rate, because the left side rate and the right side rate can differ.'
+            message: 'The function changed and the method did not. Both columns close in on one number as the gap shrinks. One warning: not every point has an instantaneous rate, because approaching from the left and approaching from the right can settle on different numbers.'
         }
     ],
     summary: {

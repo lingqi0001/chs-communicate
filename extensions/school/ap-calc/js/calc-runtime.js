@@ -3,7 +3,7 @@
    snapshot, so replay to any index is deterministic. */
 
 import { evaluate, compileFn, fmt } from './calc-math.js?v=20260925-calc-15';
-import { RENDERERS, COLORS } from './calc-components.js?v=20260925-calc-19';
+import { RENDERERS, COLORS } from './calc-components.js?v=20260925-calc-32';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ICON_PATHS = {

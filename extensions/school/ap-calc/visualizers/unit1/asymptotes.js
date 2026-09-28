@@ -1,16 +1,16 @@
-/* 1.14 + 1.15 Asymptote Explorers — vertical: unbounded behavior at a
+/* 1.14 + 1.15 Asymptote Explorers - vertical: unbounded behavior at a
    finite x; horizontal: the value the graph creeps toward far out.
    The vertical explorer auto-fits its y-scale to the probes, so a probe
    crawling toward the fence stays on canvas instead of vanishing offscreen. */
 
 const VA_CASES = {
-    oneover: { label: '1/(x − 2)', c: 2, sq: false },
-    squared: { label: '1/(x − 2)²', c: 2, sq: true },
-    leftsq: { label: '1/(x + 1)²', c: -1, sq: true }
+    oneover: { label: '1/(x − 2)', c: 2, sq: false, fac: 'x − 2' },
+    squared: { label: '1/(x − 2)²', c: 2, sq: true, fac: 'x − 2' },
+    leftsq: { label: '1/(x + 1)²', c: -1, sq: true, fac: 'x + 1' }
 };
 
 function fnum(v) { return v < 0 ? '−' + Math.abs(v) : String(v); }
-function r2(v) { return Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2); }
+function r2(v) { const s = Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(Math.abs(v))) : Math.abs(v).toFixed(2); return v < 0 ? '−' + s : s; }
 
 export const VA = {
     id: 'u1-vertical-asymptote',
@@ -40,7 +40,10 @@ export const VA = {
         const m = Math.max(Math.abs(fL), Math.abs(fR));
         const top = Math.max(8, m * 1.1);
         const win = k.sq ? [c - 4, c + 4, -2, top] : [c - 4, c + 4, -top, top];
-        return { fence: c, sq: k.sq, lx, rx, fL, fR, win };
+        /* the frame only rezooms once the probes push the ceiling past the
+           default top of 8, and the scale readout appears at that moment */
+        const rescaled = top > 8;
+        return { fence: c, sq: k.sq, lx, rx, fL, fR, win, top, rescaled };
     },
     panes: {
         main: [
@@ -60,6 +63,25 @@ export const VA = {
                     { x: env.lx, y: env.fL, color: 'up', label: 'left probe', drag: { key: 'xL', min: env.fence - 3.8, max: env.fence - 0.1 } },
                     { x: env.rx, y: env.fR, color: 'down', label: 'right probe', drag: { key: 'xR', min: env.fence + 0.1, max: env.fence + 3.8 } }
                 ]
+            },
+            {
+                kind: 'table', title: env => 'Denominator sign strip around x = ' + fnum(env.fence),
+                cols: env => ['', 'left of x = ' + fnum(env.fence), 'at x = ' + fnum(env.fence), 'right of x = ' + fnum(env.fence)],
+                rows: env => {
+                    const base = VA_CASES[env.kase].fac;
+                    const fac = env.sq ? '(' + base + ')²' : base;
+                    const dLeft = env.sq ? { v: fac + ' > 0', color: 'up' } : { v: base + ' < 0', color: 'down' };
+                    const dRight = { v: fac + ' > 0', color: 'up' };
+                    const fLeft = env.sq ? { v: 'positive', color: 'up', bold: true } : { v: 'negative', color: 'down', bold: true };
+                    const fRight = { v: 'positive', color: 'up', bold: true };
+                    return [
+                        [{ v: 'denominator', bold: true }, dLeft, { v: fac + ' = 0' }, dRight],
+                        [{ v: 'f(x)', bold: true }, fLeft, { v: 'undefined' }, fRight]
+                    ]
+                },
+                note: env => env.sq
+                    ? 'The squared denominator is positive on both sides of x = ' + fnum(env.fence) + ', so f stays positive while a probe crosses. The numerator stays at 1.'
+                    : 'Left of x = ' + fnum(env.fence) + ' the denominator ' + VA_CASES[env.kase].fac + ' is negative, so f is negative. Right of it the same denominator is positive. The numerator stays at 1.'
             }
         ],
         side: [
@@ -68,6 +90,13 @@ export const VA = {
                 items: env => [
                     { label: 'x → ' + fnum(env.fence) + '⁻', v: env.lx }, { label: 'f →', v: env.fL, color: 'up', big: true },
                     { label: 'x → ' + fnum(env.fence) + '⁺', v: env.rx }, { label: 'f →', v: env.fR, color: 'down', big: true }
+                ]
+            },
+            {
+                kind: 'readout', title: 'Vertical scale', when: env => env.rescaled,
+                items: env => [
+                    { label: 'y axis', v: 'expanding', color: 'aux' },
+                    { label: 'visible y range', v: r2(env.win[2]) + ' to ' + r2(env.win[3]) }
                 ]
             },
             {
@@ -152,8 +181,8 @@ export const HA = {
         {
             key: 'kase', label: 'function', kind: 'choice',
             options: [
-                { v: 'rational', label: '(3x² + 1)/(x² − 4)' },
-                { v: 'crosser', label: '3 + sin(x)/x  (crosses its horizontal asymptote)' },
+                { v: 'rational', label: '(3x² + 1)/(x² + 4)' },
+                { v: 'crosser', label: '3 + sin(x)/√(x² + 1)  (crosses its horizontal asymptote)' },
                 { v: 'tanhish', label: 'eˣ/(1+eˣ)  (different at each end)' },
                 { v: 'sqrtend', label: '2x/√(x² + 1)  (opposite signs at the ends)' }
             ]
@@ -161,20 +190,22 @@ export const HA = {
         { key: 'M', label: 'how far out to travel', min: 1.5, max: 60, step: 0.5 }
     ],
     fns: {
-        f: (x, env) => env.kase === 'rational' ? (3 * x * x + 1) / (x * x - 4)
-            : env.kase === 'crosser' ? 3 + Math.sin(x) / x
+        f: (x, env) => env.kase === 'rational' ? (3 * x * x + 1) / (x * x + 4)
+            : env.kase === 'crosser' ? 3 + Math.sin(x) / Math.sqrt(x * x + 1)
                 : env.kase === 'tanhish' ? Math.exp(x) / (1 + Math.exp(x))
                     : 2 * x / Math.sqrt(x * x + 1)
     },
     panes: {
         main: [
             {
-                kind: 'graph', title: env => ({ rational: 'y = (3x²+1)/(x²−4)', crosser: 'y = 3 + sin(x)/x', tanhish: 'y = eˣ/(1+eˣ)', sqrtend: 'y = 2x/√(x²+1)' })[env.kase], height: 350,
+                kind: 'graph', title: env => ({ rational: 'y = (3x²+1)/(x²+4)', crosser: 'y = 3 + sin(x)/√(x²+1)', tanhish: 'y = eˣ/(1+eˣ)', sqrtend: 'y = 2x/√(x²+1)' })[env.kase], height: 350,
                 window: env => {
-                    /* the frame must always contain both travelers at ±M */
+                    /* the frame must always contain both travelers at ±M.
+                       rational and crosser are bounded now, so the window sits
+                       close to their real range instead of leaving pole room */
                     const m = Math.max(env.kase === 'tanhish' ? 6 : 4, env.M * 1.05);
-                    let y0 = env.kase === 'tanhish' ? -0.4 : env.kase === 'sqrtend' ? -2.8 : -1.5;
-                    let y1 = env.kase === 'tanhish' ? 1.5 : env.kase === 'sqrtend' ? 2.8 : 6.5;
+                    let y0 = env.kase === 'tanhish' ? -0.4 : env.kase === 'sqrtend' ? -2.8 : env.kase === 'crosser' ? 2.1 : -0.5;
+                    let y1 = env.kase === 'tanhish' ? 1.5 : env.kase === 'sqrtend' ? 2.8 : env.kase === 'crosser' ? 3.9 : 4;
                     const pad = 0.1 * (y1 - y0);
                     [env.f(env.M), env.f(-env.M)].forEach(v => {
                         if (Number.isFinite(v)) {
@@ -187,14 +218,15 @@ export const HA = {
                 curves: env => [{ fn: 'f', color: 'curveA', samples: Math.round(env.M) > 20 ? 1200 : 400 }],
                 hlines: env => {
                     if (env.kase === 'tanhish') return [
-                        { y: 1, color: 'aux', label: 'horizontal asymptote at the right end: y = 1' },
-                        { y: 0, color: 'auxInk', label: 'horizontal asymptote at the left end: y = 0' }
+                        { y: 1, color: 'aux', label: 'right end: y = 1' },
+                        { y: 0, color: 'auxInk', label: 'left end: y = 0' }
                     ];
                     if (env.kase === 'sqrtend') return [
-                        { y: 2, color: 'aux', label: 'horizontal asymptote at the right end: y = 2' },
-                        { y: -2, color: 'auxInk', label: 'horizontal asymptote at the left end: y = −2' }
+                        { y: 2, color: 'aux', label: 'right end: y = 2' },
+                        { y: -2, color: 'auxInk', label: 'left end: y = −2' }
                     ];
-                    return [{ y: 3, color: 'aux', label: 'y = 3' }];
+                    if (env.kase === 'crosser') return [{ y: 3, color: 'aux', label: 'y = 3, crossed over and over' }];
+                    return [{ y: 3, color: 'aux', label: 'y = 3, never crossed' }];
                 },
                 points: env => [
                     { x: env.M, fn: 'f', color: 'down', label: 'right traveler' },
@@ -206,8 +238,8 @@ export const HA = {
             {
                 kind: 'readout', title: 'Live end behavior',
                 items: env => [
-                    { label: 'x = +', v: env.M }, { label: 'f →', v: env.f(env.M), color: 'down', big: true },
-                    { label: 'x = −', v: -env.M }, { label: 'f →', v: env.f(-env.M), color: 'up', big: true }
+                    { label: 'right end x', v: env.M }, { label: 'f →', v: env.f(env.M), color: 'down', big: true },
+                    { label: 'left end x', v: -env.M }, { label: 'f →', v: env.f(-env.M), color: 'up', big: true }
                 ]
             },
             {
@@ -215,11 +247,11 @@ export const HA = {
                 lines: env => env.kase === 'rational' ? [
                     { t: 'lim x→+∞  f = 3', hl: true },
                     { t: 'lim x→−∞  f = 3', hl: true },
-                    { t: 'Far out, the term 3x² is larger than 1, and x² is larger than −4', rule: 'dominant terms' },
+                    { t: 'Far out, the term 3x² is larger than 1, and x² is larger than 4', rule: 'dominant terms' },
                     { t: 'This graph never crosses y = 3, but the next case is different.' }
                 ] : env.kase === 'crosser' ? [
-                    { t: 'lim x→±∞  3 + sin(x)/x = 3', hl: true },
-                    { t: 'sin(x)/x shrinks toward 0 and passes through 0 many times', rule: 'sin(x)/x shrinks to 0' },
+                    { t: 'lim x→±∞  3 + sin(x)/√(x²+1) = 3', hl: true },
+                    { t: 'sin(x)/√(x²+1) shrinks toward 0 and passes through 0 many times', rule: 'sin(x)/√(x²+1) shrinks to 0' },
                     { t: 'This graph crosses its horizontal asymptote, an endless number of times.' }
                 ] : env.kase === 'sqrtend' ? [
                     { t: 'lim x→+∞  2x/√(x²+1) = +2', hl: true, color: 'down' },
@@ -243,7 +275,7 @@ export const HA = {
             predict: {
                 q: 'This function has a horizontal asymptote at y = 3. Can a function cross its own horizontal asymptote?',
                 choices: ['Yes, because a horizontal asymptote describes the far-out trend, not a wall.', 'No, because an asymptote is a forbidden boundary.'], a: 0,
-                why: 'A horizontal asymptote is a limit claim at infinity. Nothing in the definition stops the graph from crossing it at finite x. The sin(x)/x term passes through 3 again and again before settling.'
+                why: 'A horizontal asymptote is a limit claim at infinity. Nothing in the definition stops the graph from crossing it at finite x. The sin(x)/√(x²+1) term returns to 0 again and again, so the graph meets y = 3 over and over.'
             },
             message: 'Slide M outward. The two probe points move up and down around the dashed line while getting closer to it. That is crossing and approaching at the same time.'
         },
@@ -261,7 +293,7 @@ export const HA = {
     summary: {
         idea: 'A horizontal asymptote states what the function approaches far out in the domain. It places no restriction on the behavior at finite x.',
         mistake: 'Treating a horizontal asymptote as a wall that can never be crossed. It is only a claim about the trend at infinity.',
-        transfer: 'The case 2x/√(x²+1) is that exercise. Predict both end limits before you move the slider. Then explain why the ends differ in sign but not in size.'
+        transfer: 'Choose the 2x/√(x²+1) case and predict both end limits before moving the slider. Then explain why the two ends differ in sign but not in size.'
     }
 };
 

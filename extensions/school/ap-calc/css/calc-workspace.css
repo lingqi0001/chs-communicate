@@ -132,14 +132,34 @@
 .cv-ccaption { font-size: 14px; line-height: 1.55; color: var(--text-secondary); padding: 8px 6px 2px; }
 
 /* ---------- expression tree ---------- */
-.cv-tnode-wrap { display: flex; flex-direction: column; align-items: center; }
-.cv-tnode { border: 1px solid var(--border); background: var(--subtle); border-radius: 10px; padding: 7px 13px; text-align: center; transition: all 0.22s ease; }
+.cv-tnode-wrap { display: flex; flex-direction: column; align-items: center; --tree-line: color-mix(in srgb, var(--text-secondary) 45%, transparent); }
+/* A tree is HTML boxes, not a viewBox SVG, so it cannot scale itself down to
+   the pane. Centre it when it fits and let it scroll when it does not, the
+   same valve .cv-tablewrap uses, instead of clipping the outer branches. */
+.calc-pane-body > .cv-tnode-wrap { width: max-content; margin-inline: auto; }
+.calc-pane-body:has(> .cv-tnode-wrap) { overflow-x: auto; }
+.cv-tnode { position: relative; border: 1px solid var(--border); background: var(--subtle); border-radius: 10px; padding: 7px 13px; text-align: center; transition: all 0.22s ease; }
 .cv-tnode.focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .cv-tnode.dim { opacity: 0.45; }
 .cv-texpr { font-family: ui-monospace, Consolas, monospace; font-size: 16px; }
 .cv-trule { font-size: 12.5px; color: var(--accent); font-weight: 600; margin-top: 2px; }
 .cv-tval { font-family: ui-monospace, Consolas, monospace; font-size: 15px; color: var(--text-secondary); margin-top: 2px; }
-.cv-tkids { display: flex; gap: 16px; margin-top: 6px; padding-top: 6px; }
+.cv-tkids { position: relative; display: flex; gap: 0; margin-top: 16px; }
+/* drop line from the parent box down to the row rail */
+.cv-tkids::before { content: ''; position: absolute; top: -16px; left: 50%; width: 1.5px; height: 16px; margin-left: -0.75px; background: var(--tree-line); }
+/* Both halves of the elbow are 16px, so the rail sits midway between the
+   parent box and the child boxes and the junction reads as a branch. */
+.cv-tkids > .cv-tnode-wrap { position: relative; padding: 16px 7px 0; }
+/* rail: each child paints the full width of its own cell, and the two end
+   cells trim their outer half, so the joins read as one unbroken line */
+.cv-tkids > .cv-tnode-wrap::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1.5px; background: var(--tree-line); }
+.cv-tkids > .cv-tnode-wrap::before { content: ''; position: absolute; top: 0; left: 50%; width: 1.5px; height: 16px; margin-left: -0.75px; background: var(--tree-line); }
+.cv-tkids > .cv-tnode-wrap:first-child::after { left: 50%; }
+.cv-tkids > .cv-tnode-wrap:last-child::after { right: 50%; }
+.cv-tkids > .cv-tnode-wrap:only-child::after { display: none; }
+/* arrowhead landing on the child box, so the branch reads top-down. The box
+   is 7px wide rotated 45deg, so its lowest point is 0.5px above the border. */
+.cv-tkids .cv-tnode::before { content: ''; position: absolute; top: -9px; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; transform: rotate(45deg); border-right: 1.5px solid var(--tree-line); border-bottom: 1.5px solid var(--tree-line); }
 
 /* ---------- compare ---------- */
 .cv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -274,11 +294,6 @@
     margin-left: auto;
     margin-right: 12px;
 }
-.cv-slider-wrap {
-    flex: 1;
-    min-width: 200px;
-    margin: 0 8px;
-}
 .cv-landmarks {
     display: flex;
     gap: 6px;
@@ -330,67 +345,74 @@
 }
 .cv-trail-viz {
     position: relative;
-    height: 160px;
-    border: 1px dashed var(--border);
-    border-radius: 10px;
+    height: 120px;
     background: var(--subtle);
+    border-radius: 10px;
     overflow: hidden;
 }
-.cv-origin {
+.cv-origin-tick {
     position: absolute;
     left: 0;
-    top: 50%;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 2px dashed var(--border);
+}
+.cv-origin-caption {
+    position: absolute;
+    top: 8px;
+    left: 6px;
     font-size: 12px;
-    font-weight: 700;
-    color: var(--text-secondary);
-    transform: translate(-100%, -50%);
-}
-.cv-dots {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    height: 40px;
-}
-.cv-dot {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.cv-dot-circle {
-    position: relative;
-    z-index: 2;
-    font-weight: 700;
-    color: var(--text);
-}
-.cv-dot.cv-now .cv-dot-circle {
-    color: var(--accent);
-}
-.cv-arrow {
-    display: flex;
-    align-items: center;
-    font-weight: 700;
-    color: var(--accent);
-    opacity: 0.8;
-}
-.cv-v-arrow { margin-right: 6px; }
-.cv-a-arrow { margin-left: 6px; color: #FF9F0A; }
-.cv-now-label {
-    position: absolute;
-    bottom: -18px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 11px;
+    font-weight: 600;
     color: var(--text-secondary);
     white-space: nowrap;
 }
+.cv-axis-tick {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 10px;
+    margin-left: -0.5px;
+    background: var(--border);
+}
+.cv-pos-dot {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--text);
+    opacity: 0.45;
+}
+.cv-pos-dot.cv-now {
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    background: var(--accent);
+    opacity: 1;
+    z-index: 2;
+}
+.cv-vector {
+    position: absolute;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.cv-vector-v {
+    bottom: 16px;
+    color: var(--accent);
+}
+.cv-vector-a {
+    top: 16px;
+    color: #FF9F0A;
+}
 
 .cv-status-summary {
-    margin-top: 12px;
+    margin-top: 10px;
     font-size: 15px;
     color: var(--text);
     display: flex;
@@ -411,34 +433,6 @@
 .cv-speed-indicator.down {
     color: #FF3B30;
     background: color-mix(in srgb, #FF3B30 12%, var(--row-selected));
-}
-
-.cv-quick-readout {
-    display: flex;
-    gap: 16px;
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: var(--subtle);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-.cv-v-metric, .cv-a-metric {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-}
-.cv-v-label, .cv-a-label {
-    font-family: ui-monospace, Consolas, monospace;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text);
-}
-.cv-v-value, .cv-a-value {
-    font-family: ui-monospace, Consolas, monospace;
-    font-size: 18px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
 }
 
 /* Synchronized graph strips */

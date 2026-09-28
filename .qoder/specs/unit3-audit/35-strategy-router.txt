@@ -1,0 +1,323 @@
+---
+
+# 3.5 Derivative Strategy Router
+
+这是我现在认为 **Unit 3 最不完整的一节**。
+
+不是 UI 做差，而是当前课程覆盖和这个 Topic 的目标还没有完全匹配。
+
+College Board 对 3.5 的描述非常直接：
+
+> students should practice **when and how to apply all learning objectives relating to calculating derivatives**。:chatgpt-content-reference{index="2"}
+
+但当前 router 基本只有：
+
+```text
+power
+sum
+product
+quotient
+chain
+known function
+```
+
+没有：
+
+```text
+implicit differentiation
+inverse derivative
+inverse trig derivative
+```
+
+所以这实际上比较像：
+
+> **2.5–3.1 Rule Selector**
+
+而不是：
+
+> **Unit 3 cumulative derivative procedure selector**
+
+---
+
+# 3.5 应该增加一个 Mixed Procedure mode
+
+不需要把当前 expression tree 推翻。
+
+现有 tree 很适合 explicit expression。
+
+但应该再加一个 mode：
+
+### “What kind of derivative problem is this?”
+
+例如卡片：
+
+```text
+y = (x²+1)^5
+→ explicit composite
+→ chain
+
+x² + y² = 25
+→ implicit relation
+→ differentiate both sides
+
+table: f(2)=7, f′(2)=4
+find (f⁻¹)′(7)
+→ inverse procedure
+
+y = arcsin(3x)
+→ inverse trig rule + chain
+
+y = x²e^x
+→ product
+
+y = (x²+1)/cos x
+→ quotient
+```
+
+学生先分类 problem family，再进入内部 rules。
+
+这会把整个 Unit 3 真正串起来。
+
+---
+
+# 当前 Router 还有一个 conceptual problem
+
+你现在把：
+
+```text
+power rule
+```
+
+和：
+
+```text
+chain rule
+```
+
+做成互斥 first choice。
+
+比如：
+
+\[
+(1+x^2)^{1/2}
+\]
+
+当前逻辑：
+
+> chain rule = correct  
+> power rule = wrong
+
+但更准确地说：
+
+> **outer function 使用 Power Rule，composition 使用 Chain Rule。**
+
+也就是：
+
+\[
+\frac12(1+x^2)^{-1/2}
+\cdot
+2x
+\]
+
+这并不是“Power Rule 错了”。
+
+而是：
+
+> 只做 Power Rule、不乘 inner derivative 才错。
+
+同样：
+
+\[
+\sin(x^3+2x)
+\]
+
+需要：
+
+> derivative rule for sine  
+> + Chain Rule.
+
+所以我建议 router 把两件事分开：
+
+```text
+What is the outer function's derivative rule?
++
+Is the input itself a function of x?
+```
+
+例如：
+
+```text
+(1+x²)^1/2
+
+outer derivative:
+Power Rule
+
+inner input:
+1+x²
+
+composition?
+YES
+
+therefore:
+Power Rule + Chain Rule
+```
+
+这样学生不会形成：
+
+> “看到 composite 就不要 Power Rule，只用 Chain Rule。”
+
+---
+
+# Product / Quotient 的“rule order”也不应该画成单一路径
+
+现在类似：
+
+```text
+product rule
+→ power rule
+→ chain rule
+→ constant multiple
+```
+
+但：
+
+\[
+x^2e^{3x}
+\]
+
+真实结构是：
+
+```text
+             product
+             /     \
+           x²      e^(3x)
+           ↓          ↓
+        power       chain
+```
+
+两个 branch 是并行的，不是：
+
+> 先 power，再 chain。
+
+你已经有 expression tree，所以这里其实很好改：
+
+**Tree 保留；linear “rule order” 文案换成 branch tasks。**
+
+例如：
+
+```text
+1. Split with Product Rule
+
+LEFT FACTOR
+x² → power rule
+
+RIGHT FACTOR
+e^(3x) → exponential + chain
+```
+
+这比现在 arrow sequence 准确。
+
+---
+
+# 还有一句 heuristic 应该删
+
+当前：
+
+> Use the quotient rule when the denominator contains x.
+
+这个过于绝对。
+
+例如：
+
+\[
+\frac{x^2}{x}=x
+\]
+
+当然没必要 Quotient Rule。
+
+甚至：
+
+\[
+\frac{x^2+1}{x}
+=
+x+x^{-1}
+\]
+
+也可能 rewrite 更简单。
+
+应该改成：
+
+> If useful algebra does not simplify the expression first, a quotient of two x-dependent expressions can be differentiated directly with the Quotient Rule.
+
+也就是第一步应该有：
+
+```text
+Can I simplify/rewrite first?
+```
+
+再：
+
+```text
+Which derivative structure remains?
+```
+
+这也更像真正的 procedure selection。
+
+---
+
+# Reveal 也有问题
+
+`Pick the First Rule` 模式里学生还在选择规则时，主 pane 已经把：
+
+> The rule plan for this expression
+
+完整显示了。
+
+那 selector 就失去意义。
+
+应该：
+
+```text
+expression tree only
+↓
+student picks
+↓
+check
+↓
+reveal plan
+```
+
+---
+
+# 3.5 还有一个整体 flow 问题
+
+`Zoom the Layers` 花很多时间重新解释：
+
+\[
+(x\sin x)^3
+\]
+
+这和 3.1 Chain Rule 重复非常大。
+
+3.5 的重点应该不再是：
+
+> “什么叫 outer layer？”
+
+而应该升级成：
+
+> **面对陌生 derivative problem，我应该走哪条路线？**
+
+所以 Zoom Layers 可以明显缩短，把空间留给 mixed procedure classification。
+
+### 3.5 结论
+
+**这是 Unit 3 最值得重新设计的一节。**
+
+不是把 visual 做更多，而是把 scope 从：
+
+> expression parser
+
+提升到：
+
+> derivative procedure router。
+

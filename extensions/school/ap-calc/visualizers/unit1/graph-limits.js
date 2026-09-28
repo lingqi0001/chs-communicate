@@ -1,4 +1,4 @@
-/* 1.3 Graph Limit Reader — trace toward x=a from both sides; the point
+/* 1.3 Graph Limit Reader - trace toward x=a from both sides; the point
    value is secondary. Modes: finite, hole, jump, unbounded, oscillating. */
 
 const CASES = {
@@ -11,42 +11,48 @@ const CASES = {
     },
     hole: {
         label: 'hole, dot elsewhere', a: 2, window: [0, 4.6, -0.5, 7],
+        /* One continuous curve. The open circle at (2, 4) masks the single
+           missing point, so no gap is drawn. */
         curves: [
-            { fn: 'x + 2', from: 0, to: 1.9, color: 'curveA', label: 'f(x)' },
-            { fn: 'x + 2', from: 2.1, to: 4.6, color: 'curveA' }
+            { fn: 'x + 2', label: 'f(x)', color: 'curveA' }
         ],
         extraPoints: [{ x: 2, y: 4, open: true, color: 'auxInk', label: 'hole' }, { x: 2, y: 1, label: 'f(2)', color: 'ink' }],
         estL: (env) => env.xL + 2, estR: (env) => env.xR + 2
     },
     jump: {
         label: 'jump', a: 2, window: [0, 3.3, -1.4, 6.4], xRmax: 3.1,
+        /* Two different expressions. The renderer emits two paths, so we keep
+           the two curves and only shrink the visual gap to sub-pixel. */
         curves: [
-            { fn: 'x - 1', from: 0, to: 1.95, color: 'curveA', label: 'left' },
-            { fn: '2x', from: 2.05, to: 3.1, color: 'curveA', label: 'right' }
+            { fn: 'x - 1', from: 0, to: 1.999, color: 'curveA', label: 'left' },
+            { fn: '2x', from: 2.001, to: 3.1, color: 'curveA', label: 'right' }
         ],
         extraPoints: [{ x: 2, y: 1, open: true, color: 'auxInk' }, { x: 2, y: 4, open: true, color: 'auxInk' }, { x: 2, y: 4, label: 'f(2)', color: 'ink' }],
         estL: (env) => env.xL - 1, estR: (env) => 2 * env.xR
     },
     unbounded: {
-        label: 'unbounded (infinite)', a: 0, window: [-2.5, 2.5, -1, 10],
-        curves: [{ fn: '1/x^2 + 0', label: 'f(x) = 1/x²', color: 'curveA' }],
+        label: 'unbounded', a: 0, window: [-2.5, 2.5, -1, 10], capY: 9.6,
+        curves: [{ fn: '1/x^2 + 0', label: 'f(x) = 1/x²', labelAt: 2.15, color: 'curveA' }],
         extraPoints: [],
         estL: (env) => 1 / env.xL ** 2, estR: (env) => 1 / env.xR ** 2
     },
     osc: {
         label: 'oscillating (no limit)', a: 0, window: [-1, 1, -1.8, 1.8],
-        curves: [{ fn: 'sin(1/x)', samples: 2400, label: 'f(x) = sin(1/x)', color: 'curveA' }],
+        curves: [{ fn: 'sin(1/x)', samples: 2400, label: 'f(x) = sin(1/x)', labelAt: 0.85, color: 'curveA' }],
         extraPoints: [],
         estL: (env) => Math.sin(1 / env.xL), estR: (env) => Math.sin(1 / env.xR)
     },
     /* TRANSFER: a fresh graph and deliberately NO draggable probes, so the
        reading has to happen in the student's head. estL/estR stay defined so
-       the trace readout cannot crash if a reveal is already on. */
+       the trace readout cannot crash if it is already switched on. */
     transfer: {
         label: 'estimate with no probes', a: 1, window: [0, 2.6, 0, 4.8], noProbes: true,
+        /* Two different expressions meet at the open circle. Separate paths
+           cannot be joined by the renderer, so keep the two curves and shrink
+           the notch to sub-pixel width. The open circle masks the meeting point. */
         curves: [
-            { fn: '1.5 + 0.5x', from: 0, to: 0.95, color: 'curveA' },
-            { fn: '3 − x', from: 1.05, to: 2.6, color: 'curveA' }
+            { fn: '1.5 + 0.5x', from: 0, to: 0.999, color: 'curveA' },
+            { fn: '3 − x', from: 1.001, to: 2.6, color: 'curveA' }
         ],
         extraPoints: [
             { x: 1, y: 2, open: true, color: 'auxInk', label: 'open circle' },
@@ -59,7 +65,7 @@ const CASES = {
 export default {
     id: 'u1-graph-limits',
     meta: { unit: 1, topic: '1.3', title: 'Estimating Limit Values from Graphs', visualizerTitle: 'Graph Limit Reader' },
-    intro: 'Trace the graph toward x = a from both sides before you look at the point value. Estimate the limit first. The numbers appear only when you reveal them.',
+    intro: 'Trace the graph toward x = a from both sides before you look at the point value. Estimate the limit first. The number readout is switched off at the start, so trust your eyes, then press Next to turn it on.',
     params: { kase: 'finite', xL: 0.2, xR: 3.8, reveal: 0, hide: 0 },
     controls: [
         {
@@ -84,15 +90,19 @@ export default {
             {
                 kind: 'graph', title: 'y = f(x)', height: 360,
                 window: (env) => CASES[env.kase].window,
-                vlines: (env) => [{ x: CASES[env.kase].a, color: 'aux', label: 'target x' }],
+                vlines: (env) => { const c = CASES[env.kase]; return [{ x: c.a, color: 'aux', label: 'target x = ' + c.a }]; },
                 curves: (env) => CASES[env.kase].curves,
                 points: (env) => {
                     const c = CASES[env.kase];
                     const out = [];
                     if (!c.noProbes) {
                         const span = probeSpan(c);
-                        out.push({ x: env.xL, y: c.estL(env), label: 'L', color: 'up', drag: { key: 'xL', min: span[0][0], max: span[0][1] } });
-                        out.push({ x: env.xR, y: c.estR(env), label: 'R', color: 'down', drag: { key: 'xR', min: span[1][0], max: span[1][1] } });
+                        /* an unbounded case drives the probes past the top of the
+                           frame; pin the dots to the canvas edge so students can
+                           still grab them, the readout keeps the true values */
+                        const py = v => c.capY !== undefined ? Math.min(v, c.capY) : v;
+                        out.push({ x: env.xL, y: py(c.estL(env)), label: 'L', color: 'up', drag: { key: 'xL', min: span[0][0], max: span[0][1] } });
+                        out.push({ x: env.xR, y: py(c.estR(env)), label: 'R', color: 'down', drag: { key: 'xR', min: span[1][0], max: span[1][1] } });
                     }
                     if (!env.hide) (c.extraPoints || []).forEach(p => out.push(p));
                     return out;
@@ -156,7 +166,7 @@ export default {
         ]
     },
     steps: [
-        { params: { kase: 'finite', reveal: 0 }, message: 'Drag the probe L and the probe R toward the target line. Do that from both sides before you reveal any numbers.' },
+        { params: { kase: 'finite', reveal: 0 }, message: 'Drag the probe L and the probe R toward the target line. Do that from both sides before any numbers appear on screen.' },
         {
             params: { reveal: 1 },
             message: 'The readout agrees with the graph. Both branches approach height 3, so the limit is 3.'
@@ -167,8 +177,12 @@ export default {
         },
         {
             params: { hide: 1 },
+            message: 'The hole and the point on the line x = 2 are now hidden. The single curve still runs through x = 2 with no marker on it.'
+        },
+        {
+            params: {},
             predict: {
-                q: 'Now every marker on the line x = 2 is hidden. There is no hole and no defined point. What happens to your estimate of lim x→2 f(x)?',
+                q: 'Every marker on the line x = 2 is hidden. There is no hole and no defined point. What happens to your estimate of lim x→2 f(x)?',
                 choices: ['The estimate stays 4, because the two branches still approach 4.', 'The estimate becomes 1, the height of the hidden point.', 'The estimate disappears along with the hidden markers.'], a: 0,
                 why: 'A limit depends on the branches, not on the markers. With both markers hidden the traced heights are unchanged, and both sides still converge on 4.'
             },
@@ -176,21 +190,25 @@ export default {
         },
         {
             params: { kase: 'jump', reveal: 0, hide: 0 },
+            message: 'This is the jump case. Trace the left branch and the right branch, then answer the question below.'
+        },
+        {
+            params: {},
             predict: {
-                q: 'In the jump case the left branch approaches 1 and the right branch approaches 4. What do you expect for the two-sided limit at x = 2?',
+                q: 'On screen the left branch approaches 1 and the right branch approaches 4. What do you expect for the two-sided limit at x = 2?',
                 choices: ['The limit does not exist, because the two sides approach different numbers.', 'The limit is 4, because the filled dot at (2, 4) sits there.', 'The limit is 2.5, the average of the two sides.'], a: 0,
                 why: 'A two-sided limit needs one number that both sides approach. Here the sides approach different numbers, so the two-sided limit does not exist, whatever f(2) says.'
             },
-            message: 'Switch to the jump case. Trace the left branch and the right branch, then choose an answer.'
+            message: 'The two branches settle on different heights, so the two-sided limit at x = 2 does not exist.'
         },
-        { params: { reveal: 1 }, message: 'Each one-sided limit exists on its own. Only the two-sided limit fails.' },
+        { params: { reveal: 1 }, message: 'The readout agrees. Each one-sided limit exists on its own. Only the two-sided limit fails.' },
         {
             params: { kase: 'unbounded', reveal: 1, xL: -0.35, xR: 0.35 },
-            message: 'Both branches grow past every number. We write the limit as +∞ to describe that behavior, and no finite limit exists.'
+            message: 'Both branches rise past the top of the frame as x approaches 0. The two sides do not settle on any finite height, and both grow toward positive infinity. Topic 1.14 is where the infinite limit notation is introduced.'
         },
         {
             params: { kase: 'osc', reveal: 1, xL: -0.05, xR: 0.05 },
-            message: 'The function sin(1/x) keeps swinging between −1 and 1 as x approaches 0. The values stay bounded, but they never settle on one number, so no limit exists.'
+            message: 'The graph of sin(1/x) keeps swinging as x approaches 0. Neither side settles on a finite height, so the two-sided limit does not exist.'
         },
         {
             params: { kase: 'transfer', reveal: 0, hide: 0 },

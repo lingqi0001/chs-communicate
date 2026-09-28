@@ -1,0 +1,259 @@
+---
+
+# 3.6 Higher-Order Derivatives
+
+当前 synchronized graphs 非常适合讲：
+
+\[
+f
+\rightarrow f'
+\rightarrow f''
+\rightarrow f'''
+\]
+
+尤其：
+
+> 下一个 graph 的高度 = 上一个 graph 的 slope
+
+这个 visual 非常好。
+
+Sine cycle、higher derivative may fail to exist，也都值得保留。
+
+但是内容层面还有明显缺口。
+
+---
+
+# 最大问题：缺 College Board 明确要求的 notation
+
+College Board 3.6 明确写了学生应认识多种 higher-order notation，包括二阶和 \(n\) 阶 notation。:chatgpt-content-reference{index="3"}
+
+当前基本只有：
+
+```text
+f′
+f″
+f‴
+f⁗
+```
+
+缺：
+
+\[
+y''
+\]
+
+\[
+\frac{d^2y}{dx^2}
+\]
+
+\[
+f^{(n)}(x)
+\]
+
+\[
+\frac{d^ny}{dx^n}
+\]
+
+这个必须补。
+
+### 最好做一个非常小的 notation equivalence card
+
+```text
+second derivative
+
+f″(x)
+y″
+d²y/dx²
+```
+
+然后：
+
+```text
+nth derivative
+
+f⁽ⁿ⁾(x)
+dⁿy/dxⁿ
+```
+
+并专门提醒：
+
+\[
+\frac{d^2y}{dx^2}
+\neq
+\left(\frac{dy}{dx}\right)^2
+\]
+
+这正好和你现在已有：
+
+> f″ ≠ (f′)²
+
+连接起来。
+
+---
+
+# 第二个问题：Topic 名叫 Calculating Higher-Order Derivatives，但现在太偏 graph
+
+现在主要是：
+
+```text
+look at graph
+→ reveal next graph
+→ interpret heights
+```
+
+但学生真正考试时会遇到：
+
+> 给一个函数，求 \(f''\)、\(f'''\)。
+
+当前 polynomial：
+
+\[
+x^3-3x
+\]
+
+太容易。
+
+Sine 也只是 pattern。
+
+应该至少增加一个真正要求 **重新使用 derivative rules** 的 symbolic example。
+
+例如：
+
+\[
+f(x)=e^{x^2}
+\]
+
+第一阶：
+
+\[
+f'=2xe^{x^2}
+\]
+
+第二阶不能只是“再抄 rule”：
+
+\[
+f''
+=
+2e^{x^2}
++
+4x^2e^{x^2}
+\]
+
+这里学生必须意识到：
+
+> 求第二阶导数时，\(f'\) 是一个全新的 function，继续使用 product + chain。
+
+这个非常重要。
+
+可以只做一个 side practice，不需要再做一套 graph。
+
+---
+
+# 第三个问题：readout 提前显示没 reveal 的 derivative
+
+虽然 graph 一层层出来，但 side readout 一开始就已经计算：
+
+```text
+slope of f′ = f″ value
+```
+
+所以 visual 的 progressive disclosure 并不完整。
+
+如果：
+
+```text
+depth = 1
+```
+
+那 side panel 就只显示：
+
+```text
+f
+slope of f = f′
+```
+
+depth 2 再出现：
+
+```text
+slope of f′ = f″
+```
+
+否则视觉上说“下一层还没出现”，旁边数字已经告诉了。
+
+---
+
+# 第四个问题：不同 graph 使用不同 y scales，但没有提醒学生
+
+例如：
+
+```text
+f
+f′
+f″
+```
+
+每一张 graph 的 vertical range 不一样。
+
+这是合理的，否则很多曲线看不清。
+
+但是学生会很容易把：
+
+> apparent visual steepness / height
+
+直接跨 panel 比较。
+
+应该在 graph stack 顶部写一句：
+
+> Each row has its own vertical scale. Compare values at the shared x-probe, not apparent height across panels.
+
+这是一个很重要的 visualization literacy 提示。
+
+---
+
+# Concavity 又有一点提前
+
+现在直接写：
+
+> \(f''>0\) → graph bends upward  
+> \(f''<0\) → graph bends downward
+
+而 Unit 5 才正式系统讲 concavity。
+
+这里其实只需要：
+
+\[
+f''>0
+\Rightarrow
+f'\text{ is increasing}
+\]
+
+\[
+f''<0
+\Rightarrow
+f'\text{ is decreasing}
+\]
+
+然后一句：
+
+> Unit 5 gives this bending behavior the name concavity.
+
+这样 Unit 3 的 scope 更干净。
+
+---
+
+# Motion mode 可以保留，但优先级应该低于 notation
+
+当前：
+
+```text
+s → v → a → s‴
+```
+
+作为 transfer 很好。
+
+但如果页面已经很长，我宁愿首先保证：
+
+> notation + actual higher-order calculation
+
+而不是继续扩展 physics naming。
+

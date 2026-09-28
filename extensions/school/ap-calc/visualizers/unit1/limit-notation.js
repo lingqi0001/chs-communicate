@@ -1,4 +1,4 @@
-/* 1.2 Limit Target Explorer — a limit is nearby behavior, f(a) is the
+/* 1.2 Limit Target Explorer - a limit is nearby behavior, f(a) is the
    point value; the two can disagree or exist without each other. */
 
 const T = 'transfer';
@@ -16,7 +16,7 @@ const WINDOWS = {
 export default {
     id: 'u1-limit-notation',
     meta: { unit: 1, topic: '1.2', title: 'Defining Limits and Using Limit Notation', visualizerTitle: 'Limit Target Explorer' },
-    intro: 'Drag the two probes toward x = 2 and read the live notation. The limit asks where the outputs are heading.',
+    intro: 'Drag the two probes toward x = 2 and read the live notation. A probe line reports one sample at one x. A limit line states where that side is heading.',
     params: { kase: 'hole', k: 7, xL: 0.7, xR: 3.3, shown: 1 },
     controls: [
         {
@@ -43,8 +43,10 @@ export default {
                         { fn: 'x+3', from: 2, to: 4.6, label: 'right branch', color: 'curveA' }
                     ];
                     if (env.kase === T) return [
-                        { fn: '-1 + 1.1(2 − x)', from: 0.6, to: 2, color: 'curveA' },
-                        { fn: '-1 + 1.0(x − 2)', from: 2, to: 3.8, color: 'curveA' }
+                        /* arms span the full frame so the draggable probes
+                           always sit on drawn curve, never on blank space */
+                        { fn: '-1 + 1.1(2 − x)', from: 0, to: 2, color: 'curveA' },
+                        { fn: '-1 + 1.0(x − 2)', from: 2, to: 4.6, color: 'curveA' }
                     ];
                     return [{ fn: 'x+2', label: 'curve near x = 2', color: 'curveA' }];
                 },
@@ -93,9 +95,8 @@ export default {
             {
                 kind: 'eq', title: 'Live notation',
                 lines: (env) => {
-                    const all = notationLines(env);
-                    const n = Math.round(env.shown);
-                    return all.slice(0, n).map((l, i) => i === n - 1 ? Object.assign({}, l, { hl: true }) : l);
+                    const all = notationLines(env, env.shown);
+                    return all.map((l, i) => i === all.length - 1 ? Object.assign({}, l, { hl: true }) : l);
                 }
             },
             {
@@ -111,15 +112,15 @@ export default {
         hole: [
             {
                 params: { shown: 1, xL: 0.7 },
-                message: 'Line 1 is the left side. The left probe moves toward x = 2, and its height settles on 4. This line never asks what happens at x = 2.'
+                message: 'Line 1 is the left probe, a sample at one x at a time. Line 2 is the left-sided limit, and it reads 4. Neither line asks what happens at x = 2.'
             },
             {
                 params: { shown: 2, xR: 3.3 },
-                message: 'Line 2 is the right side. It asks the same question from the other direction, and this height also settles on 4.'
+                message: 'Lines 3 and 4 do the same from the other direction. The probe line samples one x, and the limit line reads 4.'
             },
             {
                 params: { shown: 3 },
-                message: 'Line 3 is the verdict. Both sides aim at one number, so the two-sided limit exists and equals 4. The tag on that line gives the reason: the sides agree.'
+                message: 'Line 5 is the verdict. Both one-sided limit lines aim at 4, so the two-sided limit exists and equals 4. The tag on that line gives the reason: the sides agree.'
             },
             {
                 params: { shown: 4, k: 7 },
@@ -128,48 +129,48 @@ export default {
                     choices: ['The limit stays 4.', 'The limit becomes 7.', 'The limit does not exist.'], a: 0,
                     why: 'The limit reads only the nearby heights. Changing the value at x = 2 changes nothing near x = 2.'
                 },
-                message: 'Line 4 states a different kind of fact: the value stored at the point. Drag the f(2) slider and watch that value change.'
+                message: 'Line 6 states a different kind of fact: the value stored at the point. Drag the f(2) slider and watch that value move while lines 2, 4 and 5 stay at 4.'
             },
             {
                 params: { k: 4 },
-                message: 'When the value at the point equals the limit, lines 3 and 4 agree. That case is continuity at a point, covered in topic 1.11.'
+                message: 'When the value at the point equals the limit, lines 5 and 6 agree. That case is continuity at a point, covered in topic 1.11.'
             }
         ],
         novalue: [
             {
                 params: { shown: 1, xL: 0.7 },
-                message: 'Line 1 traces the left side. The height climbs toward 4, the same as in the hole case.'
+                message: 'Line 1 samples the left side, one x at a time, and its height climbs toward 4. Line 2 is the left-sided limit, and it reads 4, the same as in the hole case.'
             },
             {
                 params: { shown: 2, xR: 3.3 },
-                message: 'Line 2 traces the right side, and that height settles on 4 too.'
+                message: 'Line 3 samples the right side, and line 4 is the right-sided limit. That limit settles on 4 too.'
             },
             {
                 params: { shown: 3 },
-                message: 'Line 3 is the verdict: the sides share one aim, so the two-sided limit is 4. The two traces alone are enough to reach that verdict.'
+                message: 'Line 5 is the verdict: the two limit lines share one aim, so the two-sided limit is 4. The two limit lines alone are enough to reach that verdict.'
             },
             {
                 params: { shown: 4 },
                 predict: {
-                    q: 'Line 4 now says f(2) is not defined, because only an open circle sits on the line x = 2. What is the limit now?',
+                    q: 'Line 6 now says f(2) is not defined, because only an open circle sits on the line x = 2. What is the limit now?',
                     choices: ['The limit stays 4.', 'The limit stops existing.', 'The limit cannot exist without f(2).'], a: 0,
-                    why: 'A limit reads the nearby heights. Nothing is stored at x = 2 here, yet the two traces still share one destination. Nearby behavior does not need a value at the target.'
+                    why: 'A limit reads the nearby heights. Nothing is stored at x = 2 here, yet the two limit lines still share one destination. Nearby behavior does not need a value at the target.'
                 },
-                message: 'This is the case the definition allows: no value at all at x = 2. Drag both probes toward 2 and watch line 3 keep its result while line 4 says f(2) is not defined.'
+                message: 'This is the case the definition allows: no value at all at x = 2. Drag both probes toward 2 and watch line 5 keep its result while line 6 says f(2) is not defined.'
             },
             {
                 params: {},
-                message: 'Switch back to the hole case: the value exists there, but it sits at the wrong height. Both graphs have limit 4, because both traces aim at 4. A jump, not a hole, is what removes a two-sided limit.'
+                message: 'Switch back to the hole case: the value exists there, but it sits at the wrong height. Both graphs have limit 4, because both limit lines aim at 4. A jump, not a hole, is what removes a two-sided limit.'
             }
         ],
         jump: [
             {
                 params: { shown: 1, xL: 1.2 },
-                message: 'Line 1 reads the left branch. As x approaches 2 from the left, the heights settle on 2.'
+                message: 'Line 1 samples the left branch at one x. As that sample nears 2 the branch heights settle on 2, and line 2 records that fact as the left-sided limit.'
             },
             {
                 params: { shown: 2, xR: 3.2 },
-                message: 'Line 2 reads the right branch. From the right, the heights settle on 5 instead of 2.'
+                message: 'Line 3 samples the right branch, and line 4 is the right-sided limit. From the right the heights settle on 5 instead of 2.'
             },
             {
                 params: { shown: 3 },
@@ -178,39 +179,39 @@ export default {
                     choices: ['The limit does not exist.', 'The limit is 3.5, the average of 2 and 5.', 'The limit is 5, the height of the filled dot.'], a: 0,
                     why: 'A two-sided limit needs one shared target value. Averaging two different targets does not produce a limit.'
                 },
-                message: 'Line 3 fails, and the tag gives the reason: the sides disagree. Each one-sided limit still exists on its own.'
+                message: 'Line 5 fails, and the tag gives the reason: the sides disagree. The notation writes DNE, short for does not exist. Lines 2 and 4 still stand, so each one-sided limit still exists on its own.'
             },
             {
                 params: { shown: 4 },
-                message: 'Line 4 still reports the value f(2) = 5. A filled dot cannot fix the disagreement between the two sides.'
+                message: 'Line 6 still reports the value f(2) = 5. A filled dot cannot fix the disagreement between the two limit lines.'
             }
         ],
         plain: [
             {
                 params: { shown: 1, xL: 1.2 },
-                message: 'Line 1: the left side heads for 4, and the curve has no gap here.'
+                message: 'Line 1 samples the left side at one x. Line 2 is the left-sided limit, and the left side heads for 4. The curve has no gap here.'
             },
             {
                 params: { shown: 2, xR: 2.8 },
-                message: 'Line 2: the right side heads for the same 4.'
+                message: 'Line 3 samples the right side at one x. Line 4 is the right-sided limit, and it heads for the same 4.'
             },
             {
                 params: { shown: 3 },
-                message: 'Line 3: the sides agree, so the limit is 4. This is the ordinary case that direct substitution assumes without checking.'
+                message: 'Line 5: the two limit lines agree, so the limit is 4. This is the ordinary case that direct substitution assumes without checking.'
             },
             {
                 params: { shown: 4 },
-                message: 'Line 4: the value stored at the point is also 4. Here the limit equals f(2), which is exactly what continuity at a point means.'
+                message: 'Line 6: the value stored at the point is also 4. Here the limit equals f(2), which is exactly what continuity at a point means.'
             }
         ],
         transfer: [
             {
                 params: { shown: 1, xL: 1.2 },
-                message: 'This graph has no labels except two markers. Line 1 traces the left arm toward x = 2, and its height keeps falling.'
+                message: 'This graph has no labels except two markers. Line 1 samples the left arm at one x, and line 2 is the left-sided limit. Both arms sink as x nears 2.'
             },
             {
                 params: { shown: 2, xR: 2.8 },
-                message: 'Line 2 traces the right arm. Both arms sink toward the same low height, and the open circle sits at that height.'
+                message: 'Line 3 samples the right arm, and line 4 is the right-sided limit. Both arms fall to the same low height, and the open circle sits at that height.'
             },
             {
                 params: { shown: 3 },
@@ -219,18 +220,18 @@ export default {
                     choices: ['The limit is −1, because both arms approach −1.', 'The limit is 3, because the filled dot gives the value at the point.', 'The limit does not exist, because the curve has a hole at x = 2.'], a: 0,
                     why: 'The limit is the height both arms approach, and the open circle marks that shared height. The filled dot answers the other question, the value f(2).'
                 },
-                message: 'Line 3 is the verdict: the sides agree at −1, so the limit is −1. The curve has no point at that height, and a limit does not need one.'
+                message: 'Line 5 is the verdict: the sides agree at −1, so the limit is −1. The curve has no point at that height, and a limit does not need one.'
             },
             {
                 params: { shown: 4 },
-                message: 'Line 4 reports the stored value f(2) = 3, which is not the limit. Answer the two questions under "Check yourself on one graph" before you reread these four lines.'
+                message: 'Line 6 reports the stored value f(2) = 3, which is not the limit. Answer the two questions under "Check yourself on one graph" before you reread these six lines.'
             }
         ]
     },
     summary: {
         idea: 'A limit describes nearby behavior. The value f(a) describes the point itself. The two can agree, disagree, or exist without each other.',
         mistake: 'The filled dot gets read as the limit. Watch how both arms approach, then read the value at the point separately.',
-        transfer: 'Set case to unlabeled graph. The open circle sits at height −1, and the filled dot sits at height 3. Answer the two questions under "Check yourself on one graph", then read the four notation lines to check yourself.'
+        transfer: 'Set case to unlabeled graph. The open circle sits at height −1, and the filled dot sits at height 3. Answer the two questions under "Check yourself on one graph", then read the six notation lines to check yourself.'
     }
 };
 
@@ -239,20 +240,34 @@ function branch(kase, right) {
     if (kase === T) return (x) => (x <= 2 ? -1 + 1.1 * (2 - x) : -1 + 1 * (x - 2));
     return 'x+2';
 }
-function notationLines(env) {
-    /* the two ≈ lines are live probe heights; the verdict compares where each
-       side is HEADING, not the two heights themselves */
-    const fL = sideVal(env.kase, env.xL), fR = sideVal(env.kase, env.xR, true);
-    const tL = aim(env.kase, false), tR = aim(env.kase, true);
-    const agree = Math.abs(tL - tR) < 1e-9;
-    return [
-        { t: 'lim x→2⁻  f(x) ≈ ' + fL.toFixed(2), color: 'up' },
-        { t: 'lim x→2⁺  f(x) ≈ ' + fR.toFixed(2), color: 'down' },
-        agree
-            ? { t: 'lim x→2  f(x) = ' + trim(tL), rule: 'sides agree' }
-            : { t: 'lim x→2  f(x) = DNE', rule: 'sides disagree', color: 'down' },
-        { t: env.kase === 'novalue' ? 'f(2) is not defined' : 'f(2) = ' + at(env.kase, env.k), rule: 'value at the point' }
-    ];
+function notationLines(env, stage) {
+    /* A probe sits at one x, so its line reports a SAMPLE. The limit lines are
+       separate facts: each names where one side is HEADING, with an equals
+       sign and the settled limit value, never the height of a moving probe. */
+    const shown = Math.max(1, Math.min(4, Math.round(stage)));
+    const side = (right) => {
+        const x = right ? env.xR : env.xL;
+        const y = sideVal(env.kase, x, right);
+        return { t: (right ? 'right probe' : 'left probe') + ': x = ' + trim(x) + ', f(x) = ' + trim(y), color: right ? 'down' : 'up', rule: 'a sample at this x' };
+    };
+    const oneSided = (right) => ({
+        t: 'lim x→2' + (right ? '⁺  ' : '⁻  ') + 'f(x) = ' + trim(aim(env.kase, right)),
+        color: right ? 'down' : 'up',
+        rule: 'one-sided limit'
+    });
+    const lines = [];
+    if (shown >= 1) lines.push(side(false), oneSided(false));
+    if (shown >= 2) lines.push(side(true), oneSided(true));
+    if (shown >= 3) {
+        const agree = Math.abs(aim(env.kase, false) - aim(env.kase, true)) < 1e-9;
+        lines.push(agree
+            ? { t: 'lim x→2  f(x) = ' + trim(aim(env.kase, false)), rule: 'sides agree' }
+            : { t: 'lim x→2  f(x) = DNE', rule: 'sides disagree' });
+    }
+    if (shown >= 4) {
+        lines.push({ t: env.kase === 'novalue' ? 'f(2) is not defined' : 'f(2) = ' + at(env.kase, env.k), rule: 'value at the point' });
+    }
+    return lines;
 }
 function aim(kase, right) {
     if (kase === 'jump') return right ? 5 : 2;

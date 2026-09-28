@@ -1,4 +1,4 @@
-/* 1.6 Algebraic Limit Repair — an equivalent expression can share the limit
+/* 1.6 Algebraic Limit Repair - an equivalent expression can share the limit
    even when the original formula is undefined at the target. */
 
 const FACTOR = {
@@ -62,15 +62,15 @@ export default {
                 kind: 'graph', title: 'Original curve and repaired curve', height: 300,
                 window: env => env.stage < 4 ? [0, 4.4, -1, 8] : env.stage < 8 ? [1.2, 6.6, -0.2, 1.2] : [-3.4, 5.4, -1.5, 7],
                 curves: env => env.stage < 4 ? [
-                    { fn: FACTOR.fOrig, label: 'original', color: 'curveA', samples: 300 },
-                    { fn: FACTOR.fSimp, label: 'repaired: x + 2', color: 'curveB', dashed: true }
-                ] : env.stage < 8 ? [
-                    { fn: CONJ.fOrig, label: 'original', color: 'curveA', samples: 300 },
-                    { fn: CONJ.fSimp, label: 'repaired', color: 'curveB', dashed: true }
-                ] : [
-                    { fn: (x) => (x * x + 2) / (x + 2), label: 'correct: (x²+2)/(x+2)', color: 'curveA', samples: 300 },
-                    { fn: 'x', label: 'wrong: x', color: 'down', dashed: true }
-                ],
+                    { fn: FACTOR.fOrig, label: 'original', color: 'curveA', samples: 300 }
+                ].concat(env.stage >= 3 ? [{ fn: FACTOR.fSimp, label: 'repaired: x + 2', color: 'curveB', dashed: true }] : [])
+                    : env.stage < 8 ? [
+                        { fn: CONJ.fOrig, label: 'original', color: 'curveA', samples: 300 }
+                    ].concat(env.stage >= 6 ? [{ fn: CONJ.fSimp, label: 'repaired', color: 'curveB', dashed: true }] : [])
+                        : [
+                            { fn: (x) => (x * x + 2) / (x + 2), label: 'correct: (x²+2)/(x+2)', color: 'curveA', samples: 300 },
+                            { fn: 'x', label: 'wrong: x', color: 'down', dashed: true }
+                        ],
                 points: env => env.stage < 4 ? [{ x: 2, y: 4, open: true, color: 'auxInk', label: 'hole (2, 4)' }]
                     : env.stage < 8 ? [{ x: 4, y: 1 / 6, open: true, color: 'auxInk', label: 'hole' }]
                         : [{ x: 3, y: 11 / 5, color: 'up', label: 'correct 11/5 = 2.2' }, { x: 3, y: 3, open: true, color: 'down', label: 'wrong value 3' }],
@@ -82,26 +82,28 @@ export default {
                 items: env => {
                     const c = env.stage < 4 ? FACTOR : CONJ;
                     const at = env.stage < 4 ? 2 : 4;
+                    const repairedVisible = env.stage < 4 ? env.stage >= 3 : env.stage >= 6;
                     const x = at + 0.013;
-                    return [
+                    const rows = [
                         { label: 'x', v: x },
-                        { label: 'original', v: c.fOrig(x), color: 'accent' },
-                        { label: 'repaired', v: c.fSimp(x), color: 'aux' },
-                        { label: 'original at exactly x = ' + at, v: () => 'no value', color: 'down' }
+                        { label: 'original', v: c.fOrig(x), color: 'accent' }
                     ];
+                    if (repairedVisible) rows.push({ label: 'repaired', v: c.fSimp(x), color: 'aux' });
+                    rows.push({ label: 'original at exactly x = ' + at, v: () => 'no value', color: 'down' });
+                    return rows;
                 }
             }
         ]
     },
     steps: [
         { params: { stage: 0 }, message: 'Case 1 uses factoring. Try direct substitution first, before any algebra trick.' },
-        { params: { stage: 1 }, message: 'The numerator and the denominator are both 0 at x = 2. A shared factor is hiding there.' },
+        { params: { stage: 1 }, message: 'The numerator and the denominator are both 0 at x = 2. The form 0/0 is indeterminate, so it does not fix the limit on its own. More work is needed, and factoring can reveal a common factor here.' },
         {
             params: { stage: 2 },
             predict: {
                 q: 'Direct substitution produced the form 0/0. What does the form 0/0 tell you?',
                 choices: ['The form 0/0 is indeterminate, so more work is needed.', 'The form 0/0 means the limit is 0.', 'The form 0/0 means the limit does not exist.'], a: 0,
-                why: 'The form 0/0 says the formula hides a shared factor. Factor x² − 4 as (x − 2)(x + 2) to expose that factor.'
+                why: 'The form 0/0 is indeterminate, so it decides nothing on its own. More work is needed. In this polynomial example, factoring can reveal a common factor such as (x − 2). Factor x² − 4 as (x − 2)(x + 2) to expose it.'
             },
             message: 'The numerator and the denominator both contain the factor (x − 2). That shared factor is why direct substitution gave 0/0.'
         },
@@ -122,7 +124,7 @@ export default {
         { params: { stage: 9 }, message: 'Canceling the 2s invents a new function that fails to agree with the original near x = 3. Only a common factor may be canceled, and only because x never equals the target.' }
     ],
     summary: {
-        idea: 'Algebraic manipulation reveals the behavior near the target. Equivalent expressions share one limit, even when the original formula has no value at the target.',
+        idea: 'Algebraic rewriting shows what an expression does near the target. Equivalent expressions share one limit, even when the original formula has no value at the target.',
         mistake: 'Students cancel terms instead of factors. The expression (x² + 2)/(x + 2) does not become x, because its numerator is a sum and not a product.',
         transfer: 'The transfer panel appears at the end of the lesson. For lim x→3 (x² − 9)/(x − 3), choose the first step and the value the expression approaches.'
     }
@@ -134,7 +136,11 @@ function factorLines(stage) {
     ];
     if (stage >= 1) L.push({ t: 'Substitute x = 2: (4 − 4)/(2 − 2) = 0/0', rule: 'indeterminate form', hl: stage === 1 });
     if (stage >= 2) L.push({ t: 'Factor: (x − 2)(x + 2) / (x − 2)', rule: 'difference of squares', hl: stage === 2 });
-    if (stage >= 3) L.push({ t: 'When x ≠ 2 this equals x + 2', rule: 'cancel the shared factor', hl: stage === 3 });
+    if (stage >= 3) {
+        L.push({ t: 'The numerator has the factor (x − 2)', color: 'up', hl: stage === 3 });
+        L.push({ t: 'The denominator has the same factor (x − 2)', color: 'up', hl: stage === 3 });
+    }
+    if (stage >= 3) L.push({ t: 'When x ≠ 2 this equals x + 2', rule: 'cancel the shared factor (x − 2), not a term', hl: stage === 3 });
     L.push({ t: 'lim = 2 + 2 = 4', hl: false, dim: stage < 3 });
     return L;
 }

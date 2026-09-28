@@ -1,10 +1,9 @@
-/* 4.7 Indeterminate Form Resolver. L'Hospital's Rule is a theorem with an
-   entry condition: the quotient must really be 0/0 or ∞/∞ at the point.
-   Drag x toward the point, watch f and g collapse together, and the
-   checklist reports the form. */
-
-const ZERO = 0.06;
-const HUGE = 4;
+/* 4.7 Indeterminate Form Resolver. L’Hospital’s Rule is a theorem with an
+   entry condition: the quotient must really be 0/0 or ∞/∞ as a limit. That
+   form is a statement about the limit, never about whether the two numbers
+   on the screen look big or small right now, so the checklist states the
+   limit fact and the verdict depends on the mode, not on the slider. Drag x
+   to watch the trend. */
 
 const MODES = {
     A: {
@@ -27,11 +26,14 @@ const MODES = {
     },
     C: {
         label: 'x / eˣ  ·  x → +∞', kind: 'inf',
-        f: x => x, g: x => Math.exp(Math.min(x, 6)),
+        f: x => x, g: x => Math.exp(x),
         fLabel: 'x', gLabel: 'eˣ',
-        fp: x => 1, gp: x => Math.exp(Math.min(x, 6)),
+        fp: x => 1, gp: x => Math.exp(x),
         fpStr: '1', gpStr: 'eˣ',
-        c: 9, xFrom: -0.5, xTo: 10, yFrom: -2, yTo: 12,
+        xFrom: -0.5, xTo: 6, yFrom: -2, yTo: 24,
+        /* the quotient graph reads on its own y-window: f/g and f′/g′ both
+           stay inside [-1, 3] while eˣ in the scene window climbs to 24 */
+        qFrom: -1, qTo: 3,
         answer: 0
     },
     D: {
@@ -41,6 +43,8 @@ const MODES = {
         fp: x => 0, gp: x => 1,
         fpStr: '0', gpStr: '1',
         c: 0, xFrom: -3, xTo: 3, yFrom: -7, yTo: 7,
+        /* f is the constant 5, so the numerator never approaches 0 here */
+        numReachesZero: false,
         answer: null
     }
 };
@@ -54,6 +58,9 @@ function modeDef(key) {
         if (Math.abs(gv) < 1e-9) return NaN;
         return (gv * m.fp(x) - m.f(x) * m.gp(x)) / (gv * gv);
     };
+    /* the scene window can be tall enough to show exponential growth, so the
+       quotient graph reads on its own shorter y-window */
+    const qWindow = [m.xFrom, m.xTo, m.qFrom === undefined ? m.yFrom : m.qFrom, m.qTo === undefined ? m.yTo : m.qTo];
 
     return {
         label: m.label,
@@ -61,17 +68,11 @@ function modeDef(key) {
         compute: (env) => {
             const x = Math.min(Math.max(env.x, m.xFrom), m.xTo);
             const fx = m.f(x), gx = m.g(x);
-            const atPoint = Math.abs(x - m.c) < (m.kind === 'inf' ? 0.8 : 0.12);
-            const numZero = Math.abs(fx) < ZERO;
-            const denZero = Math.abs(gx) < ZERO;
-            const numHuge = Math.abs(fx) > HUGE;
-            const denHuge = Math.abs(gx) > HUGE;
-            const form = m.kind === 'inf' ? (numHuge && denHuge) : (numZero && denZero);
-            const entry = m.kind === 'inf' ? (numHuge && denHuge && atPoint) : (numZero && denZero && atPoint);
-            return {
-                x, fx, gx, atPoint, numZero, denZero, numHuge, denHuge, form, entry,
-                barW: 0.34, opened: env.gate === true
-            };
+            /* Purely visual: the vertical line darkens when the drag sits on
+               the finite point. No drawn pair of numbers decides the form,
+               because the form is a statement about the limit. */
+            const atPoint = m.kind === 'inf' ? false : Math.abs(x - m.c) < 0.12;
+            return { x, fx, gx, atPoint, barW: 0.34, opened: env.gate === true };
         },
         controls: [
             { key: 'x', label: 'x', min: m.xFrom, max: m.xTo, step: 0.01 }
@@ -80,7 +81,7 @@ function modeDef(key) {
             main: [
                 {
                     kind: 'graph', title: env => m.kind === 'inf'
-                        ? 'Drag x to larger values. Watch f = ' + m.fLabel + ' and g = ' + m.gLabel + '.'
+                        ? 'Drag x to larger values. Watch how f = ' + m.fLabel + ' and g = ' + m.gLabel + ' grow.'
                         : 'Drag x toward x = ' + m.c + '. Watch f = ' + m.fLabel + ' and g = ' + m.gLabel + '.', height: 330,
                     window: [m.xFrom, m.xTo, m.yFrom, m.yTo],
                     curves: (env) => [
@@ -101,31 +102,20 @@ function modeDef(key) {
                         { x: env.x, y: env.gx, color: 'curveB', label: env => 'g = ' + r2(env.gx) },
                         { x: env.x, y: 0, color: 'ink', drag: { key: 'x', min: m.xFrom, max: m.xTo } }
                     ],
-                    notes: env => [
-                        { x: m.xFrom + 0.2, y: m.yTo * 0.9, t: env => env.entry
-                            ? (m.kind === 'inf' ? 'Both grow without bound: the form is ∞/∞.' : 'Both approach 0, so substitution gives the indeterminate form 0/0.')
-                            : env.form
-                                ? (m.kind === 'inf' ? 'The form is ∞/∞, but x has not reached large values.' : 'Both are near 0, but x has not reached ' + m.c + '.')
-                                : (m.kind === 'inf' ? 'Not ∞/∞ yet.' : 'Not 0/0 yet.')
-                        }
-                    ]
+                    notes: [{ x: m.xFrom + 0.2, y: m.yTo * 0.9, t: limitFact(m) }]
                 },
                 {
                     kind: 'checklist', title: 'Does L’Hospital’s Rule apply?',
-                    items: env => m.kind === 'inf' ? [
-                        { t: 'The numerator f grows without bound', state: env.numHuge },
-                        { t: 'The denominator g grows without bound', state: env.denHuge }
-                    ] : [
-                        { t: 'The numerator f approaches 0', state: env.numZero },
-                        { t: 'The denominator g approaches 0', state: env.denZero }
-                    ],
-                    verdict: env => formVerdict(key, m, env),
-                    verdictOk: env => env.entry && m.answer !== null
+                    items: () => formItems(m).concat([
+                        { t: 'f and g are differentiable near the point and g′ is not 0 there. The rule then reads f′/g′ = ' + m.fpStr + ' / ' + m.gpStr, state: 'na' }
+                    ]),
+                    verdict: () => formVerdict(m),
+                    verdictOk: () => m.answer !== null
                 },
                 {
                     kind: 'graph', title: 'The quotient, the ratio of derivatives, and the quotient rule', height: 330,
                     when: env => env.opened,
-                    window: [m.xFrom, m.xTo, m.yFrom, m.yTo],
+                    window: qWindow,
                     curves: (env) => [
                         { fn: x => quotient(x), color: 'curveA', label: 'f/g, the limit we want' },
                         { fn: x => ratio(x), color: 'curveC', label: "f′/g′, the ratio of derivatives (L’Hospital)" },
@@ -133,7 +123,7 @@ function modeDef(key) {
                     ],
                     hlines: (env) => m.answer === null ? [] : [{ y: m.answer, color: 'auxInk', label: 'the limit is ' + r2(m.answer) }],
                     vlines: (env) => m.kind === 'inf' ? [] : [{ x: m.c, color: 'ink' }],
-                    notes: env => [{ x: m.xFrom + 0.2, y: m.yTo * 0.86, t: env => m.answer === null ? 'The three curves disagree because the quotient has no limit here'
+                    notes: env => [{ x: m.xFrom + 0.2, y: qWindow[3] * 0.86, t: env => m.answer === null ? 'The three curves disagree because the quotient has no limit here'
                         : (m.kind === 'inf' ? 'f′/g′ follows the quotient f/g as x grows. ' : 'f′/g′ follows the quotient f/g near x = ' + m.c + '. ')
                           + 'The quotient-rule curve is the derivative of the quotient, a different question.' }]
                 },
@@ -154,15 +144,34 @@ function modeDef(key) {
     };
 }
 
-function formVerdict(key, m, env) {
-    if (key === 'D') return 'Doesn’t apply. f stays at 5 while g approaches 0, so the quotient is never 0/0.';
-    if (env.entry) return 'L’Hospital’s Rule applies. ' + (m.kind === 'inf' ? 'As x grows, f and g both grow without bound: the form is ∞/∞.' : 'At x = ' + m.c + ', f and g both approach 0: the form is 0/0.');
+/* The form is a fact about the limit, so the verdict reads the mode alone.
+   No slider value and no pair of drawn numbers can turn it on or off. */
+function formVerdict(m) {
+    if (m.answer === null) return 'Does not apply. f stays at 5 while g approaches 0, so the quotient is never 0/0 and never ∞/∞, and the rule has no entry here.';
+    return 'L’Hospital’s Rule applies. ' + (m.kind === 'inf'
+        ? 'As x grows without bound, f and g both grow without bound, so the form is ∞/∞.'
+        : 'As x approaches ' + m.c + ', f and g both approach 0, so the form is 0/0.');
+}
+
+/* The limit sentence the scene demonstrates, stated once and independent of
+   where the drag sits. */
+function limitFact(m) {
+    if (m.kind === 'inf') return 'The form is ∞/∞. As x grows without bound, f = ' + m.fLabel + ' and g = ' + m.gLabel + ' both grow without bound.';
+    if (m.numReachesZero === false) return 'The form is neither 0/0 nor ∞/∞. f stays at 5 while g approaches 0.';
+    return 'The form is 0/0. As x approaches ' + m.c + ', f = ' + m.fLabel + ' and g = ' + m.gLabel + ' both approach 0.';
+}
+
+function formItems(m) {
     if (m.kind === 'inf') {
-        if (env.form) return 'Both grow without bound, so this is an ∞/∞ form. But x has not reached large values yet.';
-        return env.numHuge || env.denHuge ? 'Not ∞/∞ yet. Only one of f and g is unbounded so far.' : 'Not ∞/∞ yet. Neither f nor g has grown without bound.';
+        return [
+            { t: 'As x grows without bound, f = ' + m.fLabel + ' grows without bound', state: true },
+            { t: 'As x grows without bound, g = ' + m.gLabel + ' grows without bound', state: true }
+        ];
     }
-    if (env.numZero && env.denZero) return 'Both approach 0, so this is a 0/0 indeterminate form. But x has not reached ' + m.c + '.';
-    return 'Not 0/0 yet. At least one of the two values is still away from 0.';
+    return [
+        { t: 'As x approaches ' + m.c + ', f = ' + m.fLabel + ' approaches 0', state: m.numReachesZero !== false },
+        { t: 'As x approaches ' + m.c + ', g = ' + m.gLabel + ' approaches 0', state: true }
+    ];
 }
 
 function stepsFor(key, m) {
@@ -182,19 +191,19 @@ function stepsFor(key, m) {
         },
         {
             params: { x: 0.06, gate: true },
-            message: 'There it is. Differentiating without checking gives 0, and 0 is wrong. Being a fraction is not a reason to use the rule.'
+            message: 'There is the trap. Differentiating without checking gives f′/g′ = 0/1 = 0, and 0 is wrong. Being a fraction is not a reason to use the rule.'
         }
     ];
     const drag = {
         params: { gate: false },
         message: key === 'C'
-            ? 'Drag x to the right. Watch f = x and g = eˣ grow without bound, and read the checklist as you go.'
-            : 'Drag x toward ' + m.c + '. Watch f and g: the rule applies only when both approach 0 as x approaches ' + m.c + '.'
+            ? 'Drag x to the right. f = x and g = eˣ both grow without bound, and eˣ leaves the top of the window first. That trend is the whole story of the form.'
+            : 'Drag x toward ' + m.c + '. Watch f and g both close in on 0 as x approaches ' + m.c + '. That limit behaviour is what the form 0/0 names.'
     };
     const commit = {
         params: { gate: false },
         message: m.kind === 'inf'
-            ? 'f and g both run off the top of the window together. Read the checklist, then answer.'
+            ? 'f = x and g = eˣ grow without bound as x grows, so the form is ∞/∞. Read the checklist, then answer.'
             : 'f and g both approach 0 as x approaches ' + m.c + '. Read the checklist, then answer.'
     };
     const open = { params: { gate: true }, message: '' };

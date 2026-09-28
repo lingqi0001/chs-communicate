@@ -7,21 +7,21 @@ const MODES = {
         label: 'f(x) = √x at a = 4',
         f: x => Math.sqrt(x), df: x => 1 / (2 * Math.sqrt(x)),
         a: 4, x0: 4.1, q0: 6.4, window: [0, 9, 0, 3.4],
-        concave: 'down', name: '√x'
+        name: '√x'
     },
     ln: {
         label: 'f(x) = ln x at a = 1',
         f: x => Math.log(x), df: x => 1 / x,
         a: 1, x0: 1.05, q0: 2.4, window: [0, 3, -1.2, 2],
-        concave: 'down', name: 'ln x',
+        name: 'ln x',
         intro: 'f(x) = ln x, with the tangent point at a = 1. Here ln 1 = 0 and the slope is 1, so the tangent line is easy to write down.'
     },
     cube: {
-        label: 'f(x) = x³ at a = 2 (concave up)',
+        label: 'f(x) = x³ at a = 2',
         f: x => x * x * x, df: x => 3 * x * x,
         a: 2, x0: 2.2, q0: 2.9, window: [0, 3.4, -1, 27],
-        concave: 'up', name: 'x³',
-        intro: 'f(x) = x³, with the tangent point at a = 2. This tab is the control case, because the curve bends upward where √x and ln x bend downward.'
+        name: 'x³',
+        intro: 'f(x) = x³, with the tangent point at a = 2. This tab is another curve to fit with one line, so the same checks apply: match the value at a, match the slope at a, then watch how the error changes with distance.'
     }
 };
 
@@ -120,14 +120,22 @@ function modeDef(key) {
                         { t: 'L(x) = f(a) + f′(a)(x − a)' },
                         { t: 'L(x) = ' + r3(env.fa) + ' + ' + r3(env.slopeT) + '(x − ' + m.a + ')', hl: true },
                         { t: 'L matches the value at a:  L(a) = f(a) = ' + r3(env.fa) },
-                        { t: 'L matches the slope at a: L′(a) = f′(a) = ' + r3(env.slopeT) },
-                        { t: 'The graph is concave ' + m.concave + ', so the tangent line sits ' + (m.concave === 'down' ? 'above' : 'below') + ' the curve nearby', color: 'aux' }
+                        { t: 'L matches the slope at a: L′(a) = f′(a) = ' + r3(env.slopeT) }
                     ]
                 }
             ]
         },
         steps: stepsFor(key, m),
         summary: summaries[key]
+    };
+}
+
+/* Concavity is lesson 5.6 in this course, so it never carries a required step
+   here. It appears once per tab, in the optional preview at the end of the flow. */
+function previewStep(params) {
+    return {
+        params,
+        message: 'Optional preview. On some tabs the estimate landed a little high, and on others a little low. Unit 5 explains that in a systematic way using concavity. Treat this as a preview of that lesson, not something to master today.'
     };
 }
 
@@ -155,9 +163,9 @@ function stepsFor(key, m) {
         {
             params: { x: 4.1, w: 0.4, stage: 1 },
             predict: {
-                q: 'The graph of √x is concave down near x = 4, so its slope keeps shrinking. Is the tangent estimate at x = 4.1 above or below the true value of √4.1?',
-                choices: ['Above', 'Below', 'Curvature is not enough to predict it'], a: 0,
-                why: 'A concave-down curve bends down away from its tangent line. So the tangent line sits above the graph near a, and the estimate comes in high by 0.00015.'
+                q: 'The next step narrows the zoom window from a ± 4 down to a ± 0.4 around a = 4. What do the curve and the tangent line do as that window shrinks?',
+                choices: ['They merge into almost one stroke.', 'They pull farther apart.', 'The line disappears and only the curve is left.'], a: 0,
+                why: 'A differentiable curve straightens out when you look closely enough, and the tangent line is that straight piece of it. Narrow the window and the two become hard to tell apart.'
             },
             message: 'The zoom is now a ± 0.4. The curve and the line are almost the same stroke. That is why the estimate works at all.'
         },
@@ -175,52 +183,51 @@ function stepsFor(key, m) {
             },
             message: 'Read the error value. The distance from the tangent point sets the size of the error. That is all the word “local” means.'
         },
-        {
-            params: { x: 4.1, w: 1, stage: 1 },
-            message: 'Keep one limit in mind. The above or below answer only holds while the concavity stays the same between a and the value you want. √x is concave down everywhere, so it is safe here. A general function can change concavity.'
-        }
+        previewStep({ x: 4.1, w: 1, stage: 1 })
     ];
     if (key === 'ln') return [
         {
             params: { x: 1.05, w: 4, stage: 1 },
             predict: {
-                q: 'The graph of ln x is concave down near a = 1. Is the tangent approximation of ln(1.05) above or below the true value?',
-                choices: ['Above', 'Below', 'Equal'], a: 0,
-                why: 'The curvature argument is the same as for √x. L(1.05) = 0.05 while ln(1.05) ≈ 0.04879, so the estimate is high by about 0.00121. You predicted the sign of an error from concavity alone.'
+                q: 'The panel shows L(1.05) = 0.05 against ln(1.05) ≈ 0.04879, a gap of about 0.00121. Now drag x away from a = 1 toward 2. What happens to the size of that gap?',
+                choices: ['It grows.', 'It shrinks toward 0.', 'It stays about 0.001.'], a: 0,
+                why: 'L matches the value and the slope only at a = 1. Away from a the line no longer has to follow the curve, so the gap widens. The panel reads the error as a signed number, so watch its size. At x = 2 the gap is about 0.307, roughly 250 times the gap at x = 1.05.'
             },
-            message: 'Check the numbers after you answer. Now drag x toward 2. The estimate gets worse as x leaves the tangent point.'
+            message: 'Read the error at x = 1.05 while you are there. Then drag x toward 2. The estimate gets worse as x leaves the tangent point.'
         },
-        ...whyTangent.map(s => Object.assign({}, s, { params: Object.assign({}, s.params, { x: 1.05, w: 0.3 }) }))
+        ...whyTangent.map(s => Object.assign({}, s, { params: Object.assign({}, s.params, { x: 1.05, w: 0.3 }) })),
+        previewStep({ x: 1.05, w: 0.3, stage: 1 })
     ];
     return [
         {
             params: { x: 2.2, w: 4, stage: 1 },
             predict: {
-                q: 'The graph of x³ is concave up for x > 0, and the tangent point is a = 2. Does the tangent line sit above or below the graph?',
-                choices: ['The line sits below the graph, so the estimate is low', 'The line sits above the graph, so the estimate is high', 'The line sits on the graph at every point'], a: 0,
-                why: 'A concave-up graph bends up away from its tangent line. L(2.2) = 8 + 12(0.2) = 10.4, while 2.2³ = 10.648, so the estimate is low. The answer flips when the concavity flips.'
+                q: 'The panel reads L(2.2) = 10.4 against 2.2³ = 10.648, so the error is about −0.248. Now drag x away from a = 2, out toward 3. What happens to the size of that error?',
+                choices: ['It grows.', 'It shrinks toward 0.', 'It stays near 0.248.'], a: 0,
+                why: 'L matches the value and the slope only at a = 2. Away from a the line no longer has to follow the curve, so the size of the gap widens. The panel prints a signed number, so read its size rather than its direction. Drag x back to 2.01 and the gap all but disappears.'
             },
-            message: 'Everything here is the same as in the other tabs except the direction of the curvature.'
+            message: 'Check the error right beside a = 2, then check it a little way off. The distance from the tangent point is what sets how far you can trust this line.'
         },
-        ...whyTangent.map(s => Object.assign({}, s, { params: Object.assign({}, s.params, { x: 2.2, w: 0.4 }) }))
+        ...whyTangent.map(s => Object.assign({}, s, { params: Object.assign({}, s.params, { x: 2.2, w: 0.4 }) })),
+        previewStep({ x: 2.2, w: 0.4, stage: 1 })
     ];
 }
 
 const summaries = {
     sqrt: {
-        idea: 'A tangent line is a local model of a differentiable function. It works best near the tangent point, and concavity says whether it runs high or low.',
+        idea: 'A tangent line is a local model of a differentiable function. It matches the value and the slope only at a, and zooming in far enough shows why the line works at all.',
         mistake: 'Treating L(x) as a new exact formula for f. Near a the match is excellent. At x = 7 the same line is off by 0.104. No other line through (a, f(a)) works either, because only the tangent matches both position and slope.',
-        transfer: 'Switch to the ln x tab. Predict whether the tangent approximation of ln(1.05) is above or below the true value, then reveal the answer.'
+        transfer: 'Switch to the ln x tab. Read the error at x = 1.05, then drag x out to 1.8 and read it again. Say how the two distances compare.'
     },
     ln: {
-        idea: 'The over or under answer follows the concavity, not the particular function. When the graph is concave down the tangent line is above. When the graph is concave up the tangent line is below.',
+        idea: 'The size of the error follows the distance from a, not the particular function. Close to a the curve and the line are one stroke, and far from a the same line misses by a lot.',
         mistake: 'Using the tangent far from a because the formula looks simple. For ln x at a = 1, L(2) reads 1 while ln 2 ≈ 0.693. Local means local.',
-        transfer: 'Open the third tab, x³ at a = 2, where the graph is concave up. Predict the sign of L(2.2) − f(2.2) before you check.'
+        transfer: 'Open the third tab, x³ at a = 2. Read the error at x = 2.05 and again at x = 3, then compare the two numbers before you look at anything else.'
     },
     cube: {
-        idea: 'Same zoom, opposite curvature. A concave-up graph stays above its tangent line, so linear estimates come in low.',
-        mistake: 'Claiming that tangent estimates are always high. The √x and ln x tabs run high because those graphs are concave down. This tab runs low. Check the concavity before you say above or below.',
-        transfer: 'Pick any function that is concave down near a, estimate one value, and say in one sentence whether your answer is high or low, and why.'
+        idea: 'The same recipe on a new curve: L matches the value and the slope at a = 2, and the error you read in the panel grows with the distance from a.',
+        mistake: 'Trusting a tidy formula just because it is a line. Here L(2.2) = 10.4 while 2.2³ = 10.648, so the estimate is already off by about 0.25 a short step from a. Move farther and the gap keeps widening.',
+        transfer: 'Pick any function and any a. Estimate one value very near a and one a good way off, then compare the two errors you read.'
     }
 };
 

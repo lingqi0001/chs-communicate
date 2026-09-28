@@ -1,0 +1,242 @@
+这次详细看下来，我不会再说 Unit 3 “基本没问题”。**数学主体大多是对的，但教学流程、Reveal 顺序、visual 的数学语义和内容覆盖上还有不少可以明显提升的地方。** 当前 2026–27 College Board 对 Unit 3 的课程内容没有结构变化；其中 3.5 明确要求学生练习选择此前各种求导 procedure，3.6 也明确要求掌握多种高阶导数 notation。:chatgpt-content-reference{index="0"}
+
+我会这样改。
+
+---
+
+# 3.1 Chain Rule Layers
+
+## 最大问题 1：Predict 之前，答案已经在屏幕上
+
+当前初始状态就显示：
+
+\[
+\frac{dy}{dx}
+=
+\frac{dy}{du}\frac{du}{dx}
+\]
+
+而且 side readout 直接叫：
+
+> first rate times second rate
+
+combined graph 的 tangent slope 也直接使用 `product = dux * dyu`。
+
+但后面的 Predict 才问：
+
+> 一个 rate 是 3，一个 rate 是 4，应该相加还是相乘？
+
+这道题实际上已经被整个 visualizer 回答了。
+
+### 应该改成
+
+最开始：
+
+```text
+x → u
+
+du/dx = ...
+```
+
+然后：
+
+```text
+u → y
+
+dy/du = ...
+```
+
+此时**不要出现**
+
+\[
+dy/dx=(dy/du)(du/dx)
+\]
+
+也不要显示 product readout / product tangent。
+
+然后 Predict：
+
+> x 的一个小变化先经过第一个 layer，再进入第二个 layer。两个 local rates 应该怎样组合？
+
+回答以后才 reveal：
+
+\[
+\boxed{
+\frac{dy}{dx}
+=
+\frac{dy}{du}
+\frac{du}{dx}
+}
+\]
+
+这会让 visualizer 真正“发现 Chain Rule”，而不是“展示 Chain Rule”。
+
+---
+
+# 3.1 最大问题 2：现在把“近似变化”标成了真正的 Δu
+
+这个比 Reveal 更重要。
+
+当前：
+
+```js
+duStep = g'(x0) * Δx
+```
+
+然后图上直接标：
+
+> rise Δu
+
+但真正的有限变化应该是：
+
+\[
+\Delta u
+=
+g(x+\Delta x)-g(x)
+\]
+
+而：
+
+\[
+g'(x)\Delta x
+\]
+
+只是当 \(\Delta x\) 很小时的局部线性近似。
+
+尤其后面课程故意把：
+
+```text
+Δx = 0.18
+```
+
+放大，然后告诉学生 tangent prediction 和 actual curve 开始分开。
+
+于是同一个 visual 里：
+
+> combined graph 承认 finite change ≠ derivative prediction
+
+但是 chain visual 仍然把：
+
+\[
+g'(x)\Delta x
+\]
+
+直接叫做：
+
+\[
+\Delta u
+\]
+
+这会造成概念矛盾。
+
+## 最理想的改法
+
+实际上可以做成一个非常漂亮的 visual。
+
+真的算：
+
+\[
+\Delta u=g(x+\Delta x)-g(x)
+\]
+
+再算：
+
+\[
+\Delta y=h(u+\Delta u)-h(u)
+\]
+
+然后显示：
+
+\[
+\frac{\Delta u}{\Delta x}
+\]
+
+\[
+\frac{\Delta y}{\Delta u}
+\]
+
+\[
+\frac{\Delta y}{\Delta x}
+\]
+
+学生会直接看到一个非常漂亮的恒等关系：
+
+\[
+\frac{\Delta y}{\Delta x}
+=
+\frac{\Delta y}{\Delta u}
+\frac{\Delta u}{\Delta x}
+\]
+
+然后再把 \(\Delta x\) 缩小：
+
+```text
+finite ratios
+↓
+instantaneous rates
+```
+
+最后才变成：
+
+\[
+\frac{dy}{dx}
+=
+\frac{dy}{du}
+\frac{du}{dx}
+\]
+
+**这会比当前版本更强，而且数学完全准确。**
+
+---
+
+## 另外还缺一个三层 Chain
+
+目前全部都是：
+
+```text
+x → u → y
+```
+
+但 Chain Rule 最重要的迁移之一其实是：
+
+```text
+x → u → v → y
+```
+
+例如：
+
+\[
+y=e^{\sin(x^2)}
+\]
+
+可以只做最后一个 transfer，不需要再造复杂主 visual：
+
+```text
+x
+↓ 2x
+x²
+↓ cos(u)
+sin(x²)
+↓ e^v
+e^(sin(x²))
+```
+
+所以：
+
+\[
+y'
+=
+e^{\sin(x^2)}
+\cos(x^2)
+(2x)
+\]
+
+这会真正告诉学生：
+
+> Chain Rule 不是只有“outside × inside”两个东西，而是**沿路径把所有 local rates 相乘**。
+
+### 3.1 结论
+
+**核心 visual idea 很好，但目前 Reveal 和 Δ notation 都需要改。**  
+这是 Unit 3 里值得重点打磨的一节。
+

@@ -1,0 +1,219 @@
+---
+
+# 3.4 Inverse Trigonometric Functions
+
+这里四阶段设计：
+
+```text
+inverse relation
+→ implicit differentiation
+→ triangle / identity
+→ graph confirmation
+```
+
+总体方向是对的。
+
+但 visual 还有一个比较严重的问题。
+
+---
+
+## Phase 3 的 triangle 在负 x 时不准确
+
+代码里为了不让 triangle 翻掉，实际上使用：
+
+\[
+|x|
+\]
+
+去决定边长。
+
+但 label 仍然写：
+
+> opposite: x
+
+或者：
+
+> adjacent: x
+
+这在 \(x<0\) 时不是 literal side length。
+
+特别是 arccos：
+
+\[
+y=\arccos x
+\]
+
+当：
+
+\[
+x<0
+\]
+
+时：
+
+\[
+y\in(\pi/2,\pi)
+\]
+
+也就是 obtuse angle。
+
+你屏幕上画的那个 acute right triangle 实际上已经不是 angle \(y\)，而是 **reference triangle**。
+
+### 最好的处理
+
+不要假装它就是 literal triangle。
+
+标题直接：
+
+> Reference triangle for the trig ratio
+
+边写：
+
+```text
+|x|
+√(1-x²)
+1
+```
+
+然后旁边明确：
+
+> The triangle gives magnitudes. The allowed range of the inverse function determines the sign.
+
+这样：
+
+arcsin range：
+
+\[
+[-\pi/2,\pi/2]
+\]
+
+所以：
+
+\[
+\cos y\ge0
+\]
+
+arccos range：
+
+\[
+[0,\pi]
+\]
+
+所以：
+
+\[
+\sin y\ge0
+\]
+
+这才是为什么：
+
+\[
+\sqrt{1-x^2}
+\]
+
+取 positive root。
+
+这个解释其实非常值得 visualizing。
+
+---
+
+# Arctan 流程现在提前把答案全部讲完了
+
+刚切到 arctan Phase 1 时 message 已经说：
+
+> differentiate tan y = x → sec²y ... identity ... therefore dy/dx = 1/(1+x²)
+
+那 Phase 2、Phase 3 基本变成重复播放。
+
+应该和 arcsin 一致：
+
+### Phase 1
+
+只说：
+
+\[
+y=\arctan x
+\iff
+\tan y=x
+\]
+
+### Phase 2
+
+推出：
+
+\[
+\sec^2y\,dy/dx=1
+\]
+
+### Phase 3
+
+才用：
+
+\[
+\sec^2y=1+\tan^2y=1+x^2
+\]
+
+最后：
+
+\[
+\frac1{1+x^2}
+\]
+
+---
+
+# Final rule 应该把 derivative domain 一起教
+
+这是目前缺的一块。
+
+例如：
+
+\[
+\arcsin x
+\]
+
+本身在：
+
+\[
+[-1,1]
+\]
+
+有定义。
+
+但 derivative：
+
+\[
+\frac1{\sqrt{1-x^2}}
+\]
+
+只在：
+
+\[
+(-1,1)
+\]
+
+有有限值。
+
+同样 arccos。
+
+这个和 2.4 “function domain 可以比 derivative domain 大”是非常好的连接。
+
+建议 final rule card直接：
+
+```text
+arcsin x
+domain of function: [-1,1]
+domain of derivative: (-1,1)
+```
+
+arctan：
+
+```text
+both domains: all real numbers
+```
+
+不用增加新 graph。
+
+### 3.4 结论
+
+数学推导不错，但 **reference triangle/sign/domain** 还应该完善。
+

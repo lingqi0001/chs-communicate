@@ -3,23 +3,32 @@
    rules, never for the full derivative. The tree is the teaching medium: a picked
    rule either lights up a real layer or it does not. */
 
-const RULE = {
-    sum: 'sum or difference',
-    product: 'product',
-    quotient: 'quotient',
-    chain: 'chain',
-    power: 'power',
-    known: 'known function'
+/* The outer function's rule and the composition check are two separate questions.
+   Naming the outer rule never cancels the chain rule, so an expression can use
+   both. The router below asks one question at a time instead of forcing a single
+   choice between Power Rule and Chain Rule. */
+/* A procedure is the problem-level route (for a composite, the Chain Rule). The
+   outer derivative rule is the rule for the outer function only (Power Rule or a
+   known rule). They are different levels, so naming the outer rule never cancels
+   the Chain Rule. compose says whether the input is more complicated than x. */
+const OUTER = {
+    power: 'Power Rule',
+    known: 'The known-function rule (ln, sine, cosine, exponential)'
 };
 
 const EXPR = {
     xsin3: {
         text: '(x sin x)³',
-        valid: ['chain', 'power'],
+        valid: ['chain'],
+        outer: 'power', inner: 'x sin x', compose: true,
         layer: { chain: 'root', power: 'root', product: 'prod', known: 'lsin' },
         plan: ['chain rule on the outer cube', 'product rule on x sin x', 'known rules on x and sin x'],
+        reveal: ['Outer function: the cube, so the Power Rule gives 3(x sin x)².',
+            'Is the input more complicated than just x? Yes. It is the group x sin x, so the Chain Rule multiplies by sin x + x cos x.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the Power Rule.',
+            'dy/dx = 3(x sin x)² · (sin x + x cos x)'],
         tree: () => ({
-            id: 'root', e: '(x sin x)³', rule: 'a product cubed, so chain rule',
+            id: 'root', e: '(x sin x)³', rule: 'a group cubed, so power rule then chain rule',
             children: [{
                 id: 'prod', e: 'x sin x', rule: 'a product of two factors',
                 children: [
@@ -34,6 +43,13 @@ const EXPR = {
         valid: ['product'],
         layer: { product: 'root', power: 'pow', chain: 'chain', known: 'chain' },
         plan: ['product rule on x² · e^(3x)', 'power rule on x²', 'chain rule on e^(3x)', 'constant multiple rule on 3x'],
+        branches: {
+            split: 'Split with the Product Rule',
+            left: { label: 'LEFT FACTOR', e: 'x²', rule: 'Power Rule', value: "f′ = 2x" },
+            right: { label: 'RIGHT FACTOR', e: 'e^(3x)', rule: 'Exponential Rule with the Chain Rule', value: "g′ = 3e^(3x)" },
+            combine: "dy/dx = 2x · e^(3x) + 3x² · e^(3x)",
+            final: 'dy/dx = e^(3x)(2x + 3x²)'
+        },
         tree: () => ({
             id: 'root', e: 'x² · e^(3x)', rule: 'two factors multiplied',
             children: [
@@ -48,8 +64,14 @@ const EXPR = {
     ln1: {
         text: 'ln(1 + x²)',
         valid: ['chain'],
+        outer: 'known', inner: '1 + x²', compose: true,
         layer: { chain: 'root', known: 'root', sum: 'sum', power: 'sq' },
         plan: ['chain rule on the outer ln', 'sum rule on 1 + x²', 'power rule on x²'],
+        reveal: ['Outer function: the natural log, so its rule gives 1 over the group.',
+            'Is the input more complicated than just x? Yes. It is the group 1 + x², so the Chain Rule multiplies by 2x.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the known-function rule.',
+            'dy/dx = 1 / (1 + x²) · 2x',
+            'dy/dx = 2x / (1 + x²)'],
         tree: () => ({
             id: 'root', e: 'ln(1 + x²)', rule: 'ln of a group, so chain rule',
             children: [{
@@ -64,8 +86,13 @@ const EXPR = {
     sincube: {
         text: 'sin(x³ + 2x)',
         valid: ['chain'],
+        outer: 'known', inner: 'x³ + 2x', compose: true,
         layer: { chain: 'root', known: 'root', sum: 'sum', power: 'cube' },
         plan: ['chain rule on the outer sine', 'sum rule on x³ + 2x', 'power rule on x³ and constant multiple rule on 2x'],
+        reveal: ['Outer function: the sine, so its rule gives cosine of the same group.',
+            'Is the input more complicated than just x? Yes. It is the group x³ + 2x, so the Chain Rule multiplies by 3x² + 2.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the known-function rule.',
+            'dy/dx = cos(x³ + 2x) · (3x² + 2)'],
         tree: () => ({
             id: 'root', e: 'sin(x³ + 2x)', rule: 'sine of a group, so chain rule',
             children: [{
@@ -82,6 +109,13 @@ const EXPR = {
         valid: ['quotient'],
         layer: { quotient: 'root', sum: 'num', power: 'sq', known: 'den' },
         plan: ['quotient rule on the fraction', 'sum rule on x² + 1', 'power rule on x²', 'known rule on cos x'],
+        branches: {
+            split: 'Split with the Quotient Rule',
+            left: { label: 'TOP', e: 'x² + 1', rule: 'Power Rule and constant', value: "f′ = 2x" },
+            right: { label: 'BOTTOM', e: 'cos x', rule: 'Known Rule for cosine', value: "g′ = −sin x" },
+            combine: "dy/dx = (2x · cos x − (x² + 1) · (−sin x)) / cos²x",
+            final: 'dy/dx = (2x cos x + (x² + 1) sin x) / cos²x'
+        },
         tree: () => ({
             id: 'root', e: '(x² + 1) / cos x', rule: 'one expression over another',
             children: [
@@ -98,11 +132,18 @@ const EXPR = {
     },
     sqrt1: {
         text: '√(1 + x²)',
-        valid: ['chain', 'power'],
+        valid: ['chain'],
+        outer: 'power', inner: '1 + x²', compose: true,
         layer: { chain: 'root', power: 'sum', sum: 'sum' },
         plan: ['chain rule on the outer square root', 'sum rule on 1 + x²', 'power rule on x²'],
+        reveal: ['Rewrite √(1 + x²) as (1 + x²)^(1/2).',
+            'Outer function: the power ½, so the Power Rule gives ½(1 + x²)^(−1/2).',
+            'Is the input more complicated than just x? Yes. It is the group 1 + x², so the Chain Rule multiplies by 2x.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the Power Rule.',
+            'dy/dx = ½(1 + x²)^(−1/2) · 2x',
+            'dy/dx = x / √(1 + x²)'],
         tree: () => ({
-            id: 'root', e: '√(1 + x²) = (1 + x²)^(1/2)', rule: 'a group to the power ½, so chain rule',
+            id: 'root', e: '√(1 + x²) = (1 + x²)^(1/2)', rule: 'a group to the power ½, so power rule then chain rule',
             children: [{
                 id: 'sum', e: '1 + x²', rule: 'a sum of two terms',
                 children: [
@@ -111,125 +152,288 @@ const EXPR = {
                 ]
             }]
         })
+    },
+    x5: {
+        text: 'x⁵',
+        compose: false,
+        outer: 'power',
+        reveal: ['The variable is the base, so the Power Rule brings 5x⁴ down.',
+            'Is the input more complicated than just x? No. The power sits directly on x.',
+            'So the procedure is just the Power Rule, and the Chain Rule adds no inner factor.',
+            'dy/dx = 5x⁴'],
+        tree: () => ({ id: 'root', e: 'x⁵', rule: 'a power of x, so the Power Rule fits with no inner factor' })
+    },
+    sinx: {
+        text: 'sin x',
+        compose: false,
+        outer: 'known',
+        reveal: ['The outer function is the sine, so its rule gives cosine.',
+            'Is the input more complicated than just x? No. The sine takes x itself.',
+            'So the procedure is just the rule for sine, and the Chain Rule adds no inner factor.',
+            'dy/dx = cos x'],
+        tree: () => ({ id: 'root', e: 'sin x', rule: 'the sine of x, so the known rule fits with no inner factor' })
+    },
+    ex: {
+        text: 'eˣ',
+        compose: false,
+        outer: 'known',
+        reveal: ['The outer function is the exponential, so its rule gives itself again.',
+            'Is the input more complicated than just x? No. The exponent is just x.',
+            'So the procedure is just the rule for the exponential, and the Chain Rule adds no inner factor.',
+            'dy/dx = eˣ'],
+        tree: () => ({ id: 'root', e: 'eˣ', rule: 'the exponential of x, so the known rule fits with no inner factor' })
+    },
+    xpow5: {
+        text: '(x² + 1)⁵',
+        compose: true,
+        outer: 'power',
+        reveal: ['Outer function: the fifth power, so the Power Rule gives 5(x² + 1)⁴.',
+            'Is the input more complicated than just x? Yes. It is the group x² + 1, so the Chain Rule multiplies by 2x.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the Power Rule.',
+            'dy/dx = 5(x² + 1)⁴ · 2x',
+            'dy/dx = 10x(x² + 1)⁴'],
+        tree: () => ({
+            id: 'root', e: '(x² + 1)⁵', rule: 'a group to the power 5, so the Power Rule then the Chain Rule',
+            children: [{
+                id: 'sum', e: 'x² + 1', rule: 'a sum of two terms',
+                children: [
+                    { id: 'sq', e: 'x²', rule: 'power rule' },
+                    { id: 'one', e: '1', rule: 'constant' }
+                ]
+            }]
+        })
+    },
+    e3x: {
+        text: 'e^(3x)',
+        compose: true,
+        outer: 'known',
+        reveal: ['Outer function: the exponential, so its rule gives e^(3x) again.',
+            'Is the input more complicated than just x? Yes. It is the term 3x, so the Chain Rule multiplies by 3.',
+            'So the procedure is the Chain Rule, and the outer derivative rule is the known-function rule.',
+            'dy/dx = e^(3x) · 3',
+            'dy/dx = 3e^(3x)'],
+        tree: () => ({
+            id: 'root', e: 'e^(3x)', rule: 'exponential of 3x, so the known rule then the Chain Rule',
+            children: [{ id: 'lin', e: '3x', rule: 'constant multiple' }]
+        })
     }
 };
 
 const KEYS = Object.keys(EXPR);
 const exprOf = env => EXPR[env.kase];
+/* The Outer Rule mode now mixes composites and plain inputs, so the yes/no
+   question has both answers. This is the teaching order, not a compose filter. */
+const COMPOSITE_KEYS = ['x5', 'xpow5', 'sinx', 'sincube', 'ex', 'e3x', 'ln1', 'sqrt1'];
+const BRANCH_KEYS = KEYS.filter(k => EXPR[k].branches);
+const compositeOf = env => EXPR[env.kase2];
 
-function layerOf(env) {
-    const c = exprOf(env);
-    return c.layer[env.pick];
-}
+/* Unit 3 procedure families. Each card is a derivative problem of a different
+   kind. The student first names the family, then the routed procedure appears. */
+const FAM = {
+    composite: {
+        text: 'y = (x² + 1)⁵',
+        given: ['y = (x² + 1)⁵'],
+        family: 'Explicit composite',
+        q: 'What kind of derivative problem is y = (x² + 1)⁵?',
+        choices: [
+            'Explicit composite. A group x² + 1 sits inside a power, so the chain rule routes the work.',
+            'Implicit relation. Two variables appear, so I differentiate both sides.',
+            'Inverse procedure. A return value is given, so I read the inverse derivative from a table.',
+            'Quotient. Two expressions are stacked over a fraction bar.'
+        ], a: 0,
+        whyBy: [
+            'y is written directly as a power of a group, which is the definition of a composite. The outer power and the inner group call for the chain rule.',
+            'y is already isolated on the left, so nothing is hidden inside the relation. This is not implicit.',
+            'No table and no inverse sign appear, so the inverse procedure does not apply.',
+            'There is no fraction in this expression, so the quotient rule does not apply.'
+        ],
+        route: [
+            { t: 'Family: explicit composite, so the procedure is the Chain Rule', hl: true, color: 'accent' },
+            { t: 'Outer derivative rule: Power Rule. The power 5 comes down  →  5(x² + 1)⁴', rule: 'power' },
+            { t: 'Inner derivative: the group x² + 1 gives 2x', rule: 'chain' },
+            { t: 'dy/dx = 5(x² + 1)⁴ · 2x' },
+            { t: 'dy/dx = 10x(x² + 1)⁴', hl: true }
+        ]
+    },
+    implicit: {
+        text: 'x² + y² = 25',
+        given: ['x² + y² = 25'],
+        family: 'Implicit relation',
+        q: 'What kind of derivative problem is x² + y² = 25?',
+        choices: [
+            'Implicit relation. x and y are tied together in one equation, so I differentiate both sides.',
+            'Explicit composite. One side is a power of a group, so I use the chain rule on it alone.',
+            'Quotient. Two expressions are stacked over a fraction bar.',
+            'Inverse procedure. A return value is given, so I read the inverse derivative from a table.'
+        ], a: 0,
+        whyBy: [
+            'y is not isolated from x, so y is a hidden function of x. Differentiate both sides and collect dy/dx.',
+            'There is no single outer power applied to a group here. The two variables sit in one equation.',
+            'Nothing is written over a fraction bar, so the quotient rule does not apply.',
+            'No table and no inverse sign appear, so the inverse procedure does not apply.'
+        ],
+        route: [
+            { t: 'Family: implicit relation, so differentiate both sides', hl: true, color: 'accent' },
+            { t: 'd/dx(x²) + d/dx(y²) = d/dx(25)', rule: 'sum' },
+            { t: '2x + 2y · dy/dx = 0' },
+            { t: '2y · dy/dx = −2x' },
+            { t: 'dy/dx = −x / y', hl: true }
+        ]
+    },
+    inverse: {
+        text: 'f(2) = 7 and f′(2) = 4. Find (f⁻¹)′(7).',
+        given: ['A table gives f(2) = 7 and f′(2) = 4.', 'Find (f⁻¹)′(7).'],
+        family: 'Inverse function',
+        q: 'What kind of derivative problem is finding (f⁻¹)′(7) from a table?',
+        choices: [
+            'Inverse procedure. An inverse value is asked, so I use (f⁻¹)′(b) = 1 / f′(a).',
+            'Implicit relation. Two variables appear, so I differentiate both sides.',
+            'Explicit composite. A group sits inside a power, so I use the chain rule.',
+            'Product. Two factors are multiplied, so I use the product rule.'
+        ], a: 0,
+        whyBy: [
+            'The prime sits on an inverse function at a return value, which is the inverse derivative procedure.',
+            'y is not hidden inside an equation here, so implicit differentiation does not apply.',
+            'No group sits inside a power, so the chain rule is not the route.',
+            'Nothing is multiplied as two x-dependent factors, so the product rule does not apply.'
+        ],
+        route: [
+            { t: 'Family: inverse function, so (f⁻¹)′(b) = 1 / f′(a)', hl: true, color: 'accent' },
+            { t: 'f(2) = 7, so a = 2 and b = 7' },
+            { t: 'f′(2) = 4' },
+            { t: '(f⁻¹)′(7) = 1 / f′(2)', rule: 'inverse' },
+            { t: '(f⁻¹)′(7) = 1 / 4', hl: true }
+        ]
+    },
+    arcsin: {
+        text: 'y = arcsin(3x)',
+        given: ['y = arcsin(3x)'],
+        family: 'Inverse trig rule plus chain',
+        q: 'What kind of derivative problem is y = arcsin(3x)?',
+        choices: [
+            'Inverse trig rule plus chain. The argument 3x is a function of x, so the inverse trig rule needs the chain rule.',
+            'Implicit relation. Two variables appear, so I differentiate both sides.',
+            'Quotient. Two expressions are stacked over a fraction bar.',
+            'Explicit composite. A group sits inside a power, so I use only the power rule.'
+        ], a: 0,
+        whyBy: [
+            'The outer rule is the arcsin rule, and the input 3x has its own derivative 3, so the chain rule is required.',
+            'y is isolated on the left, so this is not implicit.',
+            'No fraction bar is present in the given expression, so the quotient rule is not the entry.',
+            'arcsin is not a power rule, and the input 3x still forces the chain rule.'
+        ],
+        route: [
+            { t: 'Family: inverse trig rule, and the input 3x forces the chain rule', hl: true, color: 'accent' },
+            { t: 'd/dx arcsin(u) = u′ / √(1 − u²)', rule: 'arcsin' },
+            { t: 'u = 3x, so u′ = 3 and u² = 9x²' },
+            { t: 'dy/dx = 3 / √(1 − 9x²)', hl: true }
+        ]
+    },
+    product: {
+        text: 'y = x² eˣ',
+        given: ['y = x² eˣ'],
+        family: 'Product',
+        q: 'What kind of derivative problem is y = x² eˣ?',
+        choices: [
+            'Product. Two factors x² and eˣ are multiplied, so the product rule splits the work.',
+            'Quotient. Two expressions are stacked over a fraction bar.',
+            'Implicit relation. Two variables appear, so I differentiate both sides.',
+            'Inverse procedure. A return value is given, so I read the inverse derivative from a table.'
+        ], a: 0,
+        whyBy: [
+            'Both x² and eˣ depend on x and they are multiplied, which is exactly the product rule.',
+            'Nothing is written over a fraction bar, so the quotient rule does not apply.',
+            'y is isolated on the left, so this is not implicit.',
+            'No inverse or table value appears, so the inverse procedure does not apply.'
+        ],
+        route: [
+            { t: 'Family: product, so the product rule splits two branches', hl: true, color: 'accent' },
+            { t: 'LEFT FACTOR x²  →  2x', rule: 'power' },
+            { t: 'RIGHT FACTOR eˣ  →  eˣ', rule: 'known' },
+            { t: 'dy/dx = 2x · eˣ + x² · eˣ' },
+            { t: 'dy/dx = eˣ(2x + x²)', hl: true }
+        ]
+    },
+    quotient: {
+        text: 'y = (x² + 1) / cos x',
+        given: ['y = (x² + 1) / cos x'],
+        family: 'Quotient',
+        q: 'What kind of derivative problem is y = (x² + 1) / cos x?',
+        choices: [
+            'Quotient. One expression in x sits over another, so the quotient rule splits top and bottom.',
+            'Product. Two factors are multiplied, so the product rule splits the work.',
+            'Implicit relation. Two variables appear, so I differentiate both sides.',
+            'Inverse procedure. A return value is given, so I read the inverse derivative from a table.'
+        ], a: 0,
+        whyBy: [
+            'The numerator x² + 1 and the denominator cos x both depend on x, and no algebra cancels the fraction, so the quotient rule is the route.',
+            'The two x-dependent expressions are divided, not multiplied, so the product rule is not the entry.',
+            'y is isolated on the left, so this is not implicit.',
+            'No inverse or table value appears, so the inverse procedure does not apply.'
+        ],
+        route: [
+            { t: 'Family: quotient, so the quotient rule splits top and bottom', hl: true, color: 'accent' },
+            { t: 'TOP x² + 1  →  2x', rule: 'power' },
+            { t: 'BOTTOM cos x  →  −sin x', rule: 'known' },
+            { t: 'dy/dx = (2x · cos x − (x² + 1) · (−sin x)) / cos²x' },
+            { t: 'dy/dx = (2x cos x + (x² + 1) sin x) / cos²x', hl: true }
+        ]
+    }
+};
 
-/* Same tree, revealed one layer at a time so the reading direction is visible. */
+const FAM_KEYS = ['composite', 'implicit', 'inverse', 'arcsin', 'product', 'quotient'];
+
+/* Same tree, revealed one layer at a time. The Layers refresher is short here,
+   because section 3.1 already teaches the chain rule in depth. */
 function zoomTree(env) {
     const st = Math.round(env.stage);
     const leaves = [
-        { id: 'lx', e: 'x', rule: 'known rule for x', dim: st < 4 },
-        { id: 'lsin', e: 'sin x', rule: 'known rule for sin x', dim: st < 4 }
+        { id: 'lx', e: 'x', rule: 'known rule for x' },
+        { id: 'lsin', e: 'sin x', rule: 'known rule for sin x' }
     ];
-    const prod = { id: 'prod', e: 'x sin x', rule: 'a product of two factors', dim: st < 2, children: st >= 3 ? leaves : undefined };
+    const prod = { id: 'prod', e: 'x sin x', rule: 'a product of two factors', dim: st < 1, children: st >= 1 ? leaves : undefined };
     return {
-        id: 'root', e: '(x sin x)³', rule: st >= 1 ? 'a product cubed, so chain rule' : 'What is the outermost operation?',
-        dim: st >= 2, children: st >= 1 ? [prod] : undefined
+        id: 'root', e: '(x sin x)³', rule: st >= 1 ? 'a group cubed, so power rule then chain rule' : 'What is the outermost operation?',
+        dim: st >= 1, children: st >= 1 ? [prod] : undefined
     };
 }
 
-const ZOOM_FOCUS = [null, 'root', 'prod', 'prod', 'lsin', null];
+function branchOf(env) {
+    return EXPR[env.kase3];
+}
 
-const FIRST_RULE_ITEMS = [
-    {
-        q: 'Which rule do you apply first to (x sin x)³?',
-        choices: [
-            'The chain rule applies first. The product x sin x sits inside the outer cube.',
-            'The product rule applies first. The factors x and sin x are multiplied.',
-            'The power rule applies first. The exponent 3 sits on the whole group x sin x, not on x alone.',
-            'No rule applies first. The cube of a product equals the product of the cubes.'
-        ], a: 0,
-        whyBy: [
-            'The cube is the outer operation, so the chain rule goes first. The chain rule contributes the factor 3(x sin x)². The inside x sin x is handled next.',
-            'The product rule does apply, but the product x sin x sits inside the cube. The product rule arrives as the second move, not the first move.',
-            'This expression has no x³ term. The exponent sits on the whole group x sin x.',
-            'Cubing the product lets you rewrite it as x³ sin³ x. That rewrite is legal. The rewrite gives a different plan, not a missing rule.'
-        ]
-    },
-    {
-        q: 'Which rule do you apply first to x² · e^(3x)?',
-        choices: [
-            'The product rule applies first. The factors x² and e^(3x) are multiplied.',
-            'The chain rule applies first. The factor 3x sits inside the exponential.',
-            'The power rule applies first. The factor x² is one of the two multiplied factors.',
-            'The quotient rule applies first. The factor e^(3x) can look like a fraction over 1.'
-        ], a: 0,
-        whyBy: [
-            'Read the expression from the outside. The last operation is the multiplication of x² and e^(3x). The product rule is the rule for that multiplication.',
-            'The chain inside e^(3x) is real, but it lives in the second factor. That chain appears after the product rule splits the expression.',
-            'The power rule applies to the x² branch only. The product rule reaches that x² branch first.',
-            'Dividing by 1 changes nothing, so this expression is not a quotient. The expression x² · e^(3x) is a product of two factors. The product rule applies.'
-        ]
-    },
-    {
-        q: 'Which rule do you apply first to ln(1 + x²)?',
-        choices: [
-            'The chain rule applies first. The function ln is applied to the whole group 1 + x².',
-            'The sum rule applies first. The addition 1 + x² is part of the expression.',
-            'The power rule applies first. The term x² is part of the expression.',
-            'No rule applies first. The expression ln(1 + x²) has nothing to differentiate.'
-        ], a: 0,
-        whyBy: [
-            'The outer operation is ln applied to a group. The chain rule contributes the factor 1 over that group. The group then contributes its own derivative.',
-            'The sum 1 + x² is inside the ln. The sum rule arrives as the inner factor of the chain rule.',
-            'The power x² is one level below the sum. The power rule is reached last.',
-            'The expression ln(1 + x²) is ln applied to a group that contains x. That is the case the chain rule exists for.'
-        ]
-    },
-    {
-        q: 'Which rule do you apply first to sin(x³ + 2x)?',
-        choices: [
-            'The chain rule applies first. The sine is applied to the group x³ + 2x.',
-            'The sum rule applies first. The terms x³ and 2x are added together.',
-            'The power rule applies first. The term x³ is the first term written.',
-            'The product rule applies first. The factor 2 is multiplied by x.'
-        ], a: 0,
-        whyBy: [
-            'The outer operation is sine applied to a group. The chain rule contributes the factor cosine of that same group. The group x³ + 2x is handled next.',
-            'The sum x³ + 2x is inside the sine. The chain rule reaches that sum second.',
-            'The power x³ is one level below the sum. The chain rule and the sum rule both arrive before the power rule.',
-            'The term 2x is a constant multiple of x. It is not a product of two factors that both contain x, so the product rule never appears in this plan.'
-        ]
-    },
-    {
-        q: 'Which rule do you apply first to (x² + 1) / cos x?',
-        choices: [
-            'The quotient rule applies first. One expression in x sits over another expression.',
-            'The chain rule applies first. The function cos x is a known function.',
-            'The sum rule applies first. The terms x² and 1 are added in the numerator.',
-            'The power rule applies first. The term x² is the first term written.'
-        ], a: 0,
-        whyBy: [
-            'The last operation is the division, so the quotient rule gives the first move. The numerator and the denominator are handled after that division.',
-            'The function cos x is the denominator. Its own derivative appears inside the quotient rule, not before the quotient rule.',
-            'The sum x² + 1 is the numerator, which is one layer below the division.',
-            'The term x² is one layer below the numerator sum. The reading order is quotient, then sum, then power.'
-        ]
-    },
-    {
-        q: 'Which rule do you apply first to √(1 + x²)?',
-        choices: [
-            'The chain rule applies first. The square root is the power ½ applied to 1 + x².',
-            'The sum rule applies first. The addition 1 + x² is part of the expression.',
-            'The power rule applies first. The term x² is raised to a power.',
-            'No rule applies first. A square root is not a power of anything.'
-        ], a: 0,
-        whyBy: [
-            'Rewrite the root as the exponent ½. The base of that power is the group 1 + x². The rule for a power of a group is the chain rule.',
-            'The sum 1 + x² is inside the root. The sum rule becomes the inner factor of the chain rule.',
-            'The power x² is two levels deep. The chain rule comes first, then the sum rule, then the power rule.',
-            'A root is a power with exponent ½. Treating the root as a special case hides the chain rule.'
-        ]
+function branchLines(c) {
+    const b = c.branches;
+    return [
+        { t: '1. ' + b.split, hl: true, color: 'accent' },
+        { t: b.left.label + '  ' + b.left.e, rule: b.left.rule },
+        { t: b.left.value },
+        { t: b.right.label + '  ' + b.right.e, rule: b.right.rule },
+        { t: b.right.value },
+        { t: 'Combine the two branches' },
+        { t: b.combine },
+        { t: b.final, hl: true }
+    ];
+}
+
+/* The plan stays hidden until the student has set both answers. The dim lines
+   echo the student's own choices, so nothing leaks the correct routing. */
+function compositePane(env) {
+    const c = compositeOf(env);
+    if (env.stage >= 1) {
+        return c.reveal.map((t, i) => ({ t, hl: i === c.reveal.length - 1, color: i === 0 ? 'accent' : 'auxInk' }));
     }
-];
+    return [
+        { t: 'Outer derivative rule you chose: ' + OUTER[env.outer], dim: true },
+        { t: 'Is the input more complicated than just x? ' + env.inner, dim: true }
+    ];
+}
+
+function branchPane(env) {
+    const c = branchOf(env);
+    if (env.stage >= 1) return branchLines(c);
+    return [{ t: '1. ' + c.branches.split, dim: true }, { t: 'Split the expression, then work on each branch.', dim: true }];
+}
 
 export default {
     id: 'u3-derivative-strategy',
@@ -237,210 +441,284 @@ export default {
     modes: [
         {
             label: 'Zoom the Layers',
-            intro: 'Read an expression from the outside in. Name the outermost operation first, then move one layer inside. The expression here is (x sin x)³.',
+            intro: 'Read (x sin x)³ from the outside in, one layer at a time. This refresher is kept short on purpose, because the mixed classification mode below is the real work of 3.5.',
             params: { stage: 0 },
             controls: [
                 {
                     key: 'stage', label: 'zoom level', kind: 'choice',
                     options: [
-                        { v: 0, label: 'expression only' },
-                        { v: 1, label: 'outer layer' },
-                        { v: 2, label: 'inside the cube' },
-                        { v: 3, label: 'open the product' },
-                        { v: 4, label: 'all layers' }
+                        { v: 0, label: 'outer only' },
+                        { v: 1, label: 'show the plan' }
                     ]
                 }
             ],
             panes: {
                 main: [
                     {
-                        kind: 'tree', title: env => 'Zoom level ' + Math.round(env.stage) + ' of 4: ' + EXPR.xsin3.text,
+                        kind: 'tree', title: () => 'Zoom the Layers: ' + EXPR.xsin3.text,
                         root: env => zoomTree(env),
-                        focus: env => ZOOM_FOCUS[Math.round(env.stage)]
+                        focus: env => Math.round(env.stage) >= 1 ? 'root' : null
                     },
                     {
-                        kind: 'eq', title: 'The rule each layer gives',
-                        lines: env => {
-                            const st = Math.round(env.stage);
-                            const L = [{ t: 'y = (x sin x)³' }];
-                            if (st >= 1) L.push({ t: 'the outer cube  →  the chain rule', hl: true, rule: 'first' });
-                            if (st >= 2) L.push({ t: 'the inside x · sin x  →  the product rule', hl: true, rule: 'second' });
-                            if (st >= 3) L.push({ t: 'the two factors x and sin x  →  the known rules', rule: 'third' });
-                            if (st >= 4) {
-                                L.push({ t: 'dy/dx = 3(x sin x)² · d/dx(x sin x)', color: 'auxInk' });
-                                L.push({ t: 'dy/dx = 3(x sin x)² · (sin x + x cos x)', hl: true });
-                            }
-                            return L;
-                        }
+                        kind: 'eq', title: 'Procedure and outer derivative rule',
+                        lines: env => Math.round(env.stage) >= 1
+                            ? EXPR.xsin3.reveal.map((t, i) => ({ t, hl: i === EXPR.xsin3.reveal.length - 1, color: i === 0 ? 'accent' : 'auxInk' }))
+                            : [{ t: 'Name the outer derivative rule and judge the input in the next step first.', dim: true }]
                     }
                 ],
                 side: [
                     {
-                        kind: 'note', title: 'The reading order',
-                        text: env => Math.round(env.stage) >= 4
-                            ? 'The expression has three layers, so the derivative takes three moves. The product rule applies here, but the product rule applies second. The product rule does not become the first move just because x sin x is easy to see.'
-                            : 'At each zoom level, ask what was done last to build the expression. The last operation is the first one to differentiate. The rule for that last operation brings the inside along as a factor.'
+                        kind: 'note', title: 'Keep it brief',
+                        text: 'Section 3.1 teaches the chain rule in depth. Here one quick look at the layers is enough, and the time goes to routing every kind of Unit 3 derivative problem.'
                     }
                 ]
             },
             steps: [
                 {
                     params: { stage: 1 },
-                    message: 'The cube is the last operation applied to x sin x, so the cube is differentiated first. The rule for a power applied to a group is the chain rule.'
-                },
-                {
-                    params: { stage: 2 },
                     predict: {
-                        q: 'Which rule do you apply first to y = (x sin x)³?',
+                        q: 'Which rules apply to y = (x sin x)³?',
                         choices: [
-                            'The chain rule applies first. The product x sin x sits inside the outer cube.',
-                            'The product rule applies first. The factors x and sin x are multiplied.',
-                            'The power rule applies first. The exponent 3 sits on the whole group x sin x, not on x alone.'
+                            'The Power Rule and the Chain Rule. The outer derivative rule is the Power Rule, and the input x sin x is more complicated than just x.',
+                            'The Product Rule only. The factors x and sin x are multiplied.',
+                            'The Power Rule only. The 3 comes down and an x³ term appears.'
                         ], a: 0,
                         whyBy: [
-                            'The outermost operation is the cube of a group, so the chain rule starts. The product inside is the second move.',
-                            'The multiplication x sin x is real, but it sits inside the cube. The product rule is reached after the outer power comes down.',
-                            'This expression has no x³ term. The exponent sits on the group x sin x, and that group is why the outer rule is a chain rule.'
+                            'The cube is the outer operation, so the outer derivative rule is the Power Rule, giving 3(x sin x)². The group x sin x is more complicated than just x, so the Chain Rule joins as the procedure and multiplies by its derivative.',
+                            'The product x sin x is real, but it is the inner function, reached after the outer power comes down. The product rule is a later move, not the only rule.',
+                            'There is no x³ term in this expression. The exponent sits on the whole group x sin x.'
                         ]
                     },
-                    message: 'The group inside the cube is x sin x, and that group is a product. The chain rule has used its move. Now the product rule works inside.'
-                },
-                {
-                    params: { stage: 3 },
-                    message: 'The product splits into two branches, x and sin x. Each branch has its own rule. The two branches combine only through the product rule above them.'
-                },
-                {
-                    params: { stage: 4 },
-                    message: 'The cube gives the factor 3(x sin x)². The product gives the factor sin x + x cos x. The structure of the expression chose this order, so there was nothing to guess.'
+                    message: 'The outer derivative rule is the Power Rule, and the input x sin x is more complicated than just x, so the Chain Rule joins as the procedure. Section 3.1 covers the full layer walk, so 3.5 moves on to routing every problem type.'
                 }
             ],
             summary: {
-                idea: 'Derivative rules follow expression structure. Identify the outer operation first, then move inward.',
-                mistake: 'Students choose the rule for the first symbol they notice. The product x sin x is easy to see, so they reach for the product rule. That choice skips the outer cube.',
-                transfer: 'Read (x² + 1)⁵ and sin(x) · x² the same way. Say which expression needs the chain rule first, and which expression starts with the product rule.'
+                idea: 'Read the outer operation first, then move inward. The structure of the expression fixes the rule order.',
+                mistake: 'Students reach for the rule for the first symbol they notice and skip the outer layer.',
+                transfer: 'Name the procedure and the outer derivative rule for (x² + 1)⁵ and for sin(x³ + 2x).'
             }
         },
         {
-            label: 'Pick the First Rule',
-            intro: 'Pick the rule you would apply first. A correct choice names a real layer of the expression. You only make the choice, so no derivative is calculated.',
-            params: { kase: 'xsin3', pick: 'chain' },
+            label: 'Classify the Problem',
+            intro: 'Unit 3 mixes several kinds of derivative problem. Before any rule runs, name the family: explicit composite, implicit relation, inverse function, inverse trig, product, or quotient. Then reveal the routed procedure.',
+            params: { fam: 'composite', stage: 0 },
             controls: [
                 {
-                    key: 'kase', label: 'expression', kind: 'choice',
-                    options: KEYS.map(k => ({ v: k, label: EXPR[k].text }))
-                },
-                {
-                    key: 'pick', label: 'rule to apply first', kind: 'choice',
-                    options: Object.keys(RULE).map(k => ({ v: k, label: RULE[k] }))
+                    key: 'fam', label: 'problem', kind: 'choice',
+                    options: FAM_KEYS.map(k => ({ v: k, label: FAM[k].text }))
                 }
             ],
             panes: {
                 main: [
                     {
-                        kind: 'tree', title: env => 'Structure of ' + exprOf(env).text,
-                        root: env => exprOf(env).tree(),
-                        focus: env => layerOf(env) || null
+                        kind: 'eq', title: 'The problem',
+                        lines: env => FAM[env.fam].given.map(t => ({ t }))
                     },
                     {
-                        kind: 'eq', title: 'The rule plan for this expression',
-                        lines: env => exprOf(env).plan.map((p, i) => ({
-                            t: (i + 1) + '. ' + p,
-                            hl: i === 0,
-                            color: i === 0 ? 'accent' : 'auxInk'
-                        }))
-                    },
-                    {
-                        kind: 'practice', id: 'u3-strategy-first-rule', title: 'Choose the first rule for each expression',
-                        items: FIRST_RULE_ITEMS
+                        kind: 'eq', title: 'The routed procedure',
+                        lines: env => env.stage >= 1
+                            ? FAM[env.fam].route
+                            : [{ t: 'Name the family in the next step, then reveal the procedure.', dim: true }]
                     }
                 ],
                 side: [
                     {
-                        kind: 'checklist', title: 'Check the rule you chose',
-                        items: env => {
-                            const c = exprOf(env);
-                            return [
-                                { t: 'The ' + RULE[env.pick] + ' rule applies somewhere inside ' + c.text, state: !!c.layer[env.pick] },
-                                { t: 'The chosen rule is the outermost rule for this expression', state: c.valid.indexOf(env.pick) >= 0 }
-                            ];
-                        },
-                        verdict: env => {
-                            const c = exprOf(env);
-                            return c.valid.indexOf(env.pick) >= 0
-                                ? 'The rule you picked is the correct first move. The plan is ' + c.plan.join(', then ') + '.'
-                                : 'The rule you picked is not the first move. The outer operation is the ' + RULE[c.valid[0]] + ' rule. The plan is ' + c.plan.join(', then ') + '.';
-                        },
-                        verdictOk: env => exprOf(env).valid.indexOf(env.pick) >= 0
+                        kind: 'note', title: 'How to classify',
+                        text: 'Ask three questions in order. Is y already isolated on one side? Do two x-dependent parts multiply or divide? Is an inverse or a return value involved? The answers pick the family, and the family picks the rule.'
                     },
                     {
-                        kind: 'note', title: 'How to read any expression',
-                        text: 'Build the expression in words, starting from x. The last operation you name is the first rule. Every earlier operation becomes an inner layer.'
+                        kind: 'note', title: 'Implicit and inverse are in scope',
+                        text: 'This router now covers the derivative procedures learned through Topic 3.5. An equation that ties x and y together calls for implicit differentiation. A prime on an inverse function calls for the inverse procedure. An arcsin with an expression inside calls for the inverse trig rule plus the chain rule.'
                     }
                 ]
             },
             steps: [
-                {
-                    params: { kase: 'xsin3', pick: 'chain' },
-                    message: 'The highlighted layer is the layer your choice names. Try a rule with no layer here, such as the quotient rule. The first check fails for that choice.'
-                },
-                {
-                    params: { kase: 'x2e3x' },
-                    predict: {
-                        q: 'Which rule do you apply first to x² · e^(3x)?',
-                        choices: [
-                            'The product rule applies first. The factors x² and e^(3x) are both functions of x.',
-                            'The chain rule applies first. The factor 3x sits inside the exponential.',
-                            'The power rule applies first. The factor x² is written first when you read.'
-                        ], a: 0,
-                        whyBy: [
-                            'The last operation is the multiplication of the two factors. The product rule splits the work into two branches, and each branch uses its own rule.',
-                            'The chain rule inside e^(3x) is real, but it lives in the second factor. That chain rule is the third move, not the first move.',
-                            'The power rule applies to the x² branch. The product rule reaches that x² branch first.'
-                        ]
-                    },
-                    message: 'Pick the product rule, and both checks pass. Pick the chain rule, and the second check fails. The chain layer exists in x² · e^(3x), but that chain layer is not the outermost layer.'
-                },
-                {
-                    params: { kase: 'quotient' },
-                    message: 'For (x² + 1) / cos x the division is the last operation, so the quotient rule gives the first move. The sum in the numerator waits until the second move.'
-                },
-                {
-                    params: { kase: 'sqrt1', pick: 'power' },
-                    message: 'A square root is the power ½ applied to a group. Rewriting √(1 + x²) as (1 + x²)^(1/2) exposes the structure. The chain rule handles the outer power, and the group 1 + x² is the inner function.'
-                }
+                { params: { stage: 1 }, predict: FAM.composite, message: 'Explicit composite. y is written directly as a power of a group, so the chain rule routes the work. The outer power comes down, and the inner 2x multiplies along.' },
+                { params: { fam: 'implicit', stage: 0 }, message: 'Next problem. Decide which family it belongs to, then reveal the routed procedure.' },
+                { params: { stage: 1 }, predict: FAM.implicit, message: 'Implicit relation. y is hidden inside the equation with x, so differentiate both sides. A dy/dx term appears when the y part is differentiated, and solving collects it.' },
+                { params: { fam: 'inverse', stage: 0 }, message: 'Next problem. Decide which family it belongs to, then reveal the routed procedure.' },
+                { params: { stage: 1 }, predict: FAM.inverse, message: 'Inverse procedure. The prime sits on an inverse function at a return value, so (f⁻¹)′(7) = 1 / f′(2) = 1 / 4.' },
+                { params: { fam: 'arcsin', stage: 0 }, message: 'Next problem. Decide which family it belongs to, then reveal the routed procedure.' },
+                { params: { stage: 1 }, predict: FAM.arcsin, message: 'Inverse trig rule plus chain. The arcsin rule gives 3 over √(1 − 9x²), because the input 3x contributes its own derivative 3.' },
+                { params: { fam: 'product', stage: 0 }, message: 'Next problem. Decide which family it belongs to, then reveal the routed procedure.' },
+                { params: { stage: 1 }, predict: FAM.product, message: 'Product. Two x-dependent factors multiply, so the product rule splits them. The Power Rule and the exponential rule finish the two branches.' },
+                { params: { fam: 'quotient', stage: 0 }, message: 'Next problem. Decide which family it belongs to, then reveal the routed procedure.' },
+                { params: { stage: 1 }, predict: FAM.quotient, message: 'Quotient. The numerator and the denominator both depend on x, and no algebra cancels the fraction, so the quotient rule splits top and bottom.' }
             ],
             summary: {
-                idea: 'Decide the order of the rules before you calculate anything. The building order of the expression is the whole answer.',
-                mistake: 'Students name a rule that exists somewhere inside the expression but is not outer. They then differentiate as if that rule were the outer rule.',
-                transfer: 'Cover the tree and say the rule order for e^(x² sin x). Then check that answer in the Plans and Choices mode.'
+                idea: 'Name the problem family first, then choose the rule. Classification is the step that ties implicit, inverse, and inverse trig to the rules from 2.5 and 3.1.',
+                mistake: 'Students reach for a rule from the first symbol they see, and miss that y is hidden inside an equation or that a prime sits on an inverse function.',
+                transfer: 'Sort each new problem into one family before differentiating, then check the routed procedure against your own answer.'
+            }
+        },
+        {
+            label: 'Outer Rule and Composition',
+            intro: 'Two questions route every expression here. First, what is the derivative rule for the outer function? Second, is the input more complicated than just x? When the input is just x, the outer rule finishes the job and the Chain Rule adds no factor. When the input is more complicated, the Chain Rule joins on top of the outer rule.',
+            params: { kase2: 'x5', inner: 'no', outer: 'power', stage: 0 },
+            controls: [
+                {
+                    key: 'kase2', label: 'expression', kind: 'choice',
+                    options: COMPOSITE_KEYS.map(k => ({ v: k, label: EXPR[k].text }))
+                },
+                {
+                    key: 'outer', label: 'outer derivative rule', kind: 'choice',
+                    options: Object.keys(OUTER).map(k => ({ v: k, label: OUTER[k] }))
+                },
+                {
+                    key: 'inner', label: 'is the input more complicated than just x', kind: 'choice',
+                    options: [ { v: 'no', label: 'no' }, { v: 'yes', label: 'yes' } ]
+                }
+            ],
+            panes: {
+                main: [
+                    {
+                        kind: 'tree', title: env => 'Structure of ' + compositeOf(env).text,
+                        root: env => compositeOf(env).tree(),
+                        focus: () => null
+                    },
+                    {
+                        kind: 'eq', title: 'Procedure and outer derivative rule',
+                        lines: env => compositePane(env)
+                    }
+                ],
+                side: [
+                    {
+                        kind: 'checklist', title: 'Check the two questions', when: env => env.stage >= 1,
+                        items: env => {
+                            const c = compositeOf(env);
+                            const want = c.compose ? 'yes' : 'no';
+                            return [
+                                { t: 'Outer derivative rule: ' + OUTER[c.outer], state: env.outer === c.outer },
+                                { t: c.compose ? 'The input is more complicated than x, so the Chain Rule joins' : 'The input is just x, so the Chain Rule adds no factor', state: env.inner === want }
+                            ];
+                        },
+                        verdict: env => {
+                            const c = compositeOf(env);
+                            const want = c.compose ? 'yes' : 'no';
+                            return env.outer === c.outer && env.inner === want
+                                ? 'Correct. The outer derivative rule is ' + OUTER[c.outer] + '. ' + (c.compose ? 'The input is more complicated than x, so the procedure is the Chain Rule on top of that outer rule.' : 'The input is just x, so no Chain Rule factor appears.')
+                                : 'Adjust one answer. The outer derivative rule is ' + OUTER[c.outer] + ', and the correct reply to the input question is ' + want + '.';
+                        },
+                        verdictOk: env => {
+                            const c = compositeOf(env);
+                            const want = c.compose ? 'yes' : 'no';
+                            return env.outer === c.outer && env.inner === want;
+                        }
+                    },
+                    {
+                        kind: 'note', title: 'Two questions, not one',
+                        text: 'Naming the outer derivative rule does not cancel the Chain Rule. The Chain Rule joins only when the input is more complicated than just x. For sin x and eˣ the input is just x, so no extra factor appears. For √(1 + x²) and (x² + 1)⁵ the Power Rule is the correct outer rule, and the Chain Rule is required on top of it.'
+                    }
+                ]
+            },
+            steps: [
+                { params: { stage: 1 }, message: 'For x⁵ the variable is the base, so the Power Rule gives 5x⁴. The input is just x, so the Chain Rule adds no factor.' },
+                { params: { kase2: 'xpow5', outer: 'power', inner: 'yes', stage: 0 }, message: 'Switch to (x² + 1)⁵. The base is the group x² + 1, not plain x. Name the outer derivative rule, then judge the input.' },
+                { params: { stage: 1 }, message: 'The outer derivative rule for (x² + 1)⁵ is the Power Rule. The input x² + 1 is more complicated than x, so the Chain Rule multiplies by 2x. The procedure is the Chain Rule, and the result is 10x(x² + 1)⁴.' },
+                { params: { kase2: 'sinx', outer: 'known', inner: 'no', stage: 0 }, message: 'Switch to sin x. Name the outer derivative rule, then judge the input.' },
+                { params: { stage: 1 }, message: 'The sine rule gives cos x. The input is just x, so there is no inner factor and the Chain Rule never joins.' },
+                { params: { kase2: 'sincube', outer: 'known', inner: 'yes', stage: 0 }, message: 'Switch to sin(x³ + 2x). Same outer rule as sin x, but now look at the input.' },
+                { params: { stage: 1 }, message: 'The sine rule gives cosine of the group, and the input x³ + 2x is more complicated than x, so the Chain Rule multiplies by 3x² + 2. Same outer rule as sin x, and here the Chain Rule joins.' },
+                { params: { kase2: 'ex', outer: 'known', inner: 'no', stage: 0 }, message: 'Switch to eˣ. Name the outer derivative rule, then judge the input.' },
+                { params: { stage: 1 }, message: 'The exponential rule gives eˣ. The input is just x, so the Chain Rule adds no factor.' },
+                { params: { kase2: 'e3x', outer: 'known', inner: 'yes', stage: 0 }, message: 'Switch to e^(3x). The outer rule looks the same, so the input is what decides.' },
+                { params: { stage: 1 }, message: 'The exponential rule gives e^(3x), and the input 3x is more complicated than x, so the Chain Rule multiplies by 3. The answer is 3e^(3x).' },
+                { params: { kase2: 'ln1', outer: 'known', inner: 'yes', stage: 0 }, message: 'Switch to ln(1 + x²). Name the outer derivative rule, then judge the input.' },
+                { params: { stage: 1 }, message: 'The ln rule gives 1 over the group, and the input 1 + x² is more complicated than x, so the Chain Rule multiplies by 2x. Both rules apply.' },
+                { params: { kase2: 'sqrt1', outer: 'power', inner: 'yes', stage: 0 }, message: 'Now the square root. This is the case a single-choice router used to get wrong.' },
+                { params: { stage: 1 }, message: 'The Power Rule is correct here, and it is not wrong to choose it. Because the input 1 + x² is more complicated than x, the Chain Rule also applies. The answer is Power Rule plus Chain Rule.' }
+            ],
+            summary: {
+                idea: 'A composite is routed by two facts, not one choice. The outer function has an outer derivative rule, and the input may be more complicated than just x. When both hold, the Chain Rule joins the outer rule.',
+                mistake: 'Students believe that choosing the Power Rule means the Chain Rule is cancelled. They then drop the inner derivative and stop too early.',
+                transfer: 'For sin(x³ + 2x), for (x² + 1)⁵, and for eˣ, state the outer derivative rule and judge the input before differentiating, then multiply by the inner derivative only when the input is more complicated than x.'
+            }
+        },
+        {
+            label: 'Branch the Rule Order',
+            intro: 'A product or a quotient does not have one rule after another. It splits into branches that finish in parallel. Read each branch on its own.',
+            params: { kase3: 'x2e3x', stage: 0 },
+            controls: [
+                {
+                    key: 'kase3', label: 'expression', kind: 'choice',
+                    options: BRANCH_KEYS.map(k => ({ v: k, label: EXPR[k].text }))
+                }
+            ],
+            panes: {
+                main: [
+                    {
+                        kind: 'tree', title: env => 'Structure of ' + branchOf(env).text,
+                        root: env => branchOf(env).tree(),
+                        focus: () => null
+                    },
+                    {
+                        kind: 'eq', title: 'The branch tasks',
+                        lines: env => branchPane(env)
+                    }
+                ],
+                side: [
+                    {
+                        kind: 'note', title: 'Two branches, not one path',
+                        text: 'After the split, the two branches are differentiated in parallel. Each branch keeps its own rule. There is no line where one branch must finish before the other branch starts.'
+                    }
+                ]
+            },
+            steps: [
+                { params: { stage: 1 }, message: 'The Product Rule splits two branches. The LEFT FACTOR x² uses the Power Rule. The RIGHT FACTOR e^(3x) uses the exponential rule with the Chain Rule. The two branches finish in parallel, and the combine line adds them.' },
+                { params: { kase3: 'quotient', stage: 0 }, message: 'Switch to the quotient. Split with the Quotient Rule, then read each branch on its own.' },
+                { params: { stage: 1 }, message: 'The Quotient Rule splits the fraction. The TOP x² + 1 gives 2x, and the BOTTOM cos x gives −sin x. Each branch finishes on its own, then the combine line applies the Quotient Rule.' }
+            ],
+            summary: {
+                idea: 'A product or quotient splits into branches. Split first, then differentiate each branch with its own rule, and combine at the end.',
+                mistake: 'Students write one long arrow chain, as if one branch had to finish before the other branch could start. The branches are parallel, not sequential.',
+                transfer: 'Draw the branches for x² · e^(3x) and for (x² + 1) / cos x before you calculate anything.'
             }
         },
         {
             label: 'Plans and Choices',
-            intro: 'The structure of an expression usually fixes the rule order. Sometimes the first step is a real choice between two routes. This mode lists each plan, then looks at the expressions with more than one route.',
+            intro: 'The structure of a problem usually fixes the procedure you run, such as the Chain Rule or the Product Rule. Every composite also has a separate outer derivative rule, which the last mode matched up. Sometimes the very first move is algebra, a simplify or rewrite before any rule runs. This mode lists each procedure, then shows when rewriting beats a rule.',
             params: { reveal: 0 },
             controls: [
                 {
-                    key: 'reveal', label: 'rule plans', kind: 'choice',
+                    key: 'reveal', label: 'show the procedure column', kind: 'choice',
                     options: [
-                        { v: 0, label: 'hide the plans' },
-                        { v: 1, label: 'show the plans' }
+                        { v: 0, label: 'hide the column' },
+                        { v: 1, label: 'show the column' }
                     ]
                 }
             ],
             panes: {
                 main: [
                     {
-                        kind: 'table', title: 'The rule order for each expression',
-                        cols: ['expression', 'outer layer', 'rule order'],
-                        rows: env => KEYS.map(k => {
-                            const c = EXPR[k];
-                            return [
-                                c.text,
-                                { v: RULE[c.valid[0]], color: 'accent' },
-                                env.reveal > 0.5 ? { v: c.plan.join(' → '), color: 'auxInk' } : 'hidden'
-                            ];
+                        kind: 'table', title: 'The procedure for each problem family',
+                        cols: ['problem', 'family', 'procedure'],
+                        rows: env => FAM_KEYS.map(k => {
+                            const procedure = {
+                                composite: 'Chain Rule',
+                                implicit: 'Differentiate both sides',
+                                inverse: '(f⁻¹)′(b) = 1 / f′(a)',
+                                arcsin: 'Inverse trig rule and Chain Rule',
+                                product: 'Product Rule',
+                                quotient: 'Quotient Rule'
+                            }[k];
+                            return [FAM[k].text, FAM[k].family, env.reveal > 0.5 ? procedure : 'not shown yet'];
                         })
+                    },
+                    {
+                        kind: 'eq', title: 'Step 1. Can I simplify or rewrite first?',
+                        lines: [
+                            { t: 'x² / x = x, so the Power Rule finishes it. No Quotient Rule.' },
+                            { t: '(x² + 1) / x = x + x⁻¹, so the Sum Rule finishes it. No Quotient Rule.' },
+                            { t: 'Rewrite when it is shorter, then read which structure remains.', hl: true, color: 'accent' }
+                        ]
+                    },
+                    {
+                        kind: 'eq', title: 'Step 2. Which derivative structure remains?',
+                        lines: [
+                            { t: 'A product of two x-dependent factors  →  Product Rule' },
+                            { t: 'If no useful algebraic rewrite simplifies the fraction  →  Quotient Rule' },
+                            { t: 'A group inside an outer function  →  Chain Rule' }
+                        ]
                     },
                     {
                         kind: 'compare', title: 'Two routes for the expression x(x + 1)',
@@ -457,7 +735,7 @@ export default {
                         verdict: 'Both routes are correct, and the expansion route is shorter. So expanding x(x + 1) first is the more direct choice here. That does not make the product rule route wrong.'
                     },
                     {
-                        kind: 'practice', id: 'u3-strategy-transfer', title: 'Practice: the rule order for e^(x² sin x)',
+                        kind: 'practice', id: 'u3-strategy-transfer', title: 'Practice: read the structure first',
                         items: [
                             {
                                 q: 'What is the outermost operation of e^(x² sin x)?',
@@ -484,39 +762,78 @@ export default {
                                     'The product x² sin x is inside the exponent, so the product is not the outer layer. The product rule cannot apply before the chain rule.',
                                     'The expression e^(x² sin x) has no quotient anywhere. Its top level is an exponential, and the sum appears only when the product rule is applied.'
                                 ]
+                            },
+                            {
+                                q: 'You need the derivative of (x² + 1) / 3. Which first step saves work?',
+                                choices: [
+                                    'Rewrite it as (1/3)(x² + 1). The denominator has no x, so the sum rule finishes the job and the quotient rule is never needed.',
+                                    'Apply the quotient rule. Any expression written as a fraction calls for the quotient rule.',
+                                    'Apply the product rule to x² + 1 and 3. The 3 is a second factor.'
+                                ], a: 0,
+                                whyBy: [
+                                    'Dividing by the constant 3 is the same as multiplying by 1/3. Then the derivative is (1/3) · 2x = 2x/3, and no quotient rule appears.',
+                                    'The denominator is the constant 3, so the rewrite is shorter and safer. The Quotient Rule is only needed when a real quotient of two x-dependent expressions remains.',
+                                    'The 3 is a constant multiple, not a factor that changes with x. Differentiating it alone would give 0 and wreck the expression.'
+                                ]
+                            },
+                            {
+                                q: 'Which rules differentiate 4x⁵ − 3x + 7?',
+                                choices: [
+                                    'The Constant Multiple Rule, the Sum Rule, and the Power Rule. The answer is 20x⁴ − 3, and no Chain Rule, Product Rule, or Quotient Rule is needed.',
+                                    'The Product Rule. The number 4 and the term x⁵ are multiplied.',
+                                    'The Chain Rule. The exponent 5 hides an inner function.'
+                                ], a: 0,
+                                whyBy: [
+                                    'Each term is a constant times a power of x. The Power Rule brings down each exponent, so the derivative is 20x⁴ − 3 with no advanced rule.',
+                                    'The 4 is a constant coefficient on x⁵, not a second factor that depends on x. A constant times a function uses the Constant Multiple Rule, not the Product Rule.',
+                                    'In x⁵ the input is just x, so there is no inner function and the Chain Rule adds no factor.'
+                                ]
+                            },
+                            {
+                                q: 'Which rules differentiate eˣ + sin x?',
+                                choices: [
+                                    'The Sum Rule with the two known rules. The answer is eˣ + cos x, and no Chain Rule factor appears.',
+                                    'The Chain Rule. Each term hides an inner function behind the outer one.',
+                                    'The Product Rule. The terms eˣ and sin x are multiplied together.'
+                                ], a: 0,
+                                whyBy: [
+                                    'The terms are added, and the input to each known function is just x. The derivative is eˣ + cos x, so no Chain Rule factor appears.',
+                                    'The input to eˣ and to sin x is only x, so neither term has an inner function for the Chain Rule to multiply.',
+                                    'The two terms are joined by a plus sign, not multiplied, so the Product Rule does not apply.'
+                                ]
                             }
                         ]
                     }
                 ],
                 side: [
                     {
-                        kind: 'note', title: 'The more direct route, not the only route',
-                        text: 'Rewriting an expression with algebra can change which rules apply. The product x(x + 1) and the sum x² + x have the same derivative. So one route can be more direct without the other route being wrong.'
+                        kind: 'note', title: 'Algebra can change the route',
+                        text: 'Rewriting an expression with algebra can change which rules apply. The product x(x + 1) and the sum x² + x have the same derivative, so one route can be more direct without the other route being wrong.'
                     },
                     {
-                        kind: 'note', tone: 'warn', title: 'A plan that is wrong from the start',
-                        text: 'Use the quotient rule when the denominator contains x. When the denominator is a constant, a constant multiple is faster, so (x² + 1)/3 is better read as (1/3)(x² + 1). Choosing the form of an expression is part of choosing the rule.'
+                        kind: 'note', title: 'When the Quotient Rule earns its place',
+                        text: 'If useful algebra does not simplify the expression first, a quotient of two x-dependent expressions can be differentiated directly with the Quotient Rule. That is the case for (x² + 1) / cos x, where nothing cancels. A denominator containing x is not, on its own, a reason to reach for the rule.'
                     }
                 ]
             },
             steps: [
                 {
                     params: { reveal: 0 },
-                    message: 'The rule order column is hidden. Say each rule order out loud from the expression alone, starting with the outermost operation. Then show the column and compare your answers.'
+                    message: 'The procedure column is hidden. Say each procedure out loud from the problem alone, starting with the structure, then show the column to check.'
                 },
                 {
                     params: { reveal: 1 },
-                    message: 'Every plan in the table starts with the outer layer, and each arrow moves one level deeper. The building order of the expression writes the list, so there is nothing to memorize.'
+                    message: 'Every procedure starts by reading the problem type. For a fraction, the very first move is to ask whether algebra already removes it.'
                 },
                 {
                     params: {},
-                    message: 'The x(x + 1) card is the one case with a real choice. Both routes give the derivative 2x + 1. Choose the route that needs fewer rules, not the route the chapter listed first.'
+                    message: 'The x(x + 1) card is the case where rewrite first wins. Both routes give the derivative 2x + 1. Choose the route that needs fewer rules, not the route the chapter listed first. Some problems need no advanced rule at all. Then answer the five questions under "Practice: read the structure first".'
                 }
             ],
             summary: {
-                idea: 'Choosing a procedure means reading the structure. Name the outer operation, then list the layers in order, and the rule order follows.',
-                mistake: 'Students treat the first symbol they notice as the first rule. They also insist that only one route can be correct when algebra offers two routes.',
-                transfer: 'Look at ln(x² + 1) / e^x. List the rule order before you differentiate. Then compare your list with the table in this mode.'
+                idea: 'Choosing a procedure means reading the problem type first, then checking whether algebra simplifies the expression before any derivative rule runs.',
+                mistake: 'Students apply the Quotient Rule whenever they see a fraction, even when the denominator divides every term in the numerator.',
+                transfer: 'Decide which of x² / x, (x² + 1) / x, and (x² + 1) / cos x actually need the Quotient Rule.'
             }
         }
     ]

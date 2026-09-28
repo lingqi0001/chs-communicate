@@ -1,0 +1,245 @@
+---
+
+# 3.3 Differentiating Inverse Functions
+
+这一章的 **Mirror Graph 是一个非常好的 visualizer**。
+
+Reflection across:
+
+\[
+y=x
+\]
+
+然后：
+
+```text
+rise ↔ run
+```
+
+自然得到 reciprocal slope，非常适合你的平台理念。
+
+但是目前教学流程有三个明显问题。
+
+---
+
+## 第一：Predict 前直接把 reciprocal rule 写出来了
+
+一开始 equation pane 就显示：
+
+\[
+(f^{-1})'(b)=\frac1{f'(a)}
+\]
+
+readout 也直接显示 inverse slope。
+
+然后 Predict 才问：
+
+> slope 3.63 reflection 后是多少？
+
+学生根本不需要从 mirror 推。
+
+### 应该改成
+
+Predict 前：
+
+```text
+P = (a,b)
+Q = (b,a)
+```
+
+同时画 tangent 的小 slope triangle：
+
+```text
+on f:
+rise = 3.63
+run = 1
+
+reflection:
+
+rise = 1
+run = 3.63
+```
+
+问：
+
+> reflected slope 是多少？
+
+回答后：
+
+\[
+3.63\rightarrow\frac1{3.63}
+\]
+
+再 reveal general rule。
+
+这样是**视觉推公式**。
+
+---
+
+# 第二：缺了真正的 Chain Rule derivation
+
+这是比较大的内容缺口。
+
+College Board 对 3.3 明确说，inverse derivative 可以通过 **chain rule + inverse function definition** 得到。:chatgpt-content-reference{index="1"}
+
+你现在只有 geometric reflection。
+
+还需要一个非常短的 symbolic bridge：
+
+\[
+f(f^{-1}(x))=x
+\]
+
+两边求导：
+
+\[
+f'(f^{-1}(x))
+\cdot
+(f^{-1})'(x)
+=
+1
+\]
+
+所以：
+
+\[
+\boxed{
+(f^{-1})'(x)
+=
+\frac{1}{f'(f^{-1}(x))}
+}
+\]
+
+再写 matching-point form：
+
+\[
+f(a)=b
+\Rightarrow
+(f^{-1})'(b)=\frac1{f'(a)}
+\]
+
+这个 bridge 非常重要，因为它把：
+
+> 3.1 Chain Rule
+
+真正接到了：
+
+> 3.3 Inverse Functions。
+
+---
+
+# 第三：“AP Table Mode”不应该继续用 \(x^3\)
+
+现在 table 明写：
+
+> Values of \(f(x)=x^3\)
+
+这其实削弱了 table problem。
+
+AP table question 的核心是：
+
+> **我没有 formula。**
+
+只能找：
+
+```text
+where does f(x) equal my target?
+```
+
+然后读那个 row 的 derivative。
+
+现在学生知道：
+
+\[
+f=x^3
+\]
+
+甚至可以不认真看 table。
+
+### 建议换成没有明显公式的 arbitrary monotone data
+
+例如：
+
+| x | f(x) | f′(x) |
+|---|---:|---:|
+| 1 | -2 | 4 |
+| 2 | 3 | 7 |
+| 4 | 8 | 5 |
+| 6 | 13 | 2 |
+
+然后问：
+
+\[
+(f^{-1})'(8)
+\]
+
+学生必须：
+
+```text
+find f(4)=8
+↓
+read f′(4)=5
+↓
+answer 1/5
+```
+
+这才是真正的 AP Table Mode。
+
+---
+
+## Hidden answer 也没有完全隐藏
+
+`revealed = 0` 时虽然 readout 隐藏 row，但 equation pane 已经写：
+
+> solve f(a)=b → a = ...
+
+所以其实 row 已经告诉学生了。
+
+应该是：
+
+```text
+f(a) = 8
+a = ?
+```
+
+Reveal 后：
+
+```text
+a = 4
+```
+
+---
+
+## 还有一个值得增加的小 case
+
+当前所有 slopes 基本是 positive。
+
+虽然 compare 写了：
+
+> reciprocal is not negative reciprocal
+
+但 visual 没真正展示 negative slope。
+
+可以加一个 decreasing invertible function，例如：
+
+\[
+f(x)=-x^3
+\]
+
+学生会看到：
+
+```text
+slope f = -3
+inverse slope = -1/3
+```
+
+也就是：
+
+> **sign stays negative**
+
+比文字解释更有效。
+
+### 3.3 结论
+
+Mirror 本身很强，但现在**公式出来太早，而且 table 模式不够像真正 table problem。**
+

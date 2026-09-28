@@ -94,7 +94,7 @@ function setsOf(def, prefix) {
     if (def.steps && typeof def.steps === 'object') {
         return Object.keys(def.steps).map(k => {
             const e = def.steps[k];
-            return { label: k, def, steps: Array.isArray(e) ? e : (e.steps || []), isCase: true };
+            return { label: prefix || k, caseKey: k, def, steps: Array.isArray(e) ? e : (e.steps || []), isCase: true };
         });
     }
     return [{ label, def, steps: [], isCase: false }];
@@ -131,17 +131,20 @@ for (const u of units) {
                 const host = makeNode('div');
                 mountWorkspace(host, def);
                 /* land on the right mode / case before walking, then re-query:
-                   switching rebuilds the workspace */
-                if (set.label !== '_') {
-                    let opt = set.label;
-                    if (set.isCase) {
-                        const ctl = (set.def.controls || []).find(c => c.key === (set.def.stepKey
-                            || ((set.def.controls || []).find(c => c.kind === 'choice') || {}).key));
-                        const o = ((ctl && ctl.options) || []).find(x => (x.v !== undefined ? x.v : x) === set.label);
-                        opt = o ? (o.label !== undefined ? o.label : String(o)) : null;
-                    }
+                   switching rebuilds the workspace. A lesson with modes mounts
+                   one def per tab, so tab and case are two separate clicks. */
+                if (def.modes && def.modes.length && set.label !== '_') {
+                    const tabBtn = queryAll(host, '.mode-tab').find(b => b.textContent === set.label);
+                    if (!tabBtn) throw new Error('no mode tab for ' + set.label);
+                    tabBtn._ev.click();
+                }
+                if (set.isCase) {
+                    const ctl = (set.def.controls || []).find(c => c.key === (set.def.stepKey
+                        || ((set.def.controls || []).find(c => c.kind === 'choice') || {}).key));
+                    const o = ((ctl && ctl.options) || []).find(x => (x.v !== undefined ? x.v : x) === set.caseKey);
+                    const opt = o ? (o.label !== undefined ? o.label : String(o)) : set.caseKey;
                     const btn = queryAll(host, '.mode-tab').find(b => b.textContent === opt);
-                    if (!btn) throw new Error('no tab/button for ' + set.label);
+                    if (!btn) throw new Error('no case button for ' + set.caseKey);
                     btn._ev.click();
                 }
                 const nextBtn = queryAll(host, '.wbtn').find(b => b.textContent.includes('Next'));

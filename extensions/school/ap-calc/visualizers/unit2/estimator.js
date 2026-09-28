@@ -37,12 +37,17 @@ export default {
                         kind: 'graph', title: 'y = f(x), formula withheld', height: 360,
                         window: [1.5, 6.5, -4, 6.5],
                         curves: [{ fn: 'f', color: 'curveA' }],
+                        /* A short guide line keeps the picture local. The faint
+                           band marks the neighborhood the line has to match.
+                           vband draws no text, so the note caption names it. */
+                        vband: env => [{ from: env.a - 0.6, to: env.a + 0.6, color: 'fillA' }],
                         segments: env => [{
-                            x1: env.a - 2.2, y1: HIDDEN(env.a) - 2.2 * env.m,
-                            x2: env.a + 2.2, y2: HIDDEN(env.a) + 2.2 * env.m,
+                            x1: env.a - 1.0, y1: HIDDEN(env.a) - 1.0 * env.m,
+                            x2: env.a + 1.0, y2: HIDDEN(env.a) + 1.0 * env.m,
                             color: 'accent'
                         }],
                         points: env => [{ x: env.a, y: HIDDEN(env.a), label: 'target (' + round2(env.a) + ', ' + round2(HIDDEN(env.a)) + ')', color: 'ink' }],
+                        notes: env => [{ x: env.a - 0.6, y: 6.0, t: 'local neighborhood' }],
                         triangle: env => {
                             const [xa, xb] = triSpan(env);
                             return {
@@ -71,7 +76,7 @@ export default {
                     },
                     {
                         kind: 'note', title: 'What a good tangent match looks like',
-                        text: 'A good match means your line passes through the target point and runs in the same direction as the curve there. Your line may cross the curve again somewhere else, because only the direction at the target point sets the slope. So read the slope from the rise and run on your own line.'
+                        text: 'Your line only has to agree with the curve inside the shaded neighborhood, not along the whole window. Read the slope from the rise and the run on the line itself.'
                     }
                 ]
             },
@@ -106,16 +111,17 @@ export default {
         },
         {
             label: 'Estimate from a table',
-            intro: 'You have a table of data and no formula. The value of f′ at the target row must come from nearby rows, so choose the two rows you trust.',
+            intro: 'You have a table of data and no formula. The estimate of f′ at the target row comes from rows you pick yourself, and the rows near the target are where to start.',
             params: { data: 0, target: 4, left: 3, right: 5, reveal: 0 },
             controls: [
                 {
                     key: 'data', label: 'data set', kind: 'choice',
                     options: DATASETS.map((d, i) => ({ v: i, label: d.label }))
                 },
+                /* the outermost rows have no data on one side, so only interior rows can be the target */
                 {
                     key: 'target', label: 'estimate f′ at this row', kind: 'choice',
-                    options: XS.map((x, i) => ({ v: i, label: 'x = ' + x }))
+                    options: XS.slice(1, -1).map((x, i) => ({ v: i + 1, label: 'x = ' + x }))
                 },
                 {
                     key: 'left', label: 'left row of your pair', kind: 'choice',
@@ -143,6 +149,24 @@ export default {
                                 { v: rowMark(env, i) }
                             ]);
                         }
+                    },
+                    {
+                        /* All eight sample x positions on one line so locality and
+                           bracketing read at a glance. The renderer reads only
+                           window, probes and bands; the y pair in window is inert
+                           here. Only the target row is named: the three named marks
+                           sit 32 to 43 px apart on a 4.8 unit window, and two word
+                           labels are 72 to 81 px wide, so extra labels would be
+                           pushed down onto the axis line. The band and the accent
+                           triangles carry the pair, and the table names each role. */
+                        kind: 'numberline', title: 'Where your rows sit on the x grid',
+                        window: [2.6, 7.4, 0, 1],
+                        bands: env => [{ from: XS[env.left], to: XS[env.right], color: 'accent' }],
+                        probes: env => XS.map((x, i) => {
+                            if (i === env.target) return { x, color: 'ink', label: 'target' };
+                            if (i === env.left || i === env.right) return { x, color: 'accent' };
+                            return { x, color: 'auxInk' };
+                        })
                     }
                 ],
                 side: [
@@ -154,9 +178,13 @@ export default {
                             const a = XS[env.left], b = XS[env.right];
                             const m = env.left === env.right ? 'needs two different rows' : (fn(b) - fn(a)) / (b - a);
                             const trueSlope = derivative(fn, tx);
+                            /* strict, so a pair that uses the target row itself does not count as bracketing */
+                            const brackets = Math.min(a, b) < tx && tx < Math.max(a, b);
                             return [
                                 { label: 'target', v: 'f′(' + tx + ')' },
                                 { label: 'your pair', v: a + ' → ' + b },
+                                { label: 'width of your interval', v: Math.abs(b - a) },
+                                { label: 'brackets the target row', v: () => (brackets ? 'yes' : 'no') },
                                 { label: 'secant slope as your estimate', v: m, color: 'accent', big: true },
                                 { label: 'true f′(' + tx + ')', v: env.reveal ? trueSlope : 'hidden', color: 'up' },
                                 { label: 'your error', v: env.reveal && typeof m === 'number' ? Math.abs(m - trueSlope) : 'hidden' }
@@ -164,8 +192,8 @@ export default {
                         }
                     },
                     {
-                        kind: 'note', title: 'Why the closest pair is best',
-                        text: 'A secant slope through two rows equals the average rate of change between those rows. When a short interval straddles the target, that average rate sits close to the instantaneous rate at the target. Rows far away smooth out the curve, so they describe a different neighborhood and hide the local behavior.'
+                        kind: 'note', title: 'Why nearby rows are usually the best starting point',
+                        text: 'A secant slope through two rows equals the average rate of change between those rows. When a short interval straddles the target, that average rate often sits close to the instantaneous rate at the target. Rows far away smooth out the curve, so they describe a different neighborhood and hide the local behavior.'
                     }
                 ]
             },
@@ -179,13 +207,13 @@ export default {
                     predict: {
                         q: 'The target row is x = 5.0. Which pair of rows gives the most trustworthy estimate of f′(5.0)?',
                         choices: ['x = 4.6 and x = 5.3. These are the closest rows on each side of the target.', 'x = 3.0 and x = 7.0. This widest span uses the most of the data.', 'x = 3.8 and x = 5.0. The value f(5.0) anchors the estimate for the target.', 'x = 3.0 and x = 3.8. These are the rows farthest below the target.'], a: 0,
-                        why: 'A derivative is a local slope. The rows closest to the target give the shortest secants. A pair that straddles the target averages the two sides, so its slope lands nearest the tangent slope. The row at x = 5.0 only supplies a height, and a wide pair measures a different neighborhood.'
+                        why: 'A derivative is a local slope, so the rows closest to the target give the shortest secants. Pairing the target row at x = 5.0 with one neighbor gives a one-sided secant estimate, because both rows sit on the same side of the target. The nearby pair x = 4.6 and x = 5.3 sits on opposite sides of the target, so it averages the two sides and is the better balanced estimate on this data. A pair that is far apart still works, but it measures a wider neighborhood.'
                     },
                     message: 'Set the left row to x = 4.6 and the right row to x = 5.3, then turn grading on. This pair gives the smallest error of the choices.'
                 },
                 {
                     params: { left: 2, right: 6, reveal: 1 },
-                    message: env => 'Now widen the pair to x = 3.8 and x = 5.9. The estimate reads ' + round2(secant(env)) + ' against a true value of ' + round2(derivative(dataFn(env), XS[env.target])) + '. It is still local, but it uses a far longer interval than the straddling pair.'
+                    message: env => 'Now widen the pair to x = 4.2 and x = 5.9. The estimate reads ' + round2(secant(env)) + ' against a true value of ' + round2(derivative(dataFn(env), XS[env.target])) + '. It is still local, but it uses a far longer interval than the straddling pair.'
                 },
                 {
                     params: { data: 1, target: 4, left: 3, right: 5, reveal: 1 },
@@ -197,8 +225,8 @@ export default {
                 }
             ],
             summary: {
-                idea: 'An estimate from a table uses the most local information available. Take the closest rows, and prefer one row on each side of the target row.',
-                mistake: 'A far apart pair looks better because it uses more data, but it is wrong. A wider secant averages away the local behavior that f′ should report.',
+                idea: 'An estimate from a table uses the most local information available. Start with the nearest rows, and when the data allows it take rows on opposite sides of the target row so the pair brackets the target.',
+                mistake: 'A far apart pair may look stronger because it uses more data, but it averages over a wider interval and can miss the local slope.',
                 transfer: 'Switch to table 2 and set the target row to x = 4.2. Name the pair you would use, predict the sign of the slope, then compute it and read your error.'
             }
         }
