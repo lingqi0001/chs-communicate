@@ -8,7 +8,7 @@
 
 import { get, query, ref, orderByKey, limitToFirst, limitToLast } from './core.js';
 import { localDB, dbReady, saveMessageLocal } from './db.js';
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260929-wpsize-1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260930-lgland-2';
 
 const HISTORY_KEY = 'chs_search_history';
 const MAX_HISTORY_LEN = 8;

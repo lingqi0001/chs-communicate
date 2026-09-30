@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260929-wpsize-11">
+    <link rel="stylesheet" href="style.css?v=20260930-attachfly-21">
 
     <script type="importmap">
     {
@@ -169,7 +169,7 @@
         "./js/search.js": "./js/search.js?v=20260922-lgpref-1",
         "./js/settings.js": "./js/settings.js?v=20260925-visits-3",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260929-wpsize-9"
+        "./js/chat.js": "./js/chat.js?v=20260930-attachfly-21"
       }
     }
     </script>
@@ -3815,7 +3815,7 @@
                 </button>
 
                 <div id="wpProjectList" class="hidden" role="listbox">
-                    <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+                    <div class="wp-list-divider h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
                     <div id="wpProjectMenuList"></div>
                 </div>
             </div>
@@ -3859,7 +3859,7 @@
                     <div class="flex gap-2 items-end w-full relative">
                     <!-- Plus Attachment Button & Popup Menu -->
                     <div class="relative flex-shrink-0">
-                        <button id="chatCameraBtn" type="button" onclick="toggleAttachMenu(event)" class="chat-fab-btn cursor-pointer transition-all duration-200 pointer-events-auto flex items-center justify-center">
+                        <button id="chatCameraBtn" type="button" onclick="toggleAttachMenu(event)" class="chat-fab-btn cursor-pointer transition-[transform,opacity,background-color,box-shadow] duration-200 pointer-events-auto flex items-center justify-center">
                             <svg id="chatAttachPlusIcon" class="h-6 w-6 text-[#8E8E93] transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -3870,9 +3870,22 @@
                         <input id="chatImageFileInput" type="file" class="hidden" accept="image/*" multiple onchange="handleImg(event)">
 
                         <!-- Attachment Popover Menu -->
-                        <div id="attachMenu" class="hidden menu-hidden absolute bottom-[54px] left-0 z-50 w-[210px] rounded-[22px] overflow-hidden p-1.5 pointer-events-auto">
+                        <div id="attachMenu" class="hidden menu-hidden absolute bottom-0 left-0 z-50 w-[210px] rounded-[22px] overflow-hidden p-1.5 pointer-events-auto">
                             <!-- View 1: Main (Photos + Google Doc) -->
                             <div id="attachViewMain">
+                                <!-- Close handle: the same top nav row the sub-views
+                                     use for Back. At the top level it closes the card. -->
+                                <button type="button" onclick="closeAttachMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                                    <div class="w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
+                                        <svg id="attachCloseIcon" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M18 6L6 18M6 6l12 12"/>
+                                        </svg>
+                                    </div>
+                                    <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Close</span>
+                                </button>
+
+                                <div class="h-[1px] bg-black/5 dark:bg-white/5 my-1 mx-2"></div>
+
                                 <!-- Photo Button -->
                                 <button type="button" onclick="triggerPhotoUpload()" class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all group">
                                     <div class="w-8 h-8 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
@@ -3914,7 +3927,7 @@
                                 <button type="button" onclick="backToAttachMain()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
                                     <div class="w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="15 18 9 12 15 6"/>
+                                            <path class="attach-arm" d="M15 6L9 12M9 12L15 18"/><path class="attach-plus-ghost" d="M12 3.45L12 20.55M3.45 12L20.55 12" stroke-width="3.056" opacity="0"/>
                                         </svg>
                                     </div>
                                     <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
@@ -3977,7 +3990,7 @@
                                 <button type="button" onclick="backToGdocMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
                                     <div class="w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="15 18 9 12 15 6"/>
+                                            <path class="attach-arm" d="M15 6L9 12M9 12L15 18"/><path class="attach-plus-ghost" d="M12 3.45L12 20.55M3.45 12L20.55 12" stroke-width="3.056" opacity="0"/>
                                         </svg>
                                     </div>
                                     <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
@@ -4009,7 +4022,7 @@
                                 <button type="button" onclick="backToGdocMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
                                     <div class="w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="15 18 9 12 15 6"/>
+                                            <path class="attach-arm" d="M15 6L9 12M9 12L15 18"/><path class="attach-plus-ghost" d="M12 3.45L12 20.55M3.45 12L20.55 12" stroke-width="3.056" opacity="0"/>
                                         </svg>
                                     </div>
                                     <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>
@@ -4038,7 +4051,7 @@
                                 <button type="button" onclick="backToGdocMenu()" class="w-full px-3 py-2 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
                                     <div class="w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
                                         <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="15 18 9 12 15 6"/>
+                                            <path class="attach-arm" d="M15 6L9 12M9 12L15 18"/><path class="attach-plus-ghost" d="M12 3.45L12 20.55M3.45 12L20.55 12" stroke-width="3.056" opacity="0"/>
                                         </svg>
                                     </div>
                                     <span class="text-[13px] font-semibold text-black dark:text-white leading-tight">Back</span>

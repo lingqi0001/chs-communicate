@@ -298,7 +298,22 @@ export class LiquidGlassEffect {
     this.canvas.width = Math.ceil(w * this.options.dpi);
     this.canvas.height = Math.ceil(h * this.options.dpi);
 
-    this.queueUpdate();
+    // Assigning canvas.width WIPES it, and queueUpdate() only repaints on the
+    // next animation frame, so every frame painted in between shows an empty
+    // displacement map: glass with no refraction or edge bevel.  A surface that
+    // changes size every frame (the attachment card shrinking onto its + button)
+    // therefore read as the card vanishing and coming back.  Repaint here - the
+    // same work, just not a frame late.  `animate` already runs its own loop and
+    // `fragment` never repaints, so both keep the old path.
+    if (this.options.fragment || this.options.animate) {
+      this.queueUpdate();
+      return;
+    }
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    this.updateDisplacementMap();
   }
   
   queueUpdate() {
@@ -464,6 +479,18 @@ export class LiquidGlassEffect {
     this.width = 0;
     this.height = 0;
     this.handleResize();
+    // handleResize only queues the map redraw for the next frame.  After a
+    // retraction the box has just shrunk, so that pending frame paints the pill
+    // with the displacement map still drawn for the open card, and the bottom
+    // edge visibly flashes as the card finishes closing.  Drawing it here costs
+    // one canvas pass per gesture and removes the frame.  Growing does not show
+    // it: the map was already built for that larger box, so handleResize bails
+    // out on an unchanged size and nothing is queued at all.
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    this.animationFrameId = null;
+    this.updateDisplacementMap();
   }
 
   applyFilter() {

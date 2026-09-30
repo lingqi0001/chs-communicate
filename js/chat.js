@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260929-wpsize-1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260930-lgland-2';
 import { initWritingBehavior, WritingDocCard } from './writing.js';
 
 export function initChatEngine(deps) {
@@ -1973,59 +1973,283 @@ export function initChatEngine(deps) {
 
     let attachMenuCloseTimer = null;
 
+    let attachToggleLock = 0;
+    let attachOpen = false;
+
+    // The "+" button and the menu share one flight: the menu's real box grows
+    // out of the button and retracts back into it, instead of a scale-pop.
+    // Same WAAPI width/height mechanism as the All Projects card (growWpCard):
+    // fly the element's own box, clip-path + overflow hide what doesn't fit, and
+    // land on the real DOM by cancelling so the CSS resting slot takes over.
+    function flyAttachMenu(open) {
+        const menu = document.getElementById('attachMenu');
+        const btn = document.getElementById('chatCameraBtn');
+        if (!menu) return;
+        // Flip the intent immediately: the `hidden` class only lands at the end
+        // of the flight, so a click that arrives mid-collapse must read this, not
+        // the class, to know the menu is actually closing (and reverse to open).
+        attachOpen = open;
+
+        const wrap = menu.parentElement;
+        const wr = wrap.getBoundingClientRect();
+
+        // The glyph that owns the card's top-left slot: the Close × in the main
+        // view, a Back ‹ in every second- or third-level view.  Whichever it is,
+        // it is what flies to the button's centre, because leaving it in the corner
+        // made the collapsed circle read as empty.  Only the × can also BECOME the
+        // plus (a 45° turn), so the sub-view glyphs travel without rotating.
+        const slotView = [...menu.children].find(el => el.tagName === 'DIV' && !el.classList.contains('hidden'));
+        const slotGlyph = slotView ? slotView.querySelector('button:first-child svg') : null;
+        const slotMorphsToPlus = attachCurrentView === 'main';
+
+        // An interrupted flight continues from the frame the card is actually
+        // on, so read the live rect before cancelling.
+        const liveRect = menu._attachFlight ? menu.getBoundingClientRect() : null;
+        menu._attachFlight?.cancel?.();
+        menu._attachFlight = null;
+        // If the slot glyph is mid-flight, capture its live transform so an
+        // interrupted reopen/close continues from where it is instead of jumping
+        // to a fixed keyframe (that jump read as the plus sliding to the corner).
+        const iconLiveTransform = (menu._attachIconFlight && slotGlyph)
+            ? getComputedStyle(slotGlyph).transform : null;
+        menu._attachIconFlight?.cancel?.();
+        menu._attachIconFlight = null;
+        menu._attachArmFlight?.cancel?.();
+        menu._attachArmFlight = null;
+        menu._attachGhostFlight?.cancel?.();
+        menu._attachGhostFlight = null;
+        // Release any glass track a cancelled flight left frozen at the big box,
+        // and drop the hover bulge: the pointer is usually parked inside the card
+        // when Close is clicked, and that ripple does not shrink with the box —
+        // baked into the map it becomes the huge halo that flashes at the end of
+        // a collapse. Clearing it makes the frozen map clean for both directions.
+        const glass = menu._liquidGlass;
+        glass?.endTrack?.();
+        if (glass?.mouse) glass.mouse.active = false;
+        clearTimeout(attachMenuCloseTimer);
+        if (attachAnimTimer) { clearTimeout(attachAnimTimer); attachAnimTimer = null; }
+        // The in-place view swap owns `height` through a CSS transition; take it
+        // off before the flight touches the box, then reflow away stale inline size.
+        menu.classList.remove('attach-animating');
+        menu.style.width = '';
+        menu.style.height = '';
+        menu.style.bottom = '';
+        menu.classList.remove('hidden');
+        menu.classList.remove('menu-hidden');
+        menu.classList.add('menu-visible');
+        // Before anything is measured: this class is what pins the Close row's
+        // press-scale flat, so the × centre read below is the row's real slot
+        // rather than a frame of its spring-back.
+        menu.classList.add('attach-flying');
+
+        const resting = { w: menu.offsetWidth, h: menu.offsetHeight, b: parseFloat(getComputedStyle(menu).bottom) || 0 };
+        const btnRect = btn ? btn.getBoundingClientRect() : wr;
+        // No horizontal anchor is flown, and none is needed: the card's containing
+        // block is the button's own `relative` wrapper (index.html), so its
+        // `left: 0` is already the button's left edge.
+        const button = { w: btn ? btn.offsetWidth : 44, h: btn ? btn.offsetHeight : 44, b: wr.bottom - btnRect.bottom };
+        const liveBox = liveRect ? { w: liveRect.width, h: liveRect.height, b: wr.bottom - liveRect.bottom } : null;
+
+        // The Close × sits at the card's top-left, but the + button's glyph is
+        // centered. When the card collapses onto the button's footprint the ×
+        // would land off-centre (bottom-right of the circle). Measure the offset
+        // from the × slot to the button centre so the flight can slide the × to
+        // the button centre at the collapsed end, making it read as the plus.
+        // Slide the slot glyph (the main view's Close ×, a sub-view's Back ‹) onto
+        // the button's centre, so the collapsed circle always carries something and
+        // it is the something the plus will be.
+        let attachIconDx = 0, attachIconDy = 0;
+        if (slotGlyph) {
+            const ir = slotGlyph.getBoundingClientRect();
+            const mr = menu.getBoundingClientRect();
+            attachIconDx = (button.w / 2) - (ir.left + ir.width / 2 - mr.left);
+            attachIconDy = (button.h / 2) - (ir.top + ir.height / 2 - mr.top);
+        }
+
+        const from = open ? (liveBox || button) : (liveBox || resting);
+        const to = open ? resting : button;
+
+        const speed = wpSpeed();
+        const reduced = speed === 1 && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const duration = reduced ? 1 : Math.round(wpFlightMs(from, to) * speed);
+        if (btn) btn.classList.add('attach-flying-source');
+
+        menu.style.transition = 'none';
+        if (open) {
+            // Growing: freeze one clean map at the larger destination box, then
+            // drop to `from`; the expanding box clips it so the bevel is the right
+            // thickness from frame one. land releases it with endTrack.
+            menu.style.width = `${Math.max(from.w, to.w)}px`;
+            menu.style.height = `${Math.max(from.h, to.h)}px`;
+            menu.style.bottom = `${Math.max(from.b, to.b)}px`;
+            void menu.offsetWidth;
+            glass?.beginTrack?.();
+            menu.style.width = `${from.w}px`;
+            menu.style.height = `${from.h}px`;
+            menu.style.bottom = `${from.b}px`;
+        } else {
+            // Shrinking: a frozen big map leaves the small card flat-centred (no
+            // edge glow) and the glow only pops when it releases at the end — the
+            // stutter. Keep the glass tracking the box each frame instead so the
+            // halo stays glued to the edge all the way in. The hover bulge is
+            // already cleared above, so this rebuild is clean (no huge halo).
+            menu.style.width = `${from.w}px`;
+            menu.style.height = `${from.h}px`;
+            menu.style.bottom = `${from.b}px`;
+            void menu.offsetWidth;
+            const tick = () => {
+                if (!menu.classList.contains('attach-flying')) return;
+                glass?.refresh?.();
+                requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+        void menu.offsetWidth;
+        menu.style.transition = '';
+
+        const flight = menu.animate(
+            [
+                { width: `${from.w}px`, height: `${from.h}px`, bottom: `${from.b}px` },
+                { width: `${to.w}px`, height: `${to.h}px`, bottom: `${to.b}px` }
+            ],
+            { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+        );
+        menu._attachFlight = flight;
+
+        // The slot glyph rides the card's top edge up out of the button on the same
+        // clock, so it reads as the plus becoming the handle rather than as a new
+        // icon appearing.  Main view: the × simply ROTATES 45° into a plus.  Sub
+        // views: the Back ‹ and the plus are two different shapes (see below), so
+        // the card carries both in that one glyph and cross-fades them on the
+        // flight clock while it slides to the button's centre.
+        if (slotGlyph) {
+            // Do NOT "match" the two glyphs by scaling or recolouring this one.  The
+            // card's 18px × already lands on the button's 22px +: the × path spans
+            // 16.97 of its 24-unit viewBox (12.73px at 18px) and the + spans 14
+            // (12.83px at 22px), and `#chatCameraBtn svg { color:#000 !important }`
+            // (style.css:4126) makes both black.  Scaling by 22/18 and fading to
+            // #8E8E93 - as this function briefly did - manufactured a size AND
+            // colour step on the hand-off frame.
+            const atButton = `translate(${attachIconDx}px, ${attachIconDy}px)`
+                + (slotMorphsToPlus ? ' rotate(45deg)' : '');
+            const atSlot = 'translate(0px, 0px) rotate(0deg)';
+            // Continue from the live transform when a flight was interrupted, so
+            // the glyph never teleports to a fixed keyframe mid-slide.
+            const startT = iconLiveTransform || (open ? atButton : atSlot);
+            const endT = open ? atSlot : atButton;
+            // Same LENGTH, different weight: 18px at stroke-width 2.5 of a 24 viewBox
+            // is 1.875px of ink, the plus's 22px is 2.29px. 2.5 * 22/18 = 3.056 lands
+            // the flying glyph on the plus's exact ink width.
+            const inkAtButton = '3.056';
+            const iconFrames = open
+                ? [{ transform: startT, strokeWidth: inkAtButton }, { transform: endT }]
+                : [{ transform: startT }, { transform: endT, strokeWidth: inkAtButton }];
+            const iconFlight = slotGlyph.animate(iconFrames, {
+                duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards'
+            });
+            menu._attachIconFlight = iconFlight;
+            // No own onfinish: cancelling here could snap the glyph back to its slot
+            // a frame before the card hides, which is the "return jump". land()
+            // releases it after the card is gone.
+            if (!slotMorphsToPlus) {
+                // A Back ‹ cannot rotate into a plus: its two arms meet at their
+                // ENDS while a plus's strokes cross at their MIDDLE.  Interpolating
+                // the `d` attribute would be the elegant answer and it did not run
+                // here, so the card carries both shapes in the same 18px glyph: the
+                // arm and a pre-drawn plus sized to the button's own ink (arm
+                // 12.83px => 17.1 of 24 units, stroke 2.29px => 3.056 of 24).  One
+                // fades out as the other fades in on the flight clock, at the spot
+                // the svg is already travelling to, so it reads as the chevron
+                // becoming the plus instead of a corner left hanging in the circle.
+                const arm = slotGlyph.querySelector('.attach-arm');
+                const ghost = slotGlyph.querySelector('.attach-plus-ghost');
+                if (arm && ghost) {
+                    const fade = { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' };
+                    menu._attachArmFlight = arm.animate(
+                        open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], fade);
+                    menu._attachGhostFlight = ghost.animate(
+                        open ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }], fade);
+                }
+            }
+        }
+
+        const land = () => {
+            if (menu._attachFlight && menu._attachFlight !== flight) return;
+            // Open: release the frozen map and rebuild it for the box as it now
+            // sits. Close keeps its glass tracking via the refresh tick, so it has
+            // no frozen map to release here (the next gesture's top-of-function
+            // endTrack clears any leftover state).
+            if (open) glass?.endTrack?.();
+            menu.style.width = '';
+            menu.style.height = '';
+            menu.style.bottom = '';
+            if (!open) {
+                menu.classList.add('hidden');
+                menu.classList.remove('menu-visible');
+            }
+            flight.cancel();
+            menu._attachFlight = null;
+            // Release the × after the card is hidden so its snap back to the slot
+            // is never painted.
+            menu._attachIconFlight?.cancel?.();
+            menu._attachIconFlight = null;
+            menu._attachArmFlight?.cancel?.();
+            menu._attachArmFlight = null;
+            menu._attachGhostFlight?.cancel?.();
+            menu._attachGhostFlight = null;
+            menu.classList.remove('attach-flying');
+            if (btn) btn.classList.remove('attach-flying-source');
+            if (open) {
+                menu.classList.add('menu-visible');
+            } else if (attachCurrentView !== 'main') {
+                // Reset to the main view only now that the flight is off-screen,
+                // so the viewer never sees it swap faces before shrinking.
+                setAttachView('main', 0);
+            }
+        };
+        flight.onfinish = land;
+        // Safety net for a finish event that never arrives.  It must not fire while
+        // the animation is still running: a tab that loses focus to the devtools
+        // pauses the animation timeline but not the wall clock, so a plain timer
+        // lands the card mid-collapse and it simply disappears - the same
+        // "flashes / goes away then comes back" from the other direction.
+        const attachWatchdog = () => {
+            if (menu._attachFlight !== flight) return;
+            if (flight.playState === 'running' || flight.playState === 'pending') {
+                setTimeout(attachWatchdog, 250);
+                return;
+            }
+            land();
+        };
+        setTimeout(attachWatchdog, duration + 160);
+    }
+
     function toggleAttachMenu(e) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
-        const menu = document.getElementById('attachMenu');
         const btn = document.getElementById('chatCameraBtn');
-        if (!menu) return;
+        if (Date.now() < attachToggleLock) return;
+        attachToggleLock = Date.now() + 160;
 
-        clearTimeout(attachMenuCloseTimer);
-        const isHidden = menu.classList.contains('hidden') || menu.classList.contains('menu-hidden');
-        if (isHidden) {
-            menu.classList.remove('hidden');
-            menu.classList.add('menu-hidden');
-            if (btn) btn.classList.add('attach-open');
-
-            if (menu._liquidGlass) {
-                menu._liquidGlass.refresh();
-            }
-
-            // Force layout reflow then pop in with spring
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    menu.classList.remove('menu-hidden');
-                    menu.classList.add('menu-visible');
-                    if (menu._liquidGlass) {
-                        menu._liquidGlass.refresh();
-                    }
-                });
-            });
-        } else {
+        if (attachOpen) {
             closeAttachMenu();
+        } else {
+            if (btn) btn.classList.add('attach-open');
+            flyAttachMenu(true);
         }
     }
 
     function closeAttachMenu() {
-        const menu = document.getElementById('attachMenu');
+        if (!attachOpen) return;
         const btn = document.getElementById('chatCameraBtn');
         if (btn) {
             btn.classList.remove('attach-open');
         }
-        // Invalidate any in-flight doc list load and reset to the main view
         attachDocListToken++;
         stopDocRequestStatusWatch();
-        setAttachView('main');
-        if (menu && !menu.classList.contains('hidden') && !menu.classList.contains('menu-hidden')) {
-            menu.classList.remove('menu-visible');
-            menu.classList.add('menu-hidden');
-            clearTimeout(attachMenuCloseTimer);
-            attachMenuCloseTimer = setTimeout(() => {
-                menu.classList.add('hidden');
-            }, 230);
-        }
+        flyAttachMenu(false);
     }
 
     function triggerPhotoUpload() {
@@ -4229,15 +4453,19 @@ export function initChatEngine(deps) {
     // Expanded, the row above the divider is always "All Projects"; collapsed,
     // the pill shows the current scope. Either way it is rendered with the same
     // icon language as the list: folder for a collection, doc for a single file.
-    function updateWpProjectHeader(isOpen) {
+    function updateWpProjectHeader(isOpen, skipReposition) {
         const selected = wpActiveProject();
         const showingAll = isOpen || !selected;
         const card = document.getElementById('wpDocContextBar');
 
         const titleOut = document.getElementById('wpDocContextTitle');
         const name = showingAll ? 'All Projects' : selected.name;
-        if (titleOut && titleOut.innerText !== name) {
-            titleOut.innerText = name;
+        // `textContent`, not `innerText`: in icon-only mode the title is
+        // `display: none`, and `innerText` reads back as an empty string for a
+        // hidden element, so every pass looked like a text change and replayed
+        // the fade.
+        if (titleOut && titleOut.textContent !== name) {
+            titleOut.textContent = name;
             // Restart the fade so the swap between the focused project's name
             // and "All Projects" is not a hard cut on the flight's first frame.
             titleOut.classList.remove('wp-title-in');
@@ -4289,7 +4517,12 @@ export function initChatEngine(deps) {
         // A selected document may have a much longer name than the previous
         // scope.  Re-evaluate in the same task so that title never gets a
         // frame to paint at its max-content width before compacting/truncating.
-        if (!isOpen) repositionWpBar();
+        // `skipReposition` is for the close path, which is mid-swap: the list is
+        // still rendered there, so the card's own width is the expanded one and
+        // the shape ladder would fail BOTH of its rungs at once and send the pill
+        // to the second row for nothing.  That path re-positions itself, and the
+        // ladder gets its honest pass at landing.
+        if (!isOpen && !skipReposition) repositionWpBar();
     }
 
     // Open Writing Portfolio for the currently selected project and auto-expand its latest card
@@ -4650,7 +4883,7 @@ export function initChatEngine(deps) {
                 p.isGroup ? wpCountLabel(p.docIds.size, 'version') : '',
                 p.id === _activeChatProject
             )).join('')
-            : '<div class="px-3 py-2 text-[12px] text-black dark:text-white">No documents shared in this chat yet.</div>';
+            : '<div class="wp-list-empty px-3 py-2 text-[12px] text-black dark:text-white">No documents shared in this chat yet.</div>';
     }
 
     function selectChatProjectAt(index) {
@@ -4682,6 +4915,16 @@ export function initChatEngine(deps) {
         root.classList.toggle('wp-slowmo', n !== 1);
         return n;
     };
+
+    // Is a size flight still owning this card?  A wall-clock stamp cannot answer
+    // that: a tab that slips into the background (or just loses focus to the
+    // devtools) mid-flight pauses the animation while the clock keeps running, so
+    // every time-based guard opens while the card is still painted at an
+    // in-between size.  The animation object is the honest answer, and growWpCard
+    // drops it the frame the flight lands.
+    function wpFlightLive(el) {
+        return !!el?._wpSizeAnimation;
+    }
 
     // The box the card would rest at in the state it has just been switched to.
     // A freshly inserted clone renders that state immediately — nothing
@@ -4736,11 +4979,11 @@ export function initChatEngine(deps) {
         // state swap; recomputing it here would drift from the row's own
         // transitions and the box would land after the content had settled.
         const duration = reduced ? 1 : Math.round((card._wpFlightMs || wpFlightMs(from, to)) * speed);
-        // Set before the first frame: it is what keeps repositionWpBar from
-        // deciding compact/row-two off a width that is mid-flight, and what the
-        // outside-click guard reads.
+        // Set before the first frame: it is what the list refresh waits out
+        // before swapping rows under an open card.  The shape/slot guard and the
+        // outside-click guard read the animation object instead of this stamp,
+        // because a paused tab stops the flight without stopping the clock.
         card._wpAnimUntil = Date.now() + duration + 80;
-        card._wpSizeFlight = card._wpAnimUntil;
 
         card.style.transition = 'none';
         // One glass map, sized for whichever end of the flight is larger, so the
@@ -4789,7 +5032,6 @@ export function initChatEngine(deps) {
             card.style.height = '';
             card.classList.remove('wp-project-menu-animating');
             card._wpSizeAnimation = null;
-            card._wpSizeFlight = 0;
             card._liquidGlass?.endTrack?.();
             repositionWpBar();
         };
@@ -4811,9 +5053,11 @@ export function initChatEngine(deps) {
         // interrupted retraction "jump open" with nothing to animate.
         const live = card._wpSizeAnimation ? card.getBoundingClientRect() : null;
         card._wpSizeAnimation?.cancel?.();
+        // The reference goes with it: the live-flight guard reads the object, and
+        // a cancelled one must not keep the slot lookup away from this gesture.
+        card._wpSizeAnimation = null;
         card.style.width = '';
         card.style.height = '';
-        card._wpSizeFlight = 0;
         const startingWidth = open ? (live ? live.width : card.offsetWidth) : 0;
         const startingHeight = open ? (live ? live.height : card.offsetHeight) : 0;
         // One clock for the box and for the row that rides inside it.  The CSS
@@ -4845,7 +5089,7 @@ export function initChatEngine(deps) {
                     // outside click, and treating it as one collapsed the card a
                     // frame before the row's click reopened it.
                     if (!card.classList.contains('wp-project-menu-open')) return;
-                    if (Date.now() < (card._wpAnimUntil || 0)) return;
+                    if (wpFlightLive(card)) return;
                     if (!e.target || !e.target.isConnected || card.contains(e.target)) return;
                     setWpProjectMenuOpen(false);
                 };
@@ -4948,23 +5192,29 @@ export function initChatEngine(deps) {
             card.style.minWidth = '';
             if (header) header.setAttribute('aria-expanded', 'false');
             // Collapsed, the header row is the current scope, not "All Projects".
-            updateWpProjectHeader(false);
+            // `true`: this swap must not run the shape ladder — see
+            // updateWpProjectHeader.
+            updateWpProjectHeader(false, true);
             if (card._hideListener) {
                 document.removeEventListener('mousedown', card._hideListener);
                 document.removeEventListener('touchstart', card._hideListener);
                 card._hideListener = null;
             }
-            // The pill's resting box, read from a clone (header only, because
-            // the real card still has the list on screen): the card itself is
-            // already gliding into that shape and would report a width it is
-            // still sliding out of.
+            // The pill's shape is whatever it was before the list opened, and it
+            // stays that way for the whole retraction.  The destination has to be
+            // measured in that shape, and the slot looked up afterwards, because
+            // a second shape decision mid-flight (the ladder re-running on a
+            // pinned box, or a settle pass disagreeing) makes the card land on the
+            // second row and then slide back up to the first.  The ladder still gets
+            // its normal pass at landing, from the resting pill, so a gap that
+            // genuinely changed while the list was open corrects itself there.
             const to = measureWpRestingBox(card, true);
-            // Pin that box for one measurement so repositionWpBar picks the
-            // pill's slot from the pill's own width.
+            // Pin that box so the slot the flight lands in is chosen from the
+            // pill's own width.
             card.style.width = `${to.w}px`;
             card.style.height = `${to.h}px`;
             void card.offsetWidth;
-            repositionWpBar();
+            repositionWpBar(undefined, true);
             const from = { w: startW, h: startH };
             if (card.style.left !== slotLeft || card.style.top !== slotTop) {
                 from.left = slotLeft;
@@ -5024,7 +5274,15 @@ export function initChatEngine(deps) {
     window.collapseWpProjectMenu = (e) => {
         e?.stopPropagation();
         const card = document.getElementById('wpDocContextBar');
-        if (!card || !card.classList.contains('wp-project-menu-open')) return;
+        if (!card) return;
+        if (!card.classList.contains('wp-project-menu-open')) {
+            // Collapsed, the chevron IS the pill's own expand affordance, so it has
+            // to act as one.  In icon-only mode the title is hidden and the disc
+            // opens the portfolio, which left the arrow as a dead half of the pill
+            // that swallowed the press: the "sometimes cannot expand" report.
+            toggleWpProjectMenu(e);
+            return;
+        }
         setWpProjectMenuOpen(false);
     };
 
@@ -5055,7 +5313,11 @@ export function initChatEngine(deps) {
     // by while its width transition is still flying (search expand/collapse).
     // Passing it lets the pill decide labelled-vs-icon at the FIRST frame of
     // that transition instead of after the 360ms settle pass.
-    function repositionWpBar(predictGrow) {
+    // keepShape: position the bar without re-deciding labelled / icon-only /
+    // second row.  The close path needs that once its destination is pinned,
+    // because the ladder measures the card's own width and a pinned box is not
+    // the shape it is being asked to judge.
+    function repositionWpBar(predictGrow, keepShape) {
         const bar = document.getElementById('wpDocContextBar');
         const sec = document.getElementById('chatSection');
         const nameBar = document.getElementById('chatNameBar');
@@ -5064,8 +5326,13 @@ export function initChatEngine(deps) {
         if (!sec.offsetWidth) return;
         // Mid-flight the card is pinned to a size that is not its own, so every
         // measurement here (its width, the free gap, the compact decision) would
-        // be a lie.  growWpCard re-runs this at landing.
-        if (Date.now() < (bar._wpSizeFlight || 0)) return;
+        // be a lie: a card still holding its open-list width fails both ladder
+        // thresholds at once and gets sent to the second row for nothing.  This
+        // reads the animation object rather than a deadline, because a tab that
+        // pauses the flight mid-air lets a clock-based guard lapse while the card
+        // is still painted at an in-between size.  growWpCard re-runs this at
+        // landing.
+        if (wpFlightLive(bar)) return;
         const sr = sec.getBoundingClientRect();
         const nb = nameBar.getBoundingClientRect();
         // Mid-flight name bar: decide from its predicted final right edge,
@@ -5083,14 +5350,40 @@ export function initChatEngine(deps) {
         // opened with — the expand animation owns it): labelled in row 1 →
         // icon+chevron in row 1 → labelled dropped to a second row centred on
         // the full section width, sliding down via the CSS left/top transition.
-        if (!bar.classList.contains('wp-project-menu-open')) {
+        //
+        // It also holds while the name bar is in flight.  A chat switch writes
+        // that bar several times in a row (the cached partner name, then the
+        // async user fetch, then the class or teacher backfill) and every write
+        // glides to a different width, so the free gap legitimately changes a
+        // few times inside a second.  Re-deciding the shape on each of those
+        // showed the switcher's own title being hidden and restored three to
+        // five times in a row.  Whoever is flying calls this function again when
+        // it lands, and that pass decides once from settled geometry.  An
+        // explicit `predictGrow` still decides immediately: that caller is the
+        // search bar asking the pill to shrink on its first frame, which is a
+        // deliberate request rather than a pass that stumbled over the flight.
+        const nameBarFlying = predictGrow === undefined && !!nameBar._nbFlight;
+        if (!bar.classList.contains('wp-project-menu-open') && !keepShape && !nameBarFlying) {
             bar.classList.remove('wp-bar-compact');
             bar.classList.remove('wp-bar-second-row');
             bar.style.removeProperty('--wp-second-row-max-width');
             let secondRow = false;
-            if (bar.offsetWidth + 12 > gap) {
+            // A freshly inserted clone is the only honest ruler for this ladder.
+            // `bar.offsetWidth` answers with whatever the box is RIGHT NOW, and at
+            // the landing pass of a retraction the row's own rhythm (padding 12->1,
+            // gap 12->7, the chevron's 12px inset, the disc 28->32) is still gliding
+            // on the same clock as the box, so a pill that rests at 92px measures
+            // 105 and the labelled one that rests at 163px measures 176.  Both
+            // rungs then fail against a gap the real pill fits in comfortably and
+            // the bar is dropped to the second row for nothing.  The clone carries
+            // `transition: none`, so it reports the resting geometry of whichever
+            // shape classes are on, and it ignores a pinned width too.  This is the
+            // same contamination that showed up as `hdrPad=11.6379px` in the 2026-09-21
+            // startup-shape bug.
+            const pillWidth = () => measureWpRestingBox(bar, true).w;
+            if (pillWidth() + 12 > gap) {
                 bar.classList.add('wp-bar-compact');
-                if (bar.offsetWidth + 12 > gap) {
+                if (pillWidth() + 12 > gap) {
                     bar.classList.remove('wp-bar-compact');
                     secondRow = true;
                 }
@@ -5257,17 +5550,20 @@ export function initChatEngine(deps) {
                 // first frames forces a recalc that kills the in-flight
                 // transition, so an identical rewrite just lets it continue.
                 if (bar.textContent === before) return;
-                // Content really did change mid-flight: measure with a
-                // throwaway clone so the live transition is never retargeted
-                // by forced recalcs, then glide from the current animated
-                // width to the new natural width.
+                // Content really did change mid-flight: measure the same way the
+                // first pass measures.  This used to clone the bar into
+                // <body> with `width: max-content`, where nothing constrains it,
+                // and read the text's full max-content width (270px for a long
+                // class name) instead of the width the header row can actually
+                // give it.  The switcher reads `_wpPredictedWidth` as the name
+                // bar's right edge, saw a 30px gap and dropped itself to the
+                // second row, then came back when the flight landed and the
+                // prediction gave way to the real rect.  That round trip is the
+                // title blinking on a chat switch.  `measureNatural` writes
+                // through the live bar, which is safe here because the lines
+                // below re-pin its width in the same task anyway.
                 const cur = bar.getBoundingClientRect().width;
-                const probe = bar.cloneNode(true);
-                probe.style.transition = 'none';
-                probe.style.width = 'max-content';
-                document.body.appendChild(probe);
-                const target = probe.offsetWidth;
-                probe.remove();
+                const target = measureNatural();
                 flight.target = target;
                 bar._wpPredictedWidth = target;
                 bar.style.transition = 'none';

@@ -309,6 +309,42 @@ body {
     text-overflow: clip;
 }
 
+/* The empty-state line is the only text in the list that is allowed to wrap, so
+   while the box was flying it re-broke at whatever width the frame had reached
+   that frame: "yet." dropped onto a line of its own mid-expand, and on the
+   second row that extra line made the content taller than the animated box, so
+   the bottom stalled and then snapped once the list switched off.  A flying
+   frame covers its content, it never re-flows it.  At rest the rule is off and
+   the line wraps normally if the card is ever clamped narrow. */
+#wpDocContextBar.wp-project-menu-animating .wp-list-empty {
+    white-space: nowrap;
+}
+
+/* The line between the header row and the list rides the closing edge instead of
+   being covered by it: its distance from the top is the row's height plus its own
+   margin, and the row shrinks on the same curve the box does, so the line stays
+   inside the card's bottom inset for the whole retraction and then disappears the
+   frame the list switches off.  Fading it on the flight clock lets it leave with
+   the frame.  `:not(open)` means this only ever matches a retraction - expanding
+   the card keeps the line at full strength, and at landing the animating class
+   goes with it, so it never pops back in. */
+#wpProjectList .wp-list-divider {
+    transition: opacity calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) ease-out;
+}
+
+#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-open) .wp-list-divider {
+    opacity: 0;
+}
+
+/* The card's own clip sits 6px further out than the row, on the glass edge, so
+   a label that is momentarily wider than the flying box was sliced by the
+   rounded corner itself: it read as the title sticking out of the pill.  The
+   row clips its own overflow instead, which is the same covering one inset
+   earlier, along the row's own radius. */
+#wpDocContextBar.wp-project-menu-animating #wpProjectHeader {
+    overflow: hidden;
+}
+
 #wpDocContextBar.wp-project-menu-open #wpProjectBarChevron {
     transform: rotate(180deg);
 }
@@ -859,8 +895,13 @@ body.compact-four-panel-layout #searchResults {
     transform-origin: bottom left;
     transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.34, 1.45, 0.64, 1);
     will-change: transform, opacity;
-    clip-path: inset(0 round 22px);
-    -webkit-clip-path: inset(0 round 22px);
+    /* No clip-path here, on purpose. `rounded-[22px] overflow-hidden` already
+       rounds the card at every intermediate size, and a clip-path clips the
+       element's own box, which for a backdrop-filter surface cuts away the
+       liquid bevel on the left and right edges and leaves only top/bottom.
+       That is why the collapsed circle stepped on the frame the card handed off
+       to the + button: the card had no side bevel, the button has a full one.
+       Same lesson already recorded for #wpDocContextBar. */
 }
 
 #attachMenu.menu-hidden {
@@ -873,6 +914,45 @@ body.compact-four-panel-layout #searchResults {
     opacity: 1;
     transform: scale(1) translateY(0);
     pointer-events: auto;
+}
+
+/* While the box is flying (growWpCard-style WAAPI), the real element owns
+   width/height/bottom, so suppress the scale-pop transition/transform that
+   .menu-hidden/.menu-visible would otherwise apply. clip-path stays: it is
+   border-box relative, so it keeps rounding every intermediate size. */
+#attachMenu.attach-flying {
+    transition: none;
+    transform: none;
+    opacity: 1;
+    pointer-events: none;
+    will-change: width, height, bottom;
+}
+
+/* Every top row in this card - the main view's Close and each sub-view's Back -
+   carries `active:scale-[0.98]` with a transform transition.  The flight measures
+   that row's glyph to find the button's centre, and it measures on the very
+   instant the row is springing back from the press, so a rect-based centre came
+   out a few pixels left of the truth: the glyph landed left and the real button's
+   centre then pulled it right.  At 15x slow-mo the row settles inside the first
+   few percent of the stretched flight, which is why it only shows at normal
+   speed.  While the card is flying, no top row may scale. */
+#attachMenu.attach-flying > div:not(.hidden) > button:first-child {
+    transform: none !important;
+    transition: none !important;
+}
+
+/* The menu grows out of the + button and covers it. Hide the button for the
+   flight so its glass + shadow don't stack under the card's; visibility keeps
+   the wrapper geometry and click target intact. */
+#chatCameraBtn.attach-flying-source {
+    visibility: hidden;
+}
+
+/* The card is anchored flush on the button's footprint and carries its own Close
+   × at the top (which the plus rotates into), so the + button is hidden for the
+   whole open duration, not just the flight. */
+#chatComposerWrap:has(#attachMenu:not(.hidden)) #chatCameraBtn {
+    visibility: hidden;
 }
 
 /* In-place view switching inside the attachment menu */

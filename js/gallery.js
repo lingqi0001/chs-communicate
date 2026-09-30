@@ -12,7 +12,7 @@
  * ==================================================================================
  */
 
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260929-wpsize-1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260930-lgland-2';
 
 export const GalleryModule = {
     state: {
