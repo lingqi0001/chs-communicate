@@ -47,6 +47,10 @@ export async function run(TIDS, opts = {}) {
                     gr: [...svg.querySelectorAll('g.cv-ticklabels text')].filter(t => t.getAttribute('text-anchor') === 'middle'),
                     anchor: (el, mode) => {
                         const q = el.getBoundingClientRect();
+                        /* a numberline tick is start-anchored, so its LEFT edge is the
+                           value's pixel; a graph tick is centred, so its CENTRE is.
+                           Comparing those two is comparing true positions; using
+                           centre-to-centre here reads half a glyph as misalignment */
                         return (mode === 'nl' ? q.left - r.left : ((q.left + q.right) / 2 - r.left)) / r.width * vb[2];
                     }
                 });
@@ -98,7 +102,7 @@ export async function run(TIDS, opts = {}) {
             seen[k] = 1;
             unique.push(r);
         });
-        report.push({ tid: TID, tabs: tabs.length, screens, counts, unique: unique.slice(0, opts.detail ? 40 : 8) });
+        report.push({ tid: TID, tabs: tabs.length, screens, counts, unique: unique.slice(0, opts.detail === 'all' ? unique.length : (opts.detail ? 40 : 8)) });
     }
     return report;
 }

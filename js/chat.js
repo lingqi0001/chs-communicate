@@ -1,4 +1,4 @@
-import { LiquidGlassEffect } from './liquid-glass.js?v=20260922-lgpref-1';
+import { LiquidGlassEffect } from './liquid-glass.js?v=20260929-wpsize-1';
 import { initWritingBehavior, WritingDocCard } from './writing.js';
 
 export function initChatEngine(deps) {
@@ -250,6 +250,10 @@ export function initChatEngine(deps) {
             ? window.CHAT_PREVIEW?.messages?.[chatId]
             : null;
         const isPreviewChat = !!previewMessages;
+        // The project switcher needs this chat's doc metadata.  Read it with the
+        // thread instead of when the bar is opened, so the first click already
+        // has the full list locally.
+        if (!isPreviewChat) prefetchChatProjects(chatId);
         // Guests land at the TOP of the community preview so the demo reads
         // as a story from its first message.  Only that chat, only while
         // signed out — every other thread keeps anchoring to the newest
@@ -4232,7 +4236,14 @@ export function initChatEngine(deps) {
 
         const titleOut = document.getElementById('wpDocContextTitle');
         const name = showingAll ? 'All Projects' : selected.name;
-        if (titleOut && titleOut.innerText !== name) titleOut.innerText = name;
+        if (titleOut && titleOut.innerText !== name) {
+            titleOut.innerText = name;
+            // Restart the fade so the swap between the focused project's name
+            // and "All Projects" is not a hard cut on the flight's first frame.
+            titleOut.classList.remove('wp-title-in');
+            void titleOut.offsetWidth;
+            titleOut.classList.add('wp-title-in');
+        }
 
         const iconOut = document.getElementById('wpProjectHeaderIcon');
         if (iconOut) {
@@ -4449,35 +4460,30 @@ export function initChatEngine(deps) {
         return docs;
     }
 
-    async function buildChatProjects() {
-        const docs = scanChatWritingDocs();
+    // The list has three sources: the doc cards rendered in the chat right now
+    // (instant, local) and two server paths that know about docs outside the
+    // rendered window plus their manual groupings (network).  The server paths
+    // are read in parallel, cached per chat and prefetched with the thread, so
+    // opening the bar always paints from local state and a late or stalled read
+    // can only add rows to it — never delay it.
+    const WP_CHAT_META_TIMEOUT_MS = 4000;
+    const _wpMetaByChat = new Map();
+    let _wpMetaInflight = null;
+
+    function wpChatId() {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
-        if (!currentUser || !activeTargetId) return [];
+        if (!currentUser || !activeTargetId) return '';
+        return activeTargetId.startsWith('group_')
+            ? activeTargetId
+            : getChatId(currentUser.id, activeTargetId);
+    }
 
-        const isGroup = activeTargetId.startsWith('group_');
-        const chatId = isGroup ? activeTargetId : getChatId(currentUser.id, activeTargetId);
-
-        let assigned = {};
-        try {
-            const snap = await get(ref(db, `writing_projects/${chatId}`));
-            if (snap.exists()) assigned = snap.val() || {};
-        } catch (e) {
-            console.warn('[ChatProjects] Failed to load writing_projects:', e);
-        }
-
-        // The message scan is bounded by what is currently rendered, so a chat
-        // switch (which rebuilds #chatBox from a truncated window) silently drops
-        // older projects.  Union in the authoritative per-chat sources so the
-        // project list is stable regardless of scroll position.
-        let docStates = {};
-        try {
-            const stSnap = await get(ref(db, `writing_doc_state/${chatId}`));
-            if (stSnap.exists()) docStates = stSnap.val() || {};
-        } catch (e) {
-            console.warn('[ChatProjects] Failed to load writing_doc_state:', e);
-        }
-
+    // The message scan is bounded by what is currently rendered, so a chat
+    // switch (which rebuilds #chatBox from a truncated window) silently drops
+    // older projects.  Union in the authoritative per-chat sources so the
+    // project list is stable regardless of scroll position.
+    function groupChatProjects(docs, assigned, docStates) {
         const known = new Map();
         docs.forEach(d => known.set(d.docId, d));
         Object.keys(assigned).forEach(docId => {
@@ -4518,6 +4524,97 @@ export function initChatEngine(deps) {
         });
 
         return Array.from(groups.values()).reverse().concat(standalone.reverse());
+    }
+
+    function buildChatProjectsLocal() {
+        const chatId = wpChatId();
+        if (!chatId) return [];
+        const meta = _wpMetaByChat.get(chatId) || { assigned: {}, docStates: {} };
+        return groupChatProjects(scanChatWritingDocs(), meta.assigned, meta.docStates);
+    }
+
+    // Resolves with the cached metadata, or null when the network did not answer
+    // inside the window.  Never rejects, and never blocks a caller that only
+    // wants to paint.
+    function readChatProjectsMeta(chatId) {
+        if (!chatId || window.isChatPreview) return Promise.resolve(null);
+        if (_wpMetaInflight && _wpMetaInflight.chatId === chatId) return _wpMetaInflight.promise;
+
+        const raw = Promise.all([
+            get(ref(db, `writing_projects/${chatId}`)).catch(e => {
+                console.warn('[ChatProjects] Failed to load writing_projects:', e);
+                return null;
+            }),
+            get(ref(db, `writing_doc_state/${chatId}`)).catch(e => {
+                console.warn('[ChatProjects] Failed to load writing_doc_state:', e);
+                return null;
+            })
+        ]).then(([projSnap, stSnap]) => {
+            const assigned = projSnap && projSnap.exists() ? (projSnap.val() || {}) : {};
+            const states = stSnap && stSnap.exists() ? (stSnap.val() || {}) : {};
+            // Only the two fields the project list reads are kept: a state node
+            // carries the document's whole comment snapshot, and this cache is
+            // held for every chat visited in the session.
+            const docStates = {};
+            Object.keys(states).forEach(docId => {
+                docStates[docId] = { title: states[docId]?.title, createdTime: states[docId]?.createdTime };
+            });
+            return { assigned, docStates };
+        });
+
+        // A stalled read (offline, socket reconnecting) must not pin the dedupe
+        // slot forever, so the awaited promise is capped.  The underlying request
+        // is not cancelled: whenever the network does answer, that late snapshot
+        // is still server truth and fills the cache.
+        const capped = Promise.race([
+            raw,
+            new Promise(resolve => setTimeout(() => resolve(null), WP_CHAT_META_TIMEOUT_MS))
+        ]).then(meta => {
+            if (_wpMetaInflight && _wpMetaInflight.promise === capped) _wpMetaInflight = null;
+            return meta;
+        });
+        _wpMetaInflight = { chatId, promise: capped };
+        raw.then(meta => _wpMetaByChat.set(chatId, meta));
+        return capped;
+    }
+
+    function prefetchChatProjects(chatId) {
+        readChatProjectsMeta(chatId);
+    }
+
+    // Two lists are the same when every project carries the same id and the same
+    // docs; the name is derived from those, so it cannot differ alone.
+    function wpProjectsSignature(projects) {
+        return projects.map(p => `${p.id}:${Array.from(p.docIds).sort().join(',')}`).join('|');
+    }
+
+    // Top the list up once the server paths land.  The card is already open, so
+    // a list that did not change must not be rebuilt mid-reveal.
+    async function refreshChatProjects() {
+        const chatId = wpChatId();
+        if (!chatId) return;
+        const meta = await readChatProjectsMeta(chatId);
+        if (!meta || wpChatId() !== chatId) return;
+
+        const before = wpProjectsSignature(_chatProjects);
+        _chatProjects = buildChatProjectsLocal();
+        if (_activeChatProject !== WP_ALL_PROJECTS) {
+            // A focused project's doc set can only grow here, which restores
+            // messages the local-only pass had no way to attribute to it.
+            applyChatProjectFilter();
+        }
+        if (wpProjectsSignature(_chatProjects) === before) return;
+
+        const card = document.getElementById('wpDocContextBar');
+        if (card && card.classList.contains('wp-project-menu-open')) {
+            // Wait out the growth animation, then swap the rows in place; the
+            // card's own width/height is content-driven, so it just settles.
+            const wait = Math.max(0, (card._wpAnimUntil || 0) - Date.now());
+            setTimeout(() => {
+                if (document.getElementById('wpProjectMenuList') &&
+                    card.classList.contains('wp-project-menu-open')) renderWpProjectList();
+            }, wait);
+        }
     }
 
     const WP_ROW_DOC_ICON = `<svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
@@ -4567,31 +4664,135 @@ export function initChatEngine(deps) {
     // clip-path reveals the extra area from the header down.  This preserves the
     // "one card growing" story without forcing backdrop-filter/SVG work on every
     // animation frame or a large canvas rebuild after it settles.
-    function revealWpCard(card, startWidth) {
-        const duration = 300;
-        const endWidth = card.offsetWidth;
-        const widthScale = endWidth ? Math.max(0.01, Math.min(1, (startWidth || endWidth) / endWidth)) : 1;
-        card.style.setProperty('--wp-start-width-scale', widthScale);
-        // Commit the narrow visual start without transitioning from the old
-        // pill into it; only the next frame should perform the outward growth.
+    // The growth animation's own clock, scaled by the inspection lever.  The CSS
+    // transitions on the same card read --wp-speed too, so both halves of the
+    // motion slow down together and stay in step.
+    function wpSpeed() {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue('--wp-speed');
+        const n = parseFloat(raw);
+        return n > 0 ? n : 1;
+    }
+
+    // Console: wpSlowmo(10) to watch the open/close ten times slower,
+    // wpSlowmo() to go back to normal.
+    window.wpSlowmo = (multiplier = 10) => {
+        const n = Number(multiplier) > 0 ? Number(multiplier) : 1;
+        const root = document.documentElement;
+        root.style.setProperty('--wp-speed', String(n));
+        root.classList.toggle('wp-slowmo', n !== 1);
+        return n;
+    };
+
+    // The box the card would rest at in the state it has just been switched to.
+    // A freshly inserted clone renders that state immediately — nothing
+    // transitions on a node that has never been painted — so a flight can be
+    // measured without snapping the real card out of the frame it is in.  The
+    // clone keeps its ids for the microseconds it is attached, which is what the
+    // descendant selectors need; nothing else runs in between.
+    function measureWpRestingBox(card, headerOnly, forceOpen, floorWidth) {
+        const probe = card.cloneNode(true);
+        probe.style.transition = 'none';
+        probe.style.visibility = 'hidden';
+        probe.style.width = '';
+        probe.style.height = '';
+        probe.classList.remove('wp-project-menu-animating');
+        if (forceOpen === false) {
+            // The open list leaves a width floor behind that the pill must not
+            // inherit, or a probe taken before the swap measures a fat pill.
+            probe.style.maxWidth = '';
+            probe.style.minWidth = '';
+        }
+        if (forceOpen !== undefined) probe.classList.toggle('wp-project-menu-open', forceOpen);
+        if (headerOnly || forceOpen === false) {
+            probe.querySelector('#wpProjectList')?.classList.add('hidden');
+        }
+        if (floorWidth) probe.style.minWidth = floorWidth;
+        card.parentElement.appendChild(probe);
+        const box = { w: probe.offsetWidth, h: probe.offsetHeight };
+        probe.remove();
+        return box;
+    }
+
+    // The card's real box flies from one size to the other.  `overflow:hidden`
+    // clips whatever does not fit, so text is hidden by the frame rather than
+    // rescaled, and the border radius keeps rounding every edge at every
+    // intermediate size.  `from`/`to` are {w, h, left?, top?}; a left/top given
+    // in `from` glides to the inline value already in place for `to`.
+    // Distance now buys time.  The same fixed flight reads calmly when the card
+    // travels three hundred pixels and snaps when it travels forty, which is what
+    // made a one-project list feel quicker than a wide one.  The full travel
+    // keeps the 280ms it already had; a card that barely has to move eases up to
+    // 420ms so the eye can follow it.
+    function wpFlightMs(from, to) {
+        const travel = Math.max(Math.abs(to.w - from.w), Math.abs(to.h - from.h));
+        return Math.round(280 + (1 - Math.min(1, travel / 300)) * 140);
+    }
+
+    function growWpCard(card, from, to, onLand) {
+        const speed = wpSpeed();
+        const reduced = speed === 1 &&
+            window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        // The length is the one setWpProjectMenuOpen published to CSS before the
+        // state swap; recomputing it here would drift from the row's own
+        // transitions and the box would land after the content had settled.
+        const duration = reduced ? 1 : Math.round((card._wpFlightMs || wpFlightMs(from, to)) * speed);
+        // Set before the first frame: it is what keeps repositionWpBar from
+        // deciding compact/row-two off a width that is mid-flight, and what the
+        // outside-click guard reads.
+        card._wpAnimUntil = Date.now() + duration + 80;
+        card._wpSizeFlight = card._wpAnimUntil;
+
         card.style.transition = 'none';
-        card.classList.remove('wp-project-menu-closing', 'wp-project-menu-visible');
+        // One glass map, sized for whichever end of the flight is larger, so the
+        // filter region covers the live box for every frame in between.
+        card.style.width = `${Math.max(from.w, to.w)}px`;
+        card.style.height = `${Math.max(from.h, to.h)}px`;
+        void card.offsetWidth;
+        card._liquidGlass?.beginTrack?.();
+
+        card.style.width = `${from.w}px`;
+        card.style.height = `${from.h}px`;
         card.classList.add('wp-project-menu-animating');
         void card.offsetWidth;
+        if (from.left) {
+            // The slot the flight lands in is the inline value; the animation
+            // only has to leave it, and cancelling at the end hands it back.
+            card.style.left = to.left;
+            card.style.top = to.top;
+        }
         card.style.transition = '';
-        if (card._liquidGlass?.refresh) card._liquidGlass.refresh();
 
-        // The first frame contains only the collapsed pill.  Starting on the
-        // following frame lets the browser commit the final glass surface before
-        // the compositor starts revealing it.
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            card.classList.add('wp-project-menu-visible');
-            card._wpAnimUntil = Date.now() + duration + 60;
-        }));
-        setTimeout(() => {
-            card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible');
-            card.style.removeProperty('--wp-start-width-scale');
-        }, duration + 60);
+        const frames = [
+            { width: `${from.w}px`, height: `${from.h}px` },
+            { width: `${to.w}px`, height: `${to.h}px` }
+        ];
+        if (from.left) {
+            frames[0].left = from.left;
+            frames[0].top = from.top;
+        }
+        const flight = card.animate(frames, {
+            duration,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            fill: 'forwards'
+        });
+        card._wpSizeAnimation?.cancel?.();
+        card._wpSizeAnimation = flight;
+        flight.onfinish = () => {
+            if (card._wpSizeAnimation !== flight) return;
+            // Land on the real DOM: drop the fill, let the caller finish the
+            // state swap while the box is still pinned so nothing can flash at
+            // its expanded size, then release to `width: max-content`, which is
+            // this exact width.
+            flight.cancel();
+            onLand?.();
+            card.style.width = '';
+            card.style.height = '';
+            card.classList.remove('wp-project-menu-animating');
+            card._wpSizeAnimation = null;
+            card._wpSizeFlight = 0;
+            card._liquidGlass?.endTrack?.();
+            repositionWpBar();
+        };
     }
 
     function setWpProjectMenuOpen(open) {
@@ -4602,20 +4803,37 @@ export function initChatEngine(deps) {
         if (card.classList.contains('wp-project-menu-open') === open) return;
 
         if (card.classList.contains('wp-project-menu-closing')) return;
-        const startingWidth = open ? card.offsetWidth : 0;
+        // A click that interrupts a flight has to continue from the frame the
+        // card is actually on.  That size is only readable while the running
+        // animation still holds the box, so it is taken before the cancel; the
+        // resting box underneath it is a different state (mid-retraction the list
+        // is still on screen) and would report the expanded width, which made an
+        // interrupted retraction "jump open" with nothing to animate.
+        const live = card._wpSizeAnimation ? card.getBoundingClientRect() : null;
+        card._wpSizeAnimation?.cancel?.();
+        card.style.width = '';
+        card.style.height = '';
+        card._wpSizeFlight = 0;
+        const startingWidth = open ? (live ? live.width : card.offsetWidth) : 0;
+        const startingHeight = open ? (live ? live.height : card.offsetHeight) : 0;
+        // One clock for the box and for the row that rides inside it.  The CSS
+        // transitions on the header cannot know how far the card is about to
+        // travel, so the flight length is worked out and published here, before
+        // any state is switched.
+        const currentBox = live ? { w: live.width, h: live.height }
+            : { w: card.offsetWidth, h: card.offsetHeight };
+        card._wpFlightMs = wpFlightMs(currentBox, measureWpRestingBox(card, !open, open));
+        card.style.setProperty('--wp-flight', `${card._wpFlightMs}ms`);
+        const slotLeft = card.style.left, slotTop = card.style.top;
 
         if (open) {
-            // A re-open during the close glide must un-hide the real card
-            // immediately; the ghost is cancelled below.
-            card.style.visibility = '';
-            // Keep the exact pre-open geometry so the ghost can restore compact
-            // mode faithfully even if layout shifts while the card is open.
+            // Keep the pre-open geometry so the close can restore the compact
+            // mode that was in effect when the list was opened, even if the
+            // layout shifted while it stayed open.
             card._wpOpenOrigin = {
                 width: startingWidth,
                 wasCompact: card.classList.contains('wp-bar-compact')
             };
-            // A re-open landing mid-fade must not fight the ghost still on screen.
-            if (card._wpGhost) { card._wpGhost.cancel?.(); card._wpGhost.remove(); card._wpGhost = null; }
             renderWpProjectList();
             listWrap.classList.remove('hidden');
             card.classList.add('wp-project-menu-open');
@@ -4634,34 +4852,35 @@ export function initChatEngine(deps) {
                 document.addEventListener('mousedown', card._hideListener);
                 document.addEventListener('touchstart', card._hideListener);
             }
-            // Let the final panel establish its natural width before revealing.
-            // There is no intermediate width/height animation for the glass to
-            // chase; clip-path performs the perceived growth instead.
+            // The card is allowed to reach its natural width while the final
+            // constraints are worked out.
             card.style.maxWidth = 'none';
             void card.offsetWidth;
-            const naturalW = card.offsetWidth;
-            // "All Projects" must never ellipsize: measure the header row on
-            // its own and let it lift the width floor above the viewport cap.
-            // Over-long project names in the list truncate instead.
-            listWrap.classList.add('hidden');
-            void card.offsetWidth;
-            const headerW = card.offsetWidth;
-            listWrap.classList.remove('hidden');
-            
-            // Calculate max width based on the chat panel width (4th panel)
-            // - Card should be responsive within its parent container
-            // - Max at 70% of viewport or available panel space, whichever is smaller
-            // - Min at content width or a reasonable floor, whichever is larger
-            const cardParent = card.parentElement;
-            const parentWidth = cardParent ? cardParent.offsetWidth : window.innerWidth;
-            const availableWidth = parentWidth * 0.7; // Use up to 70% of panel width
-            
-            // Don't force minimum expansion beyond content needs
+            // "All Projects" must never ellipsize: measure the header row on its
+            // own and let it lift the width floor above the viewport cap.
+            // Over-long project names in the list truncate instead.  Both
+            // readings come from clones: the row is already gliding into its
+            // expanded shape, and a fresh node reports the state it settles in.
+            const availableWidth = (card.parentElement ? card.parentElement.offsetWidth : window.innerWidth) * 0.7;
             card.style.maxWidth = `${availableWidth}px`;
-            // The floor must be bounded by the same available width.  A long
-            // document title otherwise turns `min-width` into an escape hatch
-            // that defeats max-width and pushes the list beyond the right edge.
-            card.style.minWidth = `${Math.min(availableWidth, Math.max(headerW, 200))}px`;
+            const headerW = measureWpRestingBox(card, true).w;
+            // The floor is bounded by the same available width: a long document
+            // title would otherwise turn `min-width` into an escape hatch past
+            // max-width.  It goes onto the clone, not onto the live card, because
+            // `min-width` clamps the used width AFTER the flight has set it, so an
+            // inline floor made frame one of the animation already 200px wide.  The
+            // card only receives it at landing, when its box is already that width.
+            const widthFloor = `${Math.min(availableWidth, Math.max(headerW, 200))}px`;
+            const to = measureWpRestingBox(card, false, undefined, widthFloor);
+            // A floor left over from a previous open is a clamp the flight cannot
+            // override, so it comes off for the whole journey.
+            card.style.minWidth = '';
+            // Pin the destination box before anything reads this element's own
+            // width: the re-anchor below centres on it, and so does the compact
+            // decision inside repositionWpBar.
+            card.style.width = `${to.w}px`;
+            card.style.height = `${to.h}px`;
+            void card.offsetWidth;
 
             // A second-row pill is right-aligned while closed.  Its list can
             // be substantially wider than that pill, so re-anchor it only
@@ -4675,66 +4894,51 @@ export function initChatEngine(deps) {
                     const openSr = openSection.getBoundingClientRect();
                     const openAb = openActions.getBoundingClientRect();
                     const openNb = openName.getBoundingClientRect();
-                    // Land the re-anchor instantly: the CSS left/top glide
-                    // would otherwise slide the card in from the left while
-                    // the clip reveal grows it — the perceived growth belongs
-                    // to revealWpCard, not to this box moving.
+                    // Land the re-anchor instantly: the CSS left/top glide would
+                    // otherwise slide the card in from the left while the flight
+                    // grows it, and that drift belongs to growWpCard.
                     card.style.transition = 'none';
                     card.style.top = (openNb.bottom - openSr.top + 8) + 'px';
                     card.style.left = (openAb.right - openSr.left - card.offsetWidth / 2) + 'px';
-                    // The reveal's first frame is scaleX(start/end) around the
-                    // card's transform-origin.  With the default top-center it
-                    // lands left of the right-aligned pill (the perceived
-                    // "slide left, then expand").  Anchor it to the right edge
-                    // so frame 1 covers the pill exactly and the card grows
-                    // leftward from it.
-                    card.style.transformOrigin = 'top right';
                     void card.offsetWidth;
                     card.style.transition = '';
                 }
-            } else {
-                card.style.transformOrigin = '';
             }
-            
-            revealWpCard(card, startingWidth);
+
+            // The box itself flies from the pill's size to the list's.  When the
+            // re-anchor above moved the card (a second-row pill is right-aligned
+            // while closed), `left`/`top` glide on the same curve so the box
+            // never jumps sideways on frame 1.
+            const from = { w: startingWidth, h: startingHeight };
+            if (card.style.left !== slotLeft || card.style.top !== slotTop) {
+                from.left = slotLeft;
+                from.top = slotTop;
+                to.left = card.style.left;
+                to.top = card.style.top;
+            }
+            growWpCard(card, from, to, () => {
+                card.style.minWidth = widthFloor;
+            });
         } else {
-            // Swap-first + ghost.  The old path kept the expanded DOM alive and
-            // clip/scale-shrunk it, so the animation ENDED on a fake frame (the
-            // squashed expanded header: check mark, up-chevron, squeezed text)
-            // and the real-DOM swap after finish was the visible pop.  Here the
-            // real card becomes the collapsed pill on frame 1 — its resting box
-            // IS the animation's destination, so no pop is possible — and a
-            // fixed clone (the "ghost") of the expanded card replays the
-            // retraction above it and fades out into the real pill.
-            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-            // The retraction must run the expand animation's own 280ms so the
-            // shape moves at the same speed both ways; the dissolve is extra
-            // tail time after the shape has landed.
-            const retractMs = reduced ? 1 : 280;
-            const duration = reduced ? 1 : retractMs + 80;
-            const retractAt = retractMs / duration;
+            // The retraction is the same flight in reverse, on the real card: the
+            // box shrinks and its own overflow hides what no longer fits.  The
+            // clone this replaces needed a counter-scale to keep its text
+            // undistorted, and every mismatch this bar keeps reporting (the 12px
+            // landing offset, the disc falling back to iOS blue, the see-through
+            // shell) came from that copy living outside #chatSection.
             const origin = card._wpOpenOrigin || {};
-            const wasSecondRow = !!card._wpSecondRow;
-            const rect = card.getBoundingClientRect();
-            const expandedW = rect.width;
-            const expandedH = rect.height;
-            const clipBottom = Math.max(0, expandedH - 46);
+            const startW = live ? live.width : card.offsetWidth;
+            const startH = live ? live.height : card.offsetHeight;
 
-            const ghost = card.cloneNode(true);
-            ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;` +
-                `width:${expandedW}px;height:${expandedH}px;max-width:none;margin:0;` +
-                `transform:none;transition:none;z-index:100;pointer-events:none;`;
-            // Retract around the same edge the expand grew from: a second-row
-            // card is right-anchored, so its ghost must land right-aligned on
-            // the pill instead of drifting to the expanded card's centre.
-            ghost.style.transformOrigin = wasSecondRow ? 'top right' : 'top center';
-            document.body.appendChild(ghost);
-            card._wpGhost = ghost;
-
-            // Collapse the real DOM before the ghost animates.
+            // Collapse the DOM first so the pill's real box can be measured.
+            // Nothing is pinned yet and no frame is painted before the flight
+            // below, so the swap is invisible.
             card.classList.remove('wp-project-menu-animating', 'wp-project-menu-visible', 'wp-project-menu-closing', 'wp-project-menu-closing-active', 'wp-project-menu-open');
             card.classList.toggle('wp-bar-compact', !!origin.wasCompact);
-            listWrap.classList.add('hidden');
+            // The list stays rendered: the closing frame covers it row by row,
+            // which is what makes the retraction read as the same card getting
+            // smaller rather than as content being deleted.  It is switched off
+            // at landing, while the box is still pinned.
             card.style.maxWidth = '';
             // The open list temporarily gives the card a text-sized minimum
             // width.  It must not survive the close: otherwise a compact
@@ -4744,103 +4948,32 @@ export function initChatEngine(deps) {
             card.style.minWidth = '';
             if (header) header.setAttribute('aria-expanded', 'false');
             // Collapsed, the header row is the current scope, not "All Projects".
-            // Same-row closes must land the pill's left/top instantly (the
-            // ghost covers it; a glide would slide visibly after the fade).
-            // A ROW CHANGE (the search bar collapsed while the list was open,
-            // freeing row-1 space) must NOT teleport — the pill flashing into
-            // row 1 reads as a pop.  There the real pill glides to its new
-            // row on the standard 350ms transition while the ghost retracts
-            // where the list was: the animation ends on the real DOM.
-            const openTop = card.style.top, openLeft = card.style.left;
-            card.style.transition = 'none';
             updateWpProjectHeader(false);
-            void card.offsetWidth;
-            const finalTop = card.style.top, finalLeft = card.style.left;
-            const pillRect = card.getBoundingClientRect();
-            const rowChanged = Math.abs(pillRect.top - rect.top) > 1;
-            if (rowChanged) {
-                card.style.top = openTop;
-                card.style.left = openLeft;
-                void card.offsetWidth;
-                card.style.transition = '';
-                card.style.top = finalTop;
-                card.style.left = finalLeft;
-            } else {
-                card.style.transition = '';
-            }
             if (card._hideListener) {
                 document.removeEventListener('mousedown', card._hideListener);
                 document.removeEventListener('touchstart', card._hideListener);
                 card._hideListener = null;
             }
-            if (card._liquidGlass?.refresh) card._liquidGlass.refresh();
-
-            // Measure the true destination after the swap: the ghost's final
-            // width is the pill's real width, not a remembered guess.
-            const collapsedW = card.getBoundingClientRect().width;
-            const scale = expandedW ? Math.min(1, collapsedW / expandedW) : 1;
-            // The ghost squashes around the expanded card's centre.  A
-            // right-aligned second-row pill has a different centre, so shift
-            // the ghost's landing by that delta: it dissolves into exactly
-            // where the real pill already sits.  On a row change the pill is
-            // gliding away underneath, so the ghost retracts in place.
-            const ghostLandCenterX = wasSecondRow
-                ? rect.right - pillRect.width / 2
-                : rect.left + expandedW / 2;
-            const dx = rowChanged ? 0 : (pillRect.left + pillRect.width / 2) - ghostLandCenterX;
-            const dy = rowChanged ? 0 : pillRect.top - rect.top;
-
-            // Align the ghost's header with the real pill it dissolves into:
-            // same text/icon (the real card was just updated), the pill's row
-            // width, and a counter-scale that cancels the card squish exactly
-            // at the landing frame (same easing, so both ends match; any
-            // mid-flight drift is hidden under an opaque ghost).
-            ghost.classList.add('wp-ghost-closing');
-            const ghostRow = ghost.querySelector('#wpProjectHeader');
-            if (ghostRow) {
-                const ghostTitle = ghost.querySelector('#wpDocContextTitle');
-                const realTitle = document.getElementById('wpDocContextTitle');
-                if (ghostTitle && realTitle) ghostTitle.innerText = realTitle.innerText;
-                const ghostIcon = ghost.querySelector('#wpProjectHeaderIcon');
-                const realIcon = document.getElementById('wpProjectHeaderIcon');
-                if (ghostIcon && realIcon) ghostIcon.innerHTML = realIcon.innerHTML;
-                ghostRow.style.transformOrigin = 'left center';
-                if (origin.wasCompact) {
-                    ghostRow.style.gap = '6px';
-                    ghostRow.style.paddingLeft = '6px';
-                    ghostRow.style.paddingRight = '10px';
-                    if (ghostTitle) ghostTitle.style.display = 'none';
-                }
-                // The row's width retracts on the same 280ms curve as the
-                // card's scaleX (they cancel: rendered width = layout width),
-                // so the header content glides to the pill instead of snapping
-                // to the final width on frame 1.
-                ghostRow.animate([
-                    { width: `${Math.max(0, expandedW - 12)}px`, transform: 'translateX(0px) scaleX(1)' },
-                    { width: `${Math.max(0, collapsedW - 12)}px`, transform: `translateX(${scale ? 6 * (1 / scale - 1) : 0}px) scaleX(${scale ? 1 / scale : 1})` }
-                ], { duration: retractMs, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' });
+            // The pill's resting box, read from a clone (header only, because
+            // the real card still has the list on screen): the card itself is
+            // already gliding into that shape and would report a width it is
+            // still sliding out of.
+            const to = measureWpRestingBox(card, true);
+            // Pin that box for one measurement so repositionWpBar picks the
+            // pill's slot from the pill's own width.
+            card.style.width = `${to.w}px`;
+            card.style.height = `${to.h}px`;
+            void card.offsetWidth;
+            repositionWpBar();
+            const from = { w: startW, h: startH };
+            if (card.style.left !== slotLeft || card.style.top !== slotTop) {
+                from.left = slotLeft;
+                from.top = slotTop;
+                to.left = card.style.left;
+                to.top = card.style.top;
             }
-            const animation = ghost.animate([
-                { clipPath: 'inset(0 0 0 0 round 24px)', webkitClipPath: 'inset(0 0 0 0 round 24px)', transform: 'scaleX(1)', opacity: 1, offset: 0 },
-                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(${dx}px) translateY(${dy}px) scaleX(${scale})`, opacity: 1, offset: retractAt },
-                { clipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, webkitClipPath: `inset(0 0 ${clipBottom}px 0 round 24px)`, transform: `translateX(${dx}px) translateY(${dy}px) scaleX(${scale})`, opacity: 0, offset: 1 }
-            ], {
-                duration,
-                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-                fill: 'forwards'
-            });
-            card._wpCloseAnimation?.cancel?.();
-            card._wpCloseAnimation = animation;
-            card._wpAnimUntil = Date.now() + duration + 60;
-            animation.onfinish = () => {
-                if (card._wpCloseAnimation !== animation) return;
-                ghost.remove();
-                card.style.visibility = '';
-                card._wpGhost = null;
-                card._wpCloseAnimation = null;
-                card._wpOpenOrigin = null;
-            };
-
+            growWpCard(card, from, to, () => listWrap.classList.add('hidden'));
+            card._wpOpenOrigin = null;
         }
     }
 
@@ -4860,9 +4993,8 @@ export function initChatEngine(deps) {
         } else {
         }
         
-        // buildChatProjects is awaited before the card opens, so a second click
-        // during that gap would otherwise queue a collapse behind the pending
-        // open — the card flashed shut and then popped.
+        // Some touch stacks deliver one tap twice; without this the second
+        // delivery reads as an open immediately followed by a close.
         if (Date.now() < (card._wpToggleLock || 0)) return;
         card._wpToggleLock = Date.now() + 120;
         if (card.classList.contains('wp-project-menu-open')) {
@@ -4877,11 +5009,24 @@ export function initChatEngine(deps) {
             setWpProjectMenuOpen(false);
             return;
         }
-        _chatProjects = await buildChatProjects();
-        // Show project list
+        // Paint from what is already local (the rendered doc cards plus any
+        // metadata prefetched with this thread), then top the list up once the
+        // server paths answer.  The open itself never waits on the network.
+        _chatProjects = buildChatProjectsLocal();
         setWpProjectMenuOpen(true);
+        refreshChatProjects();
     }
     window.toggleWpProjectMenu = toggleWpProjectMenu;
+
+    // The chevron is the retraction on its own: it folds the list away and leaves
+    // the focused project exactly as it was.  Only the rest of the header row is
+    // the "All Projects" entry, so switching scope stays a deliberate click.
+    window.collapseWpProjectMenu = (e) => {
+        e?.stopPropagation();
+        const card = document.getElementById('wpDocContextBar');
+        if (!card || !card.classList.contains('wp-project-menu-open')) return;
+        setWpProjectMenuOpen(false);
+    };
 
     // Handle icon button click specifically
     window.toggleWpProjectHeaderIcon = async (e) => {
@@ -4917,6 +5062,10 @@ export function initChatEngine(deps) {
         const actionsBar = document.getElementById('chatActionsBar');
         if (!bar || !sec || !nameBar || !actionsBar) return;
         if (!sec.offsetWidth) return;
+        // Mid-flight the card is pinned to a size that is not its own, so every
+        // measurement here (its width, the free gap, the compact decision) would
+        // be a lie.  growWpCard re-runs this at landing.
+        if (Date.now() < (bar._wpSizeFlight || 0)) return;
         const sr = sec.getBoundingClientRect();
         const nb = nameBar.getBoundingClientRect();
         // Mid-flight name bar: decide from its predicted final right edge,

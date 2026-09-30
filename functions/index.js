@@ -1444,10 +1444,10 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
     // email and the account becomes theirs.
     const userRef = db.ref(`users/${idPrefix}`);
     const existingUser = (await userRef.once('value')).val();
+    // firebase-admin v12 only exposes TIMESTAMP via the namespace
+    // (admin.database.ServerValue); the Database instance has no such getter.
+    const ts = admin.database.ServerValue.TIMESTAMP;
     if (!existingUser) {
-        // firebase-admin v12 only exposes TIMESTAMP via the namespace
-        // (admin.database.ServerValue); the Database instance has no such getter.
-        const ts = admin.database.ServerValue.TIMESTAMP;
         await userRef.set({
             name: fullName,
             role: 'student',
@@ -1457,14 +1457,22 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
             hasAcceptedTerms: false,
             joinedVia: 'class_link'
         });
-        await db.ref(`user_search/${idPrefix}`).set({ name: fullName, email: email, avatar: null });
+    } else {
+        // The name typed on the link is the one the student wants teachers to
+        // see, so it replaces whatever the profile carried before.
+        await userRef.update({ name: fullName, email: email, lastSeen: ts });
     }
+    await db.ref(`user_search/${idPrefix}`).set({
+        name: fullName,
+        email: email,
+        avatar: (existingUser && existingUser.avatar) || null
+    });
 
     // The document belongs to the student, so it lands in the teacher chat
     // under their identity exactly like a message they had sent themselves.
     const msgRef = db.ref(`messages/${chatId}`).push();
     const messageKey = msgRef.key;
-    const senderName = (existingUser && existingUser.name) || fullName;
+    const senderName = fullName;
     await msgRef.set({
         senderId: idPrefix,
         senderName: senderName,

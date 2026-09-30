@@ -273,6 +273,9 @@ export class LiquidGlassEffect {
 
     if (w <= 0 || h <= 0) return;
     if (w === this.width && h === this.height) return;
+    // During a tracked flight the region and the map must stay on the box they
+    // were built for; letting them chase a moving edge is what stuttered.
+    if (this.animating) return;
 
     this.width = w;
     this.height = h;
@@ -447,8 +450,12 @@ export class LiquidGlassEffect {
   // the not-yet-covered part of the element transparent.
   beginTrack() {
     if (this.isFallback) return;
-    this.animating = true;
+    // Build for the box the element is about to grow into FIRST, then freeze.
+    // The order matters: handleResize() now returns early while `animating` is
+    // set, so raising the flag first would leave the region at the pre-flight
+    // box and the grown area would paint nothing.
     this.handleResize();
+    this.animating = true;
   }
 
   endTrack() {

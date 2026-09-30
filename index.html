@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260923-offline-12">
+    <link rel="stylesheet" href="style.css?v=20260929-wpsize-11">
 
     <script type="importmap">
     {
@@ -169,7 +169,7 @@
         "./js/search.js": "./js/search.js?v=20260922-lgpref-1",
         "./js/settings.js": "./js/settings.js?v=20260925-visits-3",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20260924-offline-11"
+        "./js/chat.js": "./js/chat.js?v=20260929-wpsize-9"
       }
     }
     </script>
@@ -3796,19 +3796,21 @@
             <div id="wpDocContextBar">
                 <button id="wpProjectHeader" type="button" onclick="toggleWpProjectMenu(event)" aria-haspopup="listbox" aria-expanded="false"
                     title="Choose a writing project to focus this chat on"
-                    class="w-full h-[34px] px-3 rounded-[14px] flex items-center gap-3 text-left cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-[background-color,transform]">
+                    class="w-full px-3 rounded-[14px] flex items-center gap-3 text-left cursor-pointer hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-[background-color,transform]">
                     <span id="wpProjectHeaderIcon" class="glass-disc w-7 h-7 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0" onclick="window.toggleWpProjectHeaderIcon(event)">
                         <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     </span>
-                    <span id="wpProjectHeaderMain" class="flex min-w-0 flex-1 h-full items-center gap-3 rounded-[18px]">
+                    <span id="wpProjectHeaderMain" class="flex min-w-0 flex-1 items-center gap-3 rounded-[18px]">
                         <span class="flex flex-col min-w-0 flex-1">
                             <span id="wpDocContextTitle" class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">All Projects</span>
                             <span id="wpProjectHeaderSub" class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5"></span>
                         </span>
                         <svg id="wpProjectHeaderCheck" class="w-4 h-4 flex-shrink-0 text-black dark:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        <svg id="wpProjectBarChevron" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
+                        <span id="wpProjectChevronBtn" class="wp-collapse-hit" onclick="window.collapseWpProjectMenu(event)">
+                            <svg id="wpProjectBarChevron" class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </span>
                     </span>
                 </button>
 

@@ -148,8 +148,10 @@ body {
 
 /* Chat project switcher: one always-visible glass card under the chat header
    (same liquid-glass surface as #chatInputPill). JS keeps its `top` measured
-   against the real header bottom. The list is revealed with a clip rather than
-   by transitioning this glass surface's width or height. */
+   against the real header bottom.  It is centred with translateX(-50%), so the
+   card grows out of its own middle: chat.js flies this element's real width and
+   height (growWpCard) and `overflow: hidden` is what reveals the list, row by
+   row, instead of a clip-path or a scaled copy of the text. */
 #wpDocContextBar {
     position: absolute;
     /* Fallback only: JS repositions this onto the top row (name-bar line). */
@@ -197,24 +199,114 @@ body {
 /* Open: the header row grows into a full list row (same vertical rhythm as the
    rows below it) and reads exactly like a row — icon, name, subtitle and, when it
    is the current scope, a check mark. The card is width:max-content in both
-   states, so it fits its own text instead of reserving dead space. */
-#wpProjectHeaderSub,
-#wpProjectHeaderCheck {
-    display: none;
+   states, so it fits its own text instead of reserving dead space.
+   Everything that differs between the two rows is transitioned rather than
+   swapped: the card's own box is flying at the same time (chat.js growWpCard),
+   so the row settles on the same curve instead of snapping on the first frame.
+   The count line stays rendered and collapses its own height, which is what
+   lets a retraction cover it with the closing frame instead of deleting it. */
+#wpProjectHeader {
+    min-height: 34px;
+    transition:
+        background-color 150ms ease,
+        transform 120ms ease,
+        gap calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        padding calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+#wpProjectHeaderSub {
+    max-height: 0;
+    margin-top: 0;
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition:
+        max-height calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        margin-top calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        opacity calc(160ms * var(--wp-speed, 1)) ease-out;
+}
+
+/* The tick used to be a flex item toggled with `display`, so it blinked in on
+   the expand's first frame while the card's box was still travelling.  Out of
+   the flow it can simply fade, and the column it sits in keeps reserving its
+   footprint while it is on. */
+#wpProjectHeaderMain {
+    position: relative;
+    min-height: 32px;
+}
+
+/* The label column's 12px leading space and its 23px check-mark reservation only
+   exist in the collapsed states, so opening takes them away.  They ride the
+   flight clock.  Without this the column loses them on frame 1 and the title
+   shows up at the left edge instead of sliding there. */
+#wpProjectHeaderMain > span:first-child {
+    transition:
+        padding-left calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        padding-right calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#wpProjectHeaderCheck {
+    position: absolute;
+    right: 26px;
+    top: 50%;
+    margin-top: -8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity calc(160ms * var(--wp-speed, 1)) ease-out;
+}
+
+/* Open, the row is just taller: the same padding and the same content-driven
+   height.  Declaring `height: auto` here would have to interpolate against the
+   collapsed 34px, which it cannot, and the row would teleport halfway through
+   the flight. */
 #wpDocContextBar.wp-project-menu-open #wpProjectHeader {
-    height: auto;
     padding-top: 10px;
     padding-bottom: 10px;
 }
 
 #wpDocContextBar.wp-project-menu-open #wpProjectHeaderSub:not(:empty) {
-    display: block;
+    max-height: 16px;
+    margin-top: 2px;
+    width: auto;
+    opacity: 1;
 }
 
 #wpDocContextBar.wp-header-checked #wpProjectHeaderCheck {
-    display: block;
+    opacity: 1;
+}
+
+/* Arriving after the box has started growing, so the tick never appears inside
+   a frame that is still the pill's width.  Leaving has no delay. */
+#wpDocContextBar.wp-project-menu-open #wpProjectHeaderCheck {
+    transition-delay: calc(120ms * var(--wp-speed, 1));
+}
+
+/* A long document title truncates, so it has to stop short of the tick the way
+   it did when the tick was a flex item.  "All Projects" never truncates (see
+    .wp-title-full), so it reserves nothing. */
+#wpDocContextBar.wp-header-checked:not(.wp-title-full) #wpProjectHeaderMain > span:first-child {
+    padding-right: 23px;
+}
+
+/* The label swaps between the focused project and "All Projects" the moment the
+   flight starts.  Replacing the string is instant, so the new one fades in from
+   transparent instead — the first painted frame is empty, which hides the swap. */
+@keyframes wp-title-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+#wpDocContextTitle.wp-title-in {
+    animation: wp-title-in calc(180ms * var(--wp-speed, 1)) ease-out;
+}
+
+/* While the box is flying the label is hard-clipped by the frame, never
+   ellipsized.  An ellipsis that appears mid-flight and resolves itself on
+   landing reads as the text reflowing, which is not what is happening: the
+   frame is moving over a label that has not changed. */
+#wpDocContextBar.wp-project-menu-animating #wpDocContextTitle,
+#wpDocContextBar.wp-project-menu-animating #wpProjectMenuList .truncate {
+    text-overflow: clip;
 }
 
 #wpDocContextBar.wp-project-menu-open #wpProjectBarChevron {
@@ -240,7 +332,7 @@ body {
    Writing Portfolio and Search controls.  The 34px row inside the 6px-padded
    46px card forms an exact 7px grid: left, between the two targets, right,
    top, and bottom are all 7px. */
-#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeader {
+#wpDocContextBar:not(.wp-project-menu-open) #wpProjectHeader {
     padding-left: 1px;
     padding-right: 1px;
     gap: 7px;
@@ -249,16 +341,27 @@ body {
     border-radius: 18px;
 }
 
-#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderIcon {
+#wpProjectHeaderIcon {
+    /* .glass-disc's own background transition is repeated here because this
+       rule replaces the shorthand for the whole element. */
+    transition:
+        background-color 150ms ease,
+        width calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        height calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#wpProjectHeaderIcon svg {
+    transition:
+        width calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1),
+        height calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#wpDocContextBar:not(.wp-project-menu-open) #wpProjectHeaderIcon {
     width: 32px;
     height: 32px;
 }
 
-#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderMain {
-    height: 32px;
-}
-
-#wpDocContextBar:not(.wp-project-menu-open):not(.wp-ghost-closing) #wpProjectHeaderIcon svg {
+#wpDocContextBar:not(.wp-project-menu-open) #wpProjectHeaderIcon svg {
     width: 16px;
     height: 16px;
 }
@@ -332,8 +435,47 @@ body {
    collapsed state — the All Projects pill matches the chosen-project pill.
    (This widens the labelled pill by 12px; the row-1/row-2 ladder measures
    the real box, so the threshold simply shifts with it.) */
-#wpDocContextBar:not(.wp-project-menu-open) #wpProjectBarChevron {
+#wpDocContextBar:not(.wp-project-menu-open) .wp-collapse-hit {
     margin-right: 12px;
+    /* The open list row wants no such inset, so this 12px is taken away at the
+       same moment the card starts growing.  On the flight clock, or the chevron
+       teleports 12px while everything around it glides. */
+    transition: margin-right calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The retraction gets its own target.  Pressing the chevron folds the list back
+   without changing which project is focused; the rest of the row is still the
+   "All Projects" row and selects it.  The disc is an overflowing pseudo-element,
+   so the hover target and its hit area cost the row nothing in layout and the
+   pill's 7px grid is untouched. */
+.wp-collapse-hit {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* -7px around the 14px chevron is a 28px circle, the same footprint as the
+   folder disc across the row from it (both glyphs are 14px while open). */
+.wp-collapse-hit::before {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background-color 150ms ease;
+}
+
+/* Only while the list is open.  Collapsed, the whole pill is one hover target
+   painted in the user selection colour (see the rules below), and a second disc
+   inside it would double the tint. */
+#wpDocContextBar.wp-project-menu-open .wp-collapse-hit:hover::before {
+    background: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark #wpDocContextBar.wp-project-menu-open .wp-collapse-hit:hover::before {
+    background: var(--msg-accent-color-dark-alpha10, rgba(255, 255, 255, 0.14));
 }
 
 /* In EVERY collapsed state the icon disc and the title/chevron are independent
@@ -396,10 +538,12 @@ body {
 
 /* The collapse ghost's header strip must land pixel-perfect on the real pill
    before it dissolves, so from frame 1 it wears the collapsed row rhythm:
-   34px row, no check mark, no subtitle, chevron back down, no divider.
-   Declared after the open-state rules above so equal-specificity ties break
-   in favour of the ghost. JS additionally counter-scales the row so text is
-   never squashed. */
+   34px row, no check mark, no subtitle, chevron back down, no divider.  Its
+   horizontal rhythm (1px row padding, 7px gap, 32px disc) comes from the
+   collapsed rules above, which chat.js makes reachable by stripping
+   `wp-project-menu-open` off the clone.  Declared after the open-state rules
+   so equal-specificity ties break in favour of the ghost.  JS additionally
+   counter-scales the row so text is never squashed. */
 #wpDocContextBar.wp-ghost-closing #wpProjectHeader {
     height: 34px;
     padding-top: 0;
@@ -435,9 +579,16 @@ body {
 /* Chat switches change the name bar's width, which moves the gap the pill is
    centred in; slide the reposition instead of teleporting. Height/width stay
    out of the transition — animateWpCard owns those via inline style. */
+/* One lever for the whole project switcher animation.  --wp-speed multiplies
+   every duration below, and chat.js reads the same variable, so CSS and JS stay
+   in lockstep when it is raised for frame-by-frame inspection. */
+:root {
+    --wp-speed: 1;
+}
+
 #wpDocContextBar {
-    transition: left 350ms cubic-bezier(0.22, 1, 0.36, 1),
-        top 350ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: left calc(350ms * var(--wp-speed, 1)) cubic-bezier(0.22, 1, 0.36, 1),
+        top calc(350ms * var(--wp-speed, 1)) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Long project lists scroll inside the card instead of covering the chat. */
@@ -447,51 +598,28 @@ body {
 }
 
 #wpProjectBarChevron {
-    transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform calc(var(--wp-flight, 280ms) * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* The project card reaches its final size before it is revealed.  We animate a
-   clip instead of height: the eye sees the pill grow down from its top edge,
-   but the glass filter never receives a stream of intermediate sizes.  This is
-   the same compositor-friendly principle that makes the attachment menu pop.
-   46px is the collapsed card height (34px row + 6px inset on either side). */
-#wpDocContextBar.wp-project-menu-animating,
-#wpDocContextBar.wp-project-menu-closing {
-    will-change: clip-path, transform, opacity;
-    transition:
-        left 350ms cubic-bezier(0.22, 1, 0.36, 1),
-        top 350ms cubic-bezier(0.22, 1, 0.36, 1),
-        clip-path 280ms cubic-bezier(0.16, 1, 0.3, 1),
-        -webkit-clip-path 280ms cubic-bezier(0.16, 1, 0.3, 1),
-        transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
-        opacity 180ms ease-out;
-}
-
-#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible),
-#wpDocContextBar.wp-project-menu-closing-active {
-    clip-path: inset(0 0 calc(100% - 46px) 0 round 24px);
-    -webkit-clip-path: inset(0 0 calc(100% - 46px) 0 round 24px);
-    opacity: 0.98;
-}
-
-#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible) {
-    transform: translateX(-50%) scaleX(var(--wp-start-width-scale, 1));
-}
-
-#wpDocContextBar.wp-project-menu-animating:not(.wp-project-menu-visible) #wpProjectList,
-#wpDocContextBar.wp-project-menu-closing-active #wpProjectList {
-    opacity: 0;
-    transform: translateY(-8px);
+/* The card's own box is what grows and shrinks.  `overflow: hidden` above hides
+   the rows and the header text that no longer fits, so nothing is ever
+   rescaled, the 24px radius stays a radius at every intermediate size, and no
+   clip rectangle cuts the drop shadow or the liquid bevel's outer band.  Sizes
+   are driven by WAAPI in chat.js; the glass map is built once for the larger
+   end of the flight (beginTrack/endTrack). */
+#wpDocContextBar.wp-project-menu-animating {
+    will-change: width, height, left, top;
 }
 
 #wpProjectList {
-    transition: opacity 180ms ease-out, transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity calc(180ms * var(--wp-speed, 1)) ease-out,
+        transform calc(260ms * var(--wp-speed, 1)) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    #wpDocContextBar.wp-project-menu-animating,
-    #wpDocContextBar.wp-project-menu-closing,
-    #wpProjectList {
+    /* .wp-slowmo is the inspection switch; while it is on the point is to watch
+       the motion, so the OS preference must not flatten it to one frame. */
+    html:not(.wp-slowmo) #wpProjectList {
         transition-duration: 1ms;
     }
 }
@@ -1338,10 +1466,33 @@ body.compact-four-panel-layout #searchResults {
     transform-origin: bottom right;
 }
 
-/* Project-filter switches replay the entrance on what stays on screen, and those
-   bubbles were painted from history so they carry .msg-quiet. Declared after it. */
+/* Project-filter switches replay the entrance on what stays on screen, and
+   those bubbles may have been spliced in carrying .msg-quiet, so this is
+   declared after it.
+   It needs its OWN keyframes name.  A bubble that already played `msgEnter`
+   still computes `animation-name: msgEnter` when .msg-replay is added, and CSS
+   only builds a new animation when the NAME changes, so re-declaring the same
+   one restarted nothing: going from All Projects into a project never animated,
+   while coming back did, because hidden -> visible replays on its own.
+   Keep these frames identical to msgEnter. */
 .msg-pop.msg-replay {
-    animation: msgEnter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    animation: msgReplay 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes msgReplay {
+    0% {
+        transform: scale(0.86) translateY(12px);
+        opacity: 0;
+    }
+
+    45% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes msgEnter {

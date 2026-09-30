@@ -85,13 +85,13 @@ window.CALC_CURRICULUM = [
             { id: '5.3', title: 'Determining Intervals on Which a Function Is Increasing or Decreasing', courses: ['AB', 'BC'], planned: 'Monotonicity Sign Chart', vtype: 'linked graph + number line', module: 'visualizers/unit5/monotonicity-sign-chart.js' },
             { id: '5.4', title: 'Using the First Derivative Test to Determine Relative (Local) Extrema', courses: ['AB', 'BC'], planned: 'First Derivative Test Lab', vtype: 'sign-change explorer', module: 'visualizers/unit5/first-derivative-test.js' },
             { id: '5.5', title: 'Using the Candidates Test to Determine Absolute (Global) Extrema', courses: ['AB', 'BC'], planned: 'Absolute Extrema Candidate Board', vtype: 'comparison/practice', module: 'visualizers/unit5/absolute-extrema-candidates.js' },
-            { id: '5.6', title: 'Determining Concavity of Functions over Their Domains', courses: ['AB', 'BC'], planned: 'Concavity Explorer', vtype: 'synchronized f/f\u2032/f\u2033 graph' },
-            { id: '5.7', title: 'Using the Second Derivative Test to Determine Extrema', courses: ['AB', 'BC'], planned: 'Second Derivative Test Lab', vtype: 'local-shape explorer' },
-            { id: '5.8', title: 'Sketching Graphs of Functions and Their Derivatives', courses: ['AB', 'BC'], planned: 'Function\u2013Derivative Sketch Studio', vtype: 'drawing/practice interaction' },
-            { id: '5.9', title: 'Connecting a Function, Its First Derivative, and Its Second Derivative', courses: ['AB', 'BC'], planned: 'f\u2013f\u2032\u2013f\u2033 Linker', vtype: 'synchronized multi-graph explorer' },
-            { id: '5.10', title: 'Introduction to Optimization Problems', courses: ['AB', 'BC'], planned: 'Optimization Model Builder', vtype: 'modeling/diagram tool' },
-            { id: '5.11', title: 'Solving Optimization Problems', courses: ['AB', 'BC'], planned: 'Optimization Solver Lab', vtype: 'interactive optimization explorer' },
-            { id: '5.12', title: 'Exploring Behaviors of Implicit Relations', courses: ['AB', 'BC'], planned: 'Implicit Relation Behavior Explorer', vtype: 'graph/tangent explorer' }
+            { id: '5.6', title: 'Determining Concavity of Functions over Their Domains', courses: ['AB', 'BC'], planned: 'Concavity and Slope Trend Explorer', vtype: 'f\u2032 trend + f\u2033 sign chain', module: 'visualizers/unit5/concavity-explorer.js' },
+            { id: '5.7', title: 'Using the Second Derivative Test to Determine Extrema', courses: ['AB', 'BC'], planned: 'Second Derivative Test Microscope', vtype: 'critical-point classifier', module: 'visualizers/unit5/second-derivative-test.js' },
+            { id: '5.8', title: 'Sketching Graphs of Functions and Their Derivatives', courses: ['AB', 'BC'], planned: 'Graph Constraint Sketch Studio', vtype: 'constraint-based sketching', module: 'visualizers/unit5/graph-sketch-studio.js' },
+            { id: '5.9', title: 'Connecting a Function, Its First Derivative, and Its Second Derivative', courses: ['AB', 'BC'], planned: 'f\u2013f\u2032\u2013f\u2033 Linker', vtype: 'synchronized multi-graph explorer', module: 'visualizers/unit5/function-derivative-linker.js' },
+            { id: '5.10', title: 'Introduction to Optimization Problems', courses: ['AB', 'BC'], planned: 'Optimization Model Builder', vtype: 'modeling/diagram tool', module: 'visualizers/unit5/optimization-model-builder.js' },
+            { id: '5.11', title: 'Solving Optimization Problems', courses: ['AB', 'BC'], planned: 'Optimization Solver Lab', vtype: 'interactive optimization explorer', module: 'visualizers/unit5/optimization-solver-lab.js' },
+            { id: '5.12', title: 'Exploring Behaviors of Implicit Relations', courses: ['AB', 'BC'], planned: 'Implicit Relation Behavior Explorer', vtype: 'graph/tangent explorer', module: 'visualizers/unit5/implicit-behavior-explorer.js' }
         ]
     },
     {

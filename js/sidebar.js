@@ -597,7 +597,7 @@ export const SidebarModule = {
 
     _applyBarGlass(el) {
         if (!el || el._liquidGlass) return;
-        import('./liquid-glass.js?v=20260922-lgpref-1').then(({ LiquidGlassEffect }) => {
+        import('./liquid-glass.js?v=20260929-wpsize-1').then(({ LiquidGlassEffect }) => {
             if (!el.isConnected || el._liquidGlass) return;
             new LiquidGlassEffect(el, {
                 radius: 23,            // matches the 46px-tall capsule, same as the chat bars
