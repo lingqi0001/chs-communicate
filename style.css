@@ -5119,3 +5119,75 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
 .dark .conn-offline-newscard h3 {
     color: #FF453A;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Cafeteria week grid                                                        */
+/* Wide screens: five Mon->Fri columns, each with a floor width so a menu word */
+/* can never be clipped by the card's overflow. Phones: one day per row and the */
+/* weekday name moves inside the card, so the board only ever scrolls down.    */
+/* -------------------------------------------------------------------------- */
+
+:root {
+    --caf-col-min: 152px;
+    --caf-gap: 8px;
+    --caf-pad: 8px;
+}
+
+.caf-week-strip {
+    box-sizing: border-box;
+    display: flex;
+    gap: var(--caf-gap);
+    padding-left: var(--caf-pad);
+    padding-right: var(--caf-pad);
+    width: 100%;
+    min-width: calc(var(--caf-col-min) * 5 + var(--caf-gap) * 4 + var(--caf-pad) * 2);
+}
+
+/* Child selector beats the utility layer regardless of stylesheet order. */
+.caf-week-strip>.caf-col {
+    flex: 1 1 0;
+    min-width: var(--caf-col-min);
+    overflow-wrap: break-word;
+}
+
+/* The weekday name is redundant while the column header bar is on screen. */
+.caf-dow {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+
+    .caf-dow-bar {
+        display: none;
+    }
+
+    .caf-week-strip {
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .caf-week-strip>.caf-col {
+        flex: 0 0 auto;
+        min-width: 0;
+    }
+
+    .caf-dow {
+        display: block;
+        font-size: 19px;
+        font-weight: 700;
+        color: #6B7280;
+    }
+
+    .caf-dow-today {
+        color: #007AFF;
+        font-weight: 800;
+    }
+
+    .dark .caf-dow {
+        color: #9CA3AF;
+    }
+
+    .dark .caf-dow-today {
+        color: #64B5F6;
+    }
+}

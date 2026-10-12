@@ -107,17 +107,20 @@ export function initCafeteriaFeature(deps) {
                 }
 
                 row += `
-                    <div class="flex-1 min-w-0 basis-0 min-h-[56px] rounded-xl p-2.5 overflow-hidden ${cellClass}">
-                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-[17px] font-bold ${numClass}">${dayDate.getDate()}</div>
+                    <div class="caf-col min-h-[56px] rounded-xl p-2.5 overflow-hidden ${cellClass}">
+                        <div class="flex items-center gap-2">
+                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-[17px] font-bold ${numClass}">${dayDate.getDate()}</div>
+                            <span class="caf-dow${isHighlighted ? ' caf-dow-today' : ''}">${dayDate.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                        </div>
                         ${body}
                     </div>
                 `;
             }
             if (cellCount === 0) continue;
             for (let i = cellCount; i < 5; i++) {
-                row += '<div class="flex-1 min-w-0 basis-0"></div>';
+                row += '<div class="caf-col"></div>';
             }
-            html += `<div class="flex gap-2 items-stretch">${row}</div>`;
+            html += `<div class="caf-week-strip items-stretch">${row}</div>`;
         }
 
         grid.innerHTML = html;

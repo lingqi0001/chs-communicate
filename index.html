@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20260930-attachfly-21">
+    <link rel="stylesheet" href="style.css?v=20261010-cafmobile-2">
 
     <script type="importmap">
     {
@@ -162,7 +162,7 @@
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
         "./js/sync.js": "./js/sync.js?v=20260924-offline-12",
         "./js/sidebar.js": "./js/sidebar.js?v=20260924-offline-11",
-        "./js/extensions.js": "./js/extensions.js?v=20260925-phmech-1",
+        "./js/extensions.js": "./js/extensions.js?v=20261010-toolspaint-1",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260923-offline-3",
         "./js/security.js": "./js/security.js?v=20260519-0935",
@@ -208,7 +208,7 @@
         import { AdminModule } from './js/admin.js';
         import { ClubModule } from './js/club.js?v=20260524-17';
         import { initEagleTimeFeature } from './extensions/eagletime.js?v=20260522-1';
-        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20260923-cafweekfull-1';
+        import { initCafeteriaFeature } from './extensions/cafeteria.js?v=20261010-cafmobile-2';
 
 
 
@@ -453,10 +453,23 @@
             const container = document.getElementById('dynamicExtensionsList');
             if (!container) return;
 
+            // The registry paints this list up front, so the folder scan that runs
+            // afterwards may only surface tools nobody registered yet.
+            const painted = new Set(Array.from(container.querySelectorAll('[data-eid]'), el => el.dataset.eid));
+            const fresh = files.filter(file => {
+                const key = String(file.name).replace('.html', '').toLowerCase().replace(/\s+/g, '_');
+                if (painted.has(key)) return false;
+                painted.add(key);
+                return true;
+            });
+            if (fresh.length === 0) return;
+
             const header = document.createElement('div');
             header.className = "text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-6 px-1";
+            header.dataset.category = title;
             header.innerText = title;
-            container.appendChild(header);
+            const headerAlreadyPainted = Array.from(container.querySelectorAll('[data-category]'), el => el.dataset.category).includes(title);
+            if (!headerAlreadyPainted) container.appendChild(header);
 
             const iconMap = {
                 'bc_volume_3d_present': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>`,
@@ -482,7 +495,7 @@
 
             const showIcon = !/learning|staff/i.test(title);
 
-            files.forEach(file => {
+            fresh.forEach(file => {
                 const rawName = file.name.replace('.html', '');
                 const displayName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 const eid = rawName.toLowerCase().replace(/\s+/g, '_');
@@ -493,6 +506,7 @@
 
                 const card = document.createElement('div');
                 card.className = "p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition select-none";
+                card.dataset.eid = eid;
                 card.onclick = () => {
                     if (!window.isLoggedIn && !window.isPublicTool(rawName, file.url)) {
                         window.promptSignIn("Please sign in with your HCPSS account to access this tool.");
@@ -3493,7 +3507,7 @@
 
                         <div id="dynamicExtensionsList" class="space-y-3">
                             <!-- Extensions will be automatically injected here -->
-                            <div class="flex justify-center py-10">
+                            <div id="extensionsLoader" class="flex justify-center py-10">
                                 <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
                             </div>
                         </div>
@@ -4468,16 +4482,16 @@
             </div>
         </div>
 
-        <div id="cafeteriaContent" class="flex-1 overflow-y-auto pb-[90px] lg:pb-safe">
+        <div id="cafeteriaContent" class="flex-1 overflow-y-auto overflow-x-auto pb-[90px] lg:pb-safe">
             <!-- Weekday menu calendar: weeks from this week onward, Mon -> Fri columns -->
-            <div class="sticky top-0 z-10 flex gap-2 px-2 pt-3 pb-2 bg-[#EDEFFA]/95 dark:bg-[#1A1D22]/95 backdrop-blur">
-                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-extrabold text-[#007AFF] dark:text-[#64B5F6] tracking-wide">Mon</div>
-                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Tue</div>
-                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Wed</div>
-                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Thu</div>
-                <div class="flex-1 min-w-0 basis-0 text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Fri</div>
+            <div class="caf-dow-bar caf-week-strip sticky top-0 z-10 pt-3 pb-2 bg-[#EDEFFA]/95 dark:bg-[#1A1D22]/95 backdrop-blur">
+                <div class="caf-col text-center text-[19px] font-extrabold text-[#007AFF] dark:text-[#64B5F6] tracking-wide">Mon</div>
+                <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Tue</div>
+                <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Wed</div>
+                <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Thu</div>
+                <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Fri</div>
             </div>
-            <div id="cafeteriaCalendar" class="px-2 pt-1 pb-5 space-y-2"></div>
+            <div id="cafeteriaCalendar" class="pt-1 pb-5 space-y-2"></div>
         </div>
     </div>
 

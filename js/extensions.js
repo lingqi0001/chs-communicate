@@ -357,19 +357,19 @@ export const ExtensionModule = {
             title: 'Grade Calculator',
             category: 'Learning Tools'
         },
-        'ir_navigator': {
-            eid: 'ir_navigator',
-            url: 'extensions/school/ir-navigator/IR Navigator.html',
-            title: 'IR Navigator',
+        'bc_volume_3d_present': {
+            eid: 'bc_volume_3d_present',
+            url: 'extensions/school/BC volume 3D present.html',
+            title: 'BC Volume 3D Present',
             category: 'Learning Tools',
-            description: 'Created for Miss. Ireland'
+            description: 'AP Calculus BC 3D solid visualizer'
         },
-        'ap_csa_visual_lab': {
-            eid: 'ap_csa_visual_lab',
-            url: 'extensions/school/ap-csa/AP CSA Visual Lab.html',
-            title: 'AP CSA Visual Lab',
+        'selection_logic_visualizer': {
+            eid: 'selection_logic_visualizer',
+            url: 'extensions/school/Selection Logic Visualizer.html',
+            title: 'Selection Logic Visualizer',
             category: 'Learning Tools',
-            description: 'Try this out if you feel confused about how code runs'
+            description: 'Interactive selection logic simulation'
         },
         'ap_calculus_visual_lab': {
             eid: 'ap_calculus_visual_lab',
@@ -378,12 +378,26 @@ export const ExtensionModule = {
             category: 'Learning Tools',
             description: 'See what the calculus actually looks like'
         },
+        'ap_csa_visual_lab': {
+            eid: 'ap_csa_visual_lab',
+            url: 'extensions/school/ap-csa/AP CSA Visual Lab.html',
+            title: 'AP CSA Visual Lab',
+            category: 'Learning Tools',
+            description: 'Try this out if you feel confused about how code runs'
+        },
         'ap_physics_c_mechanics_visual_lab': {
             eid: 'ap_physics_c_mechanics_visual_lab',
             url: 'extensions/school/ap-physics-c/AP Physics C Mechanics Visual Lab.html',
             title: 'AP Physics C Mechanics Visual Lab',
             category: 'Learning Tools',
             description: 'See how the mechanics actually move'
+        },
+        'ir_navigator': {
+            eid: 'ir_navigator',
+            url: 'extensions/school/ir-navigator/IR Navigator.html',
+            title: 'IR Navigator',
+            category: 'Learning Tools',
+            description: 'Created for Miss. Ireland'
         },
         'face_of_the_good_and_evil': {
             eid: 'face_of_the_good_and_evil',
@@ -438,12 +452,32 @@ export const ExtensionModule = {
     },
 
     /**
+     * Paint the registered tools straight away, in registry order. The folder
+     * filter keeps tools with a hand-written card (grade_calculator) out of here.
+     */
+    renderFromRegistry() {
+        const categoryMap = { school: 'Learning Tools', fun: 'Fun Tools', staff: 'Staff Tools' };
+        for (const [folder, categoryName] of Object.entries(categoryMap)) {
+            const files = Object.values(this.registry)
+                .filter(item => typeof item?.url === 'string' &&
+                    item.url.startsWith(`extensions/${folder}/`) &&
+                    item.url.endsWith('.html'))
+                .map(item => ({ name: decodeURIComponent(item.url.split('/').pop() || ''), url: item.url }));
+            if (files.length > 0 && this.callbacks.renderCategory) {
+                this.callbacks.renderCategory(categoryName, files);
+            }
+        }
+    },
+
+    /**
      * Scan Extensions automatically from local directory or fall back to GitHub Repository contents
      */
     async syncExtensions() {
         const container = document.getElementById('dynamicExtensionsList');
         if (!container) return;
-        container.innerHTML = ''; // Clears loader indicator
+        container.querySelector('#extensionsLoader')?.remove();
+
+        this.renderFromRegistry();
 
         const categoryMap = { 'school': 'Learning Tools', 'fun': 'Fun Tools', 'staff': 'Staff Tools' };
 
