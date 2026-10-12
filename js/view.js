@@ -1367,7 +1367,23 @@ export const ViewModule = {
         const currentTab = activeEl ? activeEl.id.replace('headTab', '').toLowerCase() : 'news';
         const targetIndex = tabs.indexOf(tab);
 
-        if (currentTab === tab) return;
+        if (currentTab === tab) {
+            // Tapping the tab already on screen used to return early, but a
+            // layout change (four-panel, guest teardown) clears the inline
+            // styles of one pane only. Re-asserting the resting state here
+            // means a pane faded out by an earlier switch can never stay blank
+            // on the tab that is supposed to be showing it.
+            tabs.forEach(t => {
+                const content = contents[t];
+                if (!content) return;
+                const visible = t === tab;
+                content.style.opacity = visible ? '1' : '0';
+                content.style.transform = visible ? 'translateX(0)' : `translateX(${tabs.indexOf(t) < targetIndex ? '-40px' : '40px'})`;
+                content.style.pointerEvents = visible ? 'auto' : 'none';
+                content.style.zIndex = visible ? '10' : '0';
+            });
+            return;
+        }
 
         // Update mobile header title to match current function (mobile-only row).
         const newsPanelTitle = document.getElementById('newsPanelTitle');

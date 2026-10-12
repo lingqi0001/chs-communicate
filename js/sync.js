@@ -299,10 +299,30 @@ export const SyncModule = {
     initConnectionStatus(db) {
         if (this._connStatusRef) return;
         this._connStatusRef = ref(db, ".info/connected");
+        // `.info/connected` reads null until the socket finishes its handshake,
+        // so a null snapshot means "not known yet", not "no network". Declaring
+        // offline there painted the banners on every boot and made every cloud
+        // read fail instantly through cloudUnreachable().
+        this._everConnected = false;
         this._connStatusUnsub = onValue(this._connStatusRef, (snap) => {
             this._connSnapshotVal = snap.val();
-            this._setConnectionState(snap.val() !== true, "rtdb");
+            if (snap.val() === true) {
+                this._everConnected = true;
+                clearTimeout(this._connGraceTimer);
+                this._setConnectionState(false, "rtdb");
+            } else if (this._everConnected) {
+                this._setConnectionState(true, "rtdb");
+            }
         });
+
+        // A socket that has not connected by the end of the grace window really
+        // is unreachable, so the banners still arrive - just not before the
+        // handshake got its chance. A link the browser already reports as down
+        // needs no grace at all.
+        clearTimeout(this._connGraceTimer);
+        this._connGraceTimer = setTimeout(() => {
+            if (!this._everConnected) this._setConnectionState(true, "boot-grace");
+        }, navigator.onLine === false ? 0 : 5000);
 
         // Only the offline edge is trusted from the browser: navigator.onLine
         // lies "true" on captive/school Wi-Fi. On the online edge we only flip

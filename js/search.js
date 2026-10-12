@@ -1164,6 +1164,9 @@ export const SearchModule = {
                     const containerId = typeOrModule === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                     const container = document.getElementById(containerId);
                     if (container) {
+                        // The Hub renders one page of announcements at a time, so
+                        // a jump target below that page has to be rendered first.
+                        window.AppModules?.News?.revealNewsPost?.(containerId, itemId);
                         const items = Array.from(container.children);
                         const target = items.find(el => el.dataset.newsKey === itemId);
                         if (target) {

@@ -152,7 +152,7 @@ export const UIComponents = {
     /**
      * [蜊｡迚ｻｻｶ] renderNewsCard
      */
-    renderNewsCard: function (post, type, isStaff) {
+    renderNewsCard: function (post, type, isStaff, animate = true) {
         const isSchool = type === 'school';
         
         // For Club News, use club name if available, otherwise use generic label
@@ -170,9 +170,10 @@ export const UIComponents = {
         const badgeColor = 'text-[#007AFF] dark:text-[#0A84FF]';
         
         const dateStr = UIUtils.formatTime(post.timestamp);
+        const enterAnim = animate ? 'animate-in fade-in slide-in-from-bottom-2 duration-500' : '';
 
         return `
-            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 ${enterAnim}">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider inline-block flex-shrink-0 max-w-[60%] break-words leading-none">${UIUtils.escape(badgeText)}</span>
                     <div class="flex items-center gap-2 ml-auto">

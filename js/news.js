@@ -1,4 +1,4 @@
-import { UIComponents } from './ui-components.js?v=20260920-hoverfix-v1';
+import { UIComponents } from './ui-components.js?v=20261012-hubfix-1';
 
 export function createNewsModule(deps) {
     const {
@@ -23,9 +23,30 @@ export function createNewsModule(deps) {
     let currentPrimaryTab = 'school';
     let currentSubTab = 'events';
 
-    function renderCard(post, tabType) {
+    // Every announcement used to be written into the panel at once (315 cards,
+    // each replaying its 500ms enter animation). That is what took the phone
+    // renderer down, so a page of cards is rendered and the rest is loaded
+    // from a button.
+    const NEWS_PAGE = 20;
+    const newsView = {};
+
+    function renderCard(post, tabType, animate) {
         if (!post) return '';
-        return UIComponents.renderNewsCard(post, tabType, isAdmin());
+        return UIComponents.renderNewsCard(post, tabType, isAdmin(), animate);
+    }
+
+    function buildLoadMoreButton(containerId) {
+        const view = newsView[containerId];
+        const remaining = view.posts.length - view.visible;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full py-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-100 dark:border-white/5 transition-all duration-300 text-[13px] font-semibold text-black dark:text-white text-center';
+        btn.textContent = `Load ${Math.min(NEWS_PAGE, remaining)} more announcements`;
+        btn.onclick = () => {
+            view.visible += NEWS_PAGE;
+            renderNewsContentFromData(view.posts, containerId, view.tabType);
+        };
+        return btn;
     }
 
     function renderNewsContentFromData(posts, containerId, tabType) {
@@ -46,16 +67,50 @@ export function createNewsModule(deps) {
                 return (b.timestamp || 0) - (a.timestamp || 0);
             });
 
+        const view = newsView[containerId] || (newsView[containerId] = { visible: NEWS_PAGE, shown: new Set(), posts: [], tabType });
+        view.posts = sortedPosts;
+        view.tabType = tabType;
+
         if (sortedPosts.length === 0) {
+            view.visible = NEWS_PAGE;
+            view.shown = new Set();
             container.innerHTML = '<div class="text-center text-gray-400 py-10 font-semibold">No announcements yet.</div>';
         } else {
-            container.innerHTML = sortedPosts.map(post => renderCard(post, tabType)).join('');
+            if (view.visible > sortedPosts.length) view.visible = sortedPosts.length;
+            if (view.visible < NEWS_PAGE) view.visible = NEWS_PAGE;
+            const page = sortedPosts.slice(0, view.visible);
+            const shown = new Set();
+            container.innerHTML = page.map(post => {
+                const animate = !view.shown.has(post.key);
+                shown.add(post.key);
+                return renderCard(post, tabType, animate);
+            }).join('');
+            view.shown = shown;
+            if (page.length < sortedPosts.length) {
+                container.appendChild(buildLoadMoreButton(containerId));
+            }
         }
 
         if (containerId === 'schoolNewsContent') {
             renderCafeteriaHighlight(containerId);
             renderOfflineNewsCard();
         }
+    }
+
+    /**
+     * Renders far enough down the list to contain `key`, for search jumps that
+     * target an announcement outside the current page.
+     */
+    function revealNewsPost(containerId, key) {
+        const view = newsView[containerId];
+        if (!view || !Array.isArray(view.posts)) return false;
+        const index = view.posts.findIndex(p => p.key === key);
+        if (index === -1) return false;
+        if (index >= view.visible) {
+            view.visible = index + 1;
+            renderNewsContentFromData(view.posts, containerId, view.tabType);
+        }
+        return true;
     }
 
     // ===== Pinned Cafeteria Teaser (top of School News) =====
@@ -2766,6 +2821,7 @@ Here is the original text:
     return {
         renderCard,
         renderNewsContentFromData,
+        revealNewsPost,
         renderLocalNews,
         deleteNews,
         toggleNewsTab,
