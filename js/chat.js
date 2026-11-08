@@ -1011,11 +1011,10 @@ export function initChatEngine(deps) {
         }
     }
 
-    async function switchChat(targetId) {
+    async function switchChat(targetId, forceReload = false) {
         const currentUser = getCurrentUser();
         const activeTargetId = getActiveTargetId();
         if (!targetId || !currentUser || targetId === currentUser.id) return;
-        window.Directory?.rememberLastChat(targetId);
 
         // The preview ships a fixed set of conversations.  Roster rows
         // (classmates, the teacher) are visible but have no local thread;
@@ -1024,14 +1023,37 @@ export function initChatEngine(deps) {
         if (window.isChatPreview) {
             const previewChatKey = targetId.startsWith('group_') ? targetId : getChatId(currentUser.id, targetId);
             if (!window.CHAT_PREVIEW?.messages?.[previewChatKey]) {
+                if (forceReload) window.syncCHSRouteParams?.({ chatid: null, project: null, wp: null });
                 window.promptSignIn?.('Sign in to start new conversations with your classmates.', 'Sign in to start a chat');
-                return;
+                return false;
             }
         }
+
+        // A direct URL (or stale caller) must not turn an arbitrary string into
+        // a conversation. Resolve regular targets before changing the active ID,
+        // title, draft, URL, or message pane. Groups and extension targets have
+        // their own validation/opening paths below.
+        if (!targetId.startsWith('group_') && !safeIsExtensionTargetId(targetId)) {
+            const normalizedTargetId = String(targetId).toLowerCase();
+            const users = getAllUsers() || {};
+            let targetUser = users[targetId] || users[normalizedTargetId] || null;
+            if (!targetUser) targetUser = await safeFetchUser(targetId);
+
+            const resolvedUserId = String(targetUser?.id || targetId).toLowerCase();
+            const isAdminAlias = normalizedTargetId === 'admin_moss' && resolvedUserId === 'moss104088';
+            if (!targetUser || (targetUser.id && resolvedUserId !== normalizedTargetId && !isAdminAlias)) {
+                if (forceReload) {
+                    window.syncCHSRouteParams?.({ chatid: null, project: null, wp: null });
+                }
+                return false;
+            }
+        }
+
+        window.Directory?.rememberLastChat(targetId);
         
         // Allow re-opening the same chat on mobile (when user clicks back and re-clicks contact)
         const isMobile = window.innerWidth < 640;
-        if (targetId === activeTargetId && !isMobile) {
+        if (targetId === activeTargetId && !isMobile && !forceReload) {
             // Clicking the chat that is already open is still a read action.
             // Previously this early return skipped the notification cleanup.
             AppModules.Notify.markAsRead(targetId);
@@ -1042,6 +1064,8 @@ export function initChatEngine(deps) {
             await safeOpenExtensionNotificationTarget(targetId);
             return;
         }
+
+        window.syncCHSRouteParams?.({ chatid: targetId, project: null });
 
         // A pending doc-comment reply belongs to the chat it was started in.
         if (docReplyTarget) clearQuote();
@@ -1225,7 +1249,8 @@ export function initChatEngine(deps) {
 
         AppModules.View.showPanel('chat');
 
-        loadChatThread(chatId);
+        if (forceReload) await loadChatThread(chatId, true);
+        else loadChatThread(chatId);
 
         document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
             const divId = div.id.replace('item-', '');
@@ -2814,6 +2839,7 @@ export function initChatEngine(deps) {
         drawer.classList.remove('hidden');
         drawer.classList.add('wp-drawer-open');
         setWritingPortfolioExpanded(_wpPreferExpanded, false);
+        window.syncCHSRouteParams?.({ wp: drawer.classList.contains('wp-expanded') ? 'openfull' : 'open' });
         
         requestAnimationFrame(() => {
             drawer.classList.remove('translate-x-full');
@@ -4606,11 +4632,18 @@ export function initChatEngine(deps) {
         if (!drawer || !wpCanExpand()) return;
         _wpPreferExpanded = !drawer.classList.contains('wp-expanded');
         setWritingPortfolioExpanded(_wpPreferExpanded, true);
+        window.syncCHSRouteParams?.({ wp: drawer.classList.contains('wp-expanded') ? 'openfull' : 'open' });
+    }
+
+    function setWritingPortfolioRoutePreference(isExpanded) {
+        _wpPreferExpanded = !!isExpanded;
     }
 
     function closeWritingPortfolio() {
         const drawer = document.getElementById('writingPortfolioDrawer');
         if (!drawer) return;
+
+        window.syncCHSRouteParams?.({ wp: null });
 
         if (wpCanExpand()) _wpPreferExpanded = drawer.classList.contains('wp-expanded');
 
@@ -4852,6 +4885,7 @@ export function initChatEngine(deps) {
         const project = _chatProjects.find(p => p.id === projectId) || null;
         _activeChatProject = project ? project.id : WP_ALL_PROJECTS;
         _wpFilterSince = project ? Date.now() : 0;
+        window.syncCHSRouteParams?.({ project: project ? project.id : 'all' });
         // NOT updateWpProjectHeader(false) here: the card is still open, and
         // shrinking its header content would snap the max-content card to the
         // pill width on the click frame — the collapse branch would then
@@ -5105,6 +5139,23 @@ export function initChatEngine(deps) {
         if (project) selectChatProject(project.id);
     }
     window.selectChatProjectAt = selectChatProjectAt;
+
+    async function restoreChatProjectFromRoute(projectId) {
+        if (!projectId) return;
+        if (projectId === 'all') {
+            selectChatProject(WP_ALL_PROJECTS);
+            return;
+        }
+        const chatId = wpChatId();
+        if (!chatId) return;
+        await readChatProjectsMeta(chatId);
+        if (wpChatId() !== chatId) return;
+        _chatProjects = buildChatProjectsLocal();
+        const project = _chatProjects.find(item => item.id === projectId);
+        if (project) selectChatProject(project.id);
+        else window.syncCHSRouteParams?.({ project: null });
+    }
+    window.restoreChatProjectFromRoute = restoreChatProjectFromRoute;
 
     // The visual growth is a reveal, not a height animation.  The card is first
     // laid out at its final size (and its glass map is refreshed once), then a
@@ -6208,6 +6259,7 @@ export function initChatEngine(deps) {
     window.openWritingPortfolio = openWritingPortfolio;
     window.closeWritingPortfolio = closeWritingPortfolio;
     window.toggleWritingPortfolioExpand = toggleWritingPortfolioExpand;
+    window.setWritingPortfolioRoutePreference = setWritingPortfolioRoutePreference;
     window.portfolioJumpToChat = portfolioJumpToChat;
     window.resetChatProjectFilter = resetChatProjectFilter;
     window.openPortfolioForSelectedProject = openPortfolioForSelectedProject;

@@ -2845,6 +2845,7 @@ Here is the original text:
         openBatchImport,
         processBatchData,
         getCurrentNewsTab,
+        getCurrentHubTab: () => getCurrentNewsTab() === 'clubs' ? currentSubTab : currentPrimaryTab,
         selectClub,
         showTooltip,
         hideTooltip,

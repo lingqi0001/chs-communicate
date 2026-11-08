@@ -95,6 +95,10 @@ export const SidebarModule = {
             event.stopPropagation();
             event.preventDefault();
         }
+        window.syncCHSRouteParams?.({
+            sidebar: mode === 'all' ? 'contacts' : mode,
+            classid: null
+        });
         if (window.sidebarMode === mode) {
             if (mode === 'class' && window.currentClassId) {
                 this._startReturnFly();
@@ -109,6 +113,20 @@ export const SidebarModule = {
         this._returnFly = null;
         window.sidebarMode = mode;
         window.currentClassId = null;
+        this.renderSidebar(true);
+    },
+
+    restoreUrlState(mode = 'recent', classId = null) {
+        const normalizedMode = mode === 'contacts' ? 'all' : mode;
+        const validModes = new Set(['recent', 'all', 'class', 'recent_joined']);
+        if (!validModes.has(normalizedMode)) return;
+        window.sidebarMode = normalizedMode;
+        window.currentClassId = normalizedMode === 'class' && classId ? classId : null;
+        this.state.mode = normalizedMode;
+        this.state.currentClassId = window.currentClassId;
+        this._killFly();
+        this._pendingFly = null;
+        this._returnFly = null;
         this.renderSidebar(true);
     },
 
@@ -249,7 +267,11 @@ export const SidebarModule = {
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                 </div>
                 <div class="flex flex-col overflow-hidden"><span class="font-bold text-base text-black dark:text-white leading-tight">Recently Joined</span><span class="text-xs text-gray-400 mt-0.5">Meet new community members</span></div>`;
-            entry.onclick = () => { window.sidebarMode = 'recent_joined'; this.renderSidebar(); };
+            entry.onclick = () => {
+                window.sidebarMode = 'recent_joined';
+                window.syncCHSRouteParams?.({ sidebar: 'recent_joined', classid: null });
+                this.renderSidebar();
+            };
             container.insertBefore(entry, container.firstChild);
         }
     },
@@ -613,6 +635,10 @@ export const SidebarModule = {
         this._startReturnFly();
         if (window.sidebarMode === 'recent_joined') window.sidebarMode = 'recent';
         else window.currentClassId = null;
+        window.syncCHSRouteParams?.({
+            sidebar: window.sidebarMode === 'all' ? 'contacts' : window.sidebarMode,
+            classid: null
+        });
         window._isPopNav = true;
         this.renderSidebar(true);
     },
@@ -1507,6 +1533,7 @@ export const SidebarModule = {
                         item.onclick = event => {
                             this._armFlyFromRow(item, c, event);
                             window.currentClassId = c.id;
+                            window.syncCHSRouteParams?.({ sidebar: 'class', classid: c.id });
                             AppModules.Sidebar.renderSidebar();
                             if (window.innerWidth >= 800) window.switchChat('group_' + c.id);
                         };
@@ -1747,6 +1774,7 @@ export const SidebarModule = {
                 entry.onclick = event => {
                     this._armFlyFromRow(entry, { id: 'recent_joined', name: 'New Members', echo: 'Recently Joined' }, event);
                     window.sidebarMode = 'recent_joined';
+                    window.syncCHSRouteParams?.({ sidebar: 'recent_joined', classid: null });
                     AppModules.Sidebar.renderSidebar();
                 };
                 entry.innerHTML = `

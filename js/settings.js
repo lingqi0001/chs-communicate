@@ -1305,6 +1305,7 @@ window.applyTheme = (mode) => {
 window.closeSettingsModal = () => {
     const modal = document.getElementById('settingsModal');
     if (!modal) return;
+    window.syncCHSRouteParams?.({ open: null });
     modal.classList.add('fade-out');
     setTimeout(() => {
         modal.classList.add('hidden');
@@ -1328,6 +1329,7 @@ window.toggleSettings = (view = 'settings') => {
             if (SettingsModule && typeof SettingsModule.initSettingsUI === 'function') {
                 SettingsModule.initSettingsUI();
             }
+            window.syncCHSRouteParams?.({ open: 'settings', tool: null });
             return;
         }
         window.closeSettingsModal();
@@ -1339,6 +1341,10 @@ window.toggleSettings = (view = 'settings') => {
     if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
         AppModules.View.toggleSettings(view, window.currentUser);
     }
+    const routeName = view === 'settings'
+        ? 'settings'
+        : (view === 'donation' ? 'support-development' : null);
+    window.syncCHSRouteParams?.({ open: routeName, tool: null });
 };
 
 window.toggleDonation = () => {
@@ -1358,11 +1364,13 @@ window.toggleDonation = () => {
         if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
             AppModules.View.toggleSettings('donation', window.currentUser);
         }
+        window.syncCHSRouteParams?.({ open: 'support-development', tool: null });
         return;
     }
     if (AppModules.View && typeof AppModules.View.toggleSettings === 'function') {
         AppModules.View.toggleSettings('donation', window.currentUser);
     }
+    window.syncCHSRouteParams?.({ open: 'support-development', tool: null });
 };
 
 window.openPortfolio = async () => {

@@ -186,6 +186,8 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
         return;
     }
 
+    window.syncCHSRouteParams?.({ tool: targetEid, open: null });
+
     const titleEl = document.getElementById('extensionTitle');
     const iframe = document.getElementById('extensionIframe');
     const loader = document.getElementById('extensionLoading');
@@ -285,6 +287,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
 };
 
 export const closeExtension = () => {
+    window.syncCHSRouteParams?.({ tool: null });
     _isPanelExtensionOpen = false;
     window.removeEventListener('resize', syncExtensionPanelOffset);
     window.removeEventListener('news-panel-width-change', syncExtensionPanelOffset);
