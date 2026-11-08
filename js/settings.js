@@ -81,6 +81,7 @@ export const SettingsModule = {
         if (navAdmin) navAdmin.classList.toggle('hidden', !isAdminUser);
         if (deviceSection) deviceSection.classList.toggle('hidden', !isAuth);
         document.getElementById('adminPanel')?.classList.toggle('hidden', !isAdminUser);
+        window.updateAdminToolsVisibility?.();
 
         setTimeout(() => window._settingsPaneSpy?.(), 0);
     },

@@ -282,7 +282,8 @@ function isBotCommentAuthor(c) {
     const name = String(c && c.author && c.author.displayName || '').toLowerCase();
     return email.endsWith('.gserviceaccount.com')
         || name.endsWith('.gserviceaccount.com')
-        || String(c && c.content || '').startsWith(BOT_DISPLAY_PREFIX);
+        || String(c && c.content || '').startsWith(BOT_DISPLAY_PREFIX)
+        || String(c && c.content || '').includes(BOT_DISPLAY_PREFIX);
 }
 
 // Flatten a snapshot into comment + reply items, skipping tombstones and
@@ -402,7 +403,7 @@ exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }
     }
     const chatId = data.chatId || null;
     const messageKey = data.messageKey || null;
-    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_-]{8,}$/.test(data.commentId))
+    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_.-]{6,}$/.test(data.commentId))
         ? data.commentId : null;
 
     const rawText = String(data.content || '').replace(/\r\n/g, '\n').trim();
@@ -413,7 +414,10 @@ exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }
         throw new functions.https.HttpsError('invalid-argument', 'Comment text is too long (3000 character limit).');
     }
     const userName = String(data.userName || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Anonymous';
-    const postedText = `${BOT_DISPLAY_PREFIX}${userName}: ${rawText}`;
+    const basePosted = `${BOT_DISPLAY_PREFIX}${userName}: ${rawText}`;
+    const postedText = commentId
+        ? basePosted
+        : `📌 [Commenting on the whole document]\n${basePosted}`;
 
     let failKind = 'unknown';
     let errInfo = null;
@@ -428,7 +432,7 @@ exports.postGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }
         let rangeAnchor = null;
         if (!commentId) {
             try {
-                const docs = google.docs({ version: 'v3', auth });
+                const docs = google.docs({ version: 'v1', auth });
                 const dres = await docs.documents.get({
                     documentId: fileId,
                     fields: 'body/content(startIndex,endIndex,paragraph(elements(textRun(content))))'
@@ -516,7 +520,7 @@ exports.deleteGoogleDocComment = functions.runWith({ secrets: ['GOOGLE_SA_JSON']
     if (!fileId) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid document URL');
     }
-    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_-]{8,}$/.test(data.commentId))
+    const commentId = (typeof data.commentId === 'string' && /^[A-Za-z0-9_.-]{6,}$/.test(data.commentId))
         ? data.commentId : null;
     if (!commentId) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing or invalid comment ID.');

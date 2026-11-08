@@ -679,13 +679,15 @@ export function initChatEngine(deps) {
             composerFollowDrawer(drawer?.classList.contains('wp-expanded'), false);
         } else {
             if (wrap.parentElement !== document.body || !wrap.classList.contains('composer-front')) return;
-            // No sink animation: the composer simply drops back into the chat
-            // column in place, then the drawer slides out over it as usual.
             clearTimeout(window._composerSinkT);
-            wrap.classList.remove('composer-front', 'composer-sink');
-            wrap.style.left = '';
-            wrap.style.transition = '';
-            if (window._composerHome) window._composerHome.appendChild(wrap);
+            wrap.classList.add('composer-sink');
+            window._composerSinkT = setTimeout(() => {
+                if (!wrap.classList.contains('composer-sink')) return;
+                wrap.classList.remove('composer-front', 'composer-sink');
+                wrap.style.left = '';
+                wrap.style.transition = '';
+                if (window._composerHome) window._composerHome.appendChild(wrap);
+            }, 380);
         }
     }
 
@@ -1151,7 +1153,7 @@ export function initChatEngine(deps) {
                             titleEl.innerText = cData.name;
                         });
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
-                        if (wpTitleEl) wpTitleEl.innerText = `WRITING PORTFOLIO - ${cData.name}`;
+                        if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${cData.name}`;
                     }
                     if (cData.teacherId) {
                         const teacher = await safeFetchUser(cData.teacherId);
@@ -1195,7 +1197,7 @@ export function initChatEngine(deps) {
                     if (user.name) {
                         titleEl.innerText = user.name;
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
-                        if (wpTitleEl) wpTitleEl.innerText = `WRITING PORTFOLIO - ${user.name}`;
+                        if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${user.name}`;
                     }
                     if (!user.lastSeen) return;
                     const updatedText = safeFormatLastSeen(user.lastSeen);
@@ -1973,7 +1975,6 @@ export function initChatEngine(deps) {
 
     let attachMenuCloseTimer = null;
 
-    let attachToggleLock = 0;
     let attachOpen = false;
 
     // The "+" button and the menu share one flight: the menu's real box grows
@@ -1993,14 +1994,24 @@ export function initChatEngine(deps) {
         const wrap = menu.parentElement;
         const wr = wrap.getBoundingClientRect();
 
-        // The glyph that owns the card's top-left slot: the Close × in the main
+        // The glyph that owns the card's bottom-left navigation slot: the Close × in the main
         // view, a Back ‹ in every second- or third-level view.  Whichever it is,
         // it is what flies to the button's centre, because leaving it in the corner
         // made the collapsed circle read as empty.  Only the × can also BECOME the
         // plus (a 45° turn), so the sub-view glyphs travel without rotating.
         const slotView = [...menu.children].find(el => el.tagName === 'DIV' && !el.classList.contains('hidden'));
-        const slotGlyph = slotView ? slotView.querySelector('button:first-child svg') : null;
+        const slotGlyph = slotView ? slotView.querySelector('.attach-nav-btn svg') : null;
         const slotMorphsToPlus = attachCurrentView === 'main';
+        // After moving navigation to the footer, the first content row would
+        // otherwise remain inside the collapsed box beside the flying plus.
+        const contentElements = slotView ? [
+            ...[...slotView.children].filter(el => !el.classList.contains('attach-nav-btn')),
+            ...slotView.querySelectorAll('.attach-nav-btn > span')
+        ] : [];
+        const contentOpacities = !open && menu._attachContentFlights?.length
+            ? new Map(contentElements.map(el => [el, getComputedStyle(el).opacity])) : null;
+        menu._attachContentFlights?.forEach(animation => animation.cancel());
+        menu._attachContentFlights = [];
 
         // An interrupted flight continues from the frame the card is actually
         // on, so read the live rect before cancelling.
@@ -2012,6 +2023,12 @@ export function initChatEngine(deps) {
         // to a fixed keyframe (that jump read as the plus sliding to the corner).
         const iconLiveTransform = (menu._attachIconFlight && slotGlyph)
             ? getComputedStyle(slotGlyph).transform : null;
+        const iconLiveStroke = (menu._attachIconFlight && slotGlyph)
+            ? getComputedStyle(slotGlyph).strokeWidth : null;
+        const arm = slotGlyph?.querySelector('.attach-arm');
+        const ghost = slotGlyph?.querySelector('.attach-plus-ghost');
+        const armLiveOpacity = menu._attachArmFlight && arm ? getComputedStyle(arm).opacity : null;
+        const ghostLiveOpacity = menu._attachGhostFlight && ghost ? getComputedStyle(ghost).opacity : null;
         menu._attachIconFlight?.cancel?.();
         menu._attachIconFlight = null;
         menu._attachArmFlight?.cancel?.();
@@ -2040,6 +2057,9 @@ export function initChatEngine(deps) {
         // Before anything is measured: this class is what pins the Close row's
         // press-scale flat, so the × centre read below is the row's real slot
         // rather than a frame of its spring-back.
+        const menuStyle = getComputedStyle(menu);
+        menu.style.setProperty('--attach-flight-content-width',
+            `${menu.clientWidth - parseFloat(menuStyle.paddingLeft) - parseFloat(menuStyle.paddingRight)}px`);
         menu.classList.add('attach-flying');
 
         const resting = { w: menu.offsetWidth, h: menu.offsetHeight, b: parseFloat(getComputedStyle(menu).bottom) || 0 };
@@ -2050,7 +2070,7 @@ export function initChatEngine(deps) {
         const button = { w: btn ? btn.offsetWidth : 44, h: btn ? btn.offsetHeight : 44, b: wr.bottom - btnRect.bottom };
         const liveBox = liveRect ? { w: liveRect.width, h: liveRect.height, b: wr.bottom - liveRect.bottom } : null;
 
-        // The Close × sits at the card's top-left, but the + button's glyph is
+        // The Close × sits at the card's bottom-left, but the + button's glyph is
         // centered. When the card collapses onto the button's footprint the ×
         // would land off-centre (bottom-right of the circle). Measure the offset
         // from the × slot to the button centre so the flight can slide the × to
@@ -2071,7 +2091,12 @@ export function initChatEngine(deps) {
 
         const speed = wpSpeed();
         const reduced = speed === 1 && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        const duration = reduced ? 1 : Math.round(wpFlightMs(from, to) * speed);
+        const fullTravel = Math.max(Math.abs(resting.w - button.w), Math.abs(resting.h - button.h), 1);
+        const remainingTravel = Math.max(Math.abs(to.w - from.w), Math.abs(to.h - from.h));
+        const flightMs = liveBox
+            ? Math.max(80, wpFlightMs(button, resting) * Math.min(1, remainingTravel / fullTravel))
+            : wpFlightMs(from, to);
+        const duration = reduced ? 1 : Math.round(flightMs * speed);
         if (btn) btn.classList.add('attach-flying-source');
 
         menu.style.transition = 'none';
@@ -2098,7 +2123,7 @@ export function initChatEngine(deps) {
             menu.style.bottom = `${from.b}px`;
             void menu.offsetWidth;
             const tick = () => {
-                if (!menu.classList.contains('attach-flying')) return;
+                if (menu._attachFlight !== flight) return;
                 glass?.refresh?.();
                 requestAnimationFrame(tick);
             };
@@ -2115,8 +2140,21 @@ export function initChatEngine(deps) {
             { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
         );
         menu._attachFlight = flight;
+        // On close, fade rows before they reach the button. On an interrupted
+        // reopen, cancelling those effects restores the real rows immediately;
+        // keeping an opening fade could leave a full-sized empty glass panel.
+        menu._attachContentFlights = open ? [] : contentElements.map(el => el.animate(
+            [
+                { opacity: contentOpacities?.get(el) ?? 1 },
+                { opacity: 0 }
+            ],
+            {
+                duration: reduced ? 1 : Math.min(100 * speed, duration * 0.3),
+                easing: 'ease-out', fill: 'both'
+            }
+        ));
 
-        // The slot glyph rides the card's top edge up out of the button on the same
+        // The slot glyph moves from the button to the card's bottom navigation on the same
         // clock, so it reads as the plus becoming the handle rather than as a new
         // icon appearing.  Main view: the × simply ROTATES 45° into a plus.  Sub
         // views: the Back ‹ and the plus are two different shapes (see below), so
@@ -2141,9 +2179,10 @@ export function initChatEngine(deps) {
             // is 1.875px of ink, the plus's 22px is 2.29px. 2.5 * 22/18 = 3.056 lands
             // the flying glyph on the plus's exact ink width.
             const inkAtButton = '3.056';
-            const iconFrames = open
-                ? [{ transform: startT, strokeWidth: inkAtButton }, { transform: endT }]
-                : [{ transform: startT }, { transform: endT, strokeWidth: inkAtButton }];
+            const iconFrames = [
+                { transform: startT, strokeWidth: iconLiveStroke || (open ? inkAtButton : '2.5') },
+                { transform: endT, strokeWidth: open ? '2.5' : inkAtButton }
+            ];
             const iconFlight = slotGlyph.animate(iconFrames, {
                 duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards'
             });
@@ -2161,20 +2200,18 @@ export function initChatEngine(deps) {
                 // fades out as the other fades in on the flight clock, at the spot
                 // the svg is already travelling to, so it reads as the chevron
                 // becoming the plus instead of a corner left hanging in the circle.
-                const arm = slotGlyph.querySelector('.attach-arm');
-                const ghost = slotGlyph.querySelector('.attach-plus-ghost');
                 if (arm && ghost) {
                     const fade = { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' };
                     menu._attachArmFlight = arm.animate(
-                        open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], fade);
+                        [{ opacity: armLiveOpacity ?? (open ? 0 : 1) }, { opacity: open ? 1 : 0 }], fade);
                     menu._attachGhostFlight = ghost.animate(
-                        open ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }], fade);
+                        [{ opacity: ghostLiveOpacity ?? (open ? 1 : 0) }, { opacity: open ? 0 : 1 }], fade);
                 }
             }
         }
 
         const land = () => {
-            if (menu._attachFlight && menu._attachFlight !== flight) return;
+            if (menu._attachFlight !== flight) return;
             // Open: release the frozen map and rebuild it for the box as it now
             // sits. Close keeps its glass tracking via the refresh tick, so it has
             // no frozen map to release here (the next gesture's top-of-function
@@ -2197,6 +2234,8 @@ export function initChatEngine(deps) {
             menu._attachArmFlight = null;
             menu._attachGhostFlight?.cancel?.();
             menu._attachGhostFlight = null;
+            menu._attachContentFlights.forEach(animation => animation.cancel());
+            menu._attachContentFlights = [];
             menu.classList.remove('attach-flying');
             if (btn) btn.classList.remove('attach-flying-source');
             if (open) {
@@ -2208,6 +2247,9 @@ export function initChatEngine(deps) {
             }
         };
         flight.onfinish = land;
+        // The finished promise avoids waiting for the watchdog if delivery of
+        // the finish event is delayed. The ownership guard makes landing once-only.
+        flight.finished.then(land, () => {});
         // Safety net for a finish event that never arrives.  It must not fire while
         // the animation is still running: a tab that loses focus to the devtools
         // pauses the animation timeline but not the wall clock, so a plain timer
@@ -2230,8 +2272,6 @@ export function initChatEngine(deps) {
             e.stopPropagation();
         }
         const btn = document.getElementById('chatCameraBtn');
-        if (Date.now() < attachToggleLock) return;
-        attachToggleLock = Date.now() + 160;
 
         if (attachOpen) {
             closeAttachMenu();
@@ -2740,6 +2780,9 @@ export function initChatEngine(deps) {
     // Resolve the best doc view for rendering: whichever source synced more
     // recently wins; a stale message copy can never hide state-backed comments.
 
+    let _wpPreferExpanded = false;
+    let _wpCloseTimer = null;
+
     async function openWritingPortfolio(targetMsgKey = null, targetCommentId = null, targetDocId = null) {
         if (!window.isLoggedIn && !window.isChatPreview) {
             window.promptSignIn?.('Sign in to view the writing history connected to your conversations.', 'Sign in to view Writing Portfolio');
@@ -2755,6 +2798,10 @@ export function initChatEngine(deps) {
             return;
         }
 
+        // A quick reopen must not let the previous close timer hide this drawer.
+        clearTimeout(_wpCloseTimer);
+        _wpCloseTimer = null;
+
         // While open, the drawer lives under <body> and is viewport-fixed so its
         // left edge can animate smoothly and it is never clipped or z-trapped by
         // #chatSection. It returns to its original parent once fully closed.
@@ -2766,7 +2813,7 @@ export function initChatEngine(deps) {
         
         drawer.classList.remove('hidden');
         drawer.classList.add('wp-drawer-open');
-        setWritingPortfolioExpanded(false);
+        setWritingPortfolioExpanded(_wpPreferExpanded, false);
         
         requestAnimationFrame(() => {
             drawer.classList.remove('translate-x-full');
@@ -2796,7 +2843,7 @@ export function initChatEngine(deps) {
 
         const titleEl = document.getElementById('writingPortfolioTitle');
         if (titleEl) {
-            titleEl.innerText = chatPartnerName ? `WRITING PORTFOLIO - ${chatPartnerName}` : `WRITING PORTFOLIO`;
+            titleEl.innerText = chatPartnerName ? `Writing Portfolio - ${chatPartnerName}` : `Writing Portfolio`;
         }
 
         if (subtitle) {
@@ -3145,11 +3192,11 @@ export function initChatEngine(deps) {
 
             let html = `
                 <!-- Writing Portfolio Top Header Controls: Views & Actions -->
-                <div class="space-y-2.5 mb-4 max-w-full overflow-x-hidden">
-                    <!-- Row 1: 3-Mode Segmented View Switcher & Export Button -->
+                <div class="portfolio-controls space-y-2.5 mb-4 max-w-full">
+                    <!-- Row 1: 3-Mode Segmented View Switcher & Actions Menu -->
                     <div class="flex flex-wrap items-center justify-between gap-2 px-0.5">
                         <!-- Mode Tabs (Cards / Comments / Timeline) -->
-                        <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl flex-shrink-0">
+                        <div class="portfolio-segments inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-full flex-shrink-0">
                             <button type="button" onclick="window.switchPortfolioView('cards', this)" id="portfolioViewTab-cards" class="px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all flex items-center gap-1.5">
                                 <svg class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                 <span>Cards</span>
@@ -3164,25 +3211,26 @@ export function initChatEngine(deps) {
                             </button>
                         </div>
 
-                        <!-- Right Actions: Export Button -->
-                        <div class="flex items-center gap-2 flex-shrink-0 ml-auto">
-                            <button type="button" onclick="window.openPortfolioExportModal()" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-gray-200/70 dark:bg-white/10 text-black dark:text-white accent-hover-medium shadow-sm transition-all" title="Export complete writing history">
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                                <span>Export</span>
+                        <!-- Right Actions: Export lives in a compact menu -->
+                        <div id="portfolioExportMenu" class="portfolio-export-slot">
+                            <button type="button" id="portfolioExportTrigger" onclick="window.togglePortfolioExportMenu()" class="portfolio-export-trigger" aria-label="More options" aria-haspopup="menu" aria-expanded="false" title="More options">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
                             </button>
+                            <div id="portfolioExportPopover" class="portfolio-export-popover" role="menu" aria-label="Portfolio actions">
+                                <button type="button" role="menuitem" onclick="window.openPortfolioExportModal()" title="Export complete writing history">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>
+                                    <span>Export</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Row 2: Contextual Filter Bar for Cards View -->
                     <div id="portfolioFilterBarCards" class="flex flex-wrap items-center justify-between gap-2 px-0.5">
-                        <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl flex-shrink-0">
-                            <button type="button" onclick="window.filterPortfolioFeedback('all', this)" class="px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All Documents</button>
+                        <div class="portfolio-segments inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-full flex-shrink-0">
+                            <button type="button" onclick="window.filterPortfolioFeedback('all', this)" class="px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All</button>
                             <button type="button" onclick="window.filterPortfolioFeedback('open', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1.5">
-                                <span>Opened</span>
+                                <span>Open</span>
                                 ${totalPortfolioOpen > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white leading-none">${totalPortfolioOpen}</span>` : ''}
                             </button>
                             <button type="button" onclick="window.filterPortfolioFeedback('resolved', this)" class="px-3 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Resolved</button>
@@ -3190,27 +3238,28 @@ export function initChatEngine(deps) {
                     </div>
 
                     <!-- Row 2 (Alt): Contextual Author & Status Filter Bar for Comments View -->
-                    <div id="portfolioFilterBarComments" class="hidden flex flex-wrap items-center justify-between gap-2 px-1">
-                        <!-- Author Filter Chips -->
-                        <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl">
-                            <button type="button" onclick="window.filterPortfolioAuthor('all', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All Feedback</button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('teacher', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
-                                <span>Teachers</span>
-                            </button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('student', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
-                                <span>Students</span>
-                            </button>
-                            <button type="button" onclick="window.filterPortfolioAuthor('peer', this)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all flex items-center gap-1">
-                                <span>Peer Review</span>
-                            </button>
-                        </div>
-
+                    <div id="portfolioFilterBarComments" class="hidden flex items-start justify-between gap-2 px-0.5">
                         <!-- Status Filter Chips -->
-                        <div class="inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-xl">
+                        <div class="portfolio-segments inline-flex items-center gap-1 bg-gray-200/70 dark:bg-white/10 p-1 rounded-full min-w-0 overflow-x-auto scrollbar-none">
                             <button type="button" onclick="window.filterPortfolioCommentStatus('all', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm transition-all">All</button>
                             <button type="button" onclick="window.filterPortfolioCommentStatus('open', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Open</button>
                             <button type="button" onclick="window.filterPortfolioCommentStatus('resolved', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Resolved</button>
-                            ${totalPortfolioDeleted > 0 ? `<button type="button" onclick="window.filterPortfolioCommentStatus('deleted', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Deleted</button>` : ''}
+                            <button type="button" onclick="window.filterPortfolioCommentStatus('deleted', this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-black dark:text-white hover:text-black dark:hover:text-white transition-all">Deleted</button>
+                        </div>
+                        <div class="portfolio-author-slot">
+                            <div id="portfolioAuthorMenu" class="portfolio-author-menu">
+                                <button type="button" id="portfolioAuthorTrigger" onclick="window.togglePortfolioAuthorMenu()" aria-haspopup="listbox" aria-expanded="false" class="portfolio-author-trigger">
+                                    <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
+                                    <span id="portfolioAuthorLabel">All authors</span>
+                                    <svg class="portfolio-author-chevron w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="portfolio-author-options" role="listbox" aria-label="Filter by author">
+                                    <button type="button" role="option" data-author="all" aria-selected="true" onclick="window.filterPortfolioAuthor('all')">All authors <span>✓</span></button>
+                                    <button type="button" role="option" data-author="teacher" aria-selected="false" onclick="window.filterPortfolioAuthor('teacher')">Teachers <span>✓</span></button>
+                                    <button type="button" role="option" data-author="student" aria-selected="false" onclick="window.filterPortfolioAuthor('student')">Students <span>✓</span></button>
+                                    <button type="button" role="option" data-author="peer" aria-selected="false" onclick="window.filterPortfolioAuthor('peer')">Peer Review <span>✓</span></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3234,14 +3283,29 @@ export function initChatEngine(deps) {
                 const projId = `proj-${pIdx}`;
                 // Sort versions by versionOrder ascending (Draft 1 -> Draft 2 -> Final)
                 proj.items.sort((a, b) => a.versionOrder - b.versionOrder || a.itemTime - b.itemTime);
+                // Treat repeated labels (for example, two "Final" documents) as
+                // one stage in the stepper, while retaining every document card.
+                const versionGroups = [];
+                const versionGroupByLabel = new Map();
+                proj.items.forEach(item => {
+                    const label = String(item.versionLabel || 'Draft').trim() || 'Draft';
+                    const groupKey = label.replace(/\s+/g, ' ').toLocaleLowerCase();
+                    let group = versionGroupByLabel.get(groupKey);
+                    if (!group) {
+                        group = { label, items: [] };
+                        versionGroupByLabel.set(groupKey, group);
+                        versionGroups.push(group);
+                    }
+                    group.items.push(item);
+                });
 
-                const lastIdx = proj.items.length - 1; // Default to latest version
+                const lastIdx = versionGroups.length - 1; // Default to latest stage
 
                 html += `
                     <div id="${projId}" data-has-open="${proj.hasOpen ? 'true' : 'false'}" data-has-resolved="${proj.hasResolved ? 'true' : 'false'}" class="portfolio-group-item bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left">
                         <!-- Project Header & Version Stepper -->
-                        <div id="projHeader-${projId}" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-white/5">
-                            <div class="flex items-center gap-3 min-w-0">
+                        <div id="projHeader-${projId}" class="portfolio-project-header flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0 md:flex-1">
                                 <div class="w-9 h-9 rounded-xl bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path>
@@ -3250,65 +3314,66 @@ export function initChatEngine(deps) {
                                 <div class="min-w-0">
                                     <h3 class="text-[16px] font-bold text-black dark:text-white truncate">${UIUtils.escape(proj.projectName)}</h3>
                                     <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="text-[12px] text-black dark:text-white font-medium">${proj.items.length} ${proj.items.length === 1 ? 'Version' : 'Versions'}</span>
+                                        <span class="text-[12px] text-black dark:text-white font-medium whitespace-nowrap">${proj.items.length} ${proj.items.length === 1 ? 'Version' : 'Versions'}</span>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Version Stepper Tabs -->
-                            <div class="flex items-center gap-1 bg-gray-100 dark:bg-white/5 p-1 rounded-xl overflow-x-auto scrollbar-none">
-                                ${proj.items.map((item, vIdx) => {
+                            <div class="portfolio-version-steps flex items-center gap-1 bg-gray-100 dark:bg-white/5 p-1 rounded-xl overflow-x-auto">
+                                ${versionGroups.map((group, vIdx) => {
                                     const isActive = vIdx === lastIdx;
                                     return `
                                         <button type="button" onclick="window.switchProjectVersion('${projId}', ${vIdx}, event)" id="projTab-${projId}-${vIdx}" class="px-3 py-1 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all ${isActive ? 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:text-black dark:hover:text-white'}">
-                                            ${UIUtils.escape(item.versionLabel)}
+                                            ${UIUtils.escape(group.label)}${group.items.length > 1 ? ` <span class="portfolio-version-count">${group.items.length}</span>` : ''}
                                         </button>
                                     `;
-                                }).join(proj.items.length > 1 ? '<span class="text-[11px] text-gray-300 dark:text-white/20 select-none px-0.5">→</span>' : '')}
+                                }).join(versionGroups.length > 1 ? '<span class="portfolio-version-arrow" aria-hidden="true">&rarr;</span>' : '')}
                             </div>
                         </div>
 
                         <!-- Version Cards Container -->
-                        <div id="projContainer-${projId}" class="mt-3">
-                            ${proj.items.map((item, vIdx) => {
+                        <div id="projContainer-${projId}" class="space-y-3">
+                            ${versionGroups.map((group, vIdx) => {
                                 const isVisible = vIdx === lastIdx;
-                                const pkey = `portfolio-${item.key}`;
-                                const createdTime = item.cachedDoc?.createdTime;
-                                let dateDisplay = '';
-                                if (createdTime) {
-                                    const formatted = new Date(createdTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                    dateDisplay = `Created: ${formatted}`;
-                                } else if (item.msg.timestamp) {
-                                    const formatted = new Date(item.msg.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                    dateDisplay = `Shared: ${formatted}`;
-                                }
-                                const cardHtml = UIComponents.renderDocCard(item.msg, pkey, false);
-
                                 return `
-                                    <div id="projVer-${projId}-${vIdx}" data-item-key="${item.key}" class="${isVisible ? '' : 'hidden'}">
-                                        <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-1 mb-1.5">
-                                            <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
-                                            <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
-                                            <div class="flex items-center gap-1 flex-shrink-0">
-                                                <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Edit version or ungroup">
-                                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                                    </svg>
-                                                </button>
-                                                <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
-                                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                                        <polyline points="3 6 5 6 21 6"></polyline>
-                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div id="portfolio-item-${item.key}">
-                                            ${cardHtml}
-                                        </div>
+                                    <div id="projVer-${projId}-${vIdx}" class="portfolio-version-group space-y-3 ${isVisible ? '' : 'hidden'}">
+                                        ${group.items.map(item => {
+                                            const pkey = `portfolio-${item.key}`;
+                                            const createdTime = item.cachedDoc?.createdTime;
+                                            let dateDisplay = '';
+                                            if (createdTime) {
+                                                dateDisplay = new Date(createdTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                            } else if (item.msg.timestamp) {
+                                                dateDisplay = new Date(item.msg.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                            }
+                                            const cardHtml = UIComponents.renderDocCard(item.msg, pkey, false);
+                                            return `
+                                                <div data-item-key="${item.key}">
+                                                    <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-1 mb-1.5">
+                                                        <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
+                                                        <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
+                                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                                            <button type="button" onclick="window.openProjectAssignModal('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event)" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Edit version or ungroup">
+                                                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                                                </svg>
+                                                            </button>
+                                                            <button type="button" onclick="window.deletePortfolioCard('${item.docId}', '${UIUtils.escape(item.rawTitle)}', event, '${item.key}')" class="w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Delete card from writing portfolio">
+                                                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div id="portfolio-item-${item.key}">${cardHtml}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
                                     </div>
                                 `;
                             }).join('')}
@@ -3324,10 +3389,10 @@ export function initChatEngine(deps) {
                 let dateDisplay = '';
                 if (createdTime) {
                     const formatted = new Date(createdTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    dateDisplay = `Created: ${formatted}`;
+                    dateDisplay = formatted;
                 } else if (item.msg.timestamp) {
                     const formatted = new Date(item.msg.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    dateDisplay = `Shared: ${formatted}`;
+                    dateDisplay = formatted;
                 }
                 const cardHtml = UIComponents.renderDocCard(item.msg, pkey, false);
 
@@ -3373,13 +3438,25 @@ export function initChatEngine(deps) {
                     <!-- Populated dynamically via renderPortfolioTimelineContent() -->
                 </div>
             `;
+            setPortfolioAuthorMenuOpen(false);
+            clearTimeout(portfolioAuthorGlassTimer);
+            content.querySelector('#portfolioAuthorMenu')?._liquidGlass?.destroy?.();
+            setPortfolioExportMenuOpen(false);
+            clearTimeout(portfolioExportGlassTimer);
+            content.querySelector('#portfolioExportPopover')?._liquidGlass?.destroy?.();
             content.innerHTML = html;
+            requestAnimationFrame(() => {
+                content.querySelectorAll('.portfolio-segments:not(.hidden)').forEach(bar => {
+                    if (bar.offsetWidth) updatePortfolioSegment(bar.querySelector('button'));
+                });
+            });
 
             if (targetMsgKey) {
                 setTimeout(() => {
                     // If target message is inside a multi-version project, switch to its version tab first
-                    const verWrapper = document.querySelector(`[data-item-key="${targetMsgKey}"]`);
-                    if (verWrapper && verWrapper.id) {
+                    const itemWrapper = document.querySelector(`[data-item-key="${targetMsgKey}"]`);
+                    const verWrapper = itemWrapper?.closest('[id^="projVer-"]');
+                    if (verWrapper?.id) {
                         const mMatch = verWrapper.id.match(/^projVer-([a-zA-Z0-9_-]+)-(\d+)$/);
                         if (mMatch) {
                             const pId = mMatch[1];
@@ -3472,8 +3549,32 @@ export function initChatEngine(deps) {
         
     }
 
+    function updatePortfolioSegment(button) {
+        const bar = button?.closest('.portfolio-segments');
+        if (!bar || !bar.offsetWidth) return;
+        let indicator = bar.querySelector('.portfolio-segment-indicator');
+        if (!indicator) {
+            indicator = document.createElement('span');
+            indicator.className = 'portfolio-segment-indicator';
+            indicator.setAttribute('aria-hidden', 'true');
+            bar.prepend(indicator);
+            new ResizeObserver(() => {
+                const active = bar.querySelector('button.portfolio-segment-active');
+                if (active && bar.offsetWidth) {
+                    indicator.style.width = `${active.offsetWidth}px`;
+                    indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+                }
+            }).observe(bar);
+        }
+        bar.querySelectorAll('button').forEach(tab => tab.classList.toggle('portfolio-segment-active', tab === button));
+        indicator.style.width = `${button.offsetWidth}px`;
+        indicator.style.transform = `translateX(${button.offsetLeft}px)`;
+        requestAnimationFrame(() => bar.classList.add('portfolio-segments-ready'));
+    }
+
     // Switch between Cards View, Comments View, and Timeline View
     function switchPortfolioView(viewName, btnEl) {
+        if (viewName !== 'comments') setPortfolioAuthorMenuOpen(false);
         const pData = window._activePortfolioData;
         if (pData) pData.currentTab = viewName;
 
@@ -3492,6 +3593,7 @@ export function initChatEngine(deps) {
         if (activeBtn) {
             activeBtn.classList.remove('text-black', 'dark:text-white');
             activeBtn.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
+            updatePortfolioSegment(activeBtn);
         }
 
         // View containers
@@ -3510,12 +3612,14 @@ export function initChatEngine(deps) {
             if (timelineView) timelineView.classList.add('hidden');
             if (filterCards) filterCards.classList.remove('hidden');
             if (filterComments) filterComments.classList.add('hidden');
+            updatePortfolioSegment(filterCards?.querySelector('.portfolio-segments button.portfolio-segment-active') || filterCards?.querySelector('.portfolio-segments button'));
         } else if (viewName === 'comments') {
             if (cardsView) cardsView.classList.add('hidden');
             if (commentsView) commentsView.classList.remove('hidden');
             if (timelineView) timelineView.classList.add('hidden');
             if (filterCards) filterCards.classList.add('hidden');
             if (filterComments) filterComments.classList.remove('hidden');
+            filterComments?.querySelectorAll('.portfolio-segments').forEach(bar => updatePortfolioSegment(bar.querySelector('button.portfolio-segment-active') || bar.querySelector('button')));
             renderPortfolioCommentsContent();
         } else if (viewName === 'timeline') {
             if (cardsView) cardsView.classList.add('hidden');
@@ -3604,6 +3708,12 @@ export function initChatEngine(deps) {
             return;
         }
 
+        const renderFeedbackPhotos = urls => urls.length ? `
+            <div class="flex flex-wrap gap-2 mt-2">
+                ${urls.map((url, index) => `<img src="${UIUtils.escape(url)}" loading="lazy" alt="Comment photo ${index + 1}" onclick="openGallery('${encodeURIComponent(JSON.stringify(urls))}', ${index})" class="w-32 h-32 object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
+            </div>
+        ` : '';
+
         container.innerHTML = filtered.map(item => {
             const c = item.comment;
             const quoteVal = c.quotedFileContent?.value || '';
@@ -3615,7 +3725,7 @@ export function initChatEngine(deps) {
                 : item.docUrl;
 
             // Role badge styling
-            let roleBadgeClass = 'bg-[#007AFF]/10 text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF]';
+            let roleBadgeClass = 'portfolio-teacher-badge';
             if (item.authorRole === 'peer') {
                 roleBadgeClass = 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400';
             } else if (item.authorRole === 'student') {
@@ -3625,8 +3735,8 @@ export function initChatEngine(deps) {
             let quoteHtml = '';
             if (quoteVal) {
                 quoteHtml = `
-                    <div class="mb-2 pl-3 border-l-2 border-[#007AFF]/40 dark:border-[#0A84FF]/50 text-left py-0.5">
-                        <div class="text-[12px] text-gray-600 dark:text-gray-300 italic line-clamp-2">“${UIUtils.escape(quoteVal)}”</div>
+                    <div class="mb-2 pl-3 border-l-2 accent-quote-rail text-left py-0.5">
+                        <div class="portfolio-feedback-text text-[12px] text-gray-600 dark:text-gray-300 italic line-clamp-2">“${WritingDocCard.escapeCommentText(quoteVal)}”</div>
                     </div>
                 `;
             }
@@ -3637,21 +3747,24 @@ export function initChatEngine(deps) {
             if (visibleReplies.length > 0) {
                 repliesHtml = visibleReplies.map(r => {
                     const rDisp = UIComponents.docCommentDisplay(r);
+                    const replyPhoto = WritingDocCard.splitPhoto(rDisp.content);
                     return `
-                    <div class="mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[12px]">
+                    <div class="portfolio-feedback-reply mt-2 pl-3 border-l-2 border-gray-200 dark:border-white/10 text-[12px]">
                         <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'User')}:</span>
-                        <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(rDisp.content || '')}</span>
+                        ${replyPhoto.text ? `<span class="portfolio-feedback-text text-gray-600 dark:text-gray-300 ml-1">${WritingDocCard.escapeCommentText(replyPhoto.text)}</span>` : ''}
+                        ${renderFeedbackPhotos(replyPhoto.photoUrls)}
                     </div>
                 `;
                 }).join('');
             }
 
+            const mainPhoto = WritingDocCard.splitPhoto(item.displayContent);
+
             return `
-                <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left${dimRow ? ' opacity-60' : ''}">
+                <div class="min-w-0 bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left${dimRow ? ' opacity-60' : ''}">
                     <!-- Doc Reference & Date -->
                     <div class="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-gray-100 dark:border-white/5">
                         <div class="flex items-center gap-2 min-w-0">
-                            <span class="w-2 h-2 rounded-full ${isResolved ? 'bg-gray-300 dark:bg-white/20' : 'bg-[#007AFF] dark:bg-[#0A84FF]'} flex-shrink-0"></span>
                             <span class="text-[13px] font-bold text-black dark:text-white truncate">${UIUtils.escape(item.docTitle)}</span>
                         </div>
                         <span class="text-[11px] text-black dark:text-white whitespace-nowrap">${formattedDate}</span>
@@ -3664,46 +3777,149 @@ export function initChatEngine(deps) {
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(item.authorName)}</span>
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${roleBadgeClass}">${item.roleLabel}</span>
-                            ${item.isDeleted ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Deleted in Google Docs</span>' : ''}
-                            ${item.isMissing ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium" title="Google has not returned this comment in recent full syncs">Not in latest sync</span>' : ''}
-                            ${isResolved && !item.isDeleted ? '<span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>' : ''}
+                            ${item.isDeleted ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-black dark:text-white bg-gray-100 dark:bg-white/10">Deleted in Google Docs</span>' : ''}
+                            ${item.isMissing ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-black dark:text-white bg-gray-100 dark:bg-white/10" title="Google has not returned this comment in recent full syncs">Not in latest sync</span>' : ''}
+                            ${isResolved && !item.isDeleted ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-black dark:text-white bg-gray-100 dark:bg-white/10">Resolved</span>' : ''}
                         </div>
                         <div class="flex items-center gap-3 flex-shrink-0">
-                            <button type="button" onclick="window.portfolioJumpToChat('${item.msgKey}', '${item.docId}', '${c.id || ''}', '${UIUtils.escape(item.docTitle)}')" class="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-[#007AFF] dark:hover:text-[#0A84FF] transition-colors" title="Locate this comment in chat">
+                            <button type="button" onclick="window.portfolioJumpToChat('${item.msgKey}', '${item.docId}', '${c.id || ''}', '${UIUtils.escape(item.docTitle)}')" class="portfolio-accent-link inline-flex items-center gap-1 text-[12px] font-semibold transition-colors" title="Locate this comment in chat">
+                                <span>Locate</span>
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="12" cy="12" r="6"></circle>
                                     <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
                                 </svg>
-                                <span>Locate</span>
                             </button>
-                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[12px] font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline" title="Jump to this comment in Google Doc">
+                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="portfolio-accent-link inline-flex items-center gap-1 text-[12px] font-semibold" title="Jump to this comment in Google Doc">
                                 <span>View Doc</span>
                                 <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                             </a>
                         </div>
                     </div>
 
-                    <div class="text-[13px] ${dimRow ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${UIUtils.escape(item.displayContent || '')}</div>
+                    <div class="portfolio-feedback-text text-[13px] ${dimRow ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'} leading-relaxed">${WritingDocCard.escapeCommentText(mainPhoto.text)}</div>
+                    ${renderFeedbackPhotos(mainPhoto.photoUrls)}
                     ${repliesHtml}
                 </div>
             `;
         }).join('');
     }
 
+    let portfolioAuthorOutsideHandler = null;
+    let portfolioAuthorGlassTimer = null;
+    let portfolioExportOutsideHandler = null;
+    let portfolioExportGlassTimer = null;
+
+    function setPortfolioExportMenuOpen(open) {
+        const slot = document.getElementById('portfolioExportMenu');
+        const popover = document.getElementById('portfolioExportPopover');
+        const trigger = document.getElementById('portfolioExportTrigger');
+        if (portfolioExportOutsideHandler) {
+            document.removeEventListener('pointerdown', portfolioExportOutsideHandler);
+            document.removeEventListener('keydown', portfolioExportOutsideHandler);
+            portfolioExportOutsideHandler = null;
+        }
+        if (!slot || !popover || popover.classList.contains('is-open') === open) return;
+        clearTimeout(portfolioExportGlassTimer);
+        popover.classList.toggle('is-open', open);
+        trigger?.setAttribute('aria-expanded', String(open));
+        if (open) {
+            if (!popover._liquidGlass) new LiquidGlassEffect(popover, {
+                radius: 20, refractionWidth: 10, maxDisplacement: 7,
+                mouseRadius: 50, mouseStrength: 5
+            });
+            portfolioExportOutsideHandler = event => {
+                if (event.type === 'keydown') {
+                    if (event.key === 'Escape') {
+                        setPortfolioExportMenuOpen(false);
+                        trigger?.focus();
+                    }
+                } else if (!slot.contains(event.target)) {
+                    setPortfolioExportMenuOpen(false);
+                }
+            };
+            document.addEventListener('pointerdown', portfolioExportOutsideHandler);
+            document.addEventListener('keydown', portfolioExportOutsideHandler);
+        } else {
+            portfolioExportGlassTimer = setTimeout(() => {
+                if (!popover.classList.contains('is-open')) popover._liquidGlass?.destroy?.();
+            }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 250);
+        }
+    }
+
+    function togglePortfolioExportMenu() {
+        const popover = document.getElementById('portfolioExportPopover');
+        setPortfolioExportMenuOpen(!popover?.classList.contains('is-open'));
+    }
+
+    function setPortfolioAuthorMenuOpen(open) {
+        const menu = document.getElementById('portfolioAuthorMenu');
+        if (portfolioAuthorOutsideHandler) {
+            document.removeEventListener('pointerdown', portfolioAuthorOutsideHandler);
+            portfolioAuthorOutsideHandler = null;
+        }
+        if (!menu) return;
+        const trigger = document.getElementById('portfolioAuthorTrigger');
+        if (menu.classList.contains('is-open') === open) return;
+        clearTimeout(portfolioAuthorGlassTimer);
+        if (open) {
+            // The closed control is plain gray. Create the glass only while the
+            // selector is shown, with its map prepared at the expanded size.
+            menu.classList.add('is-glass');
+            menu.style.transition = 'none';
+            menu.style.width = '190px';
+            menu.style.height = '184px';
+            void menu.offsetWidth;
+            if (menu._liquidGlass) {
+                menu._liquidGlass.endTrack();
+            } else {
+                new LiquidGlassEffect(menu, {
+                    radius: 24, refractionWidth: 12, maxDisplacement: 8,
+                    mouseRadius: 55, mouseStrength: 6
+                });
+            }
+            menu._liquidGlass.beginTrack();
+            menu.style.width = '148px';
+            menu.style.height = '36px';
+            void menu.offsetWidth;
+            menu.style.transition = '';
+            menu.style.width = '';
+            menu.style.height = '';
+        } else {
+            menu._liquidGlass?.beginTrack?.();
+        }
+        menu.classList.toggle('is-open', open);
+        trigger?.setAttribute('aria-expanded', String(open));
+        portfolioAuthorGlassTimer = setTimeout(() => {
+            menu._liquidGlass?.endTrack?.();
+            if (!open && !menu.classList.contains('is-open')) {
+                menu._liquidGlass?.destroy?.();
+                menu.classList.remove('is-glass');
+            }
+        }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 340);
+        if (open) {
+            portfolioAuthorOutsideHandler = event => {
+                if (!menu.contains(event.target)) setPortfolioAuthorMenuOpen(false);
+            };
+            document.addEventListener('pointerdown', portfolioAuthorOutsideHandler);
+        }
+    }
+
+    function togglePortfolioAuthorMenu() {
+        const menu = document.getElementById('portfolioAuthorMenu');
+        setPortfolioAuthorMenuOpen(!menu?.classList.contains('is-open'));
+    }
+
     // Filter Comments View by Author (all / teacher / student / peer)
-    function filterPortfolioAuthor(authorRole, btnEl) {
+    function filterPortfolioAuthor(authorRole) {
         if (!window._activePortfolioData) return;
         window._activePortfolioData.authorFilter = authorRole;
-
-        if (btnEl && btnEl.parentElement) {
-            const buttons = btnEl.parentElement.querySelectorAll('button');
-            buttons.forEach(b => {
-                b.classList.remove('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-                b.classList.add('text-black', 'dark:text-white');
-            });
-            btnEl.classList.remove('text-black', 'dark:text-white');
-            btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
-        }
+        const labels = { all: 'All authors', teacher: 'Teachers', student: 'Students', peer: 'Peer Review' };
+        const label = document.getElementById('portfolioAuthorLabel');
+        if (label) label.textContent = labels[authorRole] || labels.all;
+        document.querySelectorAll('#portfolioAuthorMenu [data-author]').forEach(option => {
+            option.setAttribute('aria-selected', String(option.dataset.author === authorRole));
+        });
+        setPortfolioAuthorMenuOpen(false);
         renderPortfolioCommentsContent();
     }
 
@@ -3720,6 +3936,7 @@ export function initChatEngine(deps) {
             });
             btnEl.classList.remove('text-black', 'dark:text-white');
             btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
+            updatePortfolioSegment(btnEl);
         }
         renderPortfolioCommentsContent();
     }
@@ -3802,53 +4019,37 @@ export function initChatEngine(deps) {
             monthGroups.get(monthKey).push(entry);
         });
 
-        let timelineHtml = '';
+        let timelineHtml = '<div class="portfolio-timeline-track">';
         monthGroups.forEach((entries, monthName) => {
             timelineHtml += `
                 <div class="portfolio-timeline-month text-left">
-                    <!-- Month Title Header -->
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="w-2.5 h-2.5 rounded-full bg-[#007AFF] dark:bg-[#0A84FF]"></div>
+                    <div class="portfolio-timeline-month-header">
                         <h4 class="text-[15px] font-bold text-black dark:text-white tracking-wide">${UIUtils.escape(monthName)}</h4>
                         <span class="text-[11px] font-semibold text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">${entries.length} ${entries.length === 1 ? 'Milestone' : 'Milestones'}</span>
                     </div>
 
-                    <!-- Timeline Vertical Line & Nodes -->
-                    <div class="relative pl-6 ml-1.5 border-l-2 border-gray-200 dark:border-white/10 space-y-3">
+                    <div class="portfolio-timeline-entries">
                         ${entries.map(entry => {
                             const dateStr = entry.time ? new Date(entry.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                            const isFinal = entry.isFinal;
-                            const versionTagClass = isFinal 
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-400' 
-                                : 'bg-[#007AFF]/10 text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF]';
 
                             return `
-                                <div onclick="window.portfolioJumpToChat('${entry.key}', '${entry.docId}', '', '${UIUtils.escape(entry.rawTitle)}')" class="relative cursor-pointer bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-3.5 hover:border-[#007AFF]/50 transition-colors">
-                                    <!-- Timeline Node Circle -->
-                                    <div class="absolute -left-[31px] top-4 w-3.5 h-3.5 rounded-full ${isFinal ? 'bg-emerald-500 ring-4 ring-white dark:ring-black' : 'bg-[#007AFF] ring-4 ring-white dark:ring-black'}"></div>
-
-                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                        <div class="min-w-0 flex-1">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${versionTagClass}">${UIUtils.escape(entry.versionLabel)}</span>
-                                                <h5 class="text-[14px] font-bold text-black dark:text-white truncate">${UIUtils.escape(entry.projectName)}</h5>
-                                            </div>
-                                        </div>
-
-                                        <!-- Date & Comment Count Badges -->
-                                        <div class="flex items-center gap-2.5 sm:self-center">
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300">
-                                                    <svg class="w-3 h-3 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <div onclick="window.portfolioJumpToChat('${entry.key}', '${entry.docId}', '', '${UIUtils.escape(entry.rawTitle)}')" class="portfolio-timeline-entry">
+                                    <div class="portfolio-timeline-card">
+                                        <div class="portfolio-timeline-card-top">
+                                            <div class="portfolio-timeline-meta">
+                                                <span class="portfolio-timeline-tag">${UIUtils.escape(entry.versionLabel)}</span>
+                                                <span class="portfolio-timeline-count" title="${entry.totalComments} comments">
+                                                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                     <span>${entry.totalComments}</span>
                                                 </span>
-                                                ${entry.openCount > 0 ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#0A84FF]/25 dark:text-[#0A84FF]">${entry.openCount} open</span>` : ''}
-                                                ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400" title="Showing saved snapshot — sync status: ${UIUtils.escape(entry.syncStatus)}">snapshot</span>` : ''}
+                                                ${entry.openCount > 0 ? `<span class="portfolio-timeline-open">${entry.openCount} Open</span>` : ''}
+                                                ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="portfolio-timeline-snapshot" title="Showing saved snapshot · sync status: ${UIUtils.escape(entry.syncStatus)}">Snapshot</span>` : ''}
                                             </div>
-                                            <span class="text-[11px] text-black dark:text-white whitespace-nowrap" title="${entry.dateSource}; last feedback is tracked separately">${entry.dateSource} · ${dateStr}</span>
-                                            <button type="button" onclick="event.stopPropagation(); window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="text-[#007AFF] dark:text-[#0A84FF] hover:underline text-[12px] font-semibold ml-1">
-                                                View
-                                            </button>
+                                            <time class="portfolio-timeline-date" title="${entry.dateSource}; last feedback is tracked separately">${dateStr}</time>
+                                        </div>
+                                        <div class="portfolio-timeline-card-bottom">
+                                            <h5 class="portfolio-timeline-title">${UIUtils.escape(entry.projectName)}</h5>
+                                            <button type="button" onclick="event.stopPropagation(); window.switchPortfolioView('cards'); setTimeout(() => { const el = document.getElementById('portfolio-item-${entry.key}'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);" class="portfolio-timeline-view">View</button>
                                         </div>
                                     </div>
                                 </div>
@@ -3859,11 +4060,12 @@ export function initChatEngine(deps) {
             `;
         });
 
-        container.innerHTML = timelineHtml;
+        container.innerHTML = timelineHtml + '</div>';
     }
 
     // Open Portfolio Export Modal and generate pristine printable dossier
     function openPortfolioExportModal() {
+        setPortfolioExportMenuOpen(false);
         const modal = document.getElementById('portfolioExportModal');
         const card = document.getElementById('portfolioExportCard');
         const body = document.getElementById('portfolioExportBody');
@@ -3875,6 +4077,11 @@ export function initChatEngine(deps) {
         const studentName = currentUser?.name || 'Student';
         const partnerName = pData.chatPartnerName || 'Instructor';
         const exportDateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        const renderDossierPhotos = urls => urls.length ? `
+            <div class="portfolio-dossier-photos">
+                ${urls.map((url, index) => `<img src="${UIUtils.escape(url)}" loading="eager" alt="Comment photo ${index + 1}" class="portfolio-dossier-photo">`).join('')}
+            </div>
+        ` : '';
 
         // Collect all documents and full comment histories
         let dossierHtml = `
@@ -3952,6 +4159,7 @@ export function initChatEngine(deps) {
                 dossierHtml += comments.map(c => {
                     const quoteVal = c.quotedFileContent?.value || '';
                     const cDisp = UIComponents.docCommentDisplay(c);
+                    const mainPhoto = WritingDocCard.splitPhoto(cDisp.content);
                     const aName = cDisp.author || 'Instructor';
                     const cDeleted = !!(c.deleted || c.status === 'deleted_on_google');
                     const cMissing = !cDeleted && c.status === 'missing_from_latest_sync';
@@ -3961,8 +4169,8 @@ export function initChatEngine(deps) {
                     let quoteBlock = '';
                     if (quoteVal) {
                         quoteBlock = `
-                            <div class="pl-2.5 border-l-2 border-gray-300 dark:border-white/20 text-[11px] text-gray-600 dark:text-gray-300 italic mb-1.5">
-                                “${UIUtils.escape(quoteVal)}”
+                            <div class="portfolio-dossier-quote pl-2.5 border-l-2 border-gray-300 dark:border-white/20 text-[11px] text-gray-600 dark:text-gray-300 italic mb-1.5">
+                                “${WritingDocCard.escapeCommentText(quoteVal)}”
                             </div>
                         `;
                     }
@@ -3973,10 +4181,12 @@ export function initChatEngine(deps) {
                     if (dossierReplies.length > 0) {
                         repliesBlock = dossierReplies.map(r => {
                             const rDisp = UIComponents.docCommentDisplay(r);
+                            const replyPhoto = WritingDocCard.splitPhoto(rDisp.content);
                             return `
                             <div class="mt-1.5 pl-2.5 border-l-2 border-[#007AFF]/30 dark:border-[#0A84FF]/30 text-[11px]">
                                 <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'Student')}:</span>
-                                <span class="text-gray-600 dark:text-gray-300 ml-1">${UIUtils.escape(rDisp.content || '')}</span>
+                                ${replyPhoto.text ? `<span class="portfolio-dossier-text text-gray-600 dark:text-gray-300 ml-1">${WritingDocCard.escapeCommentText(replyPhoto.text)}</span>` : ''}
+                                ${renderDossierPhotos(replyPhoto.photoUrls)}
                             </div>
                         `;
                         }).join('');
@@ -3996,7 +4206,8 @@ export function initChatEngine(deps) {
                                 </div>
                                 <span class="text-[10px] text-gray-400">${cDate}</span>
                             </div>
-                            <div class="text-[12px] ${cDeleted || cMissing ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'}">${UIUtils.escape(cDisp.content || '')}</div>
+                            ${mainPhoto.text ? `<div class="portfolio-dossier-text text-[12px] ${cDeleted || cMissing ? 'italic text-black dark:text-white' : 'text-gray-800 dark:text-gray-200'}">${WritingDocCard.escapeCommentText(mainPhoto.text)}</div>` : ''}
+                            ${renderDossierPhotos(mainPhoto.photoUrls)}
                             ${repliesBlock}
                         </div>
                     `;
@@ -4122,6 +4333,10 @@ export function initChatEngine(deps) {
                     .italic { font-style: italic; }
                     .bg-gray-50\\/50 { background: #f9fafb; }
                     .border-l-2 { border-left-width: 2px; border-left-style: solid; border-left-color: #d1d5db; padding-left: 10px; }
+                    .portfolio-dossier-text, .portfolio-dossier-quote { overflow-wrap: anywhere; word-break: break-word; }
+                    .portfolio-dossier-text { white-space: pre-wrap; }
+                    .portfolio-dossier-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; break-inside: avoid; }
+                    .portfolio-dossier-photo { display: block; width: 120px; max-width: 100%; max-height: 160px; height: auto; object-fit: contain; border-radius: 8px; break-inside: avoid; }
                     a { color: #007aff; text-decoration: none; font-weight: 600; font-size: 11px; }
                     @page { margin: 15mm; size: auto; }
                 </style>
@@ -4133,8 +4348,21 @@ export function initChatEngine(deps) {
         `);
         iframeDoc.close();
 
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
+                const imageLoads = Array.from(iframeDoc.images).map(img => {
+                    if (img.decode) return img.decode().catch(() => {});
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(resolve => {
+                        img.addEventListener('load', resolve, { once: true });
+                        img.addEventListener('error', resolve, { once: true });
+                    });
+                });
+                await Promise.race([
+                    Promise.all(imageLoads),
+                    new Promise(resolve => setTimeout(resolve, 8000))
+                ]);
+                if (!printIframe.isConnected) return;
                 printIframe.contentWindow.focus();
                 printIframe.contentWindow.print();
             } catch (err) {
@@ -4194,6 +4422,7 @@ export function initChatEngine(deps) {
             });
             btnEl.classList.remove('text-black', 'dark:text-white');
             btnEl.classList.add('bg-white', 'dark:bg-[#2C2C2E]', 'text-black', 'dark:text-white', 'shadow-sm');
+            updatePortfolioSegment(btnEl);
         }
 
         const projectItems = content.querySelectorAll('.portfolio-group-item');
@@ -4212,26 +4441,6 @@ export function initChatEngine(deps) {
             if (show) {
                 item.classList.remove('hidden');
                 visibleCount++;
-                if (filterType === 'open') {
-                    const cards = item.querySelectorAll('.doc-card-container');
-                    cards.forEach(card => {
-                        const openCount = parseInt(card.getAttribute('data-open-count') || '0', 10);
-                        if (openCount > 0) {
-                            const drawer = card.querySelector('[id^="docDrawer-"]');
-                            const arrow = card.querySelector('[id^="docArrow-"]');
-                            if (drawer && !drawer.classList.contains('expanded')) {
-                                drawer.classList.remove('hidden');
-                                void drawer.offsetHeight;
-                                drawer.classList.add('expanded');
-                                if (arrow) arrow.style.transform = 'rotate(180deg)';
-                            }
-                            const cardKey = card.querySelector('[id^="docList-"]')?.id.replace('docList-', '');
-                            if (cardKey && typeof filterDocComments === 'function') {
-                                filterDocComments(cardKey, 'open', null);
-                            }
-                        }
-                    });
-                }
             } else {
                 item.classList.add('hidden');
             }
@@ -4395,12 +4604,15 @@ export function initChatEngine(deps) {
     function toggleWritingPortfolioExpand() {
         const drawer = document.getElementById('writingPortfolioDrawer');
         if (!drawer || !wpCanExpand()) return;
-        setWritingPortfolioExpanded(!drawer.classList.contains('wp-expanded'), true);
+        _wpPreferExpanded = !drawer.classList.contains('wp-expanded');
+        setWritingPortfolioExpanded(_wpPreferExpanded, true);
     }
 
     function closeWritingPortfolio() {
         const drawer = document.getElementById('writingPortfolioDrawer');
         if (!drawer) return;
+
+        if (wpCanExpand()) _wpPreferExpanded = drawer.classList.contains('wp-expanded');
 
         // Any overlays anchored to portfolio views must not outlive the drawer.
         const projModal = document.getElementById('portfolioProjectModal');
@@ -4414,7 +4626,9 @@ export function initChatEngine(deps) {
         // Slide out to the right from wherever it is (collapsed or expanded),
         // then reset geometry once the transition has finished.
         drawer.classList.add('translate-x-full');
-        setTimeout(() => {
+        clearTimeout(_wpCloseTimer);
+        _wpCloseTimer = setTimeout(() => {
+            _wpCloseTimer = null;
             drawer.classList.add('hidden');
             resetWritingPortfolioDrawer();
             // Chat geometry/visibility may have changed while the drawer covered
@@ -6019,6 +6233,8 @@ export function initChatEngine(deps) {
     window.submitPortfolioUngroup = submitPortfolioUngroup;
     window.switchPortfolioView = switchPortfolioView;
     window.filterPortfolioAuthor = filterPortfolioAuthor;
+    window.togglePortfolioAuthorMenu = togglePortfolioAuthorMenu;
+    window.togglePortfolioExportMenu = togglePortfolioExportMenu;
     window.filterPortfolioCommentStatus = filterPortfolioCommentStatus;
     window.openPortfolioExportModal = openPortfolioExportModal;
     window.closePortfolioExportModal = closePortfolioExportModal;

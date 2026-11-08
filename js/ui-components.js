@@ -306,18 +306,34 @@ export const UIComponents = {
         const docTitle = card.docTitle || 'Google Document';
         const cDisp = UIComponents.docCommentDisplay(c);
         const author = cDisp.author || 'Reviewer';
-        const cPhoto = UIComponents.splitPhoto(cDisp.content || '');
-        const content = cPhoto.text.trim();
+
+        // Check if this card represents a reply
+        const replyObj = card.reply || null;
+        const isReply = !!(card.isReply || replyObj || (card.anchorIds && card.anchorIds.length && card.anchorIds[0] !== c.id));
+
+        // For bubble content: if it's a reply with specific content, show that; otherwise show comment body
+        let bubbleText = '';
+        let photoUrls = [];
+        if (replyObj && replyObj.content) {
+            const split = UIComponents.splitPhoto(replyObj.content);
+            bubbleText = split.text.trim();
+            photoUrls = split.photoUrls;
+        } else {
+            const split = UIComponents.splitPhoto(cDisp.content || '');
+            bubbleText = split.text.trim();
+            photoUrls = split.photoUrls;
+        }
+
         window._commentCards = window._commentCards || {};
         window._commentCards[key] = card;
 
         const bS = isMe
             ? 'chat-accent-bg bg-[#007AFF] text-white rounded-3xl rounded-br-sm'
             : 'other-accent-bg bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
-        const bubble = content
-            ? `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(content), isMe)}</div>`
+        const bubble = bubbleText
+            ? `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(bubbleText), isMe)}</div>`
             : '';
-        const photoHtml = cPhoto.photoUrls.length ? UIComponents.renderImageMedia(cPhoto.photoUrls, `${key}-cc`, isMe, false) : '';
+        const photoHtml = photoUrls.length ? UIComponents.renderImageMedia(photoUrls, `${key}-cc`, isMe, false) : '';
 
         const cornerClass = isMe
             ? 'rounded-tl-xl rounded-bl-xl rounded-br-xl rounded-tr-none'
@@ -325,11 +341,22 @@ export const UIComponents = {
         const originMsgKey = card.originMsgKey || '';
         const sourceDocUrl = card.docUrl || '';
         const canJump = !!(originMsgKey || sourceDocUrl);
+        const jumpCommentId = (replyObj && replyObj.id) || (card.anchorIds && card.anchorIds[0]) || c.id || '';
         const jumpAttrs = canJump
-            ? `onclick="window.jumpCommentCard(this)" data-origin-key="${UIUtils.escape(originMsgKey)}" data-doc-url="${UIUtils.escape(sourceDocUrl)}" data-comment-id="${UIUtils.escape(c.id || '')}"`
+            ? `onclick="window.jumpCommentCard(this)" data-origin-key="${UIUtils.escape(originMsgKey)}" data-doc-url="${UIUtils.escape(sourceDocUrl)}" data-comment-id="${UIUtils.escape(jumpCommentId)}"`
             : '';
         const textCls = canJump ? ' cursor-pointer hover:underline' : '';
-        const textGroup = `<div class="flex-1 min-w-0"><span ${jumpAttrs} class="text-[10px] font-bold uppercase tracking-wide text-[#007AFF] dark:text-[#0A84FF]${textCls}">${UIUtils.escape(author)} Commented on ${UIUtils.escape(docTitle)}</span></div>`;
+
+        let stripText = '';
+        if (isReply) {
+            const replier = replyObj?.author?.displayName || msg.senderName || (isMe ? 'You' : 'Reviewer');
+            const targetAuthor = card.parentAuthor || author;
+            stripText = `${UIUtils.escape(replier)} Replied to ${UIUtils.escape(targetAuthor)} on ${UIUtils.escape(docTitle)}`;
+        } else {
+            stripText = `${UIUtils.escape(author)} Commented on ${UIUtils.escape(docTitle)}`;
+        }
+
+        const textGroup = `<div class="flex-1 min-w-0"><span ${jumpAttrs} class="text-[11px] font-semibold text-[#007AFF] dark:text-[#0A84FF]${textCls}">${stripText}</span></div>`;
         const docBtn = `<button type="button" onclick="window.replyCommentCardStrip('${key}', event)" class="w-6 h-6 flex-shrink-0 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Reply to this comment"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"/></svg></button>`;
         const expandBtn = `<button type="button" onclick="window.toggleCommentCardExpand('${key}', event)" class="w-6 h-6 flex-shrink-0 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Show comment thread"><svg id="ccArrow-${key}" class="w-3.5 h-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></button>`;
         // docBtn sits on the non-edge side: left for own (right-aligned) messages,

@@ -816,15 +816,21 @@ export const ViewModule = {
         const chatSection = document.getElementById('chatSection');
         const newsTopButtonsContainer = document.getElementById('newsTopButtonsContainer');
         const sidebarHandle = document.getElementById('sidebarHandle');
+        const searchResults = document.getElementById('globalSearchResults');
         // The Portfolio drawer is re-parented onto <body> while it is open
         // (chat.js body.appendChild), so without tagging it here nothing under
         // .msg-theme-* reaches its doc cards — their accent stayed iOS blue.
         const portfolioDrawer = document.getElementById('writingPortfolioDrawer');
-        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle, portfolioDrawer];
+        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle, portfolioDrawer, searchResults];
 
         elements.forEach(el => {
             if (el) {
                 el.classList.remove('msg-theme-orange', 'msg-theme-blue', 'msg-theme-green', 'msg-theme-purple', 'msg-theme-custom');
+                [
+                    '--msg-accent-color', '--msg-accent-color-dark',
+                    '--msg-accent-color-alpha10', '--msg-accent-color-alpha20',
+                    '--msg-accent-color-dark-alpha10', '--msg-accent-color-dark-alpha20'
+                ].forEach(name => el.style.removeProperty(name));
             }
         });
 
@@ -1421,6 +1427,10 @@ export const ViewModule = {
                 content.style.zIndex = '0';
             }
         });
+
+        if (tab === 'tools') {
+            window.updateAdminToolsVisibility?.();
+        }
 
         // 处理新闻子标签显示
         const subTabs = document.getElementById('newsSubTabsWrapper');

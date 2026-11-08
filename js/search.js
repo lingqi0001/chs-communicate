@@ -51,6 +51,82 @@ function getOtherParticipantId(chatId, currentUserId) {
 }
 
 export const SearchModule = {
+    syncGlobalSearchTheme(results) {
+        if (!results) return;
+
+        const source = document.getElementById('sidePanel');
+        const prefix = 'msg-theme-';
+        const oldThemes = Array.from(results.classList).filter(name => name.startsWith(prefix));
+        results.classList.remove(...oldThemes);
+
+        const activeTheme = Array.from(source?.classList || []).find(name => name.startsWith(prefix))
+            || `${prefix}${localStorage.getItem('msgAccentColor') || 'blue'}`;
+        results.classList.add(activeTheme);
+
+        // Custom Writing Panel tokens are inline on the source panel. Copy
+        // them before the popover is moved out of that panel into <body>.
+        if (activeTheme === `${prefix}custom` && source) {
+            const computed = getComputedStyle(source);
+            [
+                '--msg-accent-color', '--msg-accent-color-dark',
+                '--msg-accent-color-alpha10', '--msg-accent-color-alpha20',
+                '--msg-accent-color-dark-alpha10', '--msg-accent-color-dark-alpha20'
+            ].forEach(name => {
+                const value = computed.getPropertyValue(name).trim();
+                if (value) results.style.setProperty(name, value);
+            });
+        }
+    },
+
+    syncGlobalSearchResultsLayer() {
+        const results = document.getElementById('globalSearchResults');
+        const drawer = document.getElementById('writingPortfolioDrawer');
+        const input = document.getElementById('globalSearchInput');
+        if (!results || !input) return;
+
+        const drawerIsOpen = drawer?.classList.contains('wp-drawer-open');
+        if (drawerIsOpen) {
+            if (!results._searchHomeParent) {
+                results._searchHomeParent = results.parentElement;
+            }
+
+            // Portal just the popover out of the sidebar's stacking context.
+            // The sidebar itself stays under the portfolio drawer as intended.
+            if (results.parentElement !== document.body) {
+                document.body.appendChild(results);
+            }
+
+            const anchor = results._searchHomeParent || input.closest('.relative');
+            const rect = anchor?.getBoundingClientRect();
+            if (rect) {
+                results.classList.remove('absolute', 'top-full', 'left-0', 'right-0', 'mt-1.5');
+                Object.assign(results.style, {
+                    position: 'fixed',
+                    top: `${Math.round(rect.bottom + 6)}px`,
+                    left: `${Math.round(rect.left)}px`,
+                    right: 'auto',
+                    width: `${Math.round(rect.width)}px`,
+                    zIndex: '150',
+                    transformOrigin: 'top center'
+                });
+            }
+            return;
+        }
+
+        // Restore the normal anchored dropdown when the portfolio is closed.
+        if (results._searchHomeParent && results.parentElement === document.body) {
+            results._searchHomeParent.appendChild(results);
+            results.classList.add('absolute', 'top-full', 'left-0', 'right-0', 'mt-1.5');
+            results.style.position = '';
+            results.style.top = '';
+            results.style.left = '';
+            results.style.right = '';
+            results.style.width = '';
+            results.style.zIndex = '';
+            results.style.transformOrigin = '';
+        }
+    },
+
     ensureGlobalSearchResults() {
         if (document.getElementById('globalSearchResults')) return;
         const input = document.getElementById('globalSearchInput');
@@ -80,6 +156,7 @@ export const SearchModule = {
                     </div>
         `);
         const results = document.getElementById('globalSearchResults');
+        this.syncGlobalSearchTheme(results);
         if (results && !results._liquidGlass) {
             new LiquidGlassEffect(results, {
                 radius: 16,            // matches rounded-2xl (16px)
@@ -637,6 +714,7 @@ export const SearchModule = {
         window.showGlobalSearchResults = () => {
             const results = document.getElementById('globalSearchResults');
             if (results) {
+                this.syncGlobalSearchResultsLayer();
                 results.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
                 results.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
                 if (results._liquidGlass) {
@@ -650,8 +728,14 @@ export const SearchModule = {
             if (results) {
                 results.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
                 results.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+                this.syncGlobalSearchResultsLayer();
             }
         };
+
+        if (!this._globalSearchLayerListenersAdded) {
+            this._globalSearchLayerListenersAdded = true;
+            window.addEventListener('resize', () => this.syncGlobalSearchResultsLayer());
+        }
 
         window.clearGlobalSearch = () => {
             const input = document.getElementById('globalSearchInput');
@@ -1059,7 +1143,7 @@ export const SearchModule = {
                                     const escapedItemKey = escapeForInlineHandler(item.key);
                                     const escapedTypeOrModule = escapeForInlineHandler(item.typeOrModule);
                                     chunk += `<div onclick="handlePostJump('${escapedStoreName}', '${escapedItemKey}', '${escapedTypeOrModule}'); triggerAddHistory('${escapedTerm}');" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
-                                        <div class="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-0.5">Announcement</div>
+                                        <div class="search-announcement-label text-[11px] font-bold uppercase tracking-wider mb-0.5">Announcement</div>
                                         <div class="text-[14px] font-semibold text-black dark:text-white line-clamp-1">${window.escapeHTML(item.title)}</div>
                                         <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">${window.escapeHTML(item.desc)}</div>
                                     </div>`;

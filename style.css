@@ -83,7 +83,7 @@ body {
 /* Writing Portfolio drawer: while open it is moved under <body> and made
    viewport-fixed, so its left edge can animate smoothly between the chat area
    (collapsed) and the message list (expanded). The exact left value is set
-   inline via JS; z-index 120 keeps it above #sidePanel (z-50) in the root
+   inline via JS; z-index 80 keeps it above #sidePanel (z-50) in the root
    stacking context. */
 #writingPortfolioDrawer.wp-drawer-open {
     position: fixed;
@@ -114,6 +114,11 @@ body {
     animation: composer-rise 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+#chatComposerWrap.composer-front.composer-sink {
+    animation: composer-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) reverse forwards;
+    pointer-events: none;
+}
+
 @keyframes composer-rise {
     from { transform: translateY(110%); }
     to { transform: translateY(0); }
@@ -131,8 +136,450 @@ body {
     align-items: start;
 }
 
+#portfolioCardsView.hidden {
+    display: none;
+}
+
 #portfolioCardsView > * {
     min-width: 0;
+}
+
+/* One continuous rail connects the month and document milestones. */
+.portfolio-timeline-track { position: relative; }
+.portfolio-timeline-track::before {
+    content: '';
+    position: absolute;
+    top: 9px;
+    bottom: 0;
+    left: 8px;
+    width: 2px;
+    background: #dedee5;
+}
+.dark .portfolio-timeline-track::before { background: rgba(255,255,255,.18); }
+
+.portfolio-timeline-month {
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 28px;
+}
+.portfolio-timeline-month:last-child { margin-bottom: 0; }
+.portfolio-timeline-month-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    min-height: 20px;
+}
+.portfolio-timeline-month-header::before,
+.portfolio-timeline-entry::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    border-radius: 50%;
+    background: var(--msg-accent-color, #007AFF);
+}
+.dark .portfolio-timeline-month-header::before,
+.dark .portfolio-timeline-entry::before { background: var(--msg-accent-color-dark, #0A84FF); }
+.portfolio-timeline-month-header::before {
+    left: -33px;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 0 0 4px #F2F2F7;
+}
+.dark .portfolio-timeline-month-header::before { box-shadow: 0 0 0 4px #000; }
+.portfolio-timeline-entries { display: grid; gap: 12px; margin-top: 12px; }
+.portfolio-timeline-entry { position: relative; cursor: pointer; min-width: 0; }
+.portfolio-timeline-entry::before {
+    left: -29px;
+    top: 23px;
+    width: 8px;
+    height: 8px;
+    box-shadow: 0 0 0 3px #F2F2F7;
+}
+.dark .portfolio-timeline-entry::before { box-shadow: 0 0 0 3px #000; }
+.portfolio-timeline-card {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(229,231,235,.8);
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.dark .portfolio-timeline-card { border-color: rgba(255,255,255,.1); background: #1C1C1E; }
+.portfolio-timeline-card-top {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    align-items: start;
+    gap: 8px;
+}
+.portfolio-timeline-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.portfolio-timeline-tag,
+.portfolio-timeline-count,
+.portfolio-timeline-open,
+.portfolio-timeline-snapshot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 22px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: #000;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.dark :is(.portfolio-timeline-tag,.portfolio-timeline-count,.portfolio-timeline-open,.portfolio-timeline-snapshot) { color: #fff; }
+.portfolio-timeline-tag { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); text-transform: uppercase; }
+.portfolio-timeline-open { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
+.portfolio-timeline-snapshot { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
+.dark :is(.portfolio-timeline-tag,.portfolio-timeline-open,.portfolio-timeline-snapshot) { background: var(--msg-accent-color-dark-alpha10, rgba(10,132,255,.2)); }
+.portfolio-timeline-count { background: #f3f4f6; }
+.dark .portfolio-timeline-count { background: rgba(255,255,255,.08); }
+.portfolio-timeline-date { color: #000; font-size: 11px; line-height: 22px; white-space: nowrap; text-align: right; }
+.dark .portfolio-timeline-date { color: #fff; }
+.portfolio-timeline-card-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.portfolio-timeline-title { min-width: 0; color: #000; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.dark .portfolio-timeline-title { color: #fff; }
+.portfolio-timeline-view { flex-shrink: 0; color: var(--msg-accent-color, #007AFF); font-size: 12px; font-weight: 600; }
+.dark .portfolio-timeline-view { color: var(--msg-accent-color-dark, #0A84FF); }
+.portfolio-timeline-entry:hover .portfolio-timeline-view,
+.portfolio-timeline-view:focus-visible { text-decoration: underline; }
+
+.portfolio-dossier-text,
+.portfolio-dossier-quote {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.portfolio-dossier-text { white-space: pre-wrap; }
+.portfolio-dossier-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.portfolio-dossier-photo {
+    display: block;
+    max-width: 100%;
+    width: 120px;
+    max-height: 160px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #f3f4f6;
+}
+.dark .portfolio-dossier-photo { background: #2C2C2E; }
+
+/* One shared pill slides between options in each Portfolio switcher. */
+.portfolio-segments {
+    position: relative;
+    max-width: 100%;
+    border-radius: 9999px;
+}
+
+.portfolio-segments > button {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    border-radius: 9999px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-height: 28px;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.portfolio-version-arrow {
+    flex: 0 0 auto;
+    padding: 0 3px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1;
+    opacity: .78;
+}
+.dark .portfolio-version-arrow { color: #fff; }
+
+.portfolio-version-steps {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 1 auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 105, 115, .38) transparent;
+}
+
+.portfolio-version-steps::-webkit-scrollbar {
+    height: 6px;
+}
+
+.portfolio-version-steps::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.portfolio-version-steps::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(100, 105, 115, .38);
+}
+
+.portfolio-version-steps::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 105, 115, .62);
+}
+
+.portfolio-version-steps > button {
+    flex: 0 0 auto;
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.portfolio-version-count {
+    display: inline-flex;
+    min-width: 17px;
+    height: 17px;
+    margin-left: 4px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, .08);
+    font-size: 10px;
+    line-height: 1;
+}
+
+.dark .portfolio-version-count {
+    background: rgba(255, 255, 255, .12);
+}
+
+.dark .portfolio-version-steps {
+    scrollbar-color: rgba(220, 220, 225, .34) transparent;
+}
+
+.dark .portfolio-version-steps::-webkit-scrollbar-thumb {
+    background: rgba(220, 220, 225, .34);
+}
+
+.dark .portfolio-version-steps::-webkit-scrollbar-thumb:hover {
+    background: rgba(220, 220, 225, .56);
+}
+
+@media (min-width: 768px) {
+    .portfolio-version-steps {
+        width: auto;
+        max-width: 62%;
+    }
+}
+
+.portfolio-segment-indicator {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+}
+
+.dark .portfolio-segment-indicator {
+    background: #2C2C2E;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+}
+
+.portfolio-segments-ready .portfolio-segment-indicator {
+    transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+                width 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .portfolio-segments-ready .portfolio-segment-indicator {
+        transition: none;
+    }
+}
+
+.portfolio-controls,
+#portfolioFilterBarComments {
+    overflow: visible;
+}
+
+.portfolio-export-slot {
+    position: relative;
+    z-index: 50;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    margin-left: auto;
+}
+
+.portfolio-export-trigger {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(229, 230, 235, .9);
+    color: #000;
+    transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.portfolio-export-trigger:hover,
+.portfolio-export-trigger[aria-expanded="true"] {
+    background: rgba(211, 212, 221, .95);
+}
+
+.portfolio-export-trigger:active { transform: scale(.94); }
+.dark .portfolio-export-trigger { background: rgba(56, 56, 60, .9); color: #fff; }
+.dark .portfolio-export-trigger:hover,
+.dark .portfolio-export-trigger[aria-expanded="true"] { background: rgba(73, 73, 78, .95); }
+
+.portfolio-export-popover {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    width: 144px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    background: rgba(228, 229, 234, .75);
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,.55), 0 8px 24px rgba(15,23,42,.12);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px) scale(.96);
+    transform-origin: top right;
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 240ms cubic-bezier(.16,1,.3,1), visibility 240ms;
+}
+
+.portfolio-export-popover.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.dark .portfolio-export-popover {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(52,52,55,.7);
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,.14), 0 12px 34px rgba(0,0,0,.34);
+}
+
+.portfolio-export-popover button {
+    display: flex;
+    width: 100%;
+    height: 36px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border-radius: 16px;
+    color: #000;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.dark .portfolio-export-popover button { color: #fff; }
+.portfolio-export-popover button:hover { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
+.dark .portfolio-export-popover button:hover { background: var(--msg-accent-color-dark-alpha10, rgba(10,132,255,.15)); }
+
+@media (prefers-reduced-motion: reduce) {
+    .portfolio-export-trigger, .portfolio-export-popover { transition: none; }
+}
+
+#portfolioFilterBarComments {
+    position: relative;
+    z-index: 35;
+}
+
+.portfolio-author-slot {
+    position: relative;
+    flex: 0 0 148px;
+    width: 148px;
+    height: 36px;
+}
+
+.portfolio-author-menu {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 40;
+    width: 148px;
+    height: 36px;
+    padding: 4px;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 24px;
+    background: rgba(229, 230, 235, 0.9);
+    box-shadow: 0 1px 4px rgba(15,23,42,.06);
+    transition: width 300ms cubic-bezier(.16,1,.3,1), height 300ms cubic-bezier(.16,1,.3,1);
+    user-select: none;
+}
+
+.dark .portfolio-author-menu {
+    background: rgba(56,56,60,.9);
+    box-shadow: 0 1px 5px rgba(0,0,0,.18);
+}
+
+.portfolio-author-menu.is-glass {
+    background: rgba(228, 229, 234, 0.75);
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,.55), 0 4px 14px rgba(15,23,42,.08);
+}
+
+.dark .portfolio-author-menu.is-glass {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(52,52,55,.7);
+    box-shadow: inset 0 1px 1.5px rgba(255,255,255,.14), 0 12px 34px rgba(0,0,0,.34);
+}
+
+.portfolio-author-menu.is-open {
+    width: 190px;
+    height: 184px;
+}
+
+.portfolio-author-trigger,
+.portfolio-author-options button {
+    display: flex;
+    width: 100%;
+    min-height: 26px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    border-radius: 18px;
+    color: #000;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.dark .portfolio-author-trigger,
+.dark .portfolio-author-options button { color: #fff; }
+
+.portfolio-author-trigger span { flex: 1; }
+.portfolio-author-chevron { transition: transform 300ms cubic-bezier(.16,1,.3,1); }
+.portfolio-author-menu.is-open .portfolio-author-chevron { transform: rotate(180deg); }
+
+.portfolio-author-options {
+    padding-top: 4px;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 260ms cubic-bezier(.16,1,.3,1);
+}
+.portfolio-author-menu.is-open .portfolio-author-options {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+.portfolio-author-options button { justify-content: space-between; min-height: 36px; }
+.portfolio-author-trigger:hover,
+.portfolio-author-options button:hover { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
+.dark .portfolio-author-trigger:hover,
+.dark .portfolio-author-options button:hover { background: var(--msg-accent-color-dark-alpha10, rgba(10,132,255,.15)); }
+.portfolio-author-options button span { opacity: 0; }
+.portfolio-author-options button[aria-selected="true"] span { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .portfolio-author-menu, .portfolio-author-options, .portfolio-author-chevron { transition: none; }
 }
 
 /* Brief highlight on a doc comment row after jumping to it from a comment_card. */
@@ -729,6 +1176,18 @@ body {
     right: 12px;
 }
 
+/* The expanded width is added by JavaScript only after the first click.
+   Define both endpoints in the initial stylesheet so the first expansion
+   transitions just like subsequent ones, even with runtime Tailwind CSS. */
+#chatSearchWrap {
+    width: 32px;
+    transition: width 300ms ease;
+}
+
+#chatSearchWrap.w-44 {
+    width: 176px;
+}
+
 .dark #chatNameBar,
 .dark #chatActionsBar {
     border-color: rgba(255, 255, 255, 0.12);
@@ -837,6 +1296,7 @@ body.compact-four-panel-layout #searchResults {
 }
 
 #chatCameraBtn.chat-fab-btn {
+    transition-property: transform, background-color, box-shadow;
     width: 44px;
     height: 44px;
     border-radius: 9999px;
@@ -881,6 +1341,12 @@ body.compact-four-panel-layout #searchResults {
     transform: translate(-50%, -50%) rotate(45deg);
 }
 
+#attachMenu,
+#attachMenu * {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 #attachMenu {
     border: 1px solid transparent;
     background: rgba(222, 223, 229, 0.48);
@@ -902,6 +1368,20 @@ body.compact-four-panel-layout #searchResults {
        That is why the collapsed circle stepped on the frame the card handed off
        to the + button: the card had no side bevel, the button has a full one.
        Same lesson already recorded for #wpDocContextBar. */
+}
+
+/* Keep menu labels from becoming blue text selections while dragging. */
+#attachMenu input,
+#attachMenu #attachBotEmail {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Portfolio view tabs and filter controls are buttons, not selectable copy. */
+#writingPortfolioDrawer .portfolio-controls,
+#writingPortfolioDrawer .portfolio-controls * {
+    -webkit-user-select: none !important;
+    user-select: none !important;
 }
 
 #attachMenu.menu-hidden {
@@ -928,28 +1408,40 @@ body.compact-four-panel-layout #searchResults {
     will-change: width, height, bottom;
 }
 
-/* Every top row in this card - the main view's Close and each sub-view's Back -
+/* Every navigation row in this card - the main view's Close and each sub-view's Back -
    carries `active:scale-[0.98]` with a transform transition.  The flight measures
    that row's glyph to find the button's centre, and it measures on the very
    instant the row is springing back from the press, so a rect-based centre came
    out a few pixels left of the truth: the glyph landed left and the real button's
    centre then pulled it right.  At 15x slow-mo the row settles inside the first
    few percent of the stretched flight, which is why it only shows at normal
-   speed.  While the card is flying, no top row may scale. */
-#attachMenu.attach-flying > div:not(.hidden) > button:first-child {
+   speed.  While the card is flying, no navigation row may scale. */
+/* Keep footer geometry stable while the shrinking box clips its contents. */
+#attachMenu.attach-flying > div:not(.hidden) {
+    width: var(--attach-flight-content-width);
+}
+
+#attachMenu.attach-flying > div:not(.hidden) > .attach-nav-btn {
     transform: none !important;
     transition: none !important;
 }
 
-/* The menu grows out of the + button and covers it. Hide the button for the
-   flight so its glass + shadow don't stack under the card's; visibility keeps
-   the wrapper geometry and click target intact. */
+/* Keep the original button clickable above the flying card, with its surface
+   transparent so the card still owns the visible glass and glyph. */
 #chatCameraBtn.attach-flying-source {
-    visibility: hidden;
+    visibility: visible !important;
+    opacity: 0 !important;
+    z-index: 60;
+    transition: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 /* The card is anchored flush on the button's footprint and carries its own Close
-   × at the top (which the plus rotates into), so the + button is hidden for the
+   × at the bottom (which the plus rotates into), so the + button is hidden for the
    whole open duration, not just the flight. */
 #chatComposerWrap:has(#attachMenu:not(.hidden)) #chatCameraBtn {
     visibility: hidden;
@@ -1238,6 +1730,12 @@ body.compact-four-panel-layout #searchResults {
 
 /* 彻底隐藏搜索结果框的滚动条，确保有无滚动条时都完美贴边 */
 #searchResultList,
+#sidePanelSearchWrap > .relative {
+    /* Apple search fields use a rounded rectangle: soft enough to read as a
+       search control without turning this wide, shallow field into a capsule. */
+    border-radius: 18px !important;
+}
+
 #searchResults {
     scrollbar-width: none !important; /* Firefox */
     -ms-overflow-style: none !important;
@@ -1265,6 +1763,81 @@ body.compact-four-panel-layout #searchResults {
    shifts the layout). */
 #writingPortfolioContent {
     scrollbar-gutter: stable;
+}
+
+/* The drawer is moved directly under <body> while open, outside #chatSection's
+   text-selection override. Keep portfolio content selectable despite the
+   global body-level selection lock, and preserve normal word wrapping in text. */
+#writingPortfolioDrawer #writingPortfolioContent,
+#writingPortfolioDrawer #writingPortfolioContent * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
+
+/* Re-lock the toolbar after the portfolio's general text-selection rule above.
+   Keep card/comment content selectable while preventing blue drag selections
+   on the view tabs, status chips, and author controls. */
+#writingPortfolioDrawer #writingPortfolioContent .portfolio-controls,
+#writingPortfolioDrawer #writingPortfolioContent .portfolio-controls * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+#writingPortfolioDrawer #writingPortfolioContent .comment-item-row,
+#writingPortfolioDrawer #writingPortfolioContent .comment-item-row * {
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
+
+.wp-comment-body {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+.wp-comment-text {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+#portfolioCommentsView .portfolio-feedback-text {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    white-space: pre-wrap;
+}
+
+#portfolioCommentsView .portfolio-feedback-reply {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+#portfolioCommentsView .portfolio-accent-link {
+    color: var(--msg-accent-color, #007AFF);
+}
+
+.dark #portfolioCommentsView .portfolio-accent-link {
+    color: var(--msg-accent-color-dark, #0A84FF);
+}
+
+#portfolioCommentsView .portfolio-accent-link:hover {
+    text-decoration: underline;
+}
+
+#portfolioCommentsView .portfolio-teacher-badge {
+    color: #000;
+    background-color: var(--msg-accent-color-alpha10, rgba(0, 122, 255, 0.1));
+}
+
+.dark #portfolioCommentsView .portfolio-teacher-badge {
+    color: #fff;
+    background-color: var(--msg-accent-color-dark-alpha20, rgba(10, 132, 255, 0.25));
 }
 
 ::-webkit-scrollbar-corner {
@@ -1613,6 +2186,74 @@ body.compact-four-panel-layout #searchResults {
 
 .apple-morph {
     transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* One shared selection surface glides between Discover, My Joint, and Events. */
+#newsPrimaryTabs::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 80px) / 2);
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease;
+    pointer-events: none;
+}
+
+#newsPrimaryTabs[data-active-tab="club"]::before {
+    transform: translateX(calc(100% + 4px));
+}
+
+#newsPrimaryTabs[data-nav-expanded="true"]::before {
+    opacity: 0;
+}
+
+.dark #newsPrimaryTabs::before {
+    background: #2C2C2E;
+}
+
+/* One shared selection surface glides between Discover, My Joint, and Events. */
+#subClubTabs > button {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#subClubTabs::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc((100% - 4px) / 3);
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transform: translateX(calc(200% + 4px));
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 200ms ease, box-shadow 200ms ease;
+    pointer-events: none;
+}
+
+#subClubTabs[data-active-tab="discover"]::before {
+    transform: translateX(0);
+}
+
+#subClubTabs[data-active-tab="joint"]::before {
+    transform: translateX(calc(100% + 2px));
+}
+
+#subClubTabs[data-active-tab="events"]::before {
+    transform: translateX(calc(200% + 4px));
+}
+
+.dark #subClubTabs::before {
+    background: #2C2C2E;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .tab-transition {
@@ -3152,6 +3793,16 @@ html:not(.dark) #customModal {
         inset 0 1px 2px rgba(255, 255, 255, 0.18), 
         inset 0 -1px 2px rgba(0, 0, 0, 0.4), 
         0 20px 48px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Announcement labels keep using the Hub's separate accent setting even
+   though the search popover follows the Writing Panel theme. */
+.search-announcement-label {
+    color: var(--ann-accent-color, #F97316) !important;
+}
+
+.dark .search-announcement-label {
+    color: var(--ann-accent-color-dark, #A724FF) !important;
 }
 
 .dark #globalSearchResults {
@@ -4955,16 +5606,40 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     min-width: 0;
     font-weight: 700;
     font-size: 1.25rem;
-    line-height: 1.1;
+    line-height: 1.4;
     letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding-top: 2px;
+    padding-bottom: 4px;
     color: #000;
 }
 
 .dark .page-head-title {
     color: #fff;
+}
+
+/* Keep the Portfolio title centered between equally sized header sides. */
+#writingPortfolioHeader {
+    display: grid;
+    grid-template-columns: minmax(2.25rem, 1fr) minmax(0, auto) minmax(2.25rem, 1fr);
+}
+
+#writingPortfolioHeader .page-back-btn {
+    grid-column: 1;
+}
+
+#writingPortfolioTitle {
+    grid-column: 2;
+    text-align: center;
+    line-height: 1.35;
+    padding-block: 2px;
+}
+
+#writingPortfolioHeader .page-head-actions {
+    grid-column: 3;
+    justify-self: end;
 }
 
 .page-head-actions {

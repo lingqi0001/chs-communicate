@@ -164,6 +164,19 @@ const trackToolVisit = async (eid) => {
 };
 
 export const openExtension = (eid, customUrl = null, customTitle = null) => {
+    const targetEid = ALIAS_MAP[eid] || eid;
+    if (targetEid === 'ir_navigator' || (customUrl && String(customUrl).toLowerCase().includes('ir-navigator'))) {
+        const isAdmin = !!(window.AppModules?.User?.isAdmin && window.AppModules.User.isAdmin());
+        if (!isAdmin) {
+            if (window.AppModules?.Modal?.alert) {
+                window.AppModules.Modal.alert("Access Restricted", "IR Navigator is currently only accessible to administrators.");
+            } else {
+                alert("IR Navigator is currently only accessible to administrators.");
+            }
+            return;
+        }
+    }
+
     if (!window.isLoggedIn && typeof window.isPublicTool === 'function' && !window.isPublicTool(eid, customUrl)) {
         if (typeof window.promptSignIn === 'function') {
             window.promptSignIn("Please sign in with your HCPSS account to access this tool.");

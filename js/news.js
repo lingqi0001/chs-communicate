@@ -237,8 +237,11 @@ export function createNewsModule(deps) {
         const btnClub = document.getElementById('btnClubNews');
         if (!btnSchool || !btnClub) return;
 
-        const activePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-black dark:text-white bg-white dark:bg-[#2C2C2E] shadow-sm";
-        const inactivePrimaryClass = "apple-morph flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-lg text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white";
+        const tabGroup = document.getElementById('newsPrimaryTabs');
+        if (tabGroup) tabGroup.dataset.activeTab = currentPrimaryTab;
+
+        const activePrimaryClass = "apple-morph relative z-10 flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-full text-black dark:text-white";
+        const inactivePrimaryClass = "apple-morph relative z-10 flex-1 flex shrink-0 items-center justify-center text-xs font-bold h-full rounded-full text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white";
 
         if (currentPrimaryTab === 'school') {
             btnSchool.className = activePrimaryClass;
@@ -250,14 +253,17 @@ export function createNewsModule(deps) {
     }
 
     function updateSubTabUI(selectedSubTab) {
+        const tabGroup = document.getElementById('subClubTabs');
+        if (tabGroup) tabGroup.dataset.activeTab = selectedSubTab;
+
         const tabs = ['joint', 'discover', 'events'];
         tabs.forEach((id) => {
             const btn = document.getElementById(`subTab_${id}`);
             if (!btn) return;
             if (id === selectedSubTab) {
-                btn.className = "flex-1 h-full bg-white text-black dark:bg-[#2C2C2E] dark:text-white rounded-lg text-center transition-colors whitespace-nowrap shadow-sm";
+                btn.className = "relative z-10 flex-1 h-full text-black dark:text-white rounded-lg text-center transition-colors whitespace-nowrap";
             } else {
-                btn.className = "flex-1 h-full text-gray-600 dark:text-white/80 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap";
+                btn.className = "relative z-10 flex-1 h-full text-gray-600 dark:text-white/80 hover:text-black dark:hover:text-white text-center transition-colors whitespace-nowrap";
             }
         });
     }
@@ -272,6 +278,7 @@ export function createNewsModule(deps) {
         const discoverBlock = document.getElementById('discoverPillBlock');
         const iconWrapper = document.getElementById('discoverIconWrapper');
         const subTabs = document.getElementById('subClubTabs');
+        const primaryTabs = document.getElementById('newsPrimaryTabs');
 
         if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
 
@@ -304,6 +311,7 @@ export function createNewsModule(deps) {
         iconWrapper.style.pointerEvents = 'none';
         subTabs.classList.remove('opacity-0', 'pointer-events-none');
         subTabs.classList.add('opacity-100');
+        if (primaryTabs) primaryTabs.dataset.navExpanded = 'true';
         isNavExpanded = true;
     }
 
@@ -317,6 +325,7 @@ export function createNewsModule(deps) {
         const discoverBlock = document.getElementById('discoverPillBlock');
         const iconWrapper = document.getElementById('discoverIconWrapper');
         const subTabs = document.getElementById('subClubTabs');
+        const primaryTabs = document.getElementById('newsPrimaryTabs');
 
         if (!schoolBtn || !clubBtn || !schoolText || !clubText || !discoverBlock || !iconWrapper || !subTabs) return;
 
@@ -345,6 +354,7 @@ export function createNewsModule(deps) {
         iconWrapper.style.pointerEvents = 'auto';
         subTabs.classList.add('opacity-0', 'pointer-events-none');
         subTabs.classList.remove('opacity-100');
+        if (primaryTabs) primaryTabs.dataset.navExpanded = 'false';
         isNavExpanded = false;
     }
 
@@ -685,7 +695,14 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             desc: mission || `The Centennial High School ${name} promotes student engagement and community.`,
             defaultAnnouncements,
             announcements: [], // Will be loaded dynamically
-            members
+            members,
+            sponsor,
+            email,
+            meetingDay,
+            meetingRoom,
+            meetingTime,
+            meetingFreq,
+            jlTeam
         };
     }).filter(c => c.name);
 
@@ -1212,7 +1229,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('discoverClubSearchShell');
         const input = document.getElementById('discoverClubSearchInput');
         const iconBtn = document.getElementById('discoverClubSearchIconBtn');
-        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -1226,7 +1243,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('discoverClubSearchShell');
         const input = document.getElementById('discoverClubSearchInput');
         const iconBtn = document.getElementById('discoverClubSearchIconBtn');
-        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
         if (input) input.classList.add('hidden');
         if (iconBtn) iconBtn.classList.remove('hidden');
     }
@@ -1239,7 +1256,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Clubs Directory</h3>
-                    <div id="discoverClubSearchShell" class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="discoverClubSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="discoverClubSearchIconBtn" onclick="AppModules.News.toggleDiscoverClubSearch()" class="${isDiscoverSearchExpanded || clubSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1812,7 +1829,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('eventSearchShell');
         const input = document.getElementById('eventSearchInput');
         const iconBtn = document.getElementById('eventSearchIconBtn');
-        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-44 transition-all duration-300 overflow-hidden';
         if (iconBtn) iconBtn.classList.add('hidden');
         if (input) {
             input.classList.remove('hidden');
@@ -1826,7 +1843,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
         const shell = document.getElementById('eventSearchShell');
         const input = document.getElementById('eventSearchInput');
         const iconBtn = document.getElementById('eventSearchIconBtn');
-        if (shell) shell.className = 'absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
+        if (shell) shell.className = 'absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 w-8 transition-all duration-300 overflow-hidden';
         if (input) input.classList.add('hidden');
         if (iconBtn) iconBtn.classList.remove('hidden');
     }
@@ -1839,7 +1856,7 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             <div class="pb-1 text-left">
                 <div class="relative h-8 mb-1">
                     <h3 class="font-bold text-lg text-black dark:text-white whitespace-nowrap leading-8">Club Events</h3>
-                    <div id="eventSearchShell" class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
+                    <div id="eventSearchShell" class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-full h-8 ${isEventSearchExpanded || eventSearchTerm.trim() ? 'w-44' : 'w-8'} transition-all duration-300 overflow-hidden">
                         <button id="eventSearchIconBtn" onclick="AppModules.News.toggleEventSearch()" class="${isEventSearchExpanded || eventSearchTerm.trim() ? 'hidden' : ''} w-8 h-8 flex items-center justify-center text-gray-600 dark:text-white/80">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

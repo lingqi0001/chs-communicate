@@ -28,6 +28,16 @@ export const WritingDocCard = {
     // "Created by <platform user>: <text>" prefix that we strip for display.
     BOT_DOCS_EMAIL: 'chscommunication@appspot.gserviceaccount.com',
 
+    // Add soft wrap points inside long URLs while keeping the copied text intact.
+    escapeCommentText: function (content) {
+        return String(content || '').split(/(https?:\/\/\S+)/g).map(part => {
+            if (/^https?:\/\//i.test(part)) {
+                return UIUtils.escape(part).replace(/([/?=])/g, '$1<wbr>');
+            }
+            return UIUtils.escape(part);
+        }).join('');
+    },
+
     docCommentDisplay: function (c) {
         const email = String(c?.author?.emailAddress || '').toLowerCase();
         const name = String(c?.author?.displayName || '');
@@ -36,7 +46,7 @@ export const WritingDocCard = {
             || email.endsWith('.gserviceaccount.com')
             || name.toLowerCase().endsWith('.gserviceaccount.com');
         if (isBot) {
-            const m = content.match(/^Created by ([^:\n]{1,80}):\s?([\s\S]*)$/);
+            const m = content.match(/^(?:📌\s*\[[^\]]+\]\s*\n)?Created by ([^:\n]{1,80}):\s?([\s\S]*)$/);
             if (m) return { author: m[1].trim() || name, content: m[2], viaBot: true };
             return { author: 'Bot', content, viaBot: true };
         }
@@ -148,7 +158,7 @@ export const WritingDocCard = {
         };
 
         const filterBarHtml = (opts && opts.hideFilter) ? '' : `
-            <div class="doc-filter-bar flex items-center gap-2 mb-3">
+            <div class="doc-filter-bar flex items-center gap-2 pb-3 mb-1 border-b border-gray-100 dark:border-white/5">
                 <button type="button" onclick="window.filterDocComments('${key}', 'all', event)" id="filterBtn-${key}-all" class="px-3 py-1 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white shadow-sm transition-all">All (${list.length})</button>
                 <button type="button" onclick="window.filterDocComments('${key}', 'open', event)" id="filterBtn-${key}-open" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white accent-hover-soft transition-all">Open (${liveOpen})</button>
                 <button type="button" onclick="window.filterDocComments('${key}', 'resolved', event)" id="filterBtn-${key}-resolved" class="px-3 py-1 rounded-lg text-[12px] font-semibold text-black dark:text-white accent-hover-soft transition-all">Resolved (${liveResolved})</button>
@@ -211,19 +221,23 @@ export const WritingDocCard = {
                     // The old gray rail in front of each reply is now a Locate
                     // button. It matches the reply's own Google id (r.id): each
                     // reply's chat card carries that id in commentCard.anchorIds.
+                    const isHighlight = opts && opts.highlightReplyId && (r.id === opts.highlightReplyId);
+                    const hlBodyCls = isHighlight ? ' bg-[#007AFF]/10 dark:bg-[#0A84FF]/15 rounded-xl px-2.5 py-1.5' : '';
+                    const hlAttr = isHighlight ? ' data-highlight-reply="true"' : '';
+                    const locateOffsetClass = isHighlight ? ' mt-1' : ' mt-0.5';
                     const rLocateHtml = r.id ? `
-                        <button type="button" onclick="window.portfolioJumpToChat('${anchorMsgKey}', '${docId || ''}', '${UIUtils.escape(r.id)}', '${UIUtils.escape(docData?.title || '')}')" class="w-6 h-6 -ml-1 flex-shrink-0 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors" title="Locate this comment in chat">
+                        <button type="button" onclick="window.portfolioJumpToChat('${anchorMsgKey}', '${docId || ''}', '${UIUtils.escape(r.id)}', '${UIUtils.escape(docData?.title || '')}')" class="w-6 h-6 flex-shrink-0 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors${locateOffsetClass}" title="Locate this comment in chat">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="6"></circle>
                                 <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
                             </svg>
-                        </button>` : '<span class="w-6 flex-shrink-0"></span>';
+                        </button>` : `<span class="w-6 flex-shrink-0${locateOffsetClass}"></span>`;
                     return `
-                    <div class="mt-2 flex items-start gap-1.5 text-[13px]">
+                    <div class="mt-2 flex items-start gap-2 text-[13px]"${hlAttr}>
                         ${rLocateHtml}
-                        <div class="min-w-0">
+                        <div class="wp-comment-body min-w-0 flex-1${hlBodyCls}">
                             <span class="font-semibold text-black dark:text-white">${UIUtils.escape(rDisp.author || 'User')}:</span>
-                            <span class="text-black dark:text-white ml-1">${UIUtils.escape(rPhoto.text || '')}</span>
+                            <span class="wp-comment-text text-black dark:text-white ml-1">${WritingDocCard.escapeCommentText(rPhoto.text)}</span>
                             ${rPhotoHtml}
                         </div>
                     </div>
@@ -238,7 +252,7 @@ export const WritingDocCard = {
             const replyBtnHtml = (commentId && !isDeleted) ? `
                             <button type="button" onclick="window.replyToDocComment('${key}', ${i}, event)" class="${actionIconClass}" title="Reply to this comment in Google Doc">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                                    <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
                                 </svg>
                             </button>` : '';
             // Only the bot's own top-level comments get a delete icon; human
@@ -276,18 +290,18 @@ export const WritingDocCard = {
             const photoSplit = WritingDocCard.splitPhoto(WritingDocCard.docCommentDisplay(c).content);
             const contentHtml = isDeleted
                 ? (photoSplit.text
-                    ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${UIUtils.escape(photoSplit.text)}</div>`
+                    ? `<div class="text-[12px] text-gray-400 dark:text-gray-500 italic mb-0.5">Previously synced content:</div><div class="wp-comment-body text-[14px] italic text-gray-500 dark:text-gray-400 leading-relaxed line-through decoration-gray-300 dark:decoration-white/20">${WritingDocCard.escapeCommentText(photoSplit.text)}</div>`
                     : `<div class="text-[13px] italic text-gray-400 dark:text-gray-500">Comment deleted in Google Docs (no snapshot content was saved for it).</div>`)
-                : `<div class="text-[14px] font-semibold text-gray-800 dark:text-white leading-relaxed"><span>Main Comment: </span>${UIUtils.escape(photoSplit.text || '')}</div>`;
+                : `<div class="wp-comment-body text-[14px] font-semibold text-gray-800 dark:text-white leading-relaxed">${WritingDocCard.escapeCommentText(photoSplit.text)}</div>`;
             const photoHtml = photoSplit.photoUrls.length ? `
                     <div class="flex flex-wrap gap-1.5 mt-2">${photoSplit.photoUrls.map((u, pi) => `
                         <img src="${UIUtils.escape(u)}" loading="lazy" alt="Attached photo" onclick="openGallery('${encodeURIComponent(JSON.stringify(photoSplit.photoUrls))}', ${pi})" class="w-32 h-32 object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
                     </div>` : '';
 
             return `
-                <div class="comment-item-row py-3 border-b border-gray-200 dark:border-white/10 last:border-b-0 text-left transition-opacity duration-150${rowOpacity}" data-card-key="${key}" data-comment-id="${UIUtils.escape(c.id || '')}" data-resolved="${(c.resolved && !isDeleted && !isMissing) ? 'true' : 'false'}" data-comment-deleted="${isDeleted ? 'true' : 'false'}">
+                <div class="comment-item-row py-3 first:pt-2 last:pb-2 border-b border-gray-200 dark:border-white/10 last:border-b-0 text-left transition-opacity duration-150${rowOpacity}" data-card-key="${key}" data-comment-id="${UIUtils.escape(c.id || '')}" data-resolved="${(c.resolved && !isDeleted && !isMissing) ? 'true' : 'false'}" data-comment-deleted="${isDeleted ? 'true' : 'false'}">
                     <div class="flex items-center justify-between gap-2 mb-1.5">
-                        <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)} created a comment</span>
+                        <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
                         <div class="flex items-center gap-2">
                             ${statusTag}
                             ${replyBtnHtml}
@@ -361,7 +375,7 @@ export const WritingDocCard = {
         const badgeLabel = WritingDocCard.docBadgeLabel(docData);
         const createdTime = docData?.createdTime;
         const createdDateStr = createdTime ? new Date(createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-        const createdDateTag = createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight"></span>`;
+        const createdDateTag = key.startsWith('portfolio-') ? '' : (createdDateStr ? `<span id="docDate-${key}" class="inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight">Created ${createdDateStr}</span>` : `<span id="docDate-${key}" class="hidden inline-flex items-center text-[10px] text-gray-400 dark:text-white font-medium leading-tight"></span>`);
 
         // Two-level access/sync status notice (access lost / comment access lost / snapshot…)
         const statusNoticeHtml = WritingDocCard.renderDocStatusNoticeHtml(docData, key);
@@ -456,8 +470,8 @@ export const WritingDocCard = {
 
                 <!-- Expandable Comments Drawer Area with Smooth Accordion -->
                 <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">
-                    <div class="min-h-0 overflow-hidden border-t border-gray-100 dark:border-white/5">
-                        <div class="px-3.5 pt-3.5 pb-1.5">
+                    <div class="min-h-0 overflow-hidden">
+                        <div class="px-3.5 pt-2.5 pb-1.5">
                             <div id="docList-${key}">
                                 ${commentsListHtml}
                             </div>
@@ -519,6 +533,46 @@ export function initWritingBehavior(deps) {
         }
     }
 
+    function scrollNearestIntoChat(target) {
+        if (!target) return;
+        const chatBox = document.getElementById('chatBox');
+        if (!chatBox || !chatBox.contains(target)) {
+            if (target.scrollIntoView) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return;
+        }
+        const cRect = chatBox.getBoundingClientRect();
+        const tRect = target.getBoundingClientRect();
+        // Safe boundaries: top header/fade (~70px), bottom floating composer (~85px)
+        const topSafe = cRect.top + 70;
+        const bottomSafe = cRect.bottom - 85;
+        const safeHeight = bottomSafe - topSafe;
+
+        // If target itself is taller than safe view zone, align top so it's readable from the start
+        if (tRect.height > safeHeight) {
+            if (tRect.top < topSafe || tRect.top > topSafe + 60) {
+                chatBox.scrollBy({ top: tRect.top - topSafe, behavior: 'smooth' });
+            }
+            return;
+        }
+
+        // Already fully visible within safe boundaries: no scrolling needed
+        if (tRect.top >= topSafe && tRect.bottom <= bottomSafe) {
+            return;
+        }
+
+        if (tRect.bottom > bottomSafe) {
+            // Cut off at the bottom: scroll down just enough to reveal it cleanly
+            const delta = tRect.bottom - bottomSafe + 16;
+            chatBox.scrollBy({ top: delta, behavior: 'smooth' });
+        } else if (tRect.top < topSafe) {
+            // Cut off at the top: scroll up just enough to reveal it
+            const delta = tRect.top - topSafe - 16;
+            chatBox.scrollBy({ top: delta, behavior: 'smooth' });
+        }
+    }
+
     function toggleDocCommentsExpand(key, e) {
         if (e) {
             e.preventDefault();
@@ -538,6 +592,12 @@ export function initWritingBehavior(deps) {
             void drawer.offsetHeight; // Force reflow so grid-template-rows transition triggers from 0fr
             drawer.classList.add('expanded');
             if (arrow) arrow.style.transform = 'rotate(180deg)';
+
+            setTimeout(() => {
+                if (drawer.classList.contains('expanded')) {
+                    scrollNearestIntoChat(drawer);
+                }
+            }, 180);
 
             // Auto-sync: Check if document has never been synced or last sync was > 3 minutes ago
             try {
@@ -586,7 +646,8 @@ export function initWritingBehavior(deps) {
         }
         const ccKey = `cc-${key}`;
         const viewData = docData || { title: card.docTitle || 'Google Document', comments: [thread] };
-        return WritingDocCard.renderDocCommentsHtml(ccKey, [thread], 1, thread.resolved ? 0 : 1, thread.resolved ? 1 : 0, card.docId || '', card.docUrl || '', viewData, { hideFilter: true, hideDelete: true });
+        const highlightReplyId = card.reply?.id || (card.anchorIds && card.anchorIds.length ? card.anchorIds[0] : null);
+        return WritingDocCard.renderDocCommentsHtml(ccKey, [thread], 1, thread.resolved ? 0 : 1, thread.resolved ? 1 : 0, card.docId || '', card.docUrl || '', viewData, { hideFilter: true, hideDelete: true, highlightReplyId });
     }
 
     function toggleCommentCardExpand(key, e) {
@@ -609,13 +670,33 @@ export function initWritingBehavior(deps) {
             }, 350);
             return;
         }
-        if (!list.children.length) {
-            list.innerHTML = buildCommentCardThreadHtml(key);
-        }
+        list.innerHTML = buildCommentCardThreadHtml(key);
         drawer.classList.remove('hidden');
         void drawer.offsetHeight; // Force reflow so grid-template-rows transition triggers from 0fr
         drawer.classList.add('expanded');
         if (arrow) arrow.style.transform = 'rotate(180deg)';
+
+        // Smoothly ensure revealed content or highlighted reply is comfortably in view without over-scrolling
+        setTimeout(() => {
+            if (!drawer.classList.contains('expanded')) return;
+            const highlightEl = drawer.querySelector('[data-highlight-reply="true"]');
+            const target = highlightEl || drawer;
+            scrollNearestIntoChat(target);
+        }, 180);
+
+        // Auto-sync in background if not synced or older than 1 minute
+        try {
+            const card = (window._commentCards || {})[key];
+            if (card && card.docId && card.docUrl && window.syncDocCardComments) {
+                const cached = window._docCache?.[card.docId];
+                const lastSynced = cached?.lastSyncedAt || 0;
+                if (Date.now() - lastSynced > 60 * 1000) {
+                    syncDocCardComments(key, card.docUrl, null, null, true, false);
+                }
+            }
+        } catch (err) {
+            console.warn('[CommentCard] Auto-sync error on expand:', err);
+        }
     }
 
     function filterDocComments(key, filterType, e) {
@@ -805,12 +886,28 @@ export function initWritingBehavior(deps) {
                 }
             });
 
+            // Update any expanded Comment Card drawers matching this docId
+            try {
+                Object.keys(window._commentCards || {}).forEach(k => {
+                    const cc = window._commentCards[k];
+                    if (cc && cc.docId === docId) {
+                        const ccList = document.getElementById(`ccList-${k}`);
+                        const drawer = document.getElementById(`ccDrawer-${k}`);
+                        if (ccList && drawer && drawer.classList.contains('expanded')) {
+                            ccList.innerHTML = buildCommentCardThreadHtml(k);
+                        }
+                    }
+                });
+            } catch (ccSyncErr) {
+                console.warn('[DocSync] Error updating comment card drawer:', ccSyncErr);
+            }
+
             // Update any portfolio date labels on screen matching this docId
             if (resData.createdTime) {
                 const formattedDate = new Date(resData.createdTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const pfDateEls = document.querySelectorAll(`[id="portfolio-date-${docId}"]`);
                 pfDateEls.forEach(el => {
-                    el.innerText = `Created: ${formattedDate}`;
+                    el.innerText = formattedDate;
                 });
             }
 
@@ -989,21 +1086,57 @@ export function initWritingBehavior(deps) {
             const docTitle = pdata.docTitle
                 || document.getElementById(`docTitle-${key}`)?.innerText
                 || 'Google Document';
-            const comment = {
-                id: parentComment ? (parentComment.id || null) : (postedCommentId || null),
+
+            const replyObj = {
+                id: postedCommentId || null,
                 author: { displayName: currentUser.name || currentUser.id },
                 content: content,
-                quotedFileContent: parentComment ? parentComment.quotedFileContent : null,
                 createdTime: new Date().toISOString()
             };
-            // comment.id must stay the top-level id (replies post against the
-            // thread), so the reply's own Google id rides in anchorIds — the
-            // per-reply Locate matches on it.
-            const anchorIds = (parentComment && postedCommentId) ? [postedCommentId] : [];
+
+            let comment = null;
+            let reply = null;
+            let isReply = false;
+            let parentAuthor = '';
+
+            if (parentComment && parentComment.id) {
+                isReply = true;
+                parentAuthor = WritingDocCard.docCommentDisplay(parentComment).author || 'Reviewer';
+                reply = replyObj;
+
+                // Deep clone parentComment to preserve root author, content, quote, and existing replies
+                comment = JSON.parse(JSON.stringify(parentComment));
+                comment.replies = Array.isArray(comment.replies) ? comment.replies.slice() : [];
+                const exists = comment.replies.some(r => (postedCommentId && r.id === postedCommentId) || (r.content === content && r.author?.displayName === replyObj.author.displayName));
+                if (!exists) {
+                    comment.replies.push(replyObj);
+                }
+            } else {
+                comment = {
+                    id: postedCommentId || null,
+                    author: { displayName: currentUser.name || currentUser.id },
+                    content: content,
+                    createdTime: new Date().toISOString()
+                };
+            }
+
+            // comment.id stays the top-level id (replies post against the
+            // thread), and the reply's own Google id rides in anchorIds.
+            const anchorIds = (parentComment && postedCommentId) ? [postedCommentId] : (postedCommentId ? [postedCommentId] : []);
             await MessageEngine.commit({
-                text: `Comment on "${docTitle}"`,
+                text: isReply ? `Reply to ${parentAuthor} on "${docTitle}"` : `Comment on "${docTitle}"`,
                 type: 'comment_card',
-                commentCard: { docId, docUrl, docTitle, originMsgKey: key, anchorIds, comment }
+                commentCard: {
+                    docId,
+                    docUrl,
+                    docTitle,
+                    originMsgKey: key,
+                    anchorIds,
+                    comment,
+                    reply,
+                    isReply,
+                    parentAuthor
+                }
             });
         } catch (e) {
             console.warn('[CommentCard] Could not auto-forward the posted comment:', e);

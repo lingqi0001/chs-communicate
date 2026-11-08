@@ -233,18 +233,20 @@ export class LiquidGlassEffect {
   }
   
   setupInteraction() {
-    this.element.addEventListener('mousemove', (e) => {
+    this.onMouseMove = (e) => {
       const rect = this.element.getBoundingClientRect();
       this.mouse.x = (e.clientX - rect.left) / rect.width;
       this.mouse.y = (e.clientY - rect.top) / rect.height;
       this.mouse.active = true;
       this.queueUpdate();
-    });
+    };
     
-    this.element.addEventListener('mouseleave', () => {
+    this.onMouseLeave = () => {
       this.mouse.active = false;
       this.queueUpdate();
-    });
+    };
+    this.element.addEventListener('mousemove', this.onMouseMove);
+    this.element.addEventListener('mouseleave', this.onMouseLeave);
   }
   
   handleResize(entries) {
@@ -500,6 +502,10 @@ export class LiquidGlassEffect {
   }
 
   destroy() {
+    if (this.onMouseMove) {
+      this.element.removeEventListener('mousemove', this.onMouseMove);
+      this.element.removeEventListener('mouseleave', this.onMouseLeave);
+    }
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -518,5 +524,6 @@ export class LiquidGlassEffect {
     this.element.style.webkitBackdropFilter = '';
     this.element.style.filter = '';
     this.element.style.webkitFilter = '';
+    if (this.element._liquidGlass === this) this.element._liquidGlass = null;
   }
 }

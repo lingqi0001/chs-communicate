@@ -73,7 +73,8 @@ export const UserModule = {
     current: null, // 当前用户状态持有者
 
     isAdmin() {
-        return this.current?.email?.toLowerCase() === ADMIN_EMAIL;
+        const email = this.current?.email?.toLowerCase();
+        return email === ADMIN_EMAIL || this.current?.role === 'admin';
     },
 
     isTeacher() {
