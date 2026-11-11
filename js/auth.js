@@ -24,6 +24,20 @@ let callbacks = {
 let activePopup = null;
 
 export const AuthModule = {
+    getDefaultPanelLayout(email) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (normalizedEmail.endsWith('@hcpss.org')) return 'three';
+        if (normalizedEmail.endsWith('@inst.hcpss.org')) return 'four';
+        return 'four';
+    },
+    applyNewUserVisualDefaults(email) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (normalizedEmail.endsWith('@hcpss.org')) {
+            localStorage.setItem('liquidGlassEnabled', 'off');
+        } else if (normalizedEmail.endsWith('@inst.hcpss.org')) {
+            localStorage.setItem('liquidGlassEnabled', 'on');
+        }
+    },
     /**
      * Initializes Auth Module with Firebase services and lifecycle callbacks
      */
@@ -41,7 +55,7 @@ export const AuthModule = {
      * Google OAuth login handler
      */
     loginWithGoogle() {
-        console.log('[用户动作] Google登录按钮被点击');
+        console.log('[�û�����] Google��¼��ť�����');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -55,11 +69,11 @@ export const AuthModule = {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isStandalone && isIOS) {
-            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Google) 防止页面崩溃');
+            console.log('[ִ��] ��⵽ iOS PWA��ֱ�Ӵ��� signInWithRedirect(Google) ��ֹҳ�����');
             hint.innerText = "Redirecting securely...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
             signInWithRedirect(auth, googleProvider).catch(err => {
-                console.error('[失败] 重定向报错:', err.code, err.message);
+                console.error('[ʧ��] �ض��򱨴�:', err.code, err.message);
                 window.AppModules.Modal.alert("Redirect Error", err.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
@@ -71,15 +85,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Google popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-        console.log('[执行] 准备触发同步 signInWithPopup(Google)');
+        console.log('[ִ��] ׼������ͬ�� signInWithPopup(Google)');
         signInWithPopup(auth, googleProvider).then((result) => {
-            console.log('[成功] Popup 返回凭证:', result.user.email);
+            console.log('[�ɹ�] Popup ����ƾ֤:', result.user.email);
         }).catch((error) => {
-            console.error("[失败] 弹窗报错:", error.code, error.message);
+            console.error("[ʧ��] ��������:", error.code, error.message);
             if (error.code === 'auth/popup-blocked') {
-                console.warn('[警告] 触发 signInWithRedirect 备用逻辑 (弹窗被系统拦截)');
+                console.warn('[����] ���� signInWithRedirect �����߼� (������ϵͳ����)');
                 hint.innerText = "Popup blocked. Redirecting...";
-                signInWithRedirect(auth, googleProvider).catch(err => console.error('[失败] 重定向也报错:', err.code, err.message));
+                signInWithRedirect(auth, googleProvider).catch(err => console.error('[ʧ��] �ض���Ҳ����:', err.code, err.message));
             } else if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
@@ -87,7 +101,7 @@ export const AuthModule = {
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 if (troubleLink) troubleLink.classList.add('hidden');
             } else {
-                console.log('[中断] 用户主动关闭了弹窗');
+                console.log('[�ж�] �û������ر��˵���');
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -100,7 +114,7 @@ export const AuthModule = {
      * Microsoft OAuth login handler
      */
     loginWithMicrosoft() {
-        console.log('[用户动作] Microsoft登录按钮被点击');
+        console.log('[�û�����] Microsoft��¼��ť�����');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -114,11 +128,11 @@ export const AuthModule = {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isStandalone && isIOS) {
-            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Microsoft) 防止页面崩溃');
+            console.log('[ִ��] ��⵽ iOS PWA��ֱ�Ӵ��� signInWithRedirect(Microsoft) ��ֹҳ�����');
             hint.innerText = "Redirecting securely...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
             signInWithRedirect(auth, microsoftProvider).catch(err => {
-                console.error('[失败] 重定向报错:', err.code, err.message);
+                console.error('[ʧ��] �ض��򱨴�:', err.code, err.message);
                 window.AppModules.Modal.alert("Redirect Error", err.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
@@ -130,15 +144,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Microsoft popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-        console.log('[执行] 准备触发同步 signInWithPopup(Microsoft)');
+        console.log('[ִ��] ׼������ͬ�� signInWithPopup(Microsoft)');
         signInWithPopup(auth, microsoftProvider).then((result) => {
-            console.log('[成功] Popup 返回凭证:', result.user.email);
+            console.log('[�ɹ�] Popup ����ƾ֤:', result.user.email);
         }).catch((error) => {
-            console.error("[失败] 弹窗报错:", error.code, error.message);
+            console.error("[ʧ��] ��������:", error.code, error.message);
             if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
             } else {
-                console.log('[中断] 用户主动关闭了弹窗');
+                console.log('[�ж�] �û������ر��˵���');
             }
             btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
             hint.innerText = originalHint;
@@ -253,12 +267,12 @@ export const AuthModule = {
         const isAlwaysNewUser = window.currentUser.email && window.currentUser.email.toLowerCase().includes('moss932888');
 
         if (window.currentUser._isNewUser || isAlwaysNewUser) {
-            // New accounts start with the spacious four-panel desktop layout.
-            // This is intentionally applied even when another account's
-            // preference exists in this browser; the preference is otherwise
-            // editable later from Settings.
+            // Choose a starting layout from the HCPSS account role. This is
+            // intentionally applied even when another account's preference
+            // exists in this browser; it remains editable later from Settings.
             if (window.currentUser._isNewUser) {
-                localStorage.setItem('panelLayout', 'four');
+                localStorage.setItem('panelLayout', this.getDefaultPanelLayout(window.currentUser.email));
+                this.applyNewUserVisualDefaults(window.currentUser.email);
             }
             document.getElementById('tosPage').classList.add('hidden');
             document.getElementById('nameSetupPage').classList.remove('hidden');
@@ -323,8 +337,9 @@ export const AuthModule = {
 
             delete window.currentUser._isNewUser;
             // The profile form is the final step for a newly registered user;
-            // retain the same default if the account skipped the ToS branch.
-            localStorage.setItem('panelLayout', 'four');
+            // apply the same role-based default if the account skipped ToS setup.
+            localStorage.setItem('panelLayout', this.getDefaultPanelLayout(window.currentUser.email));
+            this.applyNewUserVisualDefaults(window.currentUser.email);
             document.getElementById('nameSetupPage').classList.add('hidden');
             callbacks.onEnterApp();
         } catch (err) {
@@ -347,3 +362,4 @@ if (window) {
     window.acceptTerms = AuthModule.acceptTerms;
     window.saveInitialProfile = AuthModule.saveInitialProfile;
 }
+
