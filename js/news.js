@@ -1997,10 +1997,11 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
                 } catch (e) {}
                 applyEventsData(val);
             }).catch(err => {
-            console.error("Failed to load global events:", err);
-            const listContainer = document.getElementById('globalEventsList');
-            if (listContainer) listContainer.innerHTML = `<div class="text-xs text-gray-400 italic py-2 text-center">Failed to load events.</div>`;
-        });
+                console.error("Failed to load global events:", err);
+                const listContainer = document.getElementById('globalEventsList');
+                if (listContainer) listContainer.innerHTML = `<div class="text-xs text-gray-400 italic py-2 text-center">Failed to load events.</div>`;
+            });
+        }
     }
 
     function navigateToClubEventFromSearch(eventId, clubId) {
