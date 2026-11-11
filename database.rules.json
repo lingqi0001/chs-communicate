@@ -154,7 +154,14 @@
 
     "classes": {
       ".read": "auth != null",
-      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+      "$classId": {
+        "students": {
+          "$studentId": {
+            ".write": "auth != null && (auth.uid === $studentId || auth.uid.toLowerCase() === $studentId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $studentId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $studentId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+          }
+        }
+      }
     },
 
     "news": {

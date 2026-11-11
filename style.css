@@ -4775,6 +4775,11 @@ html:not(.dark) #customModal {
 /* Custom styling to improve readability of chat input and camera icon on Liquid Glass backgrounds */
 #u-msg {
     font-size: 14.5px !important;
+    scrollbar-width: none; /* Firefox */
+}
+
+#u-msg::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
 }
 
 #u-msg::placeholder {

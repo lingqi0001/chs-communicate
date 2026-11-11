@@ -229,6 +229,25 @@
             scrollbar-color: rgba(255, 255, 255, 0.28) transparent !important;
         }
 
+        .course-chip-inactive {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            color: var(--text);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .course-chip-inactive:hover {
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: none !important;
+            outline: none !important;
+        }
+        .dark .course-chip-inactive:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: none !important;
+            outline: none !important;
+        }
+
         .gold-panel {
             background: var(--panel);
             border: none;
@@ -639,7 +658,7 @@
                         <div class="grid grid-cols-2 divide-x divide-[var(--border)]">
                             <div>
                                 <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Weighted</div>
-                                <div id="gpaWeighted" class="text-4xl font-black text-[#007AFF] dark:text-[#38BDF8]">0.00</div>
+                                <div id="gpaWeighted" class="text-4xl font-black" style="color: var(--text);">0.00</div>
                             </div>
                             <div>
                                 <div class="text-xs font-semibold uppercase mb-1" style="color: var(--muted);">Unweighted</div>
@@ -651,79 +670,81 @@
                         </div>
                     </div>
 
-                    <!-- Grade Count Inputs by Course Level -->
+                    <!-- Grade Count Inputs by Course Level (3 columns: Regular, Honors, AP/GT) -->
                     <div class="space-y-4">
-                        <!-- AP / GT Section -->
-                        <div class="gold-panel rounded-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">AP / GT Courses</span>
-                                <span class="text-[11px]" style="color: var(--muted);">A=5.0 · B=4.0 · C=3.0</span>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                            <!-- Column 1: Regular Courses -->
+                            <div class="gold-panel rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+                                <div class="text-center pb-1">
+                                    <span class="text-xs font-bold uppercase tracking-wider block" style="color: var(--text);">Regular</span>
+                                    <span class="text-[11px]" style="color: var(--muted);">A=4.0 · B=3.0 · C=2.0</span>
+                                </div>
+                                <div class="space-y-2.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">A's</label>
+                                        <input type="number" min="0" value="0" id="gpa-reg-a" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">B's</label>
+                                        <input type="number" min="0" value="0" id="gpa-reg-b" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">C's</label>
+                                        <input type="number" min="0" value="0" id="gpa-reg-c" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                                    <input type="number" min="0" value="0" id="gpa-ap-a" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                                    <input type="number" min="0" value="0" id="gpa-ap-b" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                                    <input type="number" min="0" value="0" id="gpa-ap-c" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Honors Section -->
-                        <div class="gold-panel rounded-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Honors Courses</span>
-                                <span class="text-[11px]" style="color: var(--muted);">A=4.5 · B=3.5 · C=2.5</span>
+                            <!-- Column 2: Honors Courses -->
+                            <div class="gold-panel rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+                                <div class="text-center pb-1">
+                                    <span class="text-xs font-bold uppercase tracking-wider block" style="color: var(--text);">Honors</span>
+                                    <span class="text-[11px]" style="color: var(--muted);">A=4.5 · B=3.5 · C=2.5</span>
+                                </div>
+                                <div class="space-y-2.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">A's</label>
+                                        <input type="number" min="0" value="0" id="gpa-hon-a" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">B's</label>
+                                        <input type="number" min="0" value="0" id="gpa-hon-b" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">C's</label>
+                                        <input type="number" min="0" value="0" id="gpa-hon-c" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                                    <input type="number" min="0" value="0" id="gpa-hon-a" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                                    <input type="number" min="0" value="0" id="gpa-hon-b" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                                    <input type="number" min="0" value="0" id="gpa-hon-c" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Regular Section -->
-                        <div class="gold-panel rounded-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">Regular Courses</span>
-                                <span class="text-[11px]" style="color: var(--muted);">A=4.0 · B=3.0 · C=2.0</span>
-                            </div>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">A's</label>
-                                    <input type="number" min="0" value="0" id="gpa-reg-a" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                            <!-- Column 3: AP / GT Courses -->
+                            <div class="gold-panel rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+                                <div class="text-center pb-1">
+                                    <span class="text-xs font-bold uppercase tracking-wider block" style="color: var(--text);">AP / GT</span>
+                                    <span class="text-[11px]" style="color: var(--muted);">A=5.0 · B=4.0 · C=3.0</span>
                                 </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">B's</label>
-                                    <input type="number" min="0" value="0" id="gpa-reg-b" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">C's</label>
-                                    <input type="number" min="0" value="0" id="gpa-reg-c" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                <div class="space-y-2.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">A's</label>
+                                        <input type="number" min="0" value="0" id="gpa-ap-a" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">B's</label>
+                                        <input type="number" min="0" value="0" id="gpa-ap-b" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="text-xs font-bold uppercase" style="color: var(--text);">C's</label>
+                                        <input type="number" min="0" value="0" id="gpa-ap-c" oninput="calculateGpa()"
+                                            class="w-20 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -731,19 +752,19 @@
                         <!-- All Courses D & E -->
                         <div class="gold-panel rounded-2xl p-4 space-y-3">
                             <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">All Courses (Standard)</span>
+                                <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text);">All Courses</span>
                                 <span class="text-[11px]" style="color: var(--muted);">D=1.0 · E=0.0</span>
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of D's</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="text-xs font-bold uppercase" style="color: var(--text);">Number of D's</label>
                                     <input type="number" min="0" value="0" id="gpa-all-d" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                        class="w-24 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
                                 </div>
-                                <div class="space-y-1">
-                                    <label class="text-[11px] font-bold uppercase ml-1" style="color: var(--muted);">Number of E's</label>
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="text-xs font-bold uppercase" style="color: var(--text);">Number of E's</label>
                                     <input type="number" min="0" value="0" id="gpa-all-e" oninput="calculateGpa()"
-                                        class="w-full gold-input p-2.5 rounded-xl outline-none font-bold text-center text-sm">
+                                        class="w-24 gold-input p-2 rounded-xl outline-none font-bold text-center text-sm">
                                 </div>
                             </div>
                         </div>
@@ -2191,8 +2212,7 @@
                 const badge = getCourseBadgeInfo(c, isActive);
                 const hasDelete = yearCourses.length > 1;
                 return `
-                    <div class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'hover:bg-[var(--border)]/60'}"
-                         style="${isActive ? '' : 'background: var(--panel); color: var(--text);'}"
+                    <div class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'course-chip-inactive'}"
                          onclick="switchActiveCourse('year', '${c.id}')"
                          ondblclick="promptRenameCourse('year', '${c.id}', event)"
                          title="Click to select · Double-click to rename">
@@ -2221,8 +2241,7 @@
                 const badge = getCourseBadgeInfo(c, isActive);
                 const hasDelete = semCourses.length > 1;
                 return `
-                    <div class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'hover:bg-[var(--border)]/60'}"
-                         style="${isActive ? '' : 'background: var(--panel); color: var(--text);'}"
+                    <div class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer select-none ${isActive ? 'bg-[#007AFF] text-white shadow-xs font-bold' : 'course-chip-inactive'}"
                          onclick="switchActiveCourse('semester', '${c.id}')"
                          ondblclick="promptRenameCourse('semester', '${c.id}', event)"
                          title="Click to select · Double-click to rename">

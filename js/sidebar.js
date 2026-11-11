@@ -1359,30 +1359,49 @@ export const SidebarModule = {
                 const teacherActive = activeTargetId === c.teacherId;
                 const groupActive = activeTargetId === `group_${window.currentClassId}`;
 
-                // The Class Join Link is a forced extension: it is never stored in
-                // class data and can never be switched off, so it renders first.
-                const joinLinkRow = `
-                    <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" />
-                            </svg>
+                // Forced extensions (only visible to the class teacher or admin):
+                // 1. Generate Join Class Code (copy class code / join with code)
+                // 2. Add Doc Link Accessible For Everyone
+                let extensionHtml = '';
+                let forcedRows = '';
+                if (canManage) {
+                    const joinCodeRow = `
+                        <div onclick="AppModules.Sidebar.openClassJoinCode('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
+                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm text-black dark:text-white truncate">Generate Join Class Code</div>
+                                <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Share code with students to join</div>
+                            </div>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-bold text-sm text-black dark:text-white truncate">Add Doc Link Accessible For Everyone</div>
-                            <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Students can upload their Google Docs</div>
+                    `;
+                    const joinLinkRow = `
+                        <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
+                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.72-1.71" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm text-black dark:text-white truncate">Add Doc Link Accessible For Everyone</div>
+                                <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Students can upload their Google Docs</div>
+                            </div>
                         </div>
-                    </div>
-                `;
-                let extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + joinLinkRow;
+                    `;
+                    forcedRows = joinCodeRow + joinLinkRow;
+                }
+
+                let customExtRows = '';
                 if (c.extensions) {
                     const activeExts = Object.keys(c.extensions).filter(eid => c.extensions[eid] === true);
                     if (activeExts.length > 0) {
-                        let innerHtml = '';
                         activeExts.forEach(eid => {
                             const regItem = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistryItem ? window.AppModules.Extension.getRegistryItem(eid) : null;
                             if (regItem) {
-                                innerHtml += `
+                                customExtRows += `
                                     <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
                                         <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1397,8 +1416,11 @@ export const SidebarModule = {
                                 `;
                             }
                         });
-                        extensionHtml += innerHtml;
                     }
+                }
+
+                if (forcedRows || customExtRows) {
+                    extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + forcedRows + customExtRows;
                 }
 
                 let html = `
@@ -1510,7 +1532,7 @@ export const SidebarModule = {
 
                 const wrapper = document.createElement('div');
 
-                if ((window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin())) {
+                if (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin()) {
                     const createBtn = document.createElement('div');
                     createBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                     createBtn.onclick = () => window.addNewClass();
@@ -1524,6 +1546,20 @@ export const SidebarModule = {
                         </div>
                     `;
                     wrapper.appendChild(createBtn);
+                } else {
+                    const joinBtn = document.createElement('div');
+                    joinBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
+                    joinBtn.onclick = () => window.joinClassWithCode();
+                    joinBtn.innerHTML = `
+                        <div class="w-10 h-10 bg-[#007AFF]/10 rounded-xl flex items-center justify-center text-[#007AFF]">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <div>
+                            <div class="font-bold text-base text-[#007AFF]">Join new class</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Join with a code</div>
+                        </div>
+                    `;
+                    wrapper.appendChild(joinBtn);
                 }
 
                 if (myClasses.length === 0) {
@@ -2051,6 +2087,145 @@ export const SidebarModule = {
         setTimeout(() => modal.classList.remove('opacity-0'), 10);
     },
 
+    async openClassJoinCode(classId) {
+        const rt = this._runtime;
+        if (!rt.db) return;
+        const cid = String(classId || '').trim();
+        if (!cid) return;
+
+        const classRef = rt.ref(rt.db, `classes/${cid}`);
+        const snap = await rt.get(classRef);
+        if (!snap.exists()) return;
+        const classData = snap.val() || {};
+
+        const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+
+        const gen8DigitCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
+
+        let currentCode = classData.joinCode ? String(classData.joinCode) : null;
+        let createdAt = classData.joinCodeCreatedAt ? Number(classData.joinCodeCreatedAt) : 0;
+        let isExpired = !currentCode || !createdAt || (now - createdAt > FIVE_DAYS_MS);
+
+        // If no code exists yet or it has expired, generate a new one right away
+        if (isExpired) {
+            currentCode = gen8DigitCode();
+            createdAt = now;
+            await rt.update(classRef, {
+                joinCode: currentCode,
+                joinCodeCreatedAt: createdAt
+            });
+        }
+
+        const formatRemaining = (created) => {
+            const leftMs = (created + FIVE_DAYS_MS) - Date.now();
+            if (leftMs <= 0) return 'Expired';
+            const leftHours = Math.floor(leftMs / (1000 * 60 * 60));
+            const days = Math.floor(leftHours / 24);
+            const hours = leftHours % 24;
+            if (days > 0) return `${days} day${days > 1 ? 's' : ''} ${hours} hr${hours > 1 ? 's' : ''} remaining`;
+            const mins = Math.max(1, Math.floor((leftMs % (1000 * 60 * 60)) / (1000 * 60)));
+            return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''} remaining`;
+        };
+
+        const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
+        tEl.innerText = 'Generate Join Class Code';
+
+        const renderModalBody = (codeVal, createdVal) => `
+            <div class="space-y-3.5 text-left">
+                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this 8-digit code with your students. Students can tap <span class="font-bold text-black dark:text-white">"Join new class"</span> and enter this code to join your roster.</p>
+                <div class="p-3 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <div class="flex items-start gap-2">
+                        <span class="text-[#007AFF] font-bold">1.</span>
+                        <span>Valid for <b>5 days</b> from generation.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-[#007AFF] font-bold">2.</span>
+                        <span>Generating a new code will immediately invalidate any previous code.</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between ml-1 mb-1">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">8-Digit Class Code</label>
+                        <span id="classJoinCodeTimer" class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">${formatRemaining(createdVal)}</span>
+                    </div>
+                    <input type="text" id="classJoinCodeInput" readonly value="${window.escapeHTML(codeVal)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-2xl font-black text-[#007AFF] dark:text-[#0A84FF] select-all font-mono tracking-widest text-center">
+                </div>
+                <div class="pt-1 flex items-center justify-between">
+                    <p class="text-[11px] text-gray-400">Old codes expire immediately when replaced.</p>
+                    <button type="button" id="btnRegenerateCode" class="text-xs font-semibold text-[#007AFF] hover:underline cursor-pointer active:scale-95 transition-transform flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Regenerate Code
+                    </button>
+                </div>
+            </div>
+        `;
+
+        bEl.innerHTML = renderModalBody(currentCode, createdAt);
+        cancelBtn.classList.remove('hidden');
+        cancelBtn.innerText = 'Close';
+        confirmBtn.innerText = 'Copy Code';
+
+        const wireRegenBtn = () => {
+            const regenBtn = bEl.querySelector('#btnRegenerateCode');
+            if (regenBtn) {
+                regenBtn.onclick = async () => {
+                    regenBtn.disabled = true;
+                    regenBtn.innerText = 'Generating…';
+                    const freshCode = gen8DigitCode();
+                    const freshCreated = Date.now();
+                    try {
+                        await rt.update(classRef, {
+                            joinCode: freshCode,
+                            joinCodeCreatedAt: freshCreated
+                        });
+                        currentCode = freshCode;
+                        createdAt = freshCreated;
+                        bEl.innerHTML = renderModalBody(currentCode, createdAt);
+                        wireRegenBtn();
+                    } catch (e) {
+                        window.AppModules.Modal.alert('Error', 'Failed to generate new code: ' + e.message);
+                    }
+                };
+            }
+        };
+        wireRegenBtn();
+
+        let timer = null;
+        const close = () => {
+            if (timer) clearTimeout(timer);
+            modal.classList.add('opacity-0');
+            timer = setTimeout(() => {
+                modal.classList.add('hidden');
+                timer = null;
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            }, 300);
+        };
+
+        cancelBtn.onclick = close;
+        confirmBtn.onclick = () => {
+            const done = () => {
+                confirmBtn.innerText = 'Copied!';
+                setTimeout(close, 500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(currentCode).then(done).catch(done);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = currentCode;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                ta.remove();
+                done();
+            }
+        };
+
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    },
+
     openStudentSelector(classId) {
         const rt = this._runtime;
         if (!rt.db) return undefined;
@@ -2129,8 +2304,8 @@ export const SidebarModule = {
             const forcedExtRow = `
                 <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" /></svg>
+                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.72-1.71" /></svg>
                         </div>
                         <div class="flex flex-col text-left">
                             <span class="font-bold text-sm text-black dark:text-white">Add Doc Link Accessible For Everyone</span>

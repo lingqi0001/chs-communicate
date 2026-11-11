@@ -2062,8 +2062,8 @@ export function initChatEngine(deps) {
 
         if (expanded) {
             if (yesBtn) {
-                yesBtn.classList.remove('max-w-0', 'opacity-0', 'pointer-events-none', 'px-0');
-                yesBtn.classList.add('max-w-[120px]', 'opacity-100', 'px-2.5');
+                yesBtn.classList.remove('max-h-0', 'opacity-0', 'pointer-events-none');
+                yesBtn.classList.add('max-h-[28px]', 'h-[28px]', 'opacity-100');
             }
             if (sendBtn) {
                 sendBtn.classList.remove('w-[30px]');
@@ -2076,8 +2076,8 @@ export function initChatEngine(deps) {
             }
         } else {
             if (yesBtn) {
-                yesBtn.classList.add('max-w-0', 'opacity-0', 'pointer-events-none', 'px-0');
-                yesBtn.classList.remove('max-w-[120px]', 'opacity-100', 'px-2.5');
+                yesBtn.classList.add('max-h-0', 'opacity-0', 'pointer-events-none');
+                yesBtn.classList.remove('max-h-[28px]', 'h-[28px]', 'opacity-100');
             }
             if (sendBtn) {
                 sendBtn.classList.add('w-[30px]');
@@ -2090,6 +2090,7 @@ export function initChatEngine(deps) {
                 sendBtnLabel.classList.remove('max-w-[100px]', 'opacity-100', 'ml-1', 'mr-0.5');
             }
         }
+        updateComposerPadding();
     }
 
     function isCanvasInlineExpanded() {
@@ -4130,9 +4131,7 @@ export function initChatEngine(deps) {
 
             // Role badge styling
             let roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300';
-            if (item.authorRole === 'student') {
-                roleBadgeClass = 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400';
-            } else if (item.authorRole === 'teacher') {
+            if (item.authorRole === 'teacher') {
                 roleBadgeClass = 'portfolio-teacher-badge';
             }
 
@@ -4419,7 +4418,6 @@ export function initChatEngine(deps) {
                 <div class="portfolio-timeline-month text-left">
                     <div class="portfolio-timeline-month-header">
                         <h4 class="text-[15px] font-bold text-black dark:text-white tracking-wide">${UIUtils.escape(monthName)}</h4>
-                        <span class="text-[11px] font-semibold text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">${entries.length} ${entries.length === 1 ? 'Milestone' : 'Milestones'}</span>
                     </div>
 
                     <div class="portfolio-timeline-entries">

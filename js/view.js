@@ -1610,8 +1610,8 @@ export const ViewModule = {
                 title.innerText = "Settings";
                 
                 if (card) {
-                    card.classList.add('h-full');
-                    card.classList.add('md:max-w-3xl');
+                    card.classList.add('h-full', 'w-full', 'max-w-full', 'md:max-w-3xl', 'md:h-[85vh]');
+                    card.classList.remove('max-w-sm');
                 }
                 if (body) {
                     body.classList.remove('max-h-[70vh]');
@@ -1631,8 +1631,8 @@ export const ViewModule = {
                 title.innerText = "Support Development";
                 
                 if (card) {
-                    card.classList.remove('h-full');
-                    card.classList.remove('md:max-w-3xl');
+                    card.classList.remove('h-full', 'md:h-[85vh]', 'md:max-w-3xl');
+                    card.classList.add('max-w-sm');
                 }
                 if (body) {
                     body.classList.remove('flex-1');

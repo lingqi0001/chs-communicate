@@ -41,10 +41,51 @@ export function createNewsModule(deps) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'w-full py-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-100 dark:border-white/5 transition-all duration-300 text-[13px] font-semibold text-black dark:text-white text-center';
-        btn.textContent = `Load ${Math.min(NEWS_PAGE, remaining)} more announcements`;
-        btn.onclick = () => {
-            view.visible += NEWS_PAGE;
-            renderNewsContentFromData(view.posts, containerId, view.tabType);
+        
+        const countText = remaining > 0 ? Math.min(NEWS_PAGE, remaining) : NEWS_PAGE;
+        btn.textContent = `Load ${countText} more announcements`;
+
+        btn.onclick = async () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Loading announcements...';
+
+            try {
+                // 1. If local memory still has unrendered announcements, advance visible slice
+                if (view.posts.length > view.visible) {
+                    view.visible += NEWS_PAGE;
+                    renderNewsContentFromData(view.posts, containerId, view.tabType);
+                    return;
+                }
+
+                // 2. Otherwise fetch the next 20 older items from cloud
+                const sync = window.AppModules?.Sync;
+                if (sync && typeof sync.loadOlderNews === 'function') {
+                    const oldestPost = view.posts.slice().sort((a, b) => {
+                        const ka = a.key || a.id || '';
+                        const kb = b.key || b.id || '';
+                        return ka.localeCompare(kb);
+                    })[0];
+
+                    const oldestKey = oldestPost?.key || oldestPost?.id;
+                    if (oldestKey) {
+                        const older = await sync.loadOlderNews(db, view.tabType, oldestKey, NEWS_PAGE);
+                        if (older && older.length > 0) {
+                            const localAll = (await window.AppModules?.DB?.Local?.getNews(view.tabType)) || [...view.posts, ...older];
+                            view.visible += older.length;
+                            renderNewsContentFromData(localAll, containerId, view.tabType);
+                            return;
+                        }
+                    }
+                }
+                btn.textContent = 'No more announcements';
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            } catch (err) {
+                console.error('Failed to load older news:', err);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         };
         return btn;
     }
@@ -170,15 +211,41 @@ export function createNewsModule(deps) {
             </div>`;
     }
 
+    let _cafeteriaCache = null;
     async function renderCafeteriaHighlight(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
         try {
-            const [menusSnap, poolSnap] = await Promise.all([
-                get(ref(db, 'cafeteria/menus')),
-                get(ref(db, 'cafeteria/pool'))
-            ]);
-            const info = resolveNextCafeteriaOffering(menusSnap.val() || {}, poolSnap.val() || {});
+            if (!_cafeteriaCache) {
+                try {
+                    const localSaved = localStorage.getItem('chs_cafeteria_cache');
+                    if (localSaved) {
+                        const parsed = JSON.parse(localSaved);
+                        // Cache valid for 24 hours
+                        if (Date.now() - (parsed.time || 0) < 24 * 60 * 60 * 1000) {
+                            _cafeteriaCache = parsed.data;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            if (!_cafeteriaCache) {
+                const [menusSnap, poolSnap] = await Promise.all([
+                    get(ref(db, 'cafeteria/menus')),
+                    get(ref(db, 'cafeteria/pool'))
+                ]);
+                _cafeteriaCache = {
+                    menus: menusSnap.val() || {},
+                    pool: poolSnap.val() || {}
+                };
+                try {
+                    localStorage.setItem('chs_cafeteria_cache', JSON.stringify({
+                        time: Date.now(),
+                        data: _cafeteriaCache
+                    }));
+                } catch (e) {}
+            }
+            const info = resolveNextCafeteriaOffering(_cafeteriaCache.menus, _cafeteriaCache.pool);
             const existing = document.getElementById('cafeteriaNewsHighlight');
             if (existing) existing.remove();
             if (!info) return;
@@ -1890,10 +1957,9 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             </div>
         `;
 
-        get(ref(db, 'modules/club_events')).then(snap => {
+        const applyEventsData = (val) => {
             cachedGlobalEvents = [];
-            if (snap.exists()) {
-                const val = snap.val() || {};
+            if (val) {
                 Object.keys(val).forEach(clubId => {
                     const clubEvts = val[clubId] || {};
                     Object.keys(clubEvts).forEach(evtId => {
@@ -1905,7 +1971,32 @@ Interact\t\tGalante/Riddler\tTuesday\t612\t2:45:00 PM\tBi-Weekly 1st & 3rd Weeks
             const today = new Date(); today.setHours(0,0,0,0);
             cachedGlobalEvents = cachedGlobalEvents.filter(evt => new Date(evt.date + 'T00:00:00Z') >= today);
             renderGlobalEventsList();
-        }).catch(err => {
+        };
+
+        let cachedVal = null;
+        try {
+            const raw = localStorage.getItem('chs_club_events_cache');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Date.now() - (parsed.time || 0) < 12 * 60 * 60 * 1000) {
+                    cachedVal = parsed.data;
+                }
+            }
+        } catch (e) {}
+
+        if (cachedVal) {
+            applyEventsData(cachedVal);
+        } else {
+            get(ref(db, 'modules/club_events')).then(snap => {
+                const val = snap.exists() ? snap.val() || {} : {};
+                try {
+                    localStorage.setItem('chs_club_events_cache', JSON.stringify({
+                        time: Date.now(),
+                        data: val
+                    }));
+                } catch (e) {}
+                applyEventsData(val);
+            }).catch(err => {
             console.error("Failed to load global events:", err);
             const listContainer = document.getElementById('globalEventsList');
             if (listContainer) listContainer.innerHTML = `<div class="text-xs text-gray-400 italic py-2 text-center">Failed to load events.</div>`;

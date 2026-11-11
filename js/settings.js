@@ -393,10 +393,10 @@ export const SettingsModule = {
         if (document.getElementById('settingsModal')) return;
         document.body.insertAdjacentHTML('beforeend', `
     <div id="settingsModal" onclick="if(event.target === this) closeSettingsModal()"
-        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-        <div id="settingsModalCard" class="bg-white dark:bg-[#1C1C1E] w-full max-w-sm h-full rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
+        class="hidden fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm flex items-center justify-center p-0 md:p-6">
+        <div id="settingsModalCard" class="bg-white dark:bg-[#1C1C1E] w-full max-w-full md:max-w-3xl h-full md:h-[85vh] rounded-none md:rounded-2xl shadow-2xl slide-up overflow-visible flex flex-col">
             <div
-                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0">
+                class="p-4 border-b border-gray-200/60 dark:border-gray-800 flex justify-between items-center rounded-none md:rounded-t-2xl bg-white dark:bg-[#1C1C1E] flex-shrink-0 pt-[max(1rem,env(safe-area-inset-top))]">
                 <h3 id="settingsModalTitle" class="font-bold text-lg">Settings</h3>
                 <button onclick="closeSettingsModal()" class="text-[#007AFF] font-medium text-base">Done</button>
             </div>

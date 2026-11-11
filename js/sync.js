@@ -13,13 +13,14 @@
  * ==================================================================================
  */
 
-import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "../vendor/firebase/10.7.1/firebase-database.js";
+import { ref, get, onChildAdded, onChildRemoved, query, orderByKey, startAfter, endBefore, limitToLast, set, onValue, update, serverTimestamp, onDisconnect } from "../vendor/firebase/10.7.1/firebase-database.js";
 import { DBModule } from './db.js';
 
 export const SyncModule = {
     isSyncDone: false,
     sidebarClasses: {},
     existingClassIds: {},
+    _newsSyncedTabs: new Set(),
     cnCache: (() => {
         try { return JSON.parse(localStorage.getItem('chs_cn_cache') || '{}'); } catch (e) { return {}; }
     })(),
@@ -75,6 +76,8 @@ export const SyncModule = {
 
     /**
      * Reconciles cloud news announcements with IndexedDB (moved from db.js)
+     * Safeguarded to only prune deletions within the fetched key range,
+     * ensuring older historical records in IndexedDB are not wiped out.
      * @param {string} tab - 'school' | 'club'
      * @param {object} remoteData - Cloud data
      * @param {Array} localKeys - Existing local keys
@@ -82,9 +85,12 @@ export const SyncModule = {
     async reconcileNews(tab, remoteData, localKeys) {
         console.log(`Sync: Reconciling news for [${tab}]...`);
         const remoteKeys = Object.keys(remoteData);
+        if (remoteKeys.length === 0) return;
 
-        // Remove locally cached items that were deleted from the server
-        const deletedKeys = localKeys.filter(k => !remoteKeys.includes(k));
+        const oldestRemoteKey = remoteKeys.slice().sort()[0];
+
+        // Remove locally cached items only within the remote query window
+        const deletedKeys = localKeys.filter(k => k >= oldestRemoteKey && !remoteKeys.includes(k));
         for (const key of deletedKeys) {
             console.log(`Sync: Found deleted item [${key}] on server. Removing locally...`);
             if (DBModule.Local.deleteNews) {
@@ -122,9 +128,22 @@ export const SyncModule = {
         for (const tab of newsTabs) {
             try {
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
+                
+                // If this session has already synced the latest 20 items for this tab, render local and rely on real-time listeners
+                if (this._newsSyncedTabs.has(tab)) {
+                    console.log(`Sync: news/${tab} already synced this session, using cached data.`);
+                    const localItems = await DBModule.Local.getNews(tab);
+                    if (this.callbacks.renderNews) {
+                        this.callbacks.renderNews(localItems, containerId, tab);
+                    }
+                    continue;
+                }
+
                 let remoteData;
                 try {
-                    const remoteSnap = await window.withNetworkTimeout(get(ref(db, `news/${tab}`)));
+                    // Only fetch the latest 20 announcements instead of full table
+                    const qLatest = query(ref(db, `news/${tab}`), orderByKey(), limitToLast(20));
+                    const remoteSnap = await window.withNetworkTimeout(get(qLatest));
                     remoteData = remoteSnap.val() || {};
                 } catch (remoteErr) {
                     // Offline boot: the IndexedDB copy is the only source this
@@ -146,6 +165,7 @@ export const SyncModule = {
 
                 // 2. Align local cache with cloud records
                 await this.reconcileNews(tab, remoteData, localKeys);
+                this._newsSyncedTabs.add(tab);
 
                 // 3. Render immediately to give instant feedback
                 const finalLocal = await DBModule.Local.getNews(tab);
@@ -424,18 +444,111 @@ export const SyncModule = {
     },
 
     /**
-     * Start periodic group chat syncing (moved from index.html)
+     * Synchronize and monitor user's own classes / group chats on demand
+     * Avoids listening to the entire 'classes' root to prevent large data egress
+     * @param {Object} db - Firebase database instance
+     * @param {Object} currentUser - Currently authenticated user
+     */
+    async syncUserClasses(db, currentUser, classIds) {
+        if (!currentUser || !currentUser.id || !classIds || classIds.length === 0) {
+            this.isSyncDone = true;
+            if (this.callbacks.renderSidebar) this.callbacks.renderSidebar();
+            return;
+        }
+        try {
+            const fetchedClasses = {};
+            await Promise.all(classIds.map(async cid => {
+                try {
+                    const snap = await window.withNetworkTimeout(get(ref(db, `classes/${cid}`)));
+                    if (snap.exists()) {
+                        fetchedClasses[cid] = snap.val();
+                    }
+                } catch (err) {
+                    console.warn(`Sync: Failed to fetch class ${cid}:`, err);
+                }
+            }));
+            await this.syncGroupChats(db, currentUser, fetchedClasses);
+        } catch (e) {
+            console.warn('Sync: syncUserClasses error:', e);
+        }
+    },
+
+    /**
+     * Start group chat syncing targeted to user's joined chats instead of full root listener
      * @param {Object} db - Firebase database instance
      * @param {Object} currentUser - Currently authenticated user
      */
     startGroupSync(db, currentUser) {
         if (this._groupSyncInterval) { clearInterval(this._groupSyncInterval); this._groupSyncInterval = null; }
         if (this._groupSyncUnsub) { this._groupSyncUnsub(); this._groupSyncUnsub = null; }
-        // One listener replaces the 30s full-node poll: the first callback
-        // carries the whole list, later ones only real changes as small deltas.
-        this._groupSyncUnsub = onValue(ref(db, 'classes'), (snap) => {
-            this.syncGroupChats(db, currentUser, snap.val() || {});
-        }, () => {});
+        if (this._classItemUnsubs) { this._classItemUnsubs.forEach(u => { try { u(); } catch(e){} }); }
+        this._classItemUnsubs = [];
+
+        // Listen only to the user's personal chat list to know which group chats they belong to
+        const userChatsRef = ref(db, `user_chats/${currentUser.id.toLowerCase()}`);
+        this._groupSyncUnsub = onValue(userChatsRef, async (snap) => {
+            const chats = snap.val() || {};
+            const groupClassIds = Object.keys(chats)
+                .filter(id => id.startsWith('group_'))
+                .map(id => id.replace('group_', ''));
+
+            // Clean up previous individual class listeners
+            if (this._classItemUnsubs) {
+                this._classItemUnsubs.forEach(u => { try { u(); } catch(e){} });
+                this._classItemUnsubs = [];
+            }
+
+            if (groupClassIds.length === 0) {
+                this.isSyncDone = true;
+                if (this.callbacks.renderSidebar) this.callbacks.renderSidebar();
+                return;
+            }
+
+            // Mount light listeners only on the specific classes user is part of
+            const activeClassMap = {};
+            groupClassIds.forEach(cid => {
+                const u = onValue(ref(db, `classes/${cid}`), (cSnap) => {
+                    if (cSnap.exists()) {
+                        activeClassMap[cid] = cSnap.val();
+                    } else {
+                        delete activeClassMap[cid];
+                    }
+                    this.syncGroupChats(db, currentUser, activeClassMap);
+                }, (err) => console.warn(`Sync: class listener error ${cid}:`, err));
+                this._classItemUnsubs.push(u);
+            });
+        }, (err) => {
+            console.warn('Sync: user_chats listener failed, falling back:', err);
+        });
+    },
+
+    /**
+     * Loads older news announcements on demand (paging backwards via endBefore)
+     * @param {Object} db - Firebase database instance
+     * @param {string} tab - 'school' | 'club'
+     * @param {string} oldestKey - The oldest key currently loaded
+     * @param {number} pageSize - Number of older items to fetch
+     * @returns {Promise<Array>} Array of newly fetched posts
+     */
+    async loadOlderNews(db, tab, oldestKey, pageSize = 20) {
+        if (!oldestKey) return [];
+        try {
+            console.log(`Sync: Fetching ${pageSize} older news for [${tab}] before ${oldestKey}...`);
+            const q = query(ref(db, `news/${tab}`), orderByKey(), endBefore(oldestKey), limitToLast(pageSize));
+            const snap = await window.withNetworkTimeout(get(q));
+            const data = snap.val() || {};
+            const keys = Object.keys(data);
+            if (keys.length === 0) return [];
+
+            for (const key of keys) {
+                const post = { key, ...data[key] };
+                await DBModule.Local.saveNews(tab, key, post);
+            }
+            return keys.map(k => ({ key: k, ...data[k] }));
+        } catch (e) {
+            console.warn(`Sync: Failed to load older news for ${tab}:`, e);
+            return [];
+        }
     }
 };
 
