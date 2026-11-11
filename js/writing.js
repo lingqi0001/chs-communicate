@@ -234,10 +234,9 @@ export const WritingDocCard = {
             let quoteHtml = '';
             if (quoteVal) {
                 const quoteId = `quoteBox-${key}-${i}`;
-                const isLong = quoteVal.length > 60;
                 quoteHtml = `
-                    <div id="${quoteId}" class="text-[13px] text-black dark:text-white leading-relaxed italic ${isLong ? 'line-clamp-2' : ''}">“${UIUtils.escape(quoteVal)}”</div>
-                    ${isLong ? `<button type="button" onclick="window.toggleQuoteText('${quoteId}', this, event)" class="mt-0.5 text-[11px] text-[#007AFF] dark:text-[#0A84FF] hover:underline font-medium transition-colors">Expand</button>` : ''}
+                    <div id="${quoteId}" class="doc-comment-quote text-[13px] text-black dark:text-white leading-relaxed italic line-clamp-2">“${UIUtils.escape(quoteVal)}”</div>
+                    <button type="button" onclick="window.toggleQuoteText('${quoteId}', this, event)" class="doc-comment-quote-toggle hidden mt-0.5 text-[11px] text-[#007AFF] dark:text-[#0A84FF] hover:underline font-medium transition-colors" aria-expanded="false">Expand</button>
                 `;
             }
 
@@ -356,13 +355,55 @@ export const WritingDocCard = {
             `;
         }).join('');
 
-        return `
+        const html = `
             ${filterBarHtml}
             <div id="commentListContainer-${key}">
                 ${itemsHtml}
             </div>
             <div id="commentEmpty-${key}" class="hidden py-4 text-center text-xs text-gray-400 dark:text-gray-500"></div>
         `;
+        requestAnimationFrame(() => WritingDocCard.syncDocCommentQuoteControls());
+        return html;
+    },
+
+    syncDocCommentQuoteControls: function () {
+        if (typeof document === 'undefined') return;
+
+        const syncQuote = (box) => {
+            if (!box?.isConnected) return;
+            const button = box.nextElementSibling;
+            if (!button?.classList.contains('doc-comment-quote-toggle')) return;
+            if (!box.getClientRects().length) return;
+
+            const wasClamped = box.classList.contains('line-clamp-2');
+            box.classList.remove('line-clamp-2');
+            const fullHeight = box.getBoundingClientRect().height;
+            box.classList.add('line-clamp-2');
+            const clampedHeight = box.getBoundingClientRect().height;
+            if (!wasClamped) box.classList.remove('line-clamp-2');
+
+            const needsToggle = fullHeight > clampedHeight + 1;
+            const expanded = !box.classList.contains('line-clamp-2');
+            button.classList.toggle('hidden', !needsToggle);
+            button.textContent = expanded ? 'Collapse' : 'Expand';
+            button.setAttribute('aria-expanded', String(expanded));
+        };
+
+        const boxes = document.querySelectorAll('.doc-comment-quote');
+        if (window.ResizeObserver) {
+            const observer = window._docCommentQuoteResizeObserver || (window._docCommentQuoteResizeObserver = new ResizeObserver(entries => {
+                entries.forEach(({ target }) => {
+                    target.querySelectorAll?.('.doc-comment-quote').forEach(syncQuote);
+                    if (!target.isConnected) window._docCommentQuoteResizeObserver?.unobserve(target);
+                });
+            }));
+            boxes.forEach(box => {
+                syncQuote(box);
+                if (box.parentElement) observer.observe(box.parentElement);
+            });
+        } else {
+            boxes.forEach(syncQuote);
+        }
     },
 
     /**
@@ -1063,7 +1104,7 @@ export function initWritingBehavior(deps) {
 
             // Posted: pull the bot's comment back through the normal snapshot sync.
             restoreBtn();
-            await syncDocCardComments(key, docUrl, null, chatId, true);
+            await syncDocCardComments(key, docUrl, null, chatId, true, false);
             return resData;
         } catch (err) {
             console.error('Post comment error:', err);
@@ -1079,7 +1120,7 @@ export function initWritingBehavior(deps) {
         }
     }
 
-    async function autoForwardCommentCardToChat(key, docUrl, parentComment, content, postedCommentId = null) {
+    async function autoForwardCommentCardToChat(key, docUrl, parentComment, content, postedCommentId = null, extraMsgData = {}) {
         try {
             const currentUser = getCurrentUser();
             if (!currentUser || !content) return;
@@ -1139,7 +1180,8 @@ export function initWritingBehavior(deps) {
                     reply,
                     isReply,
                     parentAuthor
-                }
+                },
+                ...extraMsgData
             });
         } catch (e) {
             console.warn('[CommentCard] Could not auto-forward the posted comment:', e);
@@ -1336,11 +1378,11 @@ export function initWritingBehavior(deps) {
         const isClamped = box.classList.contains('line-clamp-2');
         if (isClamped) {
             box.classList.remove('line-clamp-2');
-            if (btn) btn.innerText = "Collapse";
         } else {
             box.classList.add('line-clamp-2');
-            if (btn) btn.innerText = "Expand";
         }
+        if (btn) btn.setAttribute('aria-expanded', String(isClamped));
+        WritingDocCard.syncDocCommentQuoteControls();
     }
 
     function normalizeDocSyncState(state) {
@@ -1410,31 +1452,46 @@ export function initWritingBehavior(deps) {
     function classifyCommentAuthor(authorName, authorEmail, currentUserId, currentUser) {
         const normName = (authorName || '').trim().toLowerCase();
         const normEmail = (authorEmail || '').trim().toLowerCase();
+        const normalizeIdentity = value => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const authorIdentity = normalizeIdentity(normName);
+        const myIdentities = [currentUserId, currentUser?.id, currentUser?.name, currentUser?.displayName]
+            .map(normalizeIdentity)
+            .filter(identity => identity.length >= 3);
+        const isCurrentUser = !!authorIdentity && myIdentities.includes(authorIdentity);
+        const myEmails = [currentUser?.email, currentUser?.emailAddress]
+            .map(email => String(email || '').trim().toLowerCase())
+            .filter(Boolean);
 
-        // A bot-delivered comment belongs to whoever the "Created by" line names
-        // (docCommentDisplay has already unwrapped the prefix into authorName).
-        if (normEmail.endsWith('.gserviceaccount.com')) {
-            const meNames = [currentUserId, currentUser && currentUser.name].filter(Boolean)
-                .map(s => String(s).toLowerCase());
-            if (normName && meNames.some(n => normName === n || normName.includes(n) || n.includes(normName))) {
-                return { role: 'student', label: 'Author' };
-            }
-            if (/^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
-                return { role: 'teacher', label: 'Teacher' };
-            }
-            return { role: 'peer', label: 'Peer Reviewer' };
-        }
-
-        if (normEmail.endsWith('@hcpss.org') || /^(mr|ms|mrs|dr)\.?\s/i.test(normName) || normName.includes('teacher') || normName.includes('instructor')) {
-            return { role: 'teacher', label: 'Teacher' };
-        }
-        if (currentUserId && (normEmail.includes(currentUserId.toLowerCase()) || normName.includes(currentUserId.toLowerCase()))) {
+        if (isCurrentUser || (normEmail && myEmails.includes(normEmail))) {
             return { role: 'student', label: 'Author' };
         }
-        if (normEmail.endsWith('@inst.hcpss.org')) {
-            return { role: 'peer', label: 'Peer Reviewer' };
+
+        // Drive's Comment.author does not populate the author's email or permission ID.
+        // Match a displayed author to CHSchat's own directory when the name is
+        // unique, then use that profile's explicit role/email as evidence.
+        const matchingProfiles = Object.values(window.ALL_USERS || {}).filter(profile =>
+            profile && normalizeIdentity(profile.name) === authorIdentity
+        );
+        if (matchingProfiles.length === 1) {
+            const profile = matchingProfiles[0];
+            const profileEmail = String(profile.email || profile.emailAddress || '').trim().toLowerCase();
+            const profileDomain = profileEmail.split('@').pop();
+            if (profile.role === 'teacher' || profileDomain === 'hcpss.org') {
+                return { role: 'teacher', label: 'Teacher' };
+            }
+            if (profile.role === 'student' || profileDomain === 'inst.hcpss.org') {
+                return { role: 'peer', label: 'Student' };
+            }
+            return { role: 'unknown', label: 'Reviewer' };
         }
-        return { role: 'teacher', label: 'Teacher' };
+
+        // Use a name honorific only when the directory cannot identify the
+        // person; an email domain by itself is not a teacher signal here.
+        if (/^(mr|ms|mrs|dr)\.?\s/i.test(normName)) {
+            return { role: 'teacher', label: 'Teacher' };
+        }
+
+        return { role: 'unknown', label: 'Reviewer' };
     }
 
     return {

@@ -244,6 +244,11 @@
       }
     },
 
+    "canvas_global_links": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
+    },
+
     "cafeteria": {
       ".read": true,
       ".write": "auth != null && auth.token.email == 'moss104088@gmail.com'"

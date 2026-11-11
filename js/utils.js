@@ -47,6 +47,15 @@ export const UIUtils = {
         return p.innerHTML;
     },
 
+    formatDisplayEmail: (email) => {
+        if (!email || typeof email !== 'string') return email || '';
+        const trimmed = email.trim();
+        if (/@gmail\.com$/i.test(trimmed)) {
+            return 'encrypted@gmail.com';
+        }
+        return email;
+    },
+
     /**
      * 为元素添加短暂的高亮闪烁动画
      */

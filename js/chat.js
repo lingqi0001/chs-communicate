@@ -267,55 +267,66 @@ export function initChatEngine(deps) {
         isLoaded = true;
         if (loadingTimer) clearTimeout(loadingTimer);
 
-        // Fetch recent messages from Firebase to reconcile with local cache (restores any messages deleted locally but still in Firebase)
-        if (!isPreviewChat) try {
-            const remoteSnap = await window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))));
-            if (remoteSnap.exists()) {
-                const remoteVal = remoteSnap.val() || {};
-                const localKeySet = new Set((currentLocalMsgs || []).map(m => m.key));
-                let hasMissing = false;
-                for (const rKey of Object.keys(remoteVal)) {
-                    if (!localKeySet.has(rKey)) {
-                        const newMsg = { key: rKey, ...remoteVal[rKey] };
-                        currentLocalMsgs.push(newMsg);
-                        await saveMessageLocal(chatId, rKey, remoteVal[rKey]);
-                        hasMissing = true;
-                    }
-                }
-            }
-        } catch (reconcileErr) {
-            console.warn('[Chat] Message reconcile error:', reconcileErr);
-        }
-
-        // Sort chronologically
+        // Sort chronologically and render immediately from local cache
         currentLocalMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        currentDisplayMsgs = currentLocalMsgs.slice(-50);
-        let lastKey = currentLocalMsgs.length > 0 ? currentLocalMsgs[currentLocalMsgs.length - 1].key : null;
+        const renderCurrentMessages = () => {
+            currentDisplayMsgs = currentLocalMsgs.slice(-50);
+            const initialFrag = document.createDocumentFragment();
+            currentDisplayMsgs.forEach(m => {
+                if (m.key) {
+                    loadedMsgKeys.add(m.key);
+                    const msgEl = UIComponents.createChatBubble(m, m.key, getCurrentUser(), setupLongPress);
+                    if (msgEl) initialFrag.appendChild(msgEl);
+                }
+            });
 
-        const initialFrag = document.createDocumentFragment();
-        currentDisplayMsgs.forEach(m => {
-            if (m.key) {
-                loadedMsgKeys.add(m.key);
-                const msgEl = UIComponents.createChatBubble(m, m.key, getCurrentUser(), setupLongPress);
-                if (msgEl) initialFrag.appendChild(msgEl);
+            chatBox.innerHTML = '';
+            if (initialFrag.childNodes.length > 0) {
+                chatBox.appendChild(initialFrag);
+                chatBox.scrollTop = guestPreviewOpensAtTop ? 0 : chatBox.scrollHeight;
+            } else {
+                let placeholderHtml = `
+                    <div class="font-semibold text-base">No messages here yet</div>
+                    <div class="text-xs opacity-75 mt-1">If this is unexpected, please check your connection</div>
+                `;
+                chatBox.innerHTML = `<div data-chat-placeholder="true" class="h-full min-h-[120px] flex flex-col items-center justify-center text-center text-gray-400 chat-placeholder-delay">${placeholderHtml}</div>`;
             }
-        });
+            currentOldestLoadedKey = currentDisplayMsgs.length > 0 ? currentDisplayMsgs[0].key : null;
+        };
 
-        chatBox.innerHTML = '';
-        if (initialFrag.childNodes.length > 0) {
-            chatBox.appendChild(initialFrag);
-            chatBox.scrollTop = guestPreviewOpensAtTop ? 0 : chatBox.scrollHeight;
-        } else {
-            let placeholderHtml = `
-                <div class="font-semibold text-base">No messages here yet</div>
-                <div class="text-xs opacity-75 mt-1">If this is unexpected, please check your connection</div>
-            `;
-            chatBox.innerHTML = `<div data-chat-placeholder="true" class="h-full min-h-[120px] flex flex-col items-center justify-center text-center text-gray-400 chat-placeholder-delay">${placeholderHtml}</div>`;
+        // Render local cache immediately without waiting for Firebase network
+        renderCurrentMessages();
+
+        // Background reconcile recent messages from Firebase without blocking local render
+        if (!isPreviewChat) {
+            window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))))
+                .then(async (remoteSnap) => {
+                    if (chatGeneration !== thisGeneration) return;
+                    if (remoteSnap.exists()) {
+                        const remoteVal = remoteSnap.val() || {};
+                        const localKeySet = new Set((currentLocalMsgs || []).map(m => m.key));
+                        let hasMissing = false;
+                        for (const rKey of Object.keys(remoteVal)) {
+                            if (!localKeySet.has(rKey)) {
+                                const newMsg = { key: rKey, ...remoteVal[rKey] };
+                                currentLocalMsgs.push(newMsg);
+                                await saveMessageLocal(chatId, rKey, remoteVal[rKey]);
+                                hasMissing = true;
+                            }
+                        }
+                        if (hasMissing) {
+                            currentLocalMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                            renderCurrentMessages();
+                        }
+                    }
+                })
+                .catch((reconcileErr) => {
+                    console.warn('[Chat] Background message reconcile error:', reconcileErr);
+                });
         }
 
-        // --- SCROLL PAGINATION SETUP ---
-        currentOldestLoadedKey = currentDisplayMsgs.length > 0 ? currentDisplayMsgs[0].key : null;
+        let lastKey = currentLocalMsgs.length > 0 ? currentLocalMsgs[currentLocalMsgs.length - 1].key : null;
         let isLoadingOlder = false;
 
         const loadOlderMessages = async () => {
@@ -873,7 +884,7 @@ export function initChatEngine(deps) {
             div.className = "flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-xl transition-colors";
             div.onclick = () => forwardTo(id);
             div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random" class="w-9 h-9 rounded-full shadow-sm">
-                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>`;
+                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : u.email)}</div></div>`;
             list.appendChild(div);
         });
         openForwardPicker();
@@ -923,7 +934,7 @@ export function initChatEngine(deps) {
             div.className = "flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-xl transition-colors";
             div.onclick = () => sendCommentCardTo(id, payload);
             div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random" class="w-9 h-9 rounded-full shadow-sm">
-                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(u.email)}</div></div>`;
+                <div><div class="font-semibold text-sm text-black dark:text-white">${escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : u.email)}</div></div>`;
             list.appendChild(div);
         });
         openForwardPicker();
@@ -1302,7 +1313,7 @@ export function initChatEngine(deps) {
 
                 const statusText = safeIsExtensionTargetId(targetId)
                     ? "Extension Tool"
-                    : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : (u?.email || ""));
+                    : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : (window.formatDisplayEmail ? window.formatDisplayEmail(u?.email) : (u?.email || "")));
                 statusEl.innerText = statusText;
                 if (statusText === "online") {
                     statusEl.classList.add('text-[#007AFF]');
@@ -1887,7 +1898,7 @@ export function initChatEngine(deps) {
             const newKey = await this.commit(msgData);
             if (!customVal) {
                 input.value = '';
-                input.style.height = 'auto';
+                input.dispatchEvent(new Event('input'));
                 window.Drafts?.clear(getActiveTargetId());
             }
 
@@ -1909,7 +1920,7 @@ export function initChatEngine(deps) {
         // Post the chat-input draft as a reply to the selected Google Doc
         // comment: bot posts it to Google, then one comment_card (quote +
         // main comment + replies) lands in this chat.
-        sendDocCommentReply: async function (val) {
+        sendDocCommentReply: async function (val, extraMsgData = {}) {
             const target = docReplyTarget;
             if (!target) return;
             let content = val || '';
@@ -1946,7 +1957,7 @@ export function initChatEngine(deps) {
                 target._posting = false;
             }
             if (posted) {
-                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, target.comment, content, (posted && posted.postedCommentId) || null);
+                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, target.comment, content, (posted && posted.postedCommentId) || null, extraMsgData);
                 clearQuote();
             } else if (docReplyTarget === target) {
                 // Keep the draft so the user can fix it and retry
@@ -1957,7 +1968,7 @@ export function initChatEngine(deps) {
 
         // Post a new whole-document comment through the same bottom composer
         // used for replies, while leaving it unattached to an existing thread.
-        sendDocNewComment: async function (val) {
+        sendDocNewComment: async function (val, extraMsgData = {}) {
             const target = docNewCommentTarget;
             if (!target) return;
             let content = val || '';
@@ -1994,7 +2005,7 @@ export function initChatEngine(deps) {
                 target._posting = false;
             }
             if (posted) {
-                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, null, content, posted.postedCommentId);
+                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, null, content, posted.postedCommentId, extraMsgData);
                 clearQuote();
             } else if (docNewCommentTarget === target) {
                 if (input) input.value = val;
@@ -2044,6 +2055,56 @@ export function initChatEngine(deps) {
         }
     };
 
+    function setCanvasInlineExpanded(expanded) {
+        const yesBtn = document.getElementById('canvasSendYesBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const sendBtnLabel = document.getElementById('sendBtnLabel');
+
+        if (expanded) {
+            if (yesBtn) {
+                yesBtn.classList.remove('max-w-0', 'opacity-0', 'pointer-events-none', 'px-0');
+                yesBtn.classList.add('max-w-[120px]', 'opacity-100', 'px-2.5');
+            }
+            if (sendBtn) {
+                sendBtn.classList.remove('w-[30px]');
+                sendBtn.classList.add('px-2.5', 'h-[28px]', 'gap-1');
+                sendBtn.title = "Send via standard CHSchat";
+            }
+            if (sendBtnLabel) {
+                sendBtnLabel.classList.remove('max-w-0', 'opacity-0');
+                sendBtnLabel.classList.add('max-w-[100px]', 'opacity-100', 'ml-1', 'mr-0.5');
+            }
+        } else {
+            if (yesBtn) {
+                yesBtn.classList.add('max-w-0', 'opacity-0', 'pointer-events-none', 'px-0');
+                yesBtn.classList.remove('max-w-[120px]', 'opacity-100', 'px-2.5');
+            }
+            if (sendBtn) {
+                sendBtn.classList.add('w-[30px]');
+                sendBtn.classList.remove('px-2.5', 'gap-1');
+                sendBtn.style.height = '';
+                sendBtn.title = "Send message";
+            }
+            if (sendBtnLabel) {
+                sendBtnLabel.classList.add('max-w-0', 'opacity-0');
+                sendBtnLabel.classList.remove('max-w-[100px]', 'opacity-100', 'ml-1', 'mr-0.5');
+            }
+        }
+    }
+
+    function isCanvasInlineExpanded() {
+        const yesBtn = document.getElementById('canvasSendYesBtn');
+        return !!(yesBtn && !yesBtn.classList.contains('pointer-events-none'));
+    }
+
+    window.handleSendButtonClick = function() {
+        if (isCanvasInlineExpanded()) {
+            confirmInlineCanvasSend(false);
+        } else {
+            sendMsg();
+        }
+    };
+
     async function sendMsg(type = 'text', customVal = null) {
         if (!window.isLoggedIn) {
             window.promptSignIn?.('Sign in to join the conversation and keep your work connected to the people who support it.', 'Sign in to send a message');
@@ -2057,8 +2118,135 @@ export function initChatEngine(deps) {
                 return;
             }
         }
+
+        const input = document.getElementById('u-msg');
+        const textVal = (customVal || input?.value || '').trim();
+
+        // Check if current target has a linked Canvas account
+        const isCanvasLinked = window.canvasConnectionActive &&
+            activeTargetId &&
+            !activeTargetId.startsWith('group_') &&
+            !isExtensionTargetId?.(activeTargetId) &&
+            window.canvasStudentLinks?.[activeTargetId];
+
+        // Inline expand options check
+        if (isCanvasLinked && textVal && !isCanvasInlineExpanded()) {
+            // Expand the inline Canvas choice and morph sendBtn into 'CHSchat only'
+            setCanvasInlineExpanded(true);
+            return;
+        }
+
+        // Collapse inline options if they were open
+        setCanvasInlineExpanded(false);
+
         AppModules.Security.recordRateLimit('msg');
         await MessageEngine.sendText(customVal);
+    }
+
+    window.confirmInlineCanvasSend = async function(viaCanvas) {
+        const activeTargetId = getActiveTargetId();
+        const input = document.getElementById('u-msg');
+        const textVal = (input?.value || '').trim();
+        setCanvasInlineExpanded(false);
+
+        if (!textVal) return;
+
+        if (viaCanvas) {
+            const canvasLink = window.canvasStudentLinks?.[activeTargetId];
+            const canvasName = canvasLink?.canvasUserName || 'Canvas user';
+            await executeCanvasSend(activeTargetId, textVal, canvasName);
+        } else {
+            AppModules.Security.recordRateLimit('msg');
+            await MessageEngine.sendText();
+        }
+    };
+
+    async function executeCanvasSend(targetId, textVal, canvasName) {
+        const input = document.getElementById('u-msg');
+        const icon = document.getElementById('sendBtnIcon');
+        const spin = document.getElementById('sendBtnSpin');
+        const sendBtn = document.getElementById('sendBtn');
+
+        if (icon) icon.classList.add('hidden');
+        if (spin) spin.classList.remove('hidden');
+        if (sendBtn) sendBtn.disabled = true;
+
+        try {
+            if (!window.canvasCallable) {
+                throw new Error('Canvas service is not initialized.');
+            }
+
+            // Format Canvas message content based on context
+            const currentUser = getCurrentUser();
+            const senderName = currentUser?.name || 'Someone';
+            let canvasBody = textVal;
+            let canvasSubject = 'CHSchat message';
+
+            if (docReplyTarget) {
+                const docTitle = docReplyTarget.docTitle || 'Google Document';
+                const docId = docReplyTarget.docId || (docReplyTarget.docUrl?.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1]);
+                const commentId = docReplyTarget.comment?.id || '';
+                const directCommentUrl = (docId && commentId)
+                    ? `https://docs.google.com/document/d/${docId}/edit?disco=${encodeURIComponent(commentId)}`
+                    : (docReplyTarget.docUrl || '');
+
+                canvasSubject = `Comment on Google Doc "${docTitle}"`;
+                canvasBody = `${senderName} commented on your Google Doc "${docTitle}" via CHShub (https://chschat.xyz):\n\nComment:\n${textVal}\n\n-----\nTo view full history or reply to this comment: ${directCommentUrl}`;
+            } else if (docNewCommentTarget) {
+                const docTitle = docNewCommentTarget.docTitle || 'Google Document';
+                const docUrl = docNewCommentTarget.docUrl || '';
+                canvasSubject = `Comment on Google Doc "${docTitle}"`;
+                canvasBody = `${senderName} commented on your Google Doc "${docTitle}" via CHShub (https://chschat.xyz):\n\nComment:\n${textVal}\n\n-----\nTo view full history or reply to this comment: ${docUrl}`;
+            } else {
+                canvasSubject = 'CHSchat message';
+                canvasBody = `${textVal}\n\n-----\n${senderName} delivered this message to you via CHShub (https://chschat.xyz)`;
+            }
+
+            // 1. Send via Canvas
+            await window.canvasCallable('sendCanvasMessage')({
+                chatUserId: targetId,
+                subject: canvasSubject,
+                body: canvasBody
+            });
+
+            // 2. Also record in CHSchat with sentViaCanvas flag
+            // Check if we are in Google Doc reply or comment mode
+            if (docReplyTarget) {
+                await MessageEngine.sendDocCommentReply(textVal, { sentViaCanvas: true });
+            } else if (docNewCommentTarget) {
+                await MessageEngine.sendDocNewComment(textVal, { sentViaCanvas: true });
+            } else {
+                const msgData = {
+                    text: textVal,
+                    type: 'text',
+                    sentViaCanvas: true
+                };
+                if (currentQuote) {
+                    msgData.quote = currentQuote;
+                    clearQuote();
+                }
+                await MessageEngine.commit(msgData);
+
+                // Clear input
+                if (input) {
+                    input.value = '';
+                    input.dispatchEvent(new Event('input'));
+                    window.Drafts?.clear(targetId);
+                }
+            }
+
+            AppModules.Security.recordRateLimit('msg');
+            return { success: true };
+        } catch (err) {
+            console.error('[CanvasSend] Failed to send canvas message:', err);
+            const msg = err?.message || 'Could not send message via Canvas. Please try again.';
+            AppModules.Modal.alert("Canvas Send Failed", msg);
+            return { success: false, error: err };
+        } finally {
+            if (icon) icon.classList.remove('hidden');
+            if (spin) spin.classList.add('hidden');
+            if (sendBtn) sendBtn.disabled = false;
+        }
     }
 
     function updateComposerPadding() {
@@ -2080,27 +2268,21 @@ export function initChatEngine(deps) {
         let draftSaveTimer = null;
 
         const adjustHeight = () => {
+            input.style.height = 'auto';
+            const styles = window.getComputedStyle(input);
+            const lineHeight = parseFloat(styles.lineHeight) || 20;
+            const padding = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
+            const singleLineHeight = Math.ceil(lineHeight + padding);
+            const computedMaxHeight = parseInt(styles.maxHeight, 10);
+
             if (!input.value) {
-                // Measure the placeholder itself.  A one-line prompt keeps a
-                // one-line composer; a wrapped prompt grows to two lines.
-                input.style.height = 'auto';
-                const styles = window.getComputedStyle(input);
-                const lineHeight = parseFloat(styles.lineHeight) || 20;
-                const padding = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
-                const singleLineHeight = Math.ceil(lineHeight + padding);
-                const computedMaxHeight = parseInt(styles.maxHeight, 10);
-                const measuredHeight = Math.max(singleLineHeight, input.scrollHeight);
-                // The empty composer follows its prompt for at most two lines;
-                // it must never grow into a tall blank box in a narrow column.
-                const twoLineHeight = Math.ceil(singleLineHeight + lineHeight);
-                input.style.height = `${Math.min(measuredHeight, twoLineHeight, computedMaxHeight || 128)}px`;
+                // When empty, keep it to exactly one line height
+                input.style.height = `${singleLineHeight}px`;
                 input.scrollTop = 0;
                 updateComposerPadding();
                 return;
             }
-            input.style.height = 'auto';
-            const computedMaxHeight = parseInt(window.getComputedStyle(input).maxHeight, 10);
-            const newHeight = Math.min(input.scrollHeight, computedMaxHeight || 128);
+            const newHeight = Math.min(Math.max(singleLineHeight, input.scrollHeight), computedMaxHeight || 128);
             input.style.height = `${newHeight}px`;
             updateComposerPadding();
         };
@@ -2110,6 +2292,10 @@ export function initChatEngine(deps) {
         };
 
         input.addEventListener('input', () => {
+            if (isCanvasInlineExpanded() && !input.value.trim()) {
+                setCanvasInlineExpanded(false);
+                updatePlaceholder();
+            }
             adjustHeight();
             if (input.value.length > 8000) {
                 if (!hasAlertedLimit) {
@@ -3448,6 +3634,7 @@ export function initChatEngine(deps) {
                                     <button type="button" role="option" data-author="teacher" aria-selected="false" onclick="window.filterPortfolioAuthor('teacher')">Teachers <span>✓</span></button>
                                     <button type="button" role="option" data-author="student" aria-selected="false" onclick="window.filterPortfolioAuthor('student')">Students <span>✓</span></button>
                                     <button type="button" role="option" data-author="peer" aria-selected="false" onclick="window.filterPortfolioAuthor('peer')">Peer Review <span>✓</span></button>
+                                    <button type="button" role="option" data-author="unknown" aria-selected="false" onclick="window.filterPortfolioAuthor('unknown')">Other / unclassified <span>✓</span></button>
                                 </div>
                             </div>
                         </div>
@@ -3942,11 +4129,11 @@ export function initChatEngine(deps) {
             });
 
             // Role badge styling
-            let roleBadgeClass = 'portfolio-teacher-badge';
-            if (item.authorRole === 'peer') {
-                roleBadgeClass = 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400';
-            } else if (item.authorRole === 'student') {
+            let roleBadgeClass = 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300';
+            if (item.authorRole === 'student') {
                 roleBadgeClass = 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400';
+            } else if (item.authorRole === 'teacher') {
+                roleBadgeClass = 'portfolio-teacher-badge';
             }
 
             let quoteHtml = '';
@@ -4116,11 +4303,11 @@ export function initChatEngine(deps) {
         setPortfolioAuthorMenuOpen(!menu?.classList.contains('is-open'));
     }
 
-    // Filter Comments View by Author (all / teacher / student / peer)
+    // Filter Comments View by Author (all / teacher / student / peer / unknown)
     function filterPortfolioAuthor(authorRole) {
         if (!window._activePortfolioData) return;
         window._activePortfolioData.authorFilter = authorRole;
-        const labels = { all: 'All authors', teacher: 'Teachers', student: 'Students', peer: 'Peer Review' };
+        const labels = { all: 'All authors', teacher: 'Teachers', student: 'Students', peer: 'Peer Review', unknown: 'Other / unclassified' };
         const label = document.getElementById('portfolioAuthorLabel');
         if (label) label.textContent = labels[authorRole] || labels.all;
         document.querySelectorAll('#portfolioAuthorMenu [data-author]').forEach(option => {

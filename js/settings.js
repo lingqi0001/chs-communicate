@@ -68,6 +68,8 @@ export const SettingsModule = {
         const offlineRow = document.getElementById('offlineNotificationsRow');
         const signOutBtn = document.getElementById('settingsSignOutBtn');
         const signInBtn = document.getElementById('settingsSignInBtn');
+        const canvasNav = document.getElementById('navCanvas');
+        const canvasSection = document.getElementById('settingsCanvasSection');
 
         if (profileLoggedIn) profileLoggedIn.classList.toggle('hidden', !isAuth);
         if (profileGuest) profileGuest.classList.toggle('hidden', isAuth);
@@ -75,6 +77,9 @@ export const SettingsModule = {
         if (offlineRow) offlineRow.classList.toggle('hidden', !isAuth);
         if (signOutBtn) signOutBtn.classList.toggle('hidden', !isAuth);
         if (signInBtn) signInBtn.classList.toggle('hidden', isAuth);
+        if (canvasNav) canvasNav.classList.toggle('hidden', !isAuth);
+        if (canvasSection) canvasSection.classList.toggle('hidden', !isAuth);
+        if (isAuth) window.refreshCanvasConnectionStatus?.();
 
         const isAdminUser = !!(AppModules.User && typeof AppModules.User.isAdmin === 'function' && AppModules.User.isAdmin());
         const navAdmin = document.getElementById('navAdmin');
@@ -403,6 +408,7 @@ export const SettingsModule = {
                         <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="themeDropdownContainer" onclick="scrollToSettingsSection('themeDropdownContainer')">Appearance</button>
                         <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsNotifSection" onclick="scrollToSettingsSection('settingsNotifSection')">Notifications</button>
                         <button id="navDevices" class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors hidden" data-target="settingsDeviceSection" onclick="scrollToSettingsSection('settingsDeviceSection')">Devices</button>
+                        <button id="navCanvas" class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors hidden" data-target="settingsCanvasSection" onclick="scrollToSettingsSection('settingsCanvasSection')">Canvas</button>
                         <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsLegalSection" onclick="scrollToSettingsSection('settingsLegalSection')">Legal</button>
                         <button class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" data-target="settingsDataSection" onclick="scrollToSettingsSection('settingsDataSection')">Data</button>
                         <button id="navAdmin" class="settings-nav w-full whitespace-normal text-left px-2 md:px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium text-red-500 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors hidden" data-target="adminPanel" onclick="scrollToSettingsSection('adminPanel')">Admin</button>
@@ -786,6 +792,31 @@ export const SettingsModule = {
                         </div>
                     </div>
 
+                    <div id="settingsCanvasSection" class="settings-section relative hidden">
+                        <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Canvas Connection</label>
+                        <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
+                            <div class="p-3.5 border-b border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="font-medium text-sm text-black dark:text-white">HCPSS Canvas</div>
+                                        <div id="canvasConnectionStatus" class="text-xs text-gray-500 dark:text-gray-400 mt-1" role="status" aria-live="polite">Not connected</div>
+                                    </div>
+                                    <button id="canvasDisconnectBtn" type="button" onclick="disconnectCanvasConnection()" class="hidden shrink-0 text-red-500 text-xs font-semibold px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors">Disconnect</button>
+                                </div>
+                                <div id="canvasConnectionIdentity" class="hidden text-[11px] text-gray-500 dark:text-gray-400 mt-2 break-words"></div>
+                            </div>
+                            <form class="p-3.5 space-y-3" onsubmit="connectCanvasToken(event)">
+                                <div>
+                                    <label for="canvasAccessTokenInput" class="font-medium text-sm text-black dark:text-white block mb-1.5">Canvas access token</label>
+                                    <input id="canvasAccessTokenInput" type="password" name="canvas-access-token" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="Paste your Canvas token" class="w-full bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl px-3.5 py-3 text-sm text-black dark:text-white outline-none focus:ring-2 focus:ring-[#007AFF]/30 focus:border-[#007AFF]">
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">Your token is checked with Canvas before it is saved. It is encrypted on the server and is never shown again. Canvas tokens may expire; reconnect with a new token when needed.</p>
+                                    <a href="https://hcpss.instructure.com/profile/settings" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-3 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs font-semibold text-[#007AFF] hover:bg-blue-50 dark:hover:bg-white/10 transition-colors">How to Generate Access Token <span aria-hidden="true">↗</span></a>
+                                </div>
+                                <button id="canvasConnectBtn" type="submit" class="w-full bg-[#007AFF] hover:bg-[#0069DB] text-white font-semibold text-sm py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed">Verify and Connect</button>
+                            </form>
+                        </div>
+                    </div>
+
                     <div id="settingsLegalSection" class="settings-section relative">
                         <label class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-2 block">Legal</label>
                         <div class="bg-gray-100 dark:bg-white/10 rounded-xl overflow-hidden">
@@ -922,6 +953,22 @@ export const SettingsModule = {
                             Tool Visit Analytics
                         </button>
                         <div id="toolAnalyticsPanel" class="hidden space-y-2"></div>
+
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 mt-6">Admin Tools Visibility</h3>
+                        <div class="p-4 bg-gray-100 dark:bg-white/5 rounded-2xl border border-gray-200/50 dark:border-white/5 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-bold text-sm text-black dark:text-white">Admin Tools in Tools Tab</div>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">Eagle Time, CHS Info, Marketplace</p>
+                                </div>
+                                <span id="adminToolsStatusBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-300">Hidden</span>
+                            </div>
+                            <div id="adminToolsTimerNotice" class="text-xs text-amber-600 dark:text-amber-400 hidden"></div>
+                            <button id="adminToolsTemporaryToggleBtn" onclick="toggleAdminToolsTemporaryAccess()"
+                                class="w-full bg-[#007AFF] hover:bg-[#0062cc] text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all">
+                                Reveal for 30 Minutes
+                            </button>
+                        </div>
                     </div>
                     </div>
                 </div>
@@ -1808,6 +1855,465 @@ window.toggleToolAnalytics = async () => {
         renderToolAnalytics();
     } catch (e) {
         panel.innerHTML = '<div class="text-xs text-red-500 text-center py-3">Failed to load visit data</div>';
+    }
+};
+
+let _adminToolsCountdownTimer = null;
+
+window.updateAdminToolsCountdownUI = () => {
+    const badge = document.getElementById('adminToolsStatusBadge');
+    const notice = document.getElementById('adminToolsTimerNotice');
+    const btn = document.getElementById('adminToolsTemporaryToggleBtn');
+    if (!badge && !notice && !btn) return;
+
+    const exp = parseInt(localStorage.getItem('adminToolsUnlockedUntil') || '0', 10);
+    const remainingMs = exp - Date.now();
+    const isUnlocked = remainingMs > 0;
+
+    if (isUnlocked) {
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        if (badge) {
+            badge.textContent = `Active (${remainingMin}m)`;
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400';
+        }
+        if (notice) {
+            notice.textContent = `Admin tools currently visible. Automatically hides in ${remainingMin} min.`;
+            notice.classList.remove('hidden');
+        }
+        if (btn) {
+            btn.textContent = 'Hide Immediately';
+            btn.className = 'w-full bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-black dark:text-white py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98]';
+        }
+
+        if (!_adminToolsCountdownTimer) {
+            _adminToolsCountdownTimer = setInterval(() => {
+                const nowRemaining = parseInt(localStorage.getItem('adminToolsUnlockedUntil') || '0', 10) - Date.now();
+                if (nowRemaining <= 0) {
+                    clearInterval(_adminToolsCountdownTimer);
+                    _adminToolsCountdownTimer = null;
+                    localStorage.removeItem('adminToolsUnlockedUntil');
+                    window.updateAdminToolsVisibility?.();
+                } else {
+                    window.updateAdminToolsCountdownUI();
+                }
+            }, 30000);
+        }
+    } else {
+        if (_adminToolsCountdownTimer) {
+            clearInterval(_adminToolsCountdownTimer);
+            _adminToolsCountdownTimer = null;
+        }
+        if (badge) {
+            badge.textContent = 'Hidden';
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-300';
+        }
+        if (notice) {
+            notice.textContent = '';
+            notice.classList.add('hidden');
+        }
+        if (btn) {
+            btn.textContent = 'Reveal for 30 Minutes';
+            btn.className = 'w-full bg-[#007AFF] hover:bg-[#0062cc] text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all';
+        }
+    }
+};
+
+window.toggleAdminToolsTemporaryAccess = () => {
+    const exp = parseInt(localStorage.getItem('adminToolsUnlockedUntil') || '0', 10);
+    const isUnlocked = Date.now() < exp;
+    if (isUnlocked) {
+        localStorage.removeItem('adminToolsUnlockedUntil');
+        if (window.AppModules?.Modal?.toast) {
+            window.AppModules.Modal.toast('Admin tools hidden', 'info');
+        }
+    } else {
+        const thirtyMinutesLater = Date.now() + 30 * 60 * 1000;
+        localStorage.setItem('adminToolsUnlockedUntil', String(thirtyMinutesLater));
+        if (window.AppModules?.Modal?.toast) {
+            window.AppModules.Modal.toast('Admin tools visible for 30 minutes', 'success');
+        }
+    }
+    window.updateAdminToolsVisibility?.();
+};
+
+let _canvasStatusPromise = null;
+let _canvasStatusLoadedAt = 0;
+
+function setCanvasConnectionStatus(message, tone = 'neutral') {
+    const status = document.getElementById('canvasConnectionStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-600', 'dark:text-green-400', 'text-red-500', 'dark:text-red-400');
+    if (tone === 'success') status.classList.add('text-green-600', 'dark:text-green-400');
+    else if (tone === 'error') status.classList.add('text-red-500', 'dark:text-red-400');
+    else status.classList.add('text-gray-500', 'dark:text-gray-400');
+}
+
+function canvasCallable(name) {
+    if (window.httpsCallable && window.firebaseFunctions) {
+        return window.httpsCallable(window.firebaseFunctions, name);
+    }
+    if (window.firebase?.functions) {
+        return window.firebase.functions().httpsCallable(name);
+    }
+    throw new Error('Canvas connection service is not ready. Refresh CHSchat and try again.');
+}
+window.canvasCallable = canvasCallable;
+
+window.canvasConnectionActive = window.canvasConnectionActive === true;
+window.canvasStudentLinks = window.canvasStudentLinks || {};
+let _canvasLinksPromise = null;
+let _canvasLinksLoadedAt = 0;
+
+window.refreshCanvasStudentLinks = async (force = false) => {
+    if (!window.canvasConnectionActive) return {};
+    if (_canvasLinksPromise) return _canvasLinksPromise;
+    if (!force && Date.now() - _canvasLinksLoadedAt < 60_000) return window.canvasStudentLinks;
+    _canvasLinksPromise = (async () => {
+        try {
+            const result = await canvasCallable('getCanvasStudentLinks')({});
+            window.canvasStudentLinks = result.data?.links || {};
+            _canvasLinksLoadedAt = Date.now();
+            window.dispatchEvent(new CustomEvent('canvas-student-links-updated'));
+            return window.canvasStudentLinks;
+        } catch (err) {
+            console.warn('Could not load Canvas student links:', err);
+            return window.canvasStudentLinks;
+        } finally {
+            _canvasLinksPromise = null;
+        }
+    })();
+    return _canvasLinksPromise;
+};
+
+function setCanvasConnectionActive(active) {
+    const next = active === true;
+    const changed = window.canvasConnectionActive !== next;
+    window.canvasConnectionActive = next;
+    if (!next) {
+        window.canvasStudentLinks = {};
+        _canvasLinksLoadedAt = 0;
+    }
+    if (changed) window.dispatchEvent(new CustomEvent('canvas-student-links-updated'));
+    if (next) window.refreshCanvasStudentLinks?.();
+}
+
+function setCanvasStudentModalButtons({ showClose = true, showUnlink = false, showDone = false, onUnlink = null, onDone = null } = {}) {
+    const Modal = window.AppModules?.Modal;
+    const els = Modal?._getEls?.();
+    if (!els) return null;
+    els.cancel.classList.toggle('hidden', !showClose);
+    els.cancel.innerText = 'Close';
+    els.cancel.onclick = () => Modal._close(false);
+    els.alt.classList.toggle('hidden', !showUnlink);
+    els.alt.innerText = 'Unlink';
+    els.alt.onclick = onUnlink || (() => Modal._close(false));
+    els.confirm.classList.toggle('hidden', !showDone);
+    els.confirm.innerText = 'Done';
+    els.confirm.onclick = onDone || (() => Modal._close(true));
+    return els;
+}
+
+function prepareCanvasStudentModal() {
+    const Modal = window.AppModules?.Modal;
+    const els = Modal?._getEls?.();
+    if (!els) throw new Error('The CHSchat dialog is not available.');
+    els.inner.style.maxWidth = '760px';
+    if (els.title.parentElement) els.title.parentElement.className = 'p-5';
+    els.title.className = 'text-lg font-semibold text-black dark:text-white text-left leading-tight';
+    els.body.className = 'text-sm text-black/80 dark:text-white/70 leading-snug break-words text-left max-h-[68vh] overflow-y-auto';
+    return els;
+}
+
+function renderCanvasStudentMatchBody(els, chatUser, data, searchValue, busy = false) {
+    const escape = value => window.escapeHTML(String(value || ''));
+    const existing = data?.existingLink;
+    const matches = Array.isArray(data?.matches) ? data.matches : [];
+    const searchBox = `
+        <div class="mb-4">
+            <label for="canvasStudentSearchInput" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Search Canvas Inbox recipients</label>
+            <div class="flex gap-2">
+                <input id="canvasStudentSearchInput" type="search" value="${escape(searchValue || '')}" placeholder="Name or HCPSS email" autocomplete="off" class="min-w-0 flex-1 bg-gray-100 dark:bg-black/25 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-black dark:text-white outline-none focus:ring-2 focus:ring-[#007AFF]/25 focus:border-[#007AFF]" ${busy ? 'disabled' : ''}>
+                <button type="button" data-canvas-student-search class="shrink-0 px-4 rounded-xl bg-[#007AFF] text-white text-sm font-semibold hover:bg-[#0069DB] disabled:opacity-50" ${busy ? 'disabled' : ''}>Search</button>
+            </div>
+        </div>`;
+    const linkedBanner = existing ? `
+        <div class="mb-4 p-3 rounded-xl border border-green-200 dark:border-green-500/20 bg-green-50 dark:bg-green-500/10">
+            <div class="text-[10px] uppercase tracking-wide font-bold text-green-700 dark:text-green-400 mb-1">Currently linked</div>
+            <div class="font-semibold text-sm text-black dark:text-white">${escape(existing.canvasUserName)}</div>
+        </div>` : '';
+    let results = '';
+    if (busy) {
+        results = '<div class="py-8 flex items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400"><span class="sidebar-spinner"></span>Searching Canvas recipients…</div>';
+    } else if (!matches.length) {
+        results = '<div class="p-4 rounded-xl bg-gray-50 dark:bg-white/5 text-sm text-gray-500 dark:text-gray-400">No matching Canvas Inbox recipient found. Try the person’s Canvas display name or school email.</div>';
+    } else {
+        results = `<div>
+            <div class="flex items-center justify-between gap-3 mb-1">
+                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400">Recommended matches</div>
+                <div class="text-[10px] text-gray-400">${matches.length} result${matches.length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">${matches.map((match, index) => {
+                const isCurrent = String(existing?.canvasUserId || '') === String(match.canvasUserId);
+                const tone = match.confidence === 'high'
+                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-500/10'
+                    : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10';
+                return `<article class="p-3.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] min-w-0">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="font-semibold text-sm text-black dark:text-white break-words min-w-0">${escape(match.name)}</div>
+                        <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${tone}">${escape(match.reason)}</span>
+                    </div>
+                    <button type="button" data-canvas-link-candidate="${index}" class="mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${isCurrent ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-[#007AFF]'}" ${busy || isCurrent ? 'disabled' : ''}>${isCurrent ? 'Already linked' : existing ? 'Update link' : 'Link this person'}</button>
+                </article>`;
+            }).join('')}</div>
+        </div>`;
+    }
+    els.body.innerHTML = `
+        <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">Match CHSchat's <span class="font-semibold text-gray-700 dark:text-gray-200">${escape(chatUser.name)}</span> to a Canvas account you can message. Search by name or email.</div>
+        ${linkedBanner}
+        ${searchBox}
+        ${results}
+    `;
+}
+
+function setCanvasStudentModalStatus(els, title, body, success = false) {
+    els.title.textContent = title;
+    els.body.innerHTML = `<div class="p-4 rounded-xl ${success ? 'bg-green-50 dark:bg-green-500/10 text-green-800 dark:text-green-300' : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300'}">${window.escapeHTML(body)}</div>`;
+}
+
+window.openCanvasStudentLink = async (chatUserId, fallbackName = 'Student', fallbackEmail = '', options = {}) => {
+    const Modal = window.AppModules?.Modal;
+    if (!window.canvasConnectionActive || !Modal?._open || !(window.httpsCallable || window.firebase?.functions)) return;
+    const isGlobal = Boolean(options?.isGlobal || window.AppModules?.User?.isAdmin?.());
+    const chatUser = { name: fallbackName, email: fallbackEmail };
+    let data = null;
+    let searchValue = chatUser.name;
+    let els;
+    try {
+        els = prepareCanvasStudentModal();
+        els.title.textContent = isGlobal ? 'Link Canvas user (Global / Admin)' : 'Link Canvas user';
+        els.body.innerHTML = '<div class="py-10 flex items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400"><span class="sidebar-spinner"></span>Finding Canvas matches…</div>';
+        setCanvasStudentModalButtons({ showClose: true });
+        Modal._open('canvasStudentLink');
+        const response = await canvasCallable('getCanvasStudentMatches')({ chatUserId });
+        data = response.data || {};
+        if (data.chatUser?.name) chatUser.name = data.chatUser.name;
+        if (data.chatUser?.email) chatUser.email = data.chatUser.email;
+        searchValue = chatUser.name;
+        const render = (busy = false) => {
+            els.title.textContent = isGlobal ? 'Link Canvas user (Global / Admin)' : 'Link Canvas user';
+            renderCanvasStudentMatchBody(els, chatUser, data, searchValue, busy);
+            const hasLink = !!data.existingLink;
+            setCanvasStudentModalButtons({
+                showClose: true,
+                showUnlink: hasLink,
+                onUnlink: async () => {
+                    const unlinkButton = els.alt;
+                    unlinkButton.disabled = true;
+                    unlinkButton.textContent = 'Unlinking…';
+                    try {
+                        await canvasCallable('removeCanvasStudentLink')({ chatUserId, isGlobal });
+                        delete window.canvasStudentLinks[chatUserId];
+                        data.existingLink = null;
+                        window.dispatchEvent(new CustomEvent('canvas-student-links-updated'));
+                        els.title.textContent = 'Canvas link removed';
+                        setCanvasStudentModalStatus(els, 'Canvas link removed', `${chatUser.name} is no longer linked to a Canvas user.`, true);
+                        setCanvasStudentModalButtons({ showClose: false, showDone: true });
+                    } catch (err) {
+                        unlinkButton.disabled = false;
+                        unlinkButton.textContent = 'Unlink';
+                        let notice = els.body.querySelector('[data-canvas-unlink-error]');
+                        if (!notice) {
+                            notice = document.createElement('div');
+                            notice.dataset.canvasUnlinkError = 'true';
+                            notice.className = 'mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 text-xs text-red-700 dark:text-red-300';
+                            els.body.prepend(notice);
+                        }
+                        notice.textContent = err?.message || 'Could not remove the link. Try again.';
+                    }
+                }
+            });
+            els.body.querySelector('[data-canvas-student-search]')?.addEventListener('click', async () => {
+                const input = els.body.querySelector('#canvasStudentSearchInput');
+                const nextQuery = String(input?.value || '').trim();
+                if (!nextQuery) {
+                    input?.focus();
+                    return;
+                }
+                searchValue = nextQuery;
+                renderCanvasStudentMatchBody(els, chatUser, data, searchValue, true);
+                try {
+                    const next = await canvasCallable('getCanvasStudentMatches')({ chatUserId, query: nextQuery });
+                    data = next.data || {};
+                    if (data.chatUser?.name) chatUser.name = data.chatUser.name;
+                    render(false);
+                } catch (err) {
+                    renderCanvasStudentMatchBody(els, chatUser, { ...data, matches: [] }, searchValue, false);
+                    const notice = document.createElement('div');
+                    notice.className = 'mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 text-xs text-red-700 dark:text-red-300';
+                    notice.textContent = err?.message || 'Canvas search failed. Try again.';
+                    els.body.appendChild(notice);
+                }
+            });
+            els.body.querySelector('#canvasStudentSearchInput')?.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    els.body.querySelector('[data-canvas-student-search]')?.click();
+                }
+            });
+            els.body.querySelectorAll('[data-canvas-link-candidate]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const candidate = data.matches?.[Number(button.dataset.canvasLinkCandidate)];
+                    if (!candidate) return;
+                    button.disabled = true;
+                    button.textContent = 'Verifying and linking…';
+                    try {
+                        const result = await canvasCallable('saveCanvasStudentLink')({
+                            chatUserId,
+                            canvasUserId: candidate.canvasUserId,
+                            isGlobal
+                        });
+                        const link = result.data?.link || {};
+                        window.canvasStudentLinks[chatUserId] = {
+                            canvasUserId: String(link.canvasUserId || candidate.canvasUserId),
+                            canvasUserName: String(link.canvasUserName || candidate.name),
+                            isGlobal
+                        };
+                        window.dispatchEvent(new CustomEvent('canvas-student-links-updated'));
+                        els.title.textContent = 'Canvas user linked';
+                        setCanvasStudentModalStatus(els, 'Canvas user linked', `${chatUser.name} is now linked to ${link.canvasUserName || candidate.name}${link.canvasUserEmail ? ` (${link.canvasUserEmail})` : ''}.${isGlobal ? ' (Saved globally for all users)' : ''}`, true);
+                        setCanvasStudentModalButtons({ showClose: false, showDone: true });
+                    } catch (err) {
+                        button.disabled = false;
+                        button.textContent = data.existingLink ? 'Yes, update this match' : 'Yes, link this person';
+                        let notice = button.parentElement.querySelector('[data-canvas-link-error]');
+                        if (!notice) {
+                            notice = document.createElement('div');
+                            notice.dataset.canvasLinkError = 'true';
+                            notice.className = 'mt-2 text-xs text-red-600 dark:text-red-400';
+                            button.insertAdjacentElement('afterend', notice);
+                        }
+                        notice.textContent = err?.message || 'Canvas could not verify this recipient. Search again.';
+                    }
+                });
+            });
+        };
+        render(false);
+    } catch (err) {
+        if (els) {
+            setCanvasStudentModalStatus(els, 'Canvas search failed', err?.message || 'Could not search Canvas.');
+            setCanvasStudentModalButtons({ showClose: false, showDone: true });
+        } else {
+            await Modal.alert('Canvas search failed', window.escapeHTML(err?.message || 'Could not search Canvas.'));
+        }
+    }
+};
+
+function renderCanvasConnection(data) {
+    const identity = document.getElementById('canvasConnectionIdentity');
+    const disconnect = document.getElementById('canvasDisconnectBtn');
+    if (!identity || !disconnect) return;
+    if (data?.connected && data.canvasUser) {
+        setCanvasConnectionActive(true);
+        const name = String(data.canvasUser.name || 'Canvas user');
+        const email = String(data.canvasUser.email || '');
+        identity.textContent = email ? `Connected as ${name} · ${email}` : `Connected as ${name}`;
+        identity.classList.remove('hidden');
+        disconnect.classList.remove('hidden');
+        setCanvasConnectionStatus('Connected and verified with Canvas', 'success');
+    } else if (data?.needsReconnect) {
+        setCanvasConnectionActive(false);
+        identity.textContent = data.canvasUserName ? `Previous connection: ${data.canvasUserName}` : '';
+        identity.classList.toggle('hidden', !data.canvasUserName);
+        disconnect.classList.remove('hidden');
+        setCanvasConnectionStatus('Token expired or revoked. Connect again with a new token.', 'error');
+    } else {
+        setCanvasConnectionActive(false);
+        identity.textContent = '';
+        identity.classList.add('hidden');
+        disconnect.classList.add('hidden');
+        setCanvasConnectionStatus('Not connected');
+    }
+}
+
+window.refreshCanvasConnectionStatus = async (force = false) => {
+    if (_canvasStatusPromise) return _canvasStatusPromise;
+    if (!force && Date.now() - _canvasStatusLoadedAt < 60_000) return;
+    setCanvasConnectionStatus('Checking saved Canvas connection…');
+    _canvasStatusPromise = (async () => {
+        try {
+            const result = await canvasCallable('getCanvasConnectionStatus')({});
+            renderCanvasConnection(result.data || {});
+            _canvasStatusLoadedAt = Date.now();
+        } catch (err) {
+            const code = String(err?.code || '');
+            const message = code.includes('functions/internal') || code.includes('functions/unavailable')
+                ? 'Canvas service could not be reached. The Firebase function may not be deployed or reachable from this site.'
+                : (err?.message || 'Could not check Canvas connection.');
+            setCanvasConnectionStatus(message, 'error');
+        } finally {
+            // Avoid firing a new request on every settings re-render when the
+            // remote callable is unavailable (for example, before deployment).
+            _canvasStatusLoadedAt = Date.now();
+            _canvasStatusPromise = null;
+        }
+    })();
+    return _canvasStatusPromise;
+};
+
+window.connectCanvasToken = async (event) => {
+    event?.preventDefault?.();
+    const input = document.getElementById('canvasAccessTokenInput');
+    const button = document.getElementById('canvasConnectBtn');
+    const token = String(input?.value || '').trim();
+    if (!token) {
+        setCanvasConnectionStatus('Paste a Canvas access token first.', 'error');
+        input?.focus();
+        return;
+    }
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Verifying with Canvas…';
+    }
+    setCanvasConnectionStatus('Verifying token with HCPSS Canvas…');
+    try {
+        const result = await canvasCallable('connectCanvasToken')({ token });
+        renderCanvasConnection(result.data || {});
+        if (input) input.value = '';
+        _canvasStatusLoadedAt = Date.now();
+    } catch (err) {
+        const code = String(err?.code || '');
+        if (code.includes('invalid-argument')) setCanvasConnectionStatus('Canvas rejected this token. Check it and try again.', 'error');
+        else if (code.includes('permission-denied')) setCanvasConnectionStatus('Canvas denied access. Check the token or account permissions.', 'error');
+        else if (code.includes('failed-precondition')) setCanvasConnectionStatus('Canvas token storage is not configured yet. Ask the CHSchat administrator to finish setup.', 'error');
+        else if (code.includes('functions/internal') || code.includes('functions/unavailable')) {
+            setCanvasConnectionStatus('Firebase could not reach the Canvas connection function. It may not be deployed yet.', 'error');
+        } else setCanvasConnectionStatus(err?.message || 'Could not verify the token. Try again.', 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Verify and Connect';
+        }
+    }
+};
+
+window.disconnectCanvasConnection = async () => {
+    const Modal = window.AppModules?.Modal;
+    const confirmed = Modal?.confirm
+        ? await Modal.confirm('Disconnect Canvas', 'CHSchat will delete its saved encrypted token. You can revoke the token separately in Canvas.', 'Disconnect', 'Cancel')
+        : window.confirm('Disconnect Canvas? CHSchat will delete its saved encrypted token.');
+    if (!confirmed) return;
+    const button = document.getElementById('canvasDisconnectBtn');
+    if (button) button.disabled = true;
+    setCanvasConnectionStatus('Disconnecting Canvas…');
+    try {
+        await canvasCallable('disconnectCanvas')({});
+        renderCanvasConnection({ connected: false });
+        _canvasStatusLoadedAt = Date.now();
+    } catch (err) {
+        setCanvasConnectionStatus(err?.message || 'Could not disconnect Canvas.', 'error');
+    } finally {
+        if (button) button.disabled = false;
     }
 };
 

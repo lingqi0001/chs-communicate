@@ -121,10 +121,13 @@ export const ModalModule = {
 
         this._timer = setTimeout(() => {
             modal.classList.add('hidden');
-            // 清理事件监听，防止内存泄漏和逻辑重叠
+            // 清理事件监听和状态，防止内存泄漏和逻辑重叠
             cancel.onclick = null;
             alt.onclick = null;
             confirm.onclick = null;
+            cancel.disabled = false;
+            alt.disabled = false;
+            confirm.disabled = false;
             this._timer = null;
 
             if (resolve) resolve(val);
@@ -134,6 +137,12 @@ export const ModalModule = {
         this._failsafeTimer = setTimeout(() => {
             if (modal && !modal.classList.contains('hidden')) {
                 modal.classList.add('hidden');
+                cancel.onclick = null;
+                alt.onclick = null;
+                confirm.onclick = null;
+                cancel.disabled = false;
+                alt.disabled = false;
+                confirm.disabled = false;
                 this._failsafeTimer = null;
                 if (resolve) resolve(val);
             }
@@ -165,8 +174,13 @@ export const ModalModule = {
         const els = this._getEls();
         if (!els) return;
 
-        const { modal, inner } = els;
+        const { modal, inner, confirm, cancel, alt } = els;
         
+        // 确保按钮可用状态重置
+        if (confirm) confirm.disabled = false;
+        if (cancel) cancel.disabled = false;
+        if (alt) alt.disabled = false;
+
         // 清除旧定时器
         if (this._timer) {
             clearTimeout(this._timer);
@@ -312,15 +326,27 @@ export const ModalModule = {
             if (buttons.length >= 1) {
                 els.confirm.classList.remove('hidden');
                 els.confirm.innerText = buttons[0].text;
-                els.confirm.className = `flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
-                els.confirm.onclick = () => this._close(buttons[0].value, resolve);
+                els.confirm.className = buttons[0].className || `flex-1 text-base text-[#007AFF] font-normal active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
+                els.confirm.onclick = async () => {
+                    if (typeof buttons[0].onClick === 'function') {
+                        const shouldClose = await buttons[0].onClick(els);
+                        if (shouldClose === false) return;
+                    }
+                    this._close(buttons[0].value, resolve);
+                };
             }
 
             if (buttons.length >= 2) {
                 els.cancel.classList.remove('hidden');
                 els.cancel.innerText = buttons[1].text;
-                els.cancel.className = `flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
-                els.cancel.onclick = () => this._close(buttons[1].value, resolve);
+                els.cancel.className = buttons[1].className || `flex-1 text-base text-[#007AFF] font-normal border-r border-black/10 dark:border-white/10 active:bg-gray-200/50 dark:active:bg-white/5 transition-colors`;
+                els.cancel.onclick = async () => {
+                    if (typeof buttons[1].onClick === 'function') {
+                        const shouldClose = await buttons[1].onClick(els);
+                        if (shouldClose === false) return;
+                    }
+                    this._close(buttons[1].value, resolve);
+                };
             }
 
             this._open('custom');

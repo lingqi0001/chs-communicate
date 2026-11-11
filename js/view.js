@@ -1435,9 +1435,11 @@ export const ViewModule = {
         // 处理新闻子标签显示
         const subTabs = document.getElementById('newsSubTabsWrapper');
         const addBtn = document.getElementById('addAnnouncementBtn');
+        // Only layouts with a dedicated Tools column keep the Hub selector
+        // visible while Tools is selected. A wide three-panel layout still
+        // shares this header between Hub and Tools.
         const isMultiPanel = document.body.classList.contains('four-panel-layout') ||
-            document.body.classList.contains('is-guest-three-panel') ||
-            (window.innerWidth >= 1280 && !document.body.classList.contains('compact-four-panel-layout'));
+            document.body.classList.contains('is-guest-three-panel');
         if (subTabs) {
             if (tab === 'news' || isMultiPanel) {
                 subTabs.style.height = '36px'; subTabs.style.opacity = '1'; subTabs.style.marginTop = '0.75rem';

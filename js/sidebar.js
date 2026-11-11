@@ -38,6 +38,10 @@ export const SidebarModule = {
         // Keep local mirror in sync with legacy globals.
         this.state.mode = window.sidebarMode || this.state.mode;
         this.state.currentClassId = window.currentClassId || null;
+        window.addEventListener('canvas-student-links-updated', () => {
+            this._renderStateKey = null;
+            this.renderSidebar();
+        });
     },
 
     configureRuntime(runtime = {}) {
@@ -296,6 +300,10 @@ export const SidebarModule = {
         // Preview data follows the authenticated renderer exactly.  Only its
         // runtime source is local and fixed; real authentication stays false.
         const isGuest = !currentUser || (!window.isLoggedIn && !window.isChatPreview);
+
+        if (!isGuest && !window.isChatPreview && (window.httpsCallable || window.firebase?.functions)) {
+            window.refreshCanvasConnectionStatus?.();
+        }
 
         this._isRenderingFlag = true;
         try {
@@ -1355,14 +1363,14 @@ export const SidebarModule = {
                 // class data and can never be switched off, so it renders first.
                 const joinLinkRow = `
                     <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.5-1.5m2.672-2.656a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.5 1.5" />
                             </svg>
                         </div>
-                        <div>
-                            <div class="font-bold text-sm text-black dark:text-white">Add Doc Link Accessible For Everyone</div>
-                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">Students can upload their Google Docs</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm text-black dark:text-white truncate">Add Doc Link Accessible For Everyone</div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Students can upload their Google Docs</div>
                         </div>
                     </div>
                 `;
@@ -1376,14 +1384,14 @@ export const SidebarModule = {
                             if (regItem) {
                                 innerHtml += `
                                     <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                             </svg>
                                         </div>
-                                        <div>
-                                            <div class="font-bold text-sm text-black dark:text-white">${window.escapeHTML(regItem.title)}</div>
-                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight">${window.escapeHTML(regItem.category || 'Extension Tool')}</div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(regItem.title)}</div>
+                                            <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">${window.escapeHTML(regItem.category || 'Extension Tool')}</div>
                                         </div>
                                     </div>
                                 `;
@@ -1437,7 +1445,7 @@ export const SidebarModule = {
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">
                                         ${window.escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
                                     </div>
-                                    <div class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(u.email || u.id)}${badge}</div>
+                                    <div class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || u.id))}${badge}</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 pr-5">
@@ -1646,7 +1654,7 @@ export const SidebarModule = {
                         div.innerHTML = `
                             <div class="flex flex-col overflow-hidden">
                                 <span class="font-bold text-sm text-black dark:text-white truncate flex items-center">${window.escapeHTML(u.name || id)}</span>
-                                <span class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(u.email || id)}${badge}</span>
+                                <span class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || id))}${badge}</span>
                             </div>
                         `;
                         subList.appendChild(div);
@@ -1795,7 +1803,10 @@ export const SidebarModule = {
                 // Sync and tab navigation can finish their reads in the same
                 // frame.  If they resolve to the same visible list, retaining
                 // the DOM prevents the second paint from replaying the list.
-                const listSignature = `${listMode}|${activeTargetId || ''}|${sortedIds.join('|')}`;
+                const canvasLinkSignature = window.canvasConnectionActive
+                    ? Object.keys(window.canvasStudentLinks || {}).sort().join(',')
+                    : '';
+                const listSignature = `${listMode}|${activeTargetId || ''}|${sortedIds.join('|')}|canvas:${window.canvasConnectionActive ? 1 : 0}:${canvasLinkSignature}`;
                 if (subList.dataset.sidebarListSignature === listSignature) {
                     if (this._subListLoadingTimer) {
                         clearTimeout(this._subListLoadingTimer);
@@ -1811,6 +1822,7 @@ export const SidebarModule = {
                 let displayEmail = id;
                 let avatarHtml = '';
                 let badge = '';
+                let user = null;
 
                 if (id.startsWith('group_')) {
                     const classId = id.replace('group_', '');
@@ -1827,7 +1839,7 @@ export const SidebarModule = {
                     const iconToUse = isDisbanded || (window.isSyncDone && !isParticipant) ? (rt.eagleIconBw || '') : (rt.eagleIcon || '');
                     avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-xl flex items-center justify-center p-2">${iconToUse}</div>`;
                 } else {
-                    const user = window.ALL_USERS[id];
+                    user = window.ALL_USERS[id];
                     if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
                         const extName = (rt.extensionIdFromTarget ? rt.extensionIdFromTarget(id) : id).replace(/_/g, ' ');
                         displayName = user?.name || extName.replace(/\b\w/g, c => c.toUpperCase());
@@ -1841,7 +1853,7 @@ export const SidebarModule = {
                         `;
                     } else {
                         displayName = user?.name || id;
-                        displayEmail = user?.email || id;
+                        displayEmail = (window.formatDisplayEmail ? window.formatDisplayEmail(user?.email) : user?.email) || id;
                     }
  
                     const isAdminUser = user ? (user.role === 'admin' || user.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL) : false;
@@ -1855,6 +1867,13 @@ export const SidebarModule = {
                 const div = document.createElement('div');
                 div.id = `item-${id}`;
                 const isGroup = id.startsWith('group_');
+                const userRole = String(user?.role || '').toLowerCase();
+                const userEmail = String(user?.email || '').trim().toLowerCase();
+                const isCanvasLinkableUser = !isGroup && !(rt.isExtensionTargetId && rt.isExtensionTargetId(id)) && !!user &&
+                    !!userEmail &&
+                    userRole !== 'bot';
+                const canLinkCanvas = isCanvasLinkableUser && window.canvasConnectionActive === true;
+                const canvasLink = canLinkCanvas ? window.canvasStudentLinks?.[id] : null;
                 div.className = isGroup
                     ? `p-4 px-6 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`
                     : `p-3 pl-5 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-colors group ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}`;
@@ -1914,11 +1933,24 @@ export const SidebarModule = {
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="dot-${id}" class="w-2 h-2 bg-[#007AFF] rounded-full ${window.AppModules.Notify.isUnread(id) ? '' : 'hidden'}"></span>
+                        ${canLinkCanvas ? `
+                        <button type="button" data-canvas-link-action class="relative p-2 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-70 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto ${canvasLink ? 'text-green-600 dark:text-green-400 hover:bg-green-500/10' : 'text-gray-400 hover:text-[#007AFF] hover:bg-[#007AFF]/10'}" title="${canvasLink ? `Linked to Canvas: ${window.escapeHTML(canvasLink.canvasUserName || 'User')}` : 'Find and link Canvas user'}" aria-label="${canvasLink ? 'View or change Canvas user link' : 'Find and link Canvas user'}">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.72-1.71" /></svg>
+                                ${canvasLink ? '<span class="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-green-500 border border-white dark:border-[#1C1C1E]"></span>' : ''}
+                            </button>
+                        ` : ''}
                         <button onclick="event.stopPropagation(); deleteChatRecord('${id}')" class="opacity-0 group-hover:opacity-60 p-2 text-gray-400 hover:text-red-500 transition-all cursor-pointer pointer-events-none group-hover:pointer-events-auto" title="Remove Chat">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
                 `;
+                const canvasLinkButton = div.querySelector('[data-canvas-link-action]');
+                if (canvasLinkButton) {
+                    canvasLinkButton.addEventListener('click', event => {
+                        event.stopPropagation();
+                        window.openCanvasStudentLink?.(id, displayName, displayEmail);
+                    });
+                }
                     fragment.appendChild(div);
                 }
                 if (this._subListLoadingTimer) {
@@ -1958,12 +1990,26 @@ export const SidebarModule = {
     openClassJoinLink(classId) {
         const link = `${location.origin}/join.html?class=${classId}`;
         const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
-        tEl.innerText = 'Add Doc Link Accessible For Everyone';
+        tEl.innerText = 'Student Document Submission Link';
         bEl.innerHTML = `
-            <div class="space-y-3 text-left">
-                <p class="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">This extension is built into every class and cannot be turned off. Students open the link, enter their school email and name, then submit a Google Doc shared at Commenter level. They join the class roster automatically and their document is sent straight to you.</p>
-                <input type="text" id="classJoinLinkInput" readonly value="${window.escapeHTML(link)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-sm text-black dark:text-white select-all">
-                <p class="text-[11px] text-gray-400">No sign-in needed. Anyone with the link can join, any time.</p>
+            <div class="space-y-3.5 text-left">
+                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this link with your students. Anyone with the link can submit a Google Doc directly into your class without needing an existing CHShub account.</p>
+                <div class="p-3 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <div class="flex items-start gap-2">
+                        <span class="text-[#007AFF] font-bold">1.</span>
+                        <span>Students enter their school email and name, then paste their Google Doc link.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-[#007AFF] font-bold">2.</span>
+                        <span>They automatically join your class roster, and their document is delivered straight into your 1-on-1 chat.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-[#007AFF] font-bold">3.</span>
+                        <span>When they later sign in to CHShub, their full writing portfolio and comments sync automatically.</span>
+                    </div>
+                </div>
+                <input type="text" id="classJoinLinkInput" readonly value="${window.escapeHTML(link)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-sm text-black dark:text-white select-all font-mono">
+                <p class="text-[11px] text-gray-400">No account required to submit · Works for any student with this class link.</p>
             </div>
         `;
         cancelBtn.classList.remove('hidden');
@@ -2059,7 +2105,7 @@ export const SidebarModule = {
                     <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                         <div class="flex flex-col overflow-hidden mr-4">
                             <span class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(u.name)}</span>
-                            <span class="text-xs text-gray-400 truncate">${window.escapeHTML(u.email || u.id)}</span>
+                            <span class="text-xs text-gray-400 truncate">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || u.id))}</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" class="sr-only peer" ${selectedIds.has(u.id) ? 'checked' : ''} onchange="toggleStudentSelection('${u.id}', this.checked)">

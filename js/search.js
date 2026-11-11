@@ -1013,7 +1013,7 @@ export const SearchModule = {
                                     const escapedId = escapeForInlineHandler(u.id);
                                     chunk += `<div onclick="switchChat('${escapedId}'); triggerAddHistory('${escapedTerm}'); clearGlobalSearch();" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer border-b border-gray-50 dark:border-white/5 last:border-0 transition-colors">
                                         <img src="${avatar}" class="w-9 h-9 rounded-full shadow-sm object-cover">
-                                        <div><div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${window.escapeHTML(u.email)}</div></div>
+                                        <div><div class="font-semibold text-sm text-black dark:text-white">${window.escapeHTML(u.name)}</div><div class="text-xs text-gray-400">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : u.email)}</div></div>
                                     </div>`;
                                 });
                                 appendHtml(chunk);

@@ -1,6 +1,486 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 admin.initializeApp();
+
+// Single-institution Canvas connection. The token is accepted and used only by
+// callable functions; the browser never receives the stored credential back.
+const CANVAS_API_BASE = 'https://hcpss.instructure.com/api/v1';
+
+function getCanvasEncryptionKey() {
+    const encoded = String(process.env.CANVAS_TOKEN_ENCRYPTION_KEY || '').trim();
+    const key = Buffer.from(encoded, 'base64');
+    if (key.length !== 32) {
+        throw new functions.https.HttpsError(
+            'failed-precondition',
+            'Canvas token storage is not configured on the server.'
+        );
+    }
+    return key;
+}
+
+function encryptCanvasToken(token) {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', getCanvasEncryptionKey(), iv);
+    const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+    return {
+        version: 1,
+        iv: iv.toString('base64'),
+        tag: cipher.getAuthTag().toString('base64'),
+        ciphertext: ciphertext.toString('base64')
+    };
+}
+
+function decryptCanvasToken(encrypted) {
+    if (!encrypted || encrypted.version !== 1 || !encrypted.iv || !encrypted.tag || !encrypted.ciphertext) {
+        throw new functions.https.HttpsError('failed-precondition', 'The saved Canvas connection is incomplete. Reconnect Canvas.');
+    }
+    try {
+        const decipher = crypto.createDecipheriv(
+            'aes-256-gcm',
+            getCanvasEncryptionKey(),
+            Buffer.from(encrypted.iv, 'base64')
+        );
+        decipher.setAuthTag(Buffer.from(encrypted.tag, 'base64'));
+        return Buffer.concat([
+            decipher.update(Buffer.from(encrypted.ciphertext, 'base64')),
+            decipher.final()
+        ]).toString('utf8');
+    } catch (err) {
+        if (err instanceof functions.https.HttpsError) throw err;
+        throw new functions.https.HttpsError('failed-precondition', 'The saved Canvas token could not be decrypted. Reconnect Canvas.');
+    }
+}
+
+async function canvasGet(path, token) {
+    const response = await fetch(`${CANVAS_API_BASE}${path}`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json'
+        },
+        signal: AbortSignal.timeout(12000)
+    });
+    let body = null;
+    try { body = await response.json(); } catch (e) {}
+    return { response, body };
+}
+
+async function canvasGetAllPages(path, token, maxPages = 8) {
+    const rows = [];
+    let nextUrl = /^https:\/\//i.test(path)
+        ? path
+        : `${CANVAS_API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+    for (let page = 0; nextUrl && page < maxPages; page += 1) {
+        const response = await fetch(nextUrl, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json'
+            },
+            signal: AbortSignal.timeout(12000)
+        });
+        let body = null;
+        try { body = await response.json(); } catch (e) {}
+        if (!response.ok) throw canvasApiError(response.status);
+        if (Array.isArray(body)) rows.push(...body);
+        const link = response.headers.get('link') || '';
+        const next = link.match(/<([^>]+)>\s*;\s*rel="next"/i);
+        nextUrl = next ? next[1] : null;
+    }
+    return rows;
+}
+
+async function canvasMapLimit(items, limit, worker) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (cursor < items.length) {
+            const index = cursor++;
+            results[index] = await worker(items[index], index);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}
+
+function normalizeCanvasText(value) {
+    return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function validateCanvasChatUserId(value) {
+    const id = String(value || '').trim();
+    if (!id || id.length > 128 || /[.#$\[\]/\u0000-\u001f]/.test(id)) {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid CHSchat user ID is required.');
+    }
+    return id;
+}
+
+function requireCanvasLinkRecord(user) {
+    const email = String(user?.email || '').trim().toLowerCase();
+    const role = String(user?.role || '').trim().toLowerCase();
+    if (!email || role === 'bot') {
+        throw new functions.https.HttpsError('failed-precondition', 'Canvas links require a CHSchat user with an email address.');
+    }
+}
+
+function scoreCanvasCandidate(canvasUser, chatUser, query) {
+    const canvasEmail = String(canvasUser.email || '').trim().toLowerCase();
+    const chatEmail = String(chatUser.email || '').trim().toLowerCase();
+    const canvasName = normalizeCanvasText(canvasUser.name || canvasUser.short_name);
+    const chatName = normalizeCanvasText(chatUser.name);
+    const normalizedQuery = normalizeCanvasText(query);
+    if (chatEmail && canvasEmail && chatEmail === canvasEmail) return { score: 120, reason: 'Email matches exactly' };
+    if (chatEmail && canvasEmail && chatEmail.split('@')[0] === canvasEmail.split('@')[0]) return { score: 105, reason: 'Email username matches' };
+    if (chatName && canvasName && chatName === canvasName) return { score: 100, reason: 'Name matches exactly' };
+    if (normalizedQuery && canvasName === normalizedQuery) return { score: 96, reason: 'Name matches your search' };
+    if (chatName && canvasName && (canvasName.includes(chatName) || chatName.includes(canvasName))) return { score: 78, reason: 'Name is similar' };
+    if (chatEmail && canvasEmail && (canvasEmail.includes(chatEmail) || chatEmail.includes(canvasEmail))) return { score: 72, reason: 'Email is similar' };
+    return { score: 50, reason: 'Possible match' };
+}
+
+async function getSavedCanvasConnection(uid) {
+    const snapshot = await admin.database().ref(`canvas_connections/${uid}`).once('value');
+    const saved = snapshot.val();
+    if (!saved || !saved.encryptedToken) {
+        throw new functions.https.HttpsError('failed-precondition', 'Connect a Canvas access token in Settings first.');
+    }
+    return { saved, token: decryptCanvasToken(saved.encryptedToken) };
+}
+
+function requireSignedInCanvasUser(context) {
+    if (!context.auth || !context.auth.uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in to CHSchat before connecting Canvas.');
+    }
+    const email = String(context.auth.token.email || '').toLowerCase();
+    if (!(email.endsWith('@hcpss.org') || email === 'moss104088@gmail.com')) {
+        throw new functions.https.HttpsError('permission-denied', 'Canvas connection is available to the authorized CHSchat account only.');
+    }
+    return context.auth.uid;
+}
+
+function canvasApiError(status) {
+    if (status === 401) {
+        return new functions.https.HttpsError('invalid-argument', 'Canvas rejected this token. Check the token and try again.');
+    }
+    if (status === 403) {
+        return new functions.https.HttpsError('permission-denied', 'Canvas accepted the token but denied access to this resource.');
+    }
+    if (status === 429) {
+        return new functions.https.HttpsError('resource-exhausted', 'Canvas is receiving too many requests. Try again shortly.');
+    }
+    return new functions.https.HttpsError('unavailable', 'Canvas could not verify the token right now. Try again shortly.');
+}
+
+exports.connectCanvasToken = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTION_KEY'] }).https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const token = String((data && data.token) || '').trim();
+    if (token.length < 20 || token.length > 4096 || /\s/.test(token)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Paste the complete Canvas access token.');
+    }
+
+    let verified;
+    try {
+        verified = await canvasGet('/users/self', token);
+    } catch (err) {
+        if (err instanceof functions.https.HttpsError) throw err;
+        throw new functions.https.HttpsError('unavailable', 'Could not reach HCPSS Canvas. Try again shortly.');
+    }
+    if (!verified.response.ok) throw canvasApiError(verified.response.status);
+
+    const canvasUser = verified.body || {};
+    if (canvasUser.id == null || !canvasUser.name) {
+        throw new functions.https.HttpsError('unavailable', 'Canvas returned an unexpected profile response.');
+    }
+
+    const connectedAt = new Date().toISOString();
+    const encryptedToken = encryptCanvasToken(token);
+    await admin.database().ref(`canvas_connections/${uid}`).set({
+        encryptedToken,
+        canvasUserId: String(canvasUser.id),
+        canvasUserName: String(canvasUser.name).slice(0, 120),
+        canvasUserEmail: String(canvasUser.email || '').slice(0, 180),
+        connectedAt,
+        lastVerifiedAt: connectedAt
+    });
+
+    return {
+        connected: true,
+        canvasUser: {
+            id: String(canvasUser.id),
+            name: String(canvasUser.name).slice(0, 120),
+            email: String(canvasUser.email || '').slice(0, 180)
+        },
+        connectedAt
+    };
+});
+
+exports.getCanvasConnectionStatus = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTION_KEY'] }).https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const ref = admin.database().ref(`canvas_connections/${uid}`);
+    const snap = await ref.once('value');
+    const saved = snap.val();
+    if (!saved || !saved.encryptedToken) return { connected: false };
+
+    const token = decryptCanvasToken(saved.encryptedToken);
+    let verified;
+    try {
+        verified = await canvasGet('/users/self', token);
+    } catch (err) {
+        if (err instanceof functions.https.HttpsError) throw err;
+        throw new functions.https.HttpsError('unavailable', 'Could not check the saved Canvas connection right now.');
+    }
+    if (verified.response.status === 401) {
+        return {
+            connected: false,
+            needsReconnect: true,
+            canvasUserName: saved.canvasUserName || ''
+        };
+    }
+    if (!verified.response.ok) throw canvasApiError(verified.response.status);
+
+    const canvasUser = verified.body || {};
+    const lastVerifiedAt = new Date().toISOString();
+    await ref.update({
+        canvasUserId: String(canvasUser.id || saved.canvasUserId || ''),
+        canvasUserName: String(canvasUser.name || saved.canvasUserName || '').slice(0, 120),
+        canvasUserEmail: String(canvasUser.email || saved.canvasUserEmail || '').slice(0, 180),
+        lastVerifiedAt
+    });
+    return {
+        connected: true,
+        canvasUser: {
+            id: String(canvasUser.id || saved.canvasUserId || ''),
+            name: String(canvasUser.name || saved.canvasUserName || '').slice(0, 120),
+            email: String(canvasUser.email || saved.canvasUserEmail || '').slice(0, 180)
+        },
+        connectedAt: saved.connectedAt || null,
+        lastVerifiedAt
+    };
+});
+
+exports.disconnectCanvas = functions.https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    await admin.database().ref(`canvas_connections/${uid}`).remove();
+    return { connected: false };
+});
+
+exports.getCanvasStudentMatches = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTION_KEY'], timeoutSeconds: 120 }).https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const chatUserId = validateCanvasChatUserId(data?.chatUserId);
+    const chatUserSnapshot = await admin.database().ref(`users/${chatUserId}`).once('value');
+    const storedChatUser = chatUserSnapshot.val();
+    if (!storedChatUser) throw new functions.https.HttpsError('not-found', 'This CHSchat user could not be found.');
+    requireCanvasLinkRecord(storedChatUser);
+
+    const chatUser = {
+        name: String(storedChatUser.name || storedChatUser.displayName || '').trim().slice(0, 120),
+        email: String(storedChatUser.email || '').trim().slice(0, 180)
+    };
+    const requestedQuery = String(data?.query || '').trim().slice(0, 160);
+    const { token } = await getSavedCanvasConnection(uid);
+    const nameParts = chatUser.name.split(/\s+/).filter(Boolean);
+    const terms = [...new Set((requestedQuery
+        ? [requestedQuery]
+        : [chatUser.email, chatUser.name, nameParts.at(-1)]).map(value => String(value || '').trim()).filter(Boolean))].slice(0, 3);
+    const candidates = new Map();
+    for (const term of terms) {
+        const params = new URLSearchParams({ search: term, type: 'user', per_page: '100' });
+        const foundThisTerm = await canvasGetAllPages(`/search/recipients?${params}`, token, 3);
+        for (const user of foundThisTerm) {
+            if (user?.id == null || !(user.full_name || user.name)) continue;
+            const id = String(user.id);
+            const normalizedUser = { ...user, name: user.full_name || user.name };
+            const score = scoreCanvasCandidate(normalizedUser, chatUser, term);
+            const existing = candidates.get(id) || {
+                canvasUserId: id,
+                name: String(normalizedUser.name).slice(0, 120),
+                email: String(user.email || '').slice(0, 180),
+                score: 0,
+                reason: ''
+            };
+            if (score.score > existing.score) {
+                existing.score = score.score;
+                existing.reason = score.reason;
+            }
+            candidates.set(id, existing);
+        }
+        if (candidates.size) break;
+    }
+
+    const selected = [...candidates.values()]
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+        .slice(0, 12);
+    const matches = selected.map(match => ({
+            canvasUserId: match.canvasUserId,
+            name: match.name,
+            email: match.email,
+            reason: match.reason,
+            confidence: match.score >= 100 ? 'high' : match.score >= 78 ? 'review' : 'possible'
+        }));
+    const [userLinkSnap, globalLinkSnap] = await Promise.all([
+        admin.database().ref(`canvas_student_links/${uid}/${chatUserId}`).once('value'),
+        admin.database().ref(`canvas_global_links/${chatUserId}`).once('value')
+    ]);
+    const existingLink = userLinkSnap.val() || globalLinkSnap.val() || null;
+    return {
+        status: matches.length ? 'matches' : 'no-matches',
+        chatUser,
+        matches,
+        existingLink
+    };
+});
+
+exports.getCanvasStudentLinks = functions.https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const [userSnap, globalSnap] = await Promise.all([
+        admin.database().ref(`canvas_student_links/${uid}`).once('value'),
+        admin.database().ref('canvas_global_links').once('value')
+    ]);
+    const userLinks = userSnap.val() || {};
+    const globalLinks = globalSnap.val() || {};
+    const mergedLinks = { ...globalLinks, ...userLinks };
+
+    return {
+        links: Object.fromEntries(Object.entries(mergedLinks).map(([chatUserId, link]) => [chatUserId, {
+            canvasUserId: String(link?.canvasUserId || ''),
+            canvasUserName: String(link?.canvasUserName || '').slice(0, 120),
+            isGlobal: !userLinks[chatUserId] && !!globalLinks[chatUserId]
+        }]))
+    };
+});
+
+exports.saveCanvasStudentLink = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTION_KEY'], timeoutSeconds: 120 }).https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const chatUserId = validateCanvasChatUserId(data?.chatUserId);
+    const canvasUserId = String(data?.canvasUserId || '').trim();
+    if (!/^\d+$/.test(canvasUserId)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Select a valid Canvas user.');
+    }
+
+    const isGlobal = Boolean(data?.isGlobal);
+    const email = String(context.auth?.token?.email || '').toLowerCase();
+    const isAdminUser = email === 'moss104088@gmail.com' || email.endsWith('@hcpss.org');
+    if (isGlobal && !isAdminUser) {
+        throw new functions.https.HttpsError('permission-denied', 'Only administrators can save global Canvas links.');
+    }
+
+    const [chatUserSnapshot, connection] = await Promise.all([
+        admin.database().ref(`users/${chatUserId}`).once('value'),
+        getSavedCanvasConnection(uid)
+    ]);
+    const chatUser = chatUserSnapshot.val();
+    if (!chatUser) throw new functions.https.HttpsError('not-found', 'This CHSchat user could not be found.');
+    requireCanvasLinkRecord(chatUser);
+    const verifyParams = new URLSearchParams({ user_id: canvasUserId, type: 'user' });
+    const verifiedRecipients = await canvasGetAllPages(`/search/recipients?${verifyParams}`, connection.token, 1);
+    const canvasUser = verifiedRecipients.find(user => String(user?.id || '') === canvasUserId);
+    if (!canvasUser) {
+        throw new functions.https.HttpsError('failed-precondition', 'Canvas does not recognize this account as a messageable recipient. Search again and choose a current match.');
+    }
+
+    const targetRef = isGlobal
+        ? admin.database().ref('canvas_global_links')
+        : admin.database().ref(`canvas_student_links/${uid}`);
+
+    const linksSnapshot = await targetRef.once('value');
+    const links = linksSnapshot.val() || {};
+    const duplicate = Object.entries(links).find(([otherChatUserId, link]) =>
+        otherChatUserId !== chatUserId && String(link?.canvasUserId || '') === canvasUserId
+    );
+    if (duplicate) {
+        throw new functions.https.HttpsError('already-exists', 'This Canvas user is already linked to another CHSchat user.');
+    }
+
+    const link = {
+        canvasUserId,
+        canvasUserName: String(canvasUser.full_name || canvasUser.name || canvasUser.short_name || 'Canvas user').slice(0, 120),
+        canvasUserEmail: String(canvasUser.email || '').slice(0, 180),
+        mappedAt: new Date().toISOString(),
+        mappedBy: uid,
+        isGlobal
+    };
+    await targetRef.child(chatUserId).set(link);
+    return { linked: true, link };
+});
+
+exports.removeCanvasStudentLink = functions.https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const chatUserId = validateCanvasChatUserId(data?.chatUserId);
+    const isGlobal = Boolean(data?.isGlobal);
+    const email = String(context.auth?.token?.email || '').toLowerCase();
+    const isAdminUser = email === 'moss104088@gmail.com' || email.endsWith('@hcpss.org');
+
+    if (isGlobal && !isAdminUser) {
+        throw new functions.https.HttpsError('permission-denied', 'Only administrators can remove global Canvas links.');
+    }
+
+    if (isGlobal) {
+        await admin.database().ref(`canvas_global_links/${chatUserId}`).remove();
+    } else {
+        await admin.database().ref(`canvas_student_links/${uid}/${chatUserId}`).remove();
+    }
+    return { linked: false };
+});
+
+exports.sendCanvasMessage = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTION_KEY'], timeoutSeconds: 60 }).https.onCall(async (data, context) => {
+    const uid = requireSignedInCanvasUser(context);
+    const chatUserId = validateCanvasChatUserId(data?.chatUserId);
+    const bodyText = String(data?.body || '').trim();
+    const subject = String(data?.subject || '').trim();
+    if (!bodyText) {
+        throw new functions.https.HttpsError('invalid-argument', 'Message body cannot be empty.');
+    }
+    if (bodyText.length > 8000) {
+        throw new functions.https.HttpsError('invalid-argument', 'Message limit is 8000 characters.');
+    }
+
+    const [linkSnapshot, globalLinkSnapshot, connection] = await Promise.all([
+        admin.database().ref(`canvas_student_links/${uid}/${chatUserId}`).once('value'),
+        admin.database().ref(`canvas_global_links/${chatUserId}`).once('value'),
+        getSavedCanvasConnection(uid)
+    ]);
+    const link = linkSnapshot.val() || globalLinkSnapshot.val();
+    if (!link || !link.canvasUserId) {
+        throw new functions.https.HttpsError('failed-precondition', 'This contact is not linked to a Canvas user.');
+    }
+
+    const payload = new URLSearchParams({
+        'recipients[]': String(link.canvasUserId),
+        'body': bodyText,
+        'group_conversation': 'false'
+    });
+    if (subject) {
+        payload.append('subject', subject.slice(0, 255));
+    }
+
+    const response = await fetch(`${CANVAS_API_BASE}/conversations`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${connection.token}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+        },
+        body: payload.toString(),
+        signal: AbortSignal.timeout(15000)
+    });
+
+    let respJson = null;
+    try {
+        respJson = await response.json();
+    } catch (e) {}
+
+    if (!response.ok) {
+        throw canvasApiError(response.status);
+    }
+
+    return {
+        success: true,
+        canvasUserId: link.canvasUserId,
+        canvasUserName: link.canvasUserName || 'Canvas user',
+        sentAt: Date.now()
+    };
+});
 
 const AUTO_JOIN_CLASS_ID = '-OrpDpIaMod9eL6Sk4xf';
 
