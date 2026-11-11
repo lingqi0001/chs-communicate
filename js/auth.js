@@ -24,6 +24,20 @@ let callbacks = {
 let activePopup = null;
 
 export const AuthModule = {
+    getDefaultPanelLayout(email) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (normalizedEmail.endsWith('@hcpss.org')) return 'three';
+        if (normalizedEmail.endsWith('@inst.hcpss.org')) return 'four';
+        return 'four';
+    },
+    applyNewUserVisualDefaults(email) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (normalizedEmail.endsWith('@hcpss.org')) {
+            localStorage.setItem('liquidGlassEnabled', 'off');
+        } else if (normalizedEmail.endsWith('@inst.hcpss.org')) {
+            localStorage.setItem('liquidGlassEnabled', 'on');
+        }
+    },
     /**
      * Initializes Auth Module with Firebase services and lifecycle callbacks
      */
@@ -253,12 +267,12 @@ export const AuthModule = {
         const isAlwaysNewUser = window.currentUser.email && window.currentUser.email.toLowerCase().includes('moss932888');
 
         if (window.currentUser._isNewUser || isAlwaysNewUser) {
-            // New accounts start with the spacious four-panel desktop layout.
-            // This is intentionally applied even when another account's
-            // preference exists in this browser; the preference is otherwise
-            // editable later from Settings.
+            // Choose a starting layout from the HCPSS account role. This is
+            // intentionally applied even when another account's preference
+            // exists in this browser; it remains editable later from Settings.
             if (window.currentUser._isNewUser) {
-                localStorage.setItem('panelLayout', 'four');
+                localStorage.setItem('panelLayout', this.getDefaultPanelLayout(window.currentUser.email));
+                this.applyNewUserVisualDefaults(window.currentUser.email);
             }
             document.getElementById('tosPage').classList.add('hidden');
             document.getElementById('nameSetupPage').classList.remove('hidden');
@@ -323,8 +337,9 @@ export const AuthModule = {
 
             delete window.currentUser._isNewUser;
             // The profile form is the final step for a newly registered user;
-            // retain the same default if the account skipped the ToS branch.
-            localStorage.setItem('panelLayout', 'four');
+            // apply the same role-based default if the account skipped ToS setup.
+            localStorage.setItem('panelLayout', this.getDefaultPanelLayout(window.currentUser.email));
+            this.applyNewUserVisualDefaults(window.currentUser.email);
             document.getElementById('nameSetupPage').classList.add('hidden');
             callbacks.onEnterApp();
         } catch (err) {

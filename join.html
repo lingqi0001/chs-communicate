@@ -4,222 +4,429 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Send Google Doc · CHSchat</title>
+    <title>Share a Google Doc - CHSchat</title>
     <style>
         :root {
-            --bg: #F2F2F7;
-            --card: #FFFFFF;
-            --text: #000000;
-            --muted: #6B6B70;
-            --line: rgba(0, 0, 0, .10);
-            --field: #FFFFFF;
-            --accent: #007AFF;
+            color-scheme: light dark;
+            --page: #f5f5f7;
+            --surface: #fff;
+            --text: #1d1d1f;
+            --muted: #1d1d1f;
+            --line: rgba(0, 0, 0, .12);
+            --accent: #06c;
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg: #000000;
-                --card: #1C1C1E;
-                --text: #FFFFFF;
-                --muted: #A1A1A6;
-                --line: rgba(255, 255, 255, .15);
-                --field: rgba(255, 255, 255, .08);
-                --accent: #0A84FF;
+                --page: #242426;
+                --surface: #2c2c2e;
+                --text: #f5f5f7;
+                --muted: #f5f5f7;
+                --line: rgba(255, 255, 255, .16);
+                --accent: #2997ff;
             }
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --page: #f5f5f7;
+            --surface: #fff;
+            --text: #1d1d1f;
+            --muted: #1d1d1f;
+            --line: rgba(0, 0, 0, .12);
+            --accent: #06c;
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --page: #242426;
+            --surface: #2c2c2e;
+            --text: #f5f5f7;
+            --muted: #f5f5f7;
+            --line: rgba(255, 255, 255, .16);
+            --accent: #2997ff;
         }
 
         * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
-            background: var(--bg);
+            min-height: 100svh;
+            padding: 0 24px calc(32px + env(safe-area-inset-bottom));
+            background: var(--page);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
 
-        .card {
-            width: 100%;
-            max-width: 420px;
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 20px;
-            padding: 26px 22px;
+        .page-header {
+            width: min(100%, 980px);
+            min-height: 64px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--line);
+            padding: 10px 0;
         }
 
         .brand {
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: .08em;
+            font-size: clamp(14px, 2.6vw, 18px);
+            font-weight: 600;
+            letter-spacing: -.03em;
+            line-height: 1.4;
+        }
+
+        .theme-toggle {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            color: var(--text);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color .2s ease, transform .2s ease;
+        }
+
+        .theme-toggle:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+        .theme-toggle:active { transform: scale(.94); }
+        .theme-toggle svg { width: 19px; height: 19px; }
+        :root[data-theme="light"] .theme-icon-moon,
+        :root[data-theme="dark"] .theme-icon-sun { display: none; }
+
+        .page-footer {
+            width: min(100%, 520px);
+            margin: 64px auto 0;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .page-footer a { color: var(--text); text-decoration: none; }
+        .page-footer a:hover { text-decoration: underline; }
+
+        .loading-state {
+            min-height: calc(100svh - 96px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
             color: var(--muted);
+            text-align: center;
+        }
+
+        .loading-state p { margin: 0; font-size: 18px; line-height: 1.4; }
+        .loader-ring {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--line);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: join-spin .8s linear infinite;
+        }
+        @keyframes join-spin { to { transform: rotate(360deg); } }
+        .loading-state.error .loader-ring { display: none; }
+        .loading-state.error p { max-width: 420px; color: var(--text); }
+        .page-header, .main, .loading-state { animation: page-in .35s ease both; }
+        @keyframes page-in { from { opacity: 0; } to { opacity: 1; } }
+        .main[hidden], .loading-state.hidden { display: none; }
+
+        .main {
+            width: min(100%, 520px);
+            margin: clamp(48px, 10vh, 96px) auto 0;
+        }
+
+        .step-label {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--muted);
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .step-number {
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
         }
 
         h1 {
-            margin: 10px 0 0;
-            font-size: 22px;
+            margin: 18px 0 0;
+            font-size: clamp(36px, 6vw, 46px);
             font-weight: 600;
+            letter-spacing: -.04em;
+            line-height: 1.06;
+        }
+
+        .class-sub {
+            min-height: 24px;
+            margin: 12px 0 0;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.5;
+        }
+
+        .step-content { margin-top: 32px; }
+
+        .intro, .instruction {
+            margin: 0;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.5;
+        }
+
+        .field-group {
+            margin-top: 22px;
+            overflow: hidden;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+        }
+
+        .field {
+            position: relative;
+            display: block;
+            padding: 15px 17px 14px;
+        }
+
+        .field::after {
+            position: absolute;
+            right: 17px;
+            bottom: 0;
+            left: 17px;
+            height: 2px;
+            background: var(--text);
+            content: "";
+            transform: scaleX(0);
+            transform-origin: center;
+            transition: transform 280ms cubic-bezier(.22, 1, .36, 1);
+            pointer-events: none;
+        }
+
+        .field + .field { border-top: 1px solid var(--line); }
+
+        .field-label {
+            display: block;
+            margin-bottom: 3px;
+            color: var(--muted);
+            font-size: 14px;
             line-height: 1.35;
         }
 
-        p {
-            margin: 8px 0 0;
-            font-size: 15px;
-            line-height: 1.55;
-            color: var(--text);
-        }
-
-        .sub {
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .bot {
-            margin-top: 14px;
-            font-size: 13px;
-            line-height: 1.5;
-            color: var(--text);
-        }
-
-        code {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            color: var(--text);
-            user-select: all;
-            word-break: break-all;
-        }
-
-        input[type="text"], input[type="email"] {
+        .field input {
+            display: block;
             width: 100%;
-            margin-top: 18px;
-            padding: 12px 14px;
-            font-size: 16px;
-            font-family: inherit;
+            min-width: 0;
+            padding: 2px 0;
             color: var(--text);
-            background: var(--field);
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            outline: none;
+            background: transparent;
+            border: 0;
+            outline: 0;
+            font: inherit;
+            font-size: 17px;
         }
 
-        input::placeholder { color: var(--muted); }
+        .field input::placeholder { color: var(--text); }
+        .field:focus-within::after { transform: scaleX(1); }
 
-        .row {
+        .name-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            border-top: 1px solid var(--line);
         }
 
-        .row input { margin-top: 10px; }
+        .name-row .field + .field {
+            border-top: 0;
+            border-left: 1px solid var(--line);
+        }
 
-        button {
+        .primary-btn {
             width: 100%;
-            margin-top: 10px;
-            padding: 12px 14px;
-            font-size: 16px;
-            font-weight: 600;
-            font-family: inherit;
-            color: #FFFFFF;
+            min-height: 52px;
+            margin-top: 24px;
+            padding: 13px 20px;
+            color: #fff;
             background: var(--accent);
-            border: none;
-            border-radius: 12px;
+            border: 0;
+            border-radius: 999px;
+            font: inherit;
+            font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
-            transition: opacity .15s ease, transform .1s ease;
+            transition: filter .15s ease, transform .12s ease;
         }
 
-        button:disabled { opacity: .5; cursor: default; }
-        button:active { transform: scale(.98); }
+        .primary-btn:hover { filter: brightness(1.06); }
+        .primary-btn:active { transform: scale(.985); }
+        .primary-btn:disabled { opacity: .55; cursor: default; }
 
         .link-back {
             display: block;
             width: 100%;
-            margin-top: 12px;
-            padding: 4px;
-            font-size: 14px;
-            font-weight: 400;
+            margin-top: 15px;
+            padding: 8px;
+            font-size: 16px;
+            font-weight: 500;
             color: var(--text);
             background: none;
             border: none;
             cursor: pointer;
         }
 
-        .link-back:disabled { opacity: 1; cursor: default; }
-
+        .link-back:disabled { opacity: .6; cursor: default; }
         a { color: var(--accent); }
+
+        .bot-access {
+            margin-top: 22px;
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+        }
+
+        .bot-access-label {
+            margin: 0 0 9px;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .account-label {
+            margin: 16px 0 7px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 600;
+        }
 
         .email-line {
             display: flex;
             align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            min-width: 0;
         }
 
-        .email-line .copy-btn { margin: 0; }
+        code {
+            min-width: 0;
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 14px;
+            user-select: all;
+            overflow-wrap: anywhere;
+        }
 
         .copy-btn {
-            width: auto;
-            margin: 0 0 0 8px;
-            padding: 7px 12px;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--accent);
+            flex: 0 0 auto;
+            padding: 7px 13px;
+            color: var(--text);
             background: none;
             border: 1px solid var(--line);
-            border-radius: 10px;
-            vertical-align: 2px;
+            border-radius: 999px;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 550;
+            cursor: pointer;
         }
 
         .status {
-            margin-top: 12px;
-            font-size: 15px;
-            line-height: 1.55;
+            margin-top: 14px;
+            font-size: 16px;
+            line-height: 1.5;
         }
 
         .status.error { color: #FF3B30; }
-        .status.done { color: var(--text); }
+        .status.done { color: var(--muted); }
         .hidden { display: none; }
+
+        @media (max-width: 520px) {
+            body { padding-inline: 20px; }
+            .main { margin-top: 56px; }
+            .step-content { margin-top: 28px; }
+            h1 { max-width: 440px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+        }
     </style>
 </head>
 
 <body>
-    <main class="card">
-        <div class="brand">CHSCHAT</div>
-        <h1 id="headline">Loading class…</h1>
-        <p class="sub" id="classSub"></p>
+    <header class="page-header">
+        <div class="brand">CHShub Writing Portfolio</div>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark appearance" title="Switch to dark appearance">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
+            </svg>
+            <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.6 8.6 0 1 0 20.5 15.2Z"></path>
+            </svg>
+        </button>
+    </header>
 
-        <div id="identityStep">
-            <p>Enter your school email and name first. So Your teacher can see who is sharing this Google Doc and you will share your Doc in the next step.</p>
-            <input type="email" id="email" placeholder="School email (name@inst.hcpss.org)" autocomplete="off"
-                autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
-            <div class="row">
-                <input type="text" id="firstName" placeholder="First name" autocomplete="off" data-lpignore="true" data-form-type="other">
-                <input type="text" id="lastName" placeholder="Last name" autocomplete="off" data-lpignore="true" data-form-type="other">
+    <div id="loadingState" class="loading-state" role="status" aria-live="polite">
+        <div class="loader-ring" aria-hidden="true"></div>
+        <p id="loadingMessage">Opening your class...</p>
+    </div>
+
+    <main id="joinContent" class="main" hidden>
+        <div class="step-label">Step <span class="step-number" id="stepNumber">1</span> of 2 <span aria-hidden="true">·</span> <span id="stepLabel">Your information</span></div>
+        <h1 id="headline"></h1>
+        <p class="class-sub" id="classSub"></p>
+
+        <section id="identityStep" class="step-content">
+            <p class="intro">Enter your name and email so your teacher will know who is sharing the document. You will add the document link in the next step.</p>
+            <div class="field-group">
+                <label class="field" for="email">
+                    <span class="field-label">School email</span>
+                    <input type="email" id="email" placeholder="name@inst.hcpss.org" autocomplete="off"
+                        autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
+                </label>
+                <div class="name-row">
+                    <label class="field" for="firstName">
+                        <span class="field-label">First name</span>
+                        <input type="text" id="firstName" autocomplete="given-name" data-lpignore="true" data-form-type="other">
+                    </label>
+                    <label class="field" for="lastName">
+                        <span class="field-label">Last name</span>
+                        <input type="text" id="lastName" autocomplete="family-name" data-lpignore="true" data-form-type="other">
+                    </label>
+                </div>
             </div>
-            <button id="continueBtn" type="button">Continue</button>
-            <div id="identityStatus" class="status"></div>
-        </div>
+            <button id="continueBtn" type="button" class="primary-btn">Continue</button>
+            <div id="identityStatus" class="status" role="status" aria-live="polite"></div>
+        </section>
 
-        <div id="docStep" class="hidden">
-            <p>Now paste the Google Doc you want to share with your teacher.</p>
-            <p>Share the doc with the CHSchat bot and set access to <strong>"Commenter"</strong> so it can be reviewed.</p>
-            <p class="email-line"><code id="botEmail">…</code><button id="copyBotEmailBtn" type="button" class="copy-btn">Copy email</button></p>
-            <input type="text" id="docUrl" placeholder="https://docs.google.com/document/d/..." autocomplete="off"
-                autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
-            <button id="submitBtn" type="button">Submit</button>
-            <button id="backBtn" type="button" class="link-back">Not you? Re-enter your name and email</button>
-            <div class="bot">You can also set access to "Anyone with the link can comment" instead.</div>
-            <div id="status" class="status"></div>
-        </div>
+        <section id="docStep" class="step-content hidden">
+            <div class="bot-access">
+                <p class="bot-access-label">Please give CHShub bot <strong>COMMENTOR</strong> access to your document. You may also allow anyone with the link to comment.</p>
+                <div class="account-label">CHSbot's account</div>
+                <div class="email-line"><code id="botEmail">chscommunication@appspot.gserviceaccount.com</code><button id="copyBotEmailBtn" type="button" class="copy-btn">Copy email</button></div>
+            </div>
+            <label class="field field-group doc-field" for="docUrl">
+                <span class="field-label">Google Doc link</span>
+                <input type="text" id="docUrl" placeholder="Paste your document link" autocomplete="off"
+                    autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
+            </label>
+            <button id="submitBtn" type="button" class="primary-btn">Submit document</button>
+            <button id="backBtn" type="button" class="link-back">Back to your information</button>
+            <div id="status" class="status" role="status" aria-live="polite"></div>
+        </section>
 
-        <div id="doneStep" class="hidden">
-            <p id="doneText"></p>
-            <button id="againBtn" type="button">Continue Uploading</button>
-        </div>
+        <section id="doneStep" class="step-content hidden">
+            <p id="doneText" class="intro"></p>
+            <button id="againBtn" type="button" class="primary-btn">Share another document</button>
+        </section>
     </main>
 
+    <footer class="page-footer">Created By Lingqi Mo <span aria-hidden="true">&#183;</span> <a href="https://chschat.xyz/">chschat.xyz</a></footer>
     <script type="module">
         import { initializeApp } from "./vendor/firebase/10.7.1/firebase-app.js";
         import { getFunctions, httpsCallable } from "./vendor/firebase/10.7.1/firebase-functions.js";
@@ -231,6 +438,11 @@
         const classId = new URLSearchParams(location.search).get('class') || '';
         const headline = document.getElementById('headline');
         const classSub = document.getElementById('classSub');
+        const stepNumber = document.getElementById('stepNumber');
+        const stepLabel = document.getElementById('stepLabel');
+        const loadingState = document.getElementById('loadingState');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const joinContent = document.getElementById('joinContent');
         const identityStep = document.getElementById('identityStep');
         const docStep = document.getElementById('docStep');
         const doneStep = document.getElementById('doneStep');
@@ -244,22 +456,88 @@
         const continueBtn = document.getElementById('continueBtn');
         const submitBtn = document.getElementById('submitBtn');
         const backBtn = document.getElementById('backBtn');
+        const themeToggle = document.getElementById('themeToggle');
+
+        let currentTheme = localStorage.getItem('joinTheme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        const applyJoinTheme = () => {
+            document.documentElement.dataset.theme = currentTheme;
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} appearance`);
+            themeToggle.title = `Switch to ${nextTheme} appearance`;
+        };
+        applyJoinTheme();
+        themeToggle.addEventListener('click', () => {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('joinTheme', currentTheme);
+            applyJoinTheme();
+        });
 
         // Identity lives in memory only: closing the page or refreshing always
         // starts over, which is the point of this link.
         let identity = null;
         let className = 'your class';
         let teacherName = '';
+        let stepTransitioning = false;
 
         function showStatus(el, text, kind) {
             el.className = `status ${kind || ''}`;
             el.innerText = text;
         }
 
+        function transitionStep(currentStep, nextStep, direction, onShow) {
+            if (stepTransitioning) return false;
+            stepTransitioning = true;
+            currentStep.setAttribute('aria-hidden', 'true');
+            nextStep.setAttribute('aria-hidden', 'false');
+
+            const finishTransition = () => {
+                currentStep.classList.add('hidden');
+                nextStep.classList.remove('hidden');
+                onShow?.();
+                stepTransitioning = false;
+            };
+
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !currentStep.animate) {
+                finishTransition();
+                return true;
+            }
+
+            const exit = currentStep.animate(
+                [
+                    { opacity: 1, transform: 'translateX(0)' },
+                    { opacity: 0, transform: `translateX(${-direction * 12}px)` }
+                ],
+                { duration: 150, easing: 'ease-in', fill: 'forwards' }
+            );
+            exit.onfinish = () => {
+                currentStep.classList.add('hidden');
+                exit.cancel();
+                nextStep.classList.remove('hidden');
+                onShow?.();
+                const enter = nextStep.animate(
+                    [
+                        { opacity: 0, transform: `translateX(${direction * 12}px)` },
+                        { opacity: 1, transform: 'translateX(0)' }
+                    ],
+                    { duration: 240, easing: 'cubic-bezier(.22, 1, .36, 1)' }
+                );
+                enter.onfinish = () => {
+                    enter.cancel();
+                    stepTransitioning = false;
+                };
+            };
+            return true;
+        }
+
+        function showLoadError(message) {
+            loadingState.classList.add('error');
+            loadingMessage.innerText = message;
+        }
+
         async function load() {
             if (!classId) {
-                headline.innerText = 'This class link is not valid.';
-                identityStep.classList.add('hidden');
+                showLoadError('This class link is not valid. Ask your teacher for a new link.');
                 return;
             }
             try {
@@ -267,15 +545,16 @@
                 className = res.data.className || className;
                 teacherName = res.data.teacherName || '';
                 document.getElementById('botEmail').innerText = res.data.botEmail || '';
-                headline.innerText = `Send Google Doc For ${className}`;
-                document.title = `Send Google Doc For ${className} · CHSchat`;
-                classSub.innerText = teacherName ? `Taught by ${teacherName}` : '';
+                headline.innerText = `Share a Google Doc with ${teacherName || className}`;
+                document.title = `Share a Google Doc - ${className} - CHSchat`;
+                classSub.innerText = `Under Class ${className}`;
+                loadingState.classList.add('hidden');
+                joinContent.hidden = false;
             } catch (e) {
                 console.warn('[ClassJoin] read failed:', e);
-                headline.innerText = e && e.code === 'not-found'
+                showLoadError(e && e.code === 'not-found'
                     ? e.message
-                    : 'We could not reach the class service. Please try again in a moment.';
-                identityStep.classList.add('hidden');
+                    : 'We could not reach the class service. Please try again in a moment.');
             }
         }
 
@@ -303,15 +582,16 @@
                 return;
             }
             identity = check;
-            identityStep.classList.add('hidden');
-            docStep.classList.remove('hidden');
+            if (!transitionStep(identityStep, docStep, 1)) return;
+            stepNumber.innerText = '2';
+            stepLabel.innerText = 'Share your Google Doc Link';
         }
 
         async function submit() {
             const url = docInput.value.trim();
             if (!url || !identity) return;
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Checking…';
+            submitBtn.innerText = 'Checking...';
             backBtn.disabled = true;
             showStatus(statusEl, '', '');
             try {
@@ -324,10 +604,11 @@
                 });
                 const out = res.data || {};
                 if (out.ok) {
-                    docStep.classList.add('hidden');
+                    transitionStep(docStep, doneStep, 1);
                     classSub.classList.add('hidden');
-                    doneStep.classList.remove('hidden');
                     headline.innerText = 'Thanks! Your document is in.';
+                    stepNumber.innerText = '2';
+                    stepLabel.innerText = 'Complete';
                     const esc = (s) => { const d = document.createElement('div'); d.innerText = String(s == null ? '' : s); return d.innerHTML; };
                     const ownerLabel = teacherName ? `${teacherName}'s ${className}` : className;
                     const title = esc(out.title);
@@ -340,27 +621,28 @@
                 showStatus(statusEl, 'Something went wrong on our side. Please try again in a moment.', 'error');
             }
             submitBtn.disabled = false;
-            submitBtn.innerText = 'Submit';
+            submitBtn.innerText = 'Submit document';
             backBtn.disabled = false;
         }
 
         function backToIdentity() {
             showStatus(statusEl, '', '');
-            docStep.classList.add('hidden');
-            identityStep.classList.remove('hidden');
+            if (!transitionStep(docStep, identityStep, -1)) return;
+            stepNumber.innerText = '1';
+            stepLabel.innerText = 'Your information';
         }
 
         function shareAnother() {
             showStatus(statusEl, '', '');
             docInput.value = '';
-            doneStep.classList.add('hidden');
             classSub.classList.remove('hidden');
-            headline.innerText = `Send Google Doc For ${className}`;
+            headline.innerText = `Share a Google Doc with ${teacherName || className}`;
             if (identity) {
-                docStep.classList.remove('hidden');
-                docInput.focus();
+                transitionStep(doneStep, docStep, -1, () => docInput.focus());
+                stepNumber.innerText = '2';
+                stepLabel.innerText = 'Share your Google Doc Link';
             } else {
-                identityStep.classList.remove('hidden');
+                transitionStep(doneStep, identityStep, -1);
             }
         }
 

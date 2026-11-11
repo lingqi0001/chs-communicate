@@ -233,9 +233,10 @@ body {
 }
 .dark :is(.portfolio-timeline-tag,.portfolio-timeline-count,.portfolio-timeline-open,.portfolio-timeline-snapshot) { color: #fff; }
 .portfolio-timeline-tag { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); text-transform: uppercase; }
-.portfolio-timeline-open { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
+.portfolio-timeline-open { background: #f3f4f6; }
 .portfolio-timeline-snapshot { background: var(--msg-accent-color-alpha10, rgba(0,122,255,.1)); }
-.dark :is(.portfolio-timeline-tag,.portfolio-timeline-open,.portfolio-timeline-snapshot) { background: var(--msg-accent-color-dark-alpha10, rgba(10,132,255,.2)); }
+.dark .portfolio-timeline-open { background: rgba(255,255,255,.08); }
+.dark :is(.portfolio-timeline-tag,.portfolio-timeline-snapshot) { background: var(--msg-accent-color-dark-alpha10, rgba(10,132,255,.2)); }
 .portfolio-timeline-count { background: #f3f4f6; }
 .dark .portfolio-timeline-count { background: rgba(255,255,255,.08); }
 .portfolio-timeline-date { color: #000; font-size: 11px; line-height: 22px; white-space: nowrap; text-align: right; }
@@ -4508,12 +4509,12 @@ html:not(.dark) #customModal {
    (applyMsgColor); presets declare the same vars here (alpha20 = the hover
    rung one step deeper). */
 .msg-theme-blue {
-    --msg-accent-color: #007AFF;
-    --msg-accent-color-dark: #0A84FF;
-    --msg-accent-color-alpha10: rgba(0, 122, 255, 0.1);
-    --msg-accent-color-dark-alpha10: rgba(10, 132, 255, 0.15);
-    --msg-accent-color-alpha20: rgba(0, 122, 255, 0.2);
-    --msg-accent-color-dark-alpha20: rgba(10, 132, 255, 0.25);
+    --msg-accent-color: #0066CC;
+    --msg-accent-color-dark: #2997FF;
+    --msg-accent-color-alpha10: rgba(0, 102, 204, 0.1);
+    --msg-accent-color-dark-alpha10: rgba(41, 151, 255, 0.15);
+    --msg-accent-color-alpha20: rgba(0, 102, 204, 0.2);
+    --msg-accent-color-dark-alpha20: rgba(41, 151, 255, 0.25);
 }
 .msg-theme-orange {
     --msg-accent-color: #F97316;

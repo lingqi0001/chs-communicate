@@ -3975,7 +3975,7 @@
 
 
 
-        <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-black overflow-x-hidden relative">
+        <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-[#141416] overflow-x-hidden relative">
             <!-- Transparent geometry anchor: JS (wp bar, forward picker) measures
                  this band, but it no longer paints anything. The visible top row
                  is three floating glass bars inside it. -->
@@ -4326,13 +4326,13 @@
                     <div id="chatInputPill"
                         class="flex-1 flex items-end rounded-[24px] pl-[14px] pr-[4px] py-1 min-h-[46px] overflow-hidden pointer-events-auto">
                         <textarea id="u-msg" rows="1" placeholder="Type a message...Use Shift+Enter to change lines"
-                            class="flex-1 bg-transparent outline-none text-[14.5px] text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-1.5 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
+                            class="flex-1 self-stretch bg-transparent outline-none text-[14.5px] text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-1.5 leading-[20px] resize-none max-h-32 md:max-h-60 overflow-y-auto"></textarea>
                         
                         <!-- Inline Send Choices Container -->
                         <div id="inlineSendGroup" class="ml-1 mb-[2px] flex flex-col items-end gap-1 flex-shrink-0 transition-all duration-300">
                             <!-- Expanded Canvas Send Option (red pill, smoothly collapsed by default) -->
                             <button id="canvasSendYesBtn" type="button" onclick="confirmInlineCanvasSend(true)"
-                                class="max-h-0 max-w-[120px] opacity-0 overflow-hidden pointer-events-none px-2.5 rounded-full bg-[#E02424] hover:bg-[#C81E1E] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                                class="max-h-0 max-w-0 opacity-0 overflow-hidden pointer-events-none px-2.5 rounded-full bg-[#E02424] hover:bg-[#C81E1E] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]"
                                 title="Send via Canvas Inbox">
                                 <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 27 27" fill="currentColor">
                                     <g>

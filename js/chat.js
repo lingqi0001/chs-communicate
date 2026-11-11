@@ -2062,7 +2062,7 @@ export function initChatEngine(deps) {
 
         if (expanded) {
             if (yesBtn) {
-                yesBtn.classList.remove('max-h-0', 'opacity-0', 'pointer-events-none');
+                yesBtn.classList.remove('max-h-0', 'max-w-0', 'opacity-0', 'pointer-events-none');
                 yesBtn.classList.add('max-h-[28px]', 'h-[28px]', 'opacity-100');
             }
             if (sendBtn) {
@@ -2076,7 +2076,7 @@ export function initChatEngine(deps) {
             }
         } else {
             if (yesBtn) {
-                yesBtn.classList.add('max-h-0', 'opacity-0', 'pointer-events-none');
+                yesBtn.classList.add('max-h-0', 'max-w-0', 'opacity-0', 'pointer-events-none');
                 yesBtn.classList.remove('max-h-[28px]', 'h-[28px]', 'opacity-100');
             }
             if (sendBtn) {
@@ -2281,21 +2281,28 @@ export function initChatEngine(deps) {
         let draftSaveTimer = null;
 
         const adjustHeight = () => {
-            input.style.height = 'auto';
+            // Reset to zero before measuring. In the flex composer, `auto` can
+            // retain the previous one-line used height for a frame after a
+            // newline is inserted, leaving the new top line clipped.
+            input.style.height = '0px';
             const styles = window.getComputedStyle(input);
             const lineHeight = parseFloat(styles.lineHeight) || 20;
             const padding = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
             const singleLineHeight = Math.ceil(lineHeight + padding);
             const computedMaxHeight = parseInt(styles.maxHeight, 10);
+            const sendGroupHeight = document.getElementById('inlineSendGroup')?.getBoundingClientRect().height || 0;
+            const minimumHeight = Math.max(singleLineHeight, Math.ceil(sendGroupHeight));
 
             if (!input.value) {
-                // When empty, keep it to exactly one line height
-                input.style.height = `${singleLineHeight}px`;
+                // The stacked Canvas / CHSchat choices can be taller than one
+                // line. Keep the textarea at least as tall as that control
+                // column so multiline text never gets clipped at the top edge.
+                input.style.height = `${minimumHeight}px`;
                 input.scrollTop = 0;
                 updateComposerPadding();
                 return;
             }
-            const newHeight = Math.min(Math.max(singleLineHeight, input.scrollHeight), computedMaxHeight || 128);
+            const newHeight = Math.min(Math.max(minimumHeight, input.scrollHeight), computedMaxHeight || 128);
             input.style.height = `${newHeight}px`;
             updateComposerPadding();
         };
@@ -2310,6 +2317,9 @@ export function initChatEngine(deps) {
                 updatePlaceholder();
             }
             adjustHeight();
+            // Re-measure after the browser lays out the inserted line. This
+            // keeps the composer growing upward from its bottom anchor.
+            requestAnimationFrame(adjustHeight);
             if (input.value.length > 8000) {
                 if (!hasAlertedLimit) {
                     AppModules.Modal.alert("Limit Exceeded", "You have reached the 8000 character limit.");
@@ -2325,6 +2335,11 @@ export function initChatEngine(deps) {
                 window.Drafts?.save(getActiveTargetId(), { text: input.value, quote: currentQuote });
             }, 400);
         });
+
+        const sendGroup = document.getElementById('inlineSendGroup');
+        if (sendGroup && 'ResizeObserver' in window) {
+            new ResizeObserver(() => requestAnimationFrame(adjustHeight)).observe(sendGroup);
+        }
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -4442,11 +4457,9 @@ export function initChatEngine(deps) {
                                         <div class="portfolio-timeline-card-top">
                                             <div class="portfolio-timeline-meta">
                                                 <span class="portfolio-timeline-tag">${UIUtils.escape(entry.versionLabel)}</span>
-                                                <span class="portfolio-timeline-count" title="${entry.totalComments} comments">
-                                                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                                    <span>${entry.totalComments}</span>
+                                                <span class="portfolio-timeline-count" title="${entry.totalComments} comments, ${entry.openCount} open">
+                                                    ${entry.totalComments} Comments <span aria-hidden="true">|</span> ${entry.openCount} Open
                                                 </span>
-                                                ${entry.openCount > 0 ? `<span class="portfolio-timeline-open">${entry.openCount} Open</span>` : ''}
                                                 ${entry.syncStatus && entry.syncStatus !== 'synced' && entry.syncStatus !== 'no_comments_yet' ? `<span class="portfolio-timeline-snapshot" title="Showing saved snapshot · sync status: ${UIUtils.escape(entry.syncStatus)}">Snapshot</span>` : ''}
                                             </div>
                                             <time class="portfolio-timeline-date" title="${entry.dateSource}; last feedback is tracked separately">${dateStr}</time>
