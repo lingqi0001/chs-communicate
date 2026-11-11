@@ -4021,9 +4021,15 @@
                     <!-- Reply/Quote Area -->
                     <div id="quoteArea"
                         class="hidden menu-hidden px-4 py-2.5 rounded-[24px] relative pointer-events-auto w-full mb-1.5 flex items-center">
-                        <div class="text-xs flex-1 min-w-0 pr-8 truncate">
+                        <div id="quoteContextText" class="quote-context-text text-xs flex-1 min-w-0 pr-16 truncate">
                             <span id="quoteLead" class="text-gray-500 dark:text-gray-400 font-bold">Reply to </span><span class="text-gray-500 dark:text-gray-400 font-bold" id="quoteUser">User</span><span id="quoteTail" class="text-gray-500 dark:text-gray-400 font-bold">'s message: </span><span class="text-gray-500 dark:text-gray-400" id="quoteText">...</span>
                         </div>
+                        <button id="quoteExpandBtn" type="button" onclick="window.toggleQuoteAreaExpanded(event)" aria-label="Expand comment context" aria-expanded="false" title="Expand comment context"
+                            class="hidden absolute right-10 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-white/10 transition-all">
+                            <svg id="quoteExpandIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
                         <button onclick="clearQuote()"
                             class="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-white/10 transition-all">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">

@@ -24,6 +24,24 @@ export const WritingDocCard = {
         return (comments || []).filter(c => c && !c.deleted && c.status !== 'deleted_on_google');
     },
 
+    // Check if a comment has any meaningful visible content (text, quote, photos, or non-empty replies).
+    // Tombstone comments from Google Docs that were deleted without snapshot content are considered empty.
+    hasVisibleCommentContent: function (c) {
+        if (!c) return false;
+        const disp = WritingDocCard.docCommentDisplay(c);
+        const photo = WritingDocCard.splitPhoto(disp.content);
+        if (photo.text && photo.text.trim()) return true;
+        if (photo.photoUrls && photo.photoUrls.length > 0) return true;
+        if (c.quotedFileContent?.value && c.quotedFileContent.value.trim()) return true;
+        const replies = (c.replies || []).filter(r => {
+            if (!r || r.deleted) return false;
+            const rDisp = WritingDocCard.docCommentDisplay(r);
+            const rText = String(rDisp.content || '').trim();
+            return !!rText;
+        });
+        return replies.length > 0;
+    },
+
     // Service-account courier email; comments it posts carry a
     // "Created by <platform user>: <text>" prefix that we strip for display.
     BOT_DOCS_EMAIL: 'chscommunication@appspot.gserviceaccount.com',
@@ -51,6 +69,45 @@ export const WritingDocCard = {
             return { author: 'Bot', content, viaBot: true };
         }
         return { author: name, content, viaBot: false };
+    },
+
+    // One source of truth for the per-comment action toolbar used in both
+    // document Cards and the Writing Portfolio Comments stream.
+    renderDocCommentActionsHtml: function ({ key, index, comment, docId, docUrl, docTitle, anchorMsgKey, hideDelete = false } = {}) {
+        const c = comment || {};
+        const commentId = c.id || '';
+        const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
+        const disp = WritingDocCard.docCommentDisplay(c);
+        const actionIconClass = isDeleted
+            ? 'w-7 h-7 rounded-full flex items-center justify-center text-gray-400 dark:text-white/25 pointer-events-none'
+            : 'w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors';
+        const replyBtnHtml = (commentId && !isDeleted) ? `
+            <button type="button" onclick="window.replyToDocComment('${key}', ${index}, event)" class="${actionIconClass}" title="Reply to this comment in Google Doc" aria-label="Reply to this comment in Google Doc">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+            </button>` : '';
+        const deleteBtnHtml = (disp.viaBot && commentId && !isDeleted && !hideDelete) ? `
+            <button type="button" onclick="window.deleteBotDocComment('${key}', ${index}, event)" class="${actionIconClass}" title="Delete this bot-posted comment from Google Doc" aria-label="Delete this bot-posted comment from Google Doc">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>` : '';
+        const locateBtnHtml = commentId ? `
+            <button type="button" onclick="window.portfolioLocateComment('${anchorMsgKey || key}', '${docId || ''}', '${UIUtils.escape(commentId)}', '${UIUtils.escape(docTitle || '')}', event)" class="${actionIconClass}" title="Locate this comment in chat" aria-label="Locate this comment in chat">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line></svg>
+            </button>` : '';
+        const commentDirectUrl = (docId && commentId)
+            ? `https://docs.google.com/document/d/${docId}/edit?disco=${encodeURIComponent(commentId)}`
+            : (docUrl || '#');
+
+        return `
+            ${replyBtnHtml}
+            <button type="button" onclick="window.openCommentSendPicker('${key}', ${index}, event)" class="${actionIconClass}" title="Send this comment" aria-label="Send this comment">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+            </button>
+            ${deleteBtnHtml}
+            ${locateBtnHtml}
+            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="${actionIconClass}" title="Jump to this comment in Google Doc" aria-label="Jump to this comment in Google Doc">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>
+        `;
     },
 
     // Replies sent from the chat input can carry up to three photos; on
@@ -130,7 +187,13 @@ export const WritingDocCard = {
      * [Google Doc Comments HTML Builder] 统一的评论列表渲染引擎（保证首次渲染和点击 Sync 后的 UI 100% 绝对一致）
      */
     renderDocCommentsHtml: function (key, comments, count, openCount, resolvedCount, docId, docUrl, docData, opts) {
-        const list = comments || [];
+        // Exclude tombstone comments that are deleted on Google Docs and have no visible content
+        const rawList = comments || [];
+        const list = rawList.filter(c => {
+            const isDel = !!(c?.deleted || c?.status === 'deleted_on_google');
+            if (isDel && !WritingDocCard.hasVisibleCommentContent(c)) return false;
+            return true;
+        });
         if (list.length === 0) {
             const status = docData?.syncStatus;
             const emptyText = (status === 'no_comments_yet' || status === 'synced')
@@ -192,11 +255,7 @@ export const WritingDocCard = {
                 statusTag = '<span class="text-[11px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded font-medium">Resolved</span>';
             }
             
-            // Deep-link to comment in Google Docs
             const commentId = c.id || '';
-            const commentDirectUrl = (docId && commentId) 
-                ? `https://docs.google.com/document/d/${docId}/edit?disco=${encodeURIComponent(commentId)}`
-                : (docUrl || '#');
 
             // Per-comment anchor that jumps to the chat message carrying this
             // comment (comment_card), expanding this card's drawer as fallback.
@@ -215,8 +274,8 @@ export const WritingDocCard = {
                     const rDisp = WritingDocCard.docCommentDisplay(r);
                     const rPhoto = WritingDocCard.splitPhoto(rDisp.content);
                     const rPhotoHtml = rPhoto.photoUrls.length ? `
-                        <div class="flex flex-wrap gap-1.5 mt-1.5">${rPhoto.photoUrls.map((u, pi) => `
-                            <img src="${UIUtils.escape(u)}" loading="lazy" alt="Attached photo" onclick="openGallery('${encodeURIComponent(JSON.stringify(rPhoto.photoUrls))}', ${pi})" class="w-32 h-32 object-cover rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
+                        <div class="grid grid-cols-3 gap-1.5 mt-1.5">${rPhoto.photoUrls.map((u, pi) => `
+                            <img src="${UIUtils.escape(u)}" loading="lazy" alt="Attached photo" onclick="openGallery('${encodeURIComponent(JSON.stringify(rPhoto.photoUrls))}', ${pi})" class="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
                         </div>` : '';
                     // The old gray rail in front of each reply is now a Locate
                     // button. It matches the reply's own Google id (r.id): each
@@ -246,34 +305,12 @@ export const WritingDocCard = {
             }
 
             const rowOpacity = (isDeleted || isMissing) ? ' opacity-60' : '';
-            const actionIconClass = isDeleted
-                ? 'w-7 h-7 rounded-full flex items-center justify-center text-gray-400 dark:text-white/25 pointer-events-none'
-                : 'w-7 h-7 rounded-full accent-hover-soft flex items-center justify-center text-black dark:text-white transition-colors';
-            const replyBtnHtml = (commentId && !isDeleted) ? `
-                            <button type="button" onclick="window.replyToDocComment('${key}', ${i}, event)" class="${actionIconClass}" title="Reply to this comment in Google Doc">
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
-                                </svg>
-                            </button>` : '';
-            // Only the bot's own top-level comments get a delete icon; human
-            // comments and bot replies have no API delete path. Comment-card
-            // threads hide it too — the doc card row is the single delete entry.
-            const deleteBtnHtml = (disp.viaBot && commentId && !isDeleted && !(opts && opts.hideDelete)) ? `
-                            <button type="button" onclick="window.deleteBotDocComment('${key}', ${i}, event)" class="${actionIconClass}" title="Delete this bot-posted comment from Google Doc">
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                                </svg>
-                            </button>` : '';
-            const locateBtnHtml = commentId ? `
-                            <button type="button" onclick="window.portfolioJumpToChat('${anchorMsgKey}', '${docId || ''}', '${UIUtils.escape(c.id || '')}', '${UIUtils.escape(docData?.title || '')}')" class="${actionIconClass}" title="Locate this comment in chat">
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="6"></circle>
-                                    <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
-                                </svg>
-                            </button>` : '';
+            const actionsHtml = WritingDocCard.renderDocCommentActionsHtml({
+                key, index: i, comment: c, docId, docUrl,
+                docTitle: docData?.title || 'Google Document',
+                anchorMsgKey,
+                hideDelete: !!(opts && opts.hideDelete)
+            });
             // Inline reply box rendered directly under this comment row.
             const replyBoxHtml = (commentId && !isDeleted) ? `
                     <div id="docReplyBox-${key}-${i}" class="hidden mt-2.5 text-left">
@@ -294,8 +331,8 @@ export const WritingDocCard = {
                     : `<div class="text-[13px] italic text-gray-400 dark:text-gray-500">Comment deleted in Google Docs (no snapshot content was saved for it).</div>`)
                 : `<div class="wp-comment-body text-[14px] font-semibold text-gray-800 dark:text-white leading-relaxed">${WritingDocCard.escapeCommentText(photoSplit.text)}</div>`;
             const photoHtml = photoSplit.photoUrls.length ? `
-                    <div class="flex flex-wrap gap-1.5 mt-2">${photoSplit.photoUrls.map((u, pi) => `
-                        <img src="${UIUtils.escape(u)}" loading="lazy" alt="Attached photo" onclick="openGallery('${encodeURIComponent(JSON.stringify(photoSplit.photoUrls))}', ${pi})" class="w-32 h-32 object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
+                    <div class="grid grid-cols-3 gap-1.5 mt-2">${photoSplit.photoUrls.map((u, pi) => `
+                        <img src="${UIUtils.escape(u)}" loading="lazy" alt="Attached photo" onclick="openGallery('${encodeURIComponent(JSON.stringify(photoSplit.photoUrls))}', ${pi})" class="w-full aspect-square object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
                     </div>` : '';
 
             return `
@@ -304,22 +341,7 @@ export const WritingDocCard = {
                         <span class="text-[14px] font-semibold text-black dark:text-white">${UIUtils.escape(author)}</span>
                         <div class="flex items-center gap-2">
                             ${statusTag}
-                            ${replyBtnHtml}
-                            <button type="button" onclick="window.openCommentSendPicker('${key}', ${i}, event)" class="${actionIconClass}" title="Send this comment">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                                </svg>
-                            </button>
-                            ${deleteBtnHtml}
-                            ${locateBtnHtml}
-                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="${actionIconClass}" title="Jump to this comment in Google Doc">
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                                </svg>
-                            </a>
+                            ${actionsHtml}
                         </div>
                     </div>
                     <!-- One continuous blue rail: quote text flows into the main comment body -->
@@ -382,23 +404,6 @@ export const WritingDocCard = {
 
         // 构建评论列表 HTML (统一复用 WritingDocCard.renderDocCommentsHtml)
         const commentsListHtml = WritingDocCard.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl, docData);
-
-        // Whole-doc note composer (hidden until the header bubble button is tapped).
-        // Per-comment replies live inline under their own comment rows instead.
-        const composerHtml = docId ? `
-            <div id="docComposer-${key}" class="hidden border-t border-gray-100 dark:border-white/5 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02] px-3.5 py-3 text-left">
-                <textarea id="docComposerText-${key}" rows="3" maxlength="3000" placeholder="Write a note on the whole doc…" class="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-[#2C2C2E] border border-gray-200 dark:border-white/10 text-[13px] text-black dark:text-white outline-none transition-colors resize-none leading-relaxed"></textarea>
-                <div class="flex items-center justify-between gap-2 mt-2">
-                    <span class="text-[10px] text-black dark:text-white leading-tight">Delivered by the CHSchat bot, signed “Created by you”.</span>
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <button type="button" onclick="window.closeDocCommentComposer('${key}', event)" class="px-3 py-1.5 rounded-xl text-[12px] text-black dark:text-white accent-hover-soft transition-colors">Cancel</button>
-                        <button type="button" id="docComposerSend-${key}" onclick="window.sendDocCommentFromComposer('${key}', event)" class="px-3.5 py-1.5 rounded-xl text-[12px] bg-[#007AFF] text-white hover:bg-[#0062CC] active:scale-95 transition-all shadow-sm">Post</button>
-                    </div>
-                </div>
-            </div>
-        ` : '';
-
-
 
         return `
             <div data-doc-id="${docId}" data-doc-url="${UIUtils.escape(docUrl)}" data-open-count="${openCount}" data-total-comments="${count}" class="doc-card-container w-full bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden text-left my-1">
@@ -466,8 +471,6 @@ export const WritingDocCard = {
                 </div>
 
                 ${statusNoticeHtml}
-                ${composerHtml}
-
                 <!-- Expandable Comments Drawer Area with Smooth Accordion -->
                 <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">
                     <div class="min-h-0 overflow-hidden">
@@ -494,7 +497,7 @@ export function initWritingBehavior(deps) {
         getCurrentUser, getActiveTargetId, getChatId,
         getLocalMessages, saveMessageLocal,
         MessageEngine, getLastChatId,
-        startDocCommentReply
+        startDocCommentReply, startDocNewComment
     } = deps;
 
     function jumpCommentCard(el) {
@@ -1145,41 +1148,14 @@ export function initWritingBehavior(deps) {
 
     function openDocCommentComposer(key, e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        if (!composer) return;
-        const wasHidden = composer.classList.contains('hidden');
-        composer.classList.toggle('hidden');
-        if (wasHidden) {
-            const ta = document.getElementById(`docComposerText-${key}`);
-            if (ta) setTimeout(() => ta.focus(), 60);
-        }
-    }
-
-    function closeDocCommentComposer(key, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        if (composer) composer.classList.add('hidden');
-    }
-
-    async function sendDocCommentFromComposer(key, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        const composer = document.getElementById(`docComposer-${key}`);
-        const container = composer ? composer.closest('.doc-card-container') : null;
-        const docUrl = container ? (container.getAttribute('data-doc-url') || '') : '';
-        const textEl = document.getElementById(`docComposerText-${key}`);
-        const sendBtn = document.getElementById(`docComposerSend-${key}`);
-        const content = (textEl ? textEl.value : '').trim();
-
-        if (!content) {
-            return AppModules.Modal.alert("Empty comment", "Type your comment before posting.");
-        }
-
-        const posted = await submitDocCommentPost(key, docUrl, null, content, sendBtn);
-        if (posted) {
-            if (textEl) textEl.value = '';
-            composer.classList.add('hidden');
-            await autoForwardCommentCardToChat(key, docUrl, null, content, posted.postedCommentId);
-        }
+        const card = e?.currentTarget?.closest('.doc-card-container') || document.getElementById(`docTitle-${key}`)?.closest('.doc-card-container');
+        if (!card || !startDocNewComment) return;
+        startDocNewComment({
+            docId: card.getAttribute('data-doc-id') || '',
+            docUrl: card.getAttribute('data-doc-url') || '',
+            docTitle: document.getElementById(`docTitle-${key}`)?.textContent?.trim() || 'Google Document',
+            originMsgKey: key
+        });
     }
 
     function replyToDocComment(key, idx, e) {
@@ -1330,8 +1306,12 @@ export function initWritingBehavior(deps) {
                 return;
             }
 
-            // Deleted: pull the tombstone back through the normal snapshot sync.
-            await syncDocCardComments(key, docUrl, null, chatId, true);
+            // Deleted: refresh the shared snapshot. In the portfolio Comments
+            // stream, keep the Cards drawer closed and rebuild the stream so
+            // the deleted row immediately adopts its disabled action state.
+            const fromPortfolioComments = !!btn?.closest('#portfolioCommentsView');
+            await syncDocCardComments(key, docUrl, null, chatId, true, !fromPortfolioComments);
+            if (fromPortfolioComments) window.renderPortfolioCommentsContent?.();
         } catch (err) {
             console.error('Delete comment error:', err);
             const fbErr = err && err.message ? String(err.message) : '';
@@ -1466,8 +1446,6 @@ export function initWritingBehavior(deps) {
         submitDocCommentPost,
         autoForwardCommentCardToChat,
         openDocCommentComposer,
-        closeDocCommentComposer,
-        sendDocCommentFromComposer,
         replyToDocComment,
         closeDocCommentReply,
         sendDocCommentReply,

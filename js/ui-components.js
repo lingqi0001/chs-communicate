@@ -353,7 +353,7 @@ export const UIComponents = {
             const targetAuthor = card.parentAuthor || author;
             stripText = `${UIUtils.escape(replier)} Replied to ${UIUtils.escape(targetAuthor)} on ${UIUtils.escape(docTitle)}`;
         } else {
-            stripText = `${UIUtils.escape(author)} Commented on ${UIUtils.escape(docTitle)}`;
+            stripText = `${UIUtils.escape(author)} created a new comment on ${UIUtils.escape(docTitle)}`;
         }
 
         const textGroup = `<div class="flex-1 min-w-0"><span ${jumpAttrs} class="text-[11px] font-semibold text-[#007AFF] dark:text-[#0A84FF]${textCls}">${stripText}</span></div>`;

@@ -18,6 +18,7 @@ export function initChatEngine(deps) {
     let lastChatId = null;
     let currentQuote = null;
     let docReplyTarget = null; // Google Doc comment reply mode driven by the chat input
+    let docNewCommentTarget = null; // Whole-document Google Doc comment mode
     let selectedMsgData = null;
     let longPressTimer = null;
     let hasMountedUIEvents = false;
@@ -546,6 +547,7 @@ export function initChatEngine(deps) {
     function showQuoteArea() {
         const quoteArea = document.getElementById('quoteArea');
         if (!quoteArea) return;
+        setQuoteAreaExpanded(false);
         clearTimeout(quoteAreaCloseTimer);
         quoteArea.classList.remove('hidden');
         quoteArea.classList.remove('menu-visible');
@@ -554,6 +556,7 @@ export function initChatEngine(deps) {
             requestAnimationFrame(() => {
                 quoteArea.classList.remove('menu-hidden');
                 quoteArea.classList.add('menu-visible');
+                syncQuoteAreaExpandButton();
                 if (quoteArea._liquidGlass) quoteArea._liquidGlass.refresh();
             });
         });
@@ -561,7 +564,7 @@ export function initChatEngine(deps) {
 
     function handleMsgQuote() {
         if (!selectedMsgData) return;
-        if (docReplyTarget) exitDocReplyMode();
+        if (docReplyTarget || docNewCommentTarget) exitDocReplyMode();
         const menu = document.getElementById('messageContextMenu');
         if (menu) {
             menu.classList.add('hidden');
@@ -599,6 +602,7 @@ export function initChatEngine(deps) {
         exitDocReplyMode();
         const quoteArea = document.getElementById('quoteArea');
         if (!quoteArea || quoteArea.classList.contains('hidden')) return;
+        setQuoteAreaExpanded(false);
         quoteArea.classList.remove('menu-visible');
         quoteArea.classList.add('menu-hidden');
         clearTimeout(quoteAreaCloseTimer);
@@ -636,10 +640,18 @@ export function initChatEngine(deps) {
     }
 
     function exitDocReplyMode() {
-        if (!docReplyTarget) return;
+        if (!docReplyTarget && !docNewCommentTarget) return;
         docReplyTarget = null;
+        docNewCommentTarget = null;
+        const lead = document.getElementById('quoteLead');
+        const user = document.getElementById('quoteUser');
         const tail = document.getElementById('quoteTail');
+        const quoteArea = document.getElementById('quoteArea');
+        if (lead) lead.classList.add('font-bold');
+        if (user) user.classList.remove('hidden');
         if (tail) tail.innerText = "'s message: ";
+        if (tail) tail.classList.remove('hidden');
+        quoteArea?.classList.remove('doc-new-comment-quote');
         const input = document.getElementById('u-msg');
         if (input) input.placeholder = composerPlaceholder();
         liftComposerForPortfolio(false);
@@ -663,6 +675,45 @@ export function initChatEngine(deps) {
         } else {
             wrap.style.left = target;
         }
+    }
+
+    function setQuoteAreaExpanded(expanded) {
+        const quoteArea = document.getElementById('quoteArea');
+        const button = document.getElementById('quoteExpandBtn');
+        if (!quoteArea) return;
+        const currentHeight = quoteArea.getBoundingClientRect().height;
+        if (currentHeight > 0) quoteArea.style.height = `${currentHeight}px`;
+        quoteArea.classList.toggle('quote-area-expanded', !!expanded);
+        button?.setAttribute('aria-expanded', String(!!expanded));
+        button?.setAttribute('aria-label', expanded ? 'Collapse comment context' : 'Expand comment context');
+        button?.setAttribute('title', expanded ? 'Collapse comment context' : 'Expand comment context');
+        const targetHeight = expanded
+            ? Math.min(quoteArea.scrollHeight, 192)
+            : 48;
+        requestAnimationFrame(() => {
+            quoteArea.style.height = `${targetHeight}px`;
+            syncQuoteAreaExpandButton();
+        });
+    }
+
+    function syncQuoteAreaExpandButton() {
+        const quoteArea = document.getElementById('quoteArea');
+        const quoteText = document.getElementById('quoteContextText');
+        const button = document.getElementById('quoteExpandBtn');
+        if (!quoteArea || !quoteText || !button) return;
+
+        const expanded = quoteArea.classList.contains('quote-area-expanded');
+        const isVisible = !quoteArea.classList.contains('hidden');
+        const isClipped = quoteText.scrollWidth > quoteText.clientWidth + 1;
+        button.classList.toggle('hidden', !isVisible || (!expanded && !isClipped));
+    }
+
+    function toggleQuoteAreaExpanded(event) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        const quoteArea = document.getElementById('quoteArea');
+        if (!quoteArea) return;
+        setQuoteAreaExpanded(!quoteArea.classList.contains('quote-area-expanded'));
     }
 
     function liftComposerForPortfolio(on) {
@@ -707,6 +758,7 @@ export function initChatEngine(deps) {
     function startDocCommentReply(ctx) {
         if (!ctx || !ctx.comment || !ctx.comment.id) return;
         currentQuote = null;
+        docNewCommentTarget = null;
         const disp = WritingDocCard.docCommentDisplay(ctx.comment);
         const authorName = disp.author || 'Reviewer';
         docReplyTarget = {
@@ -721,15 +773,61 @@ export function initChatEngine(deps) {
         const userEl = document.getElementById('quoteUser');
         const tail = document.getElementById('quoteTail');
         const textEl = document.getElementById('quoteText');
-        if (lead) lead.innerText = 'Reply to ';
+        const quoteArea = document.getElementById('quoteArea');
+        quoteArea?.classList.remove('doc-new-comment-quote');
+        if (lead) {
+            lead.innerText = 'Replying to ';
+            lead.classList.add('font-bold');
+        }
+        userEl?.classList.remove('hidden');
         if (userEl) userEl.innerText = authorName;
-        if (tail) tail.innerText = ' on this Google Doc comment: ';
+        tail?.classList.remove('hidden');
+        if (tail) tail.innerText = "'s comment: ";
         if (textEl) textEl.innerText = (disp.content || '').replace(/\r?\n/g, ' ');
         if (portfolioIsOpen()) liftComposerForPortfolio(true);
         showQuoteArea();
         const input = document.getElementById('u-msg');
         if (input) {
             input.placeholder = `Reply to ${authorName}…`;
+            input.focus();
+        }
+    }
+
+    function startDocNewComment(ctx) {
+        if (!ctx || !ctx.docUrl || !ctx.originMsgKey) return;
+        if (docNewCommentTarget && docNewCommentTarget.originMsgKey === ctx.originMsgKey) {
+            clearQuote();
+            return;
+        }
+        currentQuote = null;
+        docReplyTarget = null;
+        docNewCommentTarget = {
+            docId: ctx.docId || null,
+            docUrl: ctx.docUrl,
+            docTitle: ctx.docTitle || 'Google Document',
+            originMsgKey: ctx.originMsgKey,
+            photoUrls: []
+        };
+        const lead = document.getElementById('quoteLead');
+        const user = document.getElementById('quoteUser');
+        const tail = document.getElementById('quoteTail');
+        const text = document.getElementById('quoteText');
+        const quoteArea = document.getElementById('quoteArea');
+        if (lead) {
+            lead.innerText = 'Creating a new comment on Google Doc: ';
+            lead.classList.add('font-bold');
+        }
+        user?.classList.add('hidden');
+        tail?.classList.add('hidden');
+        if (text) text.innerText = docNewCommentTarget.docTitle;
+        quoteArea?.classList.add('doc-new-comment-quote');
+        if (portfolioIsOpen()) liftComposerForPortfolio(true);
+        showQuoteArea();
+        const input = document.getElementById('u-msg');
+        if (input) {
+            input.value = '';
+            input.style.height = 'auto';
+            input.placeholder = 'Write a comment...';
             input.focus();
         }
     }
@@ -1068,7 +1166,7 @@ export function initChatEngine(deps) {
         window.syncCHSRouteParams?.({ chatid: targetId, project: null });
 
         // A pending doc-comment reply belongs to the chat it was started in.
-        if (docReplyTarget) clearQuote();
+        if (docReplyTarget || docNewCommentTarget) clearQuote();
 
         // Unsent text travels with its own conversation: park the outgoing one,
         // then put back whatever this chat had when we last left it.
@@ -1767,6 +1865,10 @@ export function initChatEngine(deps) {
                 await this.sendDocCommentReply(val);
                 return;
             }
+            if (docNewCommentTarget) {
+                await this.sendDocNewComment(val);
+                return;
+            }
             if (!val) return;
             if (val.length > 8000) {
                 await AppModules.Modal.alert("Too Long", "Message limit is 8000 chars.");
@@ -1853,14 +1955,63 @@ export function initChatEngine(deps) {
             }
         },
 
+        // Post a new whole-document comment through the same bottom composer
+        // used for replies, while leaving it unattached to an existing thread.
+        sendDocNewComment: async function (val) {
+            const target = docNewCommentTarget;
+            if (!target) return;
+            let content = val || '';
+            if (target.photoUrls && target.photoUrls.length) {
+                const urls = target.photoUrls.join(' ');
+                content = `${content ? content + '\n' : ''}With ${target.photoUrls.length === 1 ? 'a photo' : 'photos'}: ${urls}`;
+            }
+            if (!content.trim()) {
+                await AppModules.Modal.alert("Empty comment", "Type your comment or attach a photo before posting.");
+                return;
+            }
+            if (content.length > 3000) {
+                await AppModules.Modal.alert("Comment too long", "Google Doc comments are limited to 3000 characters (the photo links count too).");
+                return;
+            }
+            if (target._posting) return;
+            const input = document.getElementById('u-msg');
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+            }
+            const textEl = document.getElementById('quoteText');
+            const prevText = textEl ? textEl.innerText : target.docTitle;
+            if (textEl) textEl.innerText = 'Posting to Google Doc…';
+            target._posting = true;
+            beginSendPending();
+            setDocReplyBusy(true);
+            let posted = null;
+            try {
+                posted = await WB.submitDocCommentPost(target.originMsgKey, target.docUrl, null, content, null);
+            } finally {
+                setDocReplyBusy(false);
+                endSendPending();
+                target._posting = false;
+            }
+            if (posted) {
+                await WB.autoForwardCommentCardToChat(target.originMsgKey, target.docUrl, null, content, posted.postedCommentId);
+                clearQuote();
+            } else if (docNewCommentTarget === target) {
+                if (input) input.value = val;
+                if (textEl) textEl.innerText = prevText;
+            }
+        },
+
         sendImages: async function (base64s) {
             if (!base64s || !base64s.length) return;
-            if (docReplyTarget) {
+            if (docReplyTarget || docNewCommentTarget) {
+                const target = docReplyTarget || docNewCommentTarget;
                 const urls = await Promise.all(base64s.map(b => uploadImageToStorage(b, 'chats')));
-                docReplyTarget.photoUrls = urls.slice(0, 3);
+                target.photoUrls = urls.slice(0, 3);
                 if (urls.length > 3) {
                     await AppModules.Modal.alert("Up to three photos", "Only the first three photos were attached.");
                 }
+                if (!docReplyTarget) return;
                 const textEl = document.getElementById('quoteText');
                 if (textEl) {
                     const n = docReplyTarget.photoUrls.length;
@@ -2775,6 +2926,12 @@ export function initChatEngine(deps) {
                 mouseRadius: 55,
                 mouseStrength: 6
             });
+            if (window.ResizeObserver && !quoteArea._expandButtonResizeObserver) {
+                quoteArea._expandButtonResizeObserver = new ResizeObserver(syncQuoteAreaExpandButton);
+                quoteArea._expandButtonResizeObserver.observe(quoteArea);
+                const quoteText = document.getElementById('quoteContextText');
+                if (quoteText) quoteArea._expandButtonResizeObserver.observe(quoteText);
+            }
         }
 
         // Initialize Liquid Glass effect on the message context menu (same parameters as attachMenu)
@@ -3114,7 +3271,14 @@ export function initChatEngine(deps) {
                 const cachedDoc = resolveDocViewData(docId, m.docData);
                 const rawTitle = cachedDoc?.title || 'Google Document';
 
-                const comments = cachedDoc?.comments || [];
+                const rawComments = cachedDoc?.comments || [];
+            const comments = rawComments.filter(c => {
+                const cDeleted = !!(c?.deleted || c?.status === 'deleted_on_google');
+                if (cDeleted && !(UIComponents.hasVisibleCommentContent ? UIComponents.hasVisibleCommentContent(c) : WritingDocCard.hasVisibleCommentContent(c))) {
+                    return false;
+                }
+                return true;
+            });
                 // Deleted / not-returned snapshot comments never inflate the counts.
                 const liveComments = UIComponents.docLiveComments(comments);
                 let openCount = 0;
@@ -3670,15 +3834,29 @@ export function initChatEngine(deps) {
 
         // Extract all comments from all documents
         const allComments = [];
-        docMessages.forEach(m => {
+        docMessages.forEach((m, docMessageIndex) => {
             const match = (m.text || '').match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/);
             const docId = m.docData?.fileId || (match ? match[1] : null);
             const cachedDoc = resolveDocViewData(docId, m.docData);
             const docTitle = cachedDoc?.title || 'Google Document';
             const docUrl = m.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
-            const comments = cachedDoc?.comments || [];
+            const rawComments = cachedDoc?.comments || [];
+            const comments = rawComments.filter(c => {
+                const cDeleted = !!(c?.deleted || c?.status === 'deleted_on_google');
+                if (cDeleted && !(UIComponents.hasVisibleCommentContent ? UIComponents.hasVisibleCommentContent(c) : WritingDocCard.hasVisibleCommentContent(c))) {
+                    return false;
+                }
+                return true;
+            });
+            const actionKey = m.key || `portfolio-${docId || 'unknown'}-${docMessageIndex}`;
 
-            comments.forEach(c => {
+            // The existing comment actions resolve comments by key + index.
+            // Register the original per-document array so portfolio actions
+            // continue to target the correct comment after the global sort.
+            window._docCommentPayloads = window._docCommentPayloads || {};
+            window._docCommentPayloads[actionKey] = { docId, docUrl, docTitle, comments };
+
+            comments.forEach((c, commentIndex) => {
                 const cTime = c.createdTime ? new Date(c.createdTime).getTime() : (m.timestamp || 0);
                 const disp = UIComponents.docCommentDisplay(c);
                 const aName = disp.author || 'Reviewer';
@@ -3687,8 +3865,15 @@ export function initChatEngine(deps) {
                 const isDeleted = !!(c.deleted || c.status === 'deleted_on_google');
                 const isMissing = !isDeleted && c.status === 'missing_from_latest_sync';
 
+                // Skip deleted tombstone comments that have no visible content
+                if (isDeleted && !(UIComponents.hasVisibleCommentContent ? UIComponents.hasVisibleCommentContent(c) : WritingDocCard.hasVisibleCommentContent(c))) {
+                    return;
+                }
+
                 allComments.push({
                     comment: c,
+                    actionKey,
+                    commentIndex,
                     displayContent: disp.content,
                     viaBot: disp.viaBot,
                     docId: docId,
@@ -3735,8 +3920,8 @@ export function initChatEngine(deps) {
         }
 
         const renderFeedbackPhotos = urls => urls.length ? `
-            <div class="flex flex-wrap gap-2 mt-2">
-                ${urls.map((url, index) => `<img src="${UIUtils.escape(url)}" loading="lazy" alt="Comment photo ${index + 1}" onclick="openGallery('${encodeURIComponent(JSON.stringify(urls))}', ${index})" class="w-32 h-32 object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                ${urls.map((url, index) => `<img src="${UIUtils.escape(url)}" loading="lazy" alt="Comment photo ${index + 1}" onclick="openGallery('${encodeURIComponent(JSON.stringify(urls))}', ${index})" class="w-full aspect-square object-cover rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">`).join('')}
             </div>
         ` : '';
 
@@ -3746,9 +3931,15 @@ export function initChatEngine(deps) {
             const isResolved = item.resolved;
             const dimRow = item.isDeleted || item.isMissing;
             const formattedDate = item.time ? new Date(item.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-            const commentDirectUrl = (item.docId && c.id)
-                ? `https://docs.google.com/document/d/${item.docId}/edit?disco=${encodeURIComponent(c.id)}`
-                : item.docUrl;
+            const actionsHtml = UIComponents.renderDocCommentActionsHtml({
+                key: item.actionKey,
+                index: item.commentIndex,
+                comment: c,
+                docId: item.docId,
+                docUrl: item.docUrl,
+                docTitle: item.docTitle,
+                anchorMsgKey: item.msgKey
+            });
 
             // Role badge styling
             let roleBadgeClass = 'portfolio-teacher-badge';
@@ -3807,18 +3998,8 @@ export function initChatEngine(deps) {
                             ${item.isMissing ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-black dark:text-white bg-gray-100 dark:bg-white/10" title="Google has not returned this comment in recent full syncs">Not in latest sync</span>' : ''}
                             ${isResolved && !item.isDeleted ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-black dark:text-white bg-gray-100 dark:bg-white/10">Resolved</span>' : ''}
                         </div>
-                        <div class="flex items-center gap-3 flex-shrink-0">
-                            <button type="button" onclick="window.portfolioJumpToChat('${item.msgKey}', '${item.docId}', '${c.id || ''}', '${UIUtils.escape(item.docTitle)}')" class="portfolio-accent-link inline-flex items-center gap-1 text-[12px] font-semibold transition-colors" title="Locate this comment in chat">
-                                <span>Locate</span>
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="6"></circle>
-                                    <line x1="12" y1="2.5" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="21.5"></line><line x1="2.5" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="21.5" y2="12"></line>
-                                </svg>
-                            </button>
-                            <a href="${UIUtils.escape(commentDirectUrl)}" target="_blank" rel="noopener noreferrer" class="portfolio-accent-link inline-flex items-center gap-1 text-[12px] font-semibold" title="Jump to this comment in Google Doc">
-                                <span>View Doc</span>
-                                <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                            </a>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            ${actionsHtml}
                         </div>
                     </div>
 
@@ -4137,7 +4318,14 @@ export function initChatEngine(deps) {
             const cachedDoc = resolveDocViewData(docId, m.docData);
             const docTitle = cachedDoc?.title || 'Google Document';
             const docUrl = m.docData?.docUrl || (match ? match[0] : (docId ? `https://docs.google.com/document/d/${docId}/edit` : ''));
-            const comments = cachedDoc?.comments || [];
+            const rawComments = cachedDoc?.comments || [];
+            const comments = rawComments.filter(c => {
+                const cDeleted = !!(c?.deleted || c?.status === 'deleted_on_google');
+                if (cDeleted && !(UIComponents.hasVisibleCommentContent ? UIComponents.hasVisibleCommentContent(c) : WritingDocCard.hasVisibleCommentContent(c))) {
+                    return false;
+                }
+                return true;
+            });
             const liveComments = UIComponents.docLiveComments(comments);
             const dossierStatus = cachedDoc?.syncStatus || '';
             const isSnapshotView = !!dossierStatus && dossierStatus !== 'synced' && dossierStatus !== 'no_comments_yet';
@@ -5688,6 +5876,20 @@ export function initChatEngine(deps) {
         }, 60);
     }
 
+    // Comment-specific Locate action. Keep it separate from doc-level jumps so
+    // a missing comment id can never silently fall through to the source doc.
+    function portfolioLocateComment(msgKey, docId = '', commentId = '', titleHint = '', event = null) {
+        if (event) {
+            event.preventDefault?.();
+            event.stopPropagation?.();
+        }
+        if (!String(commentId || '').trim()) {
+            AppModules.Modal.alert('Nothing to locate', 'This comment has no chat message to jump to — it was synced before comments got their own chat cards.');
+            return;
+        }
+        portfolioJumpToChat(msgKey, docId, commentId, titleHint);
+    }
+
     // Portfolio -> chat anchor jump: close the drawer, scroll the target
     // message into view and flash it. With a commentId the only valid target
     // is the comment's own comment_card message; if none exists (legacy syncs)
@@ -5702,9 +5904,14 @@ export function initChatEngine(deps) {
 
         // data-comment-id is a space-separated id list (top-level id + reply
         // anchorIds), so `~=` matches a card by any single comment/reply id.
-        const findCommentMsg = () => commentId
-            ? chatBox.querySelector(`.msg-pop[data-comment-id~="${commentId}"]`)
-            : null;
+        const findCommentMsg = () => {
+            if (!commentId) return null;
+            // Compare tokens directly instead of interpolating an external
+            // Google comment id into a CSS selector.
+            return Array.from(chatBox.querySelectorAll('.msg-pop[data-comment-id]')).find(msg =>
+                String(msg.getAttribute('data-comment-id') || '').split(/\s+/).includes(String(commentId))
+            ) || null;
+        };
 
         const findDocMsg = () => {
             let t = msgKey ? chatBox.querySelector(`.msg-pop[data-key="${msgKey}"]`) : null;
@@ -6234,6 +6441,7 @@ export function initChatEngine(deps) {
         getLocalMessages, saveMessageLocal,
         MessageEngine,
         startDocCommentReply,
+        startDocNewComment,
         getLastChatId: () => lastChatId
     });
     const toggleDocCommentsExpand = WB.toggleDocCommentsExpand;
@@ -6242,8 +6450,6 @@ export function initChatEngine(deps) {
     const toggleQuoteText = WB.toggleQuoteText;
     const syncDocCardComments = WB.syncDocCardComments;
     const openDocCommentComposer = WB.openDocCommentComposer;
-    const closeDocCommentComposer = WB.closeDocCommentComposer;
-    const sendDocCommentFromComposer = WB.sendDocCommentFromComposer;
     const replyToDocComment = WB.replyToDocComment;
     const closeDocCommentReply = WB.closeDocCommentReply;
     const sendDocCommentReply = WB.sendDocCommentReply;
@@ -6261,6 +6467,7 @@ export function initChatEngine(deps) {
     window.toggleWritingPortfolioExpand = toggleWritingPortfolioExpand;
     window.setWritingPortfolioRoutePreference = setWritingPortfolioRoutePreference;
     window.portfolioJumpToChat = portfolioJumpToChat;
+    window.portfolioLocateComment = portfolioLocateComment;
     window.resetChatProjectFilter = resetChatProjectFilter;
     window.openPortfolioForSelectedProject = openPortfolioForSelectedProject;
 
@@ -6314,16 +6521,15 @@ export function initChatEngine(deps) {
     window.toggleCommentCardExpand = toggleCommentCardExpand;
     window.syncDocCardComments = syncDocCardComments;
     window.openDocCommentComposer = openDocCommentComposer;
-    window.closeDocCommentComposer = closeDocCommentComposer;
     window.replyToDocComment = replyToDocComment;
     window.closeDocCommentReply = closeDocCommentReply;
     window.sendDocCommentReply = sendDocCommentReply;
     window.deleteBotDocComment = deleteBotDocComment;
-    window.sendDocCommentFromComposer = sendDocCommentFromComposer;
     window.loadChatThread = loadChatThread;
     window.handleMsgCopy = handleMsgCopy;
     window.handleMsgQuote = handleMsgQuote;
     window.clearQuote = clearQuote;
+    window.toggleQuoteAreaExpanded = toggleQuoteAreaExpanded;
     window.handleMsgForward = handleMsgForward;
     window.handleMsgReport = handleMsgReport;
     window.closeForwardPicker = closeForwardPicker;
