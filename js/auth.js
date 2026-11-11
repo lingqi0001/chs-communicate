@@ -55,7 +55,7 @@ export const AuthModule = {
      * Google OAuth login handler
      */
     loginWithGoogle() {
-        console.log('[�û�����] Google��¼��ť�����');
+        console.log('[用户动作] Google登录按钮被点击');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -69,11 +69,11 @@ export const AuthModule = {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isStandalone && isIOS) {
-            console.log('[ִ��] ��⵽ iOS PWA��ֱ�Ӵ��� signInWithRedirect(Google) ��ֹҳ�����');
+            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Google) 防止页面崩溃');
             hint.innerText = "Redirecting securely...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
             signInWithRedirect(auth, googleProvider).catch(err => {
-                console.error('[ʧ��] �ض��򱨴�:', err.code, err.message);
+                console.error('[失败] 重定向报错:', err.code, err.message);
                 window.AppModules.Modal.alert("Redirect Error", err.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
@@ -85,15 +85,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Google popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-        console.log('[ִ��] ׼������ͬ�� signInWithPopup(Google)');
+        console.log('[执行] 准备触发同步 signInWithPopup(Google)');
         signInWithPopup(auth, googleProvider).then((result) => {
-            console.log('[�ɹ�] Popup ����ƾ֤:', result.user.email);
+            console.log('[成功] Popup 返回凭证:', result.user.email);
         }).catch((error) => {
-            console.error("[ʧ��] ��������:", error.code, error.message);
+            console.error("[失败] 弹窗报错:", error.code, error.message);
             if (error.code === 'auth/popup-blocked') {
-                console.warn('[����] ���� signInWithRedirect �����߼� (������ϵͳ����)');
+                console.warn('[警告] 触发 signInWithRedirect 备用逻辑 (弹窗被系统拦截)');
                 hint.innerText = "Popup blocked. Redirecting...";
-                signInWithRedirect(auth, googleProvider).catch(err => console.error('[ʧ��] �ض���Ҳ����:', err.code, err.message));
+                signInWithRedirect(auth, googleProvider).catch(err => console.error('[失败] 重定向也报错:', err.code, err.message));
             } else if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Login Failed", "Google Sign-In failed: " + error.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
@@ -101,7 +101,7 @@ export const AuthModule = {
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
                 if (troubleLink) troubleLink.classList.add('hidden');
             } else {
-                console.log('[�ж�] �û������ر��˵���');
+                console.log('[中断] 用户主动关闭了弹窗');
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
                 hint.classList.replace('text-[#007AFF]', 'text-gray-400');
@@ -114,7 +114,7 @@ export const AuthModule = {
      * Microsoft OAuth login handler
      */
     loginWithMicrosoft() {
-        console.log('[�û�����] Microsoft��¼��ť�����');
+        console.log('[用户动作] Microsoft登录按钮被点击');
         const btns = document.querySelectorAll('#loginPage button');
         const hint = document.getElementById('loginHint');
         const originalHint = hint.innerText;
@@ -128,11 +128,11 @@ export const AuthModule = {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isStandalone && isIOS) {
-            console.log('[ִ��] ��⵽ iOS PWA��ֱ�Ӵ��� signInWithRedirect(Microsoft) ��ֹҳ�����');
+            console.log('[执行] 检测到 iOS PWA，直接触发 signInWithRedirect(Microsoft) 防止页面崩溃');
             hint.innerText = "Redirecting securely...";
             hint.classList.replace('text-gray-400', 'text-[#007AFF]');
             signInWithRedirect(auth, microsoftProvider).catch(err => {
-                console.error('[ʧ��] �ض��򱨴�:', err.code, err.message);
+                console.error('[失败] 重定向报错:', err.code, err.message);
                 window.AppModules.Modal.alert("Redirect Error", err.message);
                 btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
                 hint.innerText = originalHint;
@@ -144,15 +144,15 @@ export const AuthModule = {
         hint.innerText = "Please check the Microsoft popup window...";
         hint.classList.replace('text-gray-400', 'text-[#007AFF]');
 
-        console.log('[ִ��] ׼������ͬ�� signInWithPopup(Microsoft)');
+        console.log('[执行] 准备触发同步 signInWithPopup(Microsoft)');
         signInWithPopup(auth, microsoftProvider).then((result) => {
-            console.log('[�ɹ�] Popup ����ƾ֤:', result.user.email);
+            console.log('[成功] Popup 返回凭证:', result.user.email);
         }).catch((error) => {
-            console.error("[ʧ��] ��������:", error.code, error.message);
+            console.error("[失败] 弹窗报错:", error.code, error.message);
             if (error.code !== 'auth/popup-closed-by-user') {
                 window.AppModules.Modal.alert("Error", "Microsoft Sign-In failed: " + error.message);
             } else {
-                console.log('[�ж�] �û������ر��˵���');
+                console.log('[中断] 用户主动关闭了弹窗');
             }
             btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
             hint.innerText = originalHint;
@@ -362,4 +362,3 @@ if (window) {
     window.acceptTerms = AuthModule.acceptTerms;
     window.saveInitialProfile = AuthModule.saveInitialProfile;
 }
-
