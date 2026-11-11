@@ -428,6 +428,9 @@ exports.sendCanvasMessage = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTI
     const chatUserId = validateCanvasChatUserId(data?.chatUserId);
     const bodyText = String(data?.body || '').trim();
     const subject = String(data?.subject || '').trim();
+    const rawProjectKey = String(data?.projectKey || 'all').trim();
+    const sanitizedProjectKey = rawProjectKey.replace(/[^a-zA-Z0-9_-]/g, '_') || 'all';
+
     if (!bodyText) {
         throw new functions.https.HttpsError('invalid-argument', 'Message body cannot be empty.');
     }
@@ -435,49 +438,89 @@ exports.sendCanvasMessage = functions.runWith({ secrets: ['CANVAS_TOKEN_ENCRYPTI
         throw new functions.https.HttpsError('invalid-argument', 'Message limit is 8000 characters.');
     }
 
-    const [linkSnapshot, globalLinkSnapshot, connection] = await Promise.all([
+    const [linkSnapshot, globalLinkSnapshot, connection, threadSnapshot] = await Promise.all([
         admin.database().ref(`canvas_student_links/${uid}/${chatUserId}`).once('value'),
         admin.database().ref(`canvas_global_links/${chatUserId}`).once('value'),
-        getSavedCanvasConnection(uid)
+        getSavedCanvasConnection(uid),
+        admin.database().ref(`canvas_project_threads/${uid}/${chatUserId}/${sanitizedProjectKey}`).once('value')
     ]);
     const link = linkSnapshot.val() || globalLinkSnapshot.val();
     if (!link || !link.canvasUserId) {
         throw new functions.https.HttpsError('failed-precondition', 'This contact is not linked to a Canvas user.');
     }
 
-    const payload = new URLSearchParams({
-        'recipients[]': String(link.canvasUserId),
-        'body': bodyText,
-        'group_conversation': 'false'
-    });
-    if (subject) {
-        payload.append('subject', subject.slice(0, 255));
+    const existingConversationId = threadSnapshot.val();
+    let sentConversationId = null;
+
+    // If we already have a dedicated conversation thread for this project, try adding the message to it
+    if (existingConversationId) {
+        try {
+            const addPayload = new URLSearchParams({
+                'body': bodyText
+            });
+            const addResponse = await fetch(`${CANVAS_API_BASE}/conversations/${existingConversationId}/add_message`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${connection.token}`,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                },
+                body: addPayload.toString(),
+                signal: AbortSignal.timeout(15000)
+            });
+
+            if (addResponse.ok) {
+                sentConversationId = existingConversationId;
+            }
+        } catch (e) {
+            console.warn('[Canvas] Failed to append to existing conversation thread, creating new one:', e);
+        }
     }
 
-    const response = await fetch(`${CANVAS_API_BASE}/conversations`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${connection.token}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-        },
-        body: payload.toString(),
-        signal: AbortSignal.timeout(15000)
-    });
+    // If no existing conversation or appending failed, create a new conversation thread with force_new=true
+    if (!sentConversationId) {
+        const payload = new URLSearchParams({
+            'recipients[]': String(link.canvasUserId),
+            'body': bodyText,
+            'group_conversation': 'false',
+            'force_new': 'true'
+        });
+        if (subject) {
+            payload.append('subject', subject.slice(0, 255));
+        }
 
-    let respJson = null;
-    try {
-        respJson = await response.json();
-    } catch (e) {}
+        const response = await fetch(`${CANVAS_API_BASE}/conversations`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${connection.token}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: payload.toString(),
+            signal: AbortSignal.timeout(15000)
+        });
 
-    if (!response.ok) {
-        throw canvasApiError(response.status);
+        let respJson = null;
+        try {
+            respJson = await response.json();
+        } catch (e) {}
+
+        if (!response.ok) {
+            throw canvasApiError(response.status);
+        }
+
+        const createdConv = Array.isArray(respJson) ? respJson[0] : respJson;
+        if (createdConv?.id) {
+            sentConversationId = createdConv.id;
+            await admin.database().ref(`canvas_project_threads/${uid}/${chatUserId}/${sanitizedProjectKey}`).set(sentConversationId);
+        }
     }
 
     return {
         success: true,
         canvasUserId: link.canvasUserId,
         canvasUserName: link.canvasUserName || 'Canvas user',
+        conversationId: sentConversationId,
         sentAt: Date.now()
     };
 });

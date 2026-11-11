@@ -2199,15 +2199,27 @@ export function initChatEngine(deps) {
                 canvasSubject = `Comment on Google Doc "${docTitle}"`;
                 canvasBody = `${senderName} commented on your Google Doc "${docTitle}" via CHShub (https://chschat.xyz):\n\nComment:\n${textVal}\n\n-----\nTo view full history or reply to this comment: ${docUrl}`;
             } else {
-                canvasSubject = 'CHSchat message';
+                const currentProject = wpActiveProject();
+                const projectName = currentProject?.name;
+                const projectId = currentProject?.id || 'all';
+
+                if (projectName) {
+                    canvasSubject = `CHSchat messages under project ${projectName}`;
+                } else {
+                    canvasSubject = 'CHSchat messages';
+                }
                 canvasBody = `${textVal}\n\n-----\n${senderName} delivered this message to you via CHShub (https://chschat.xyz)`;
             }
+
+            const currentProject = wpActiveProject();
+            const projectThreadKey = currentProject?.id || 'all';
 
             // 1. Send via Canvas
             await window.canvasCallable('sendCanvasMessage')({
                 chatUserId: targetId,
                 subject: canvasSubject,
-                body: canvasBody
+                body: canvasBody,
+                projectKey: projectThreadKey
             });
 
             // 2. Also record in CHSchat with sentViaCanvas flag
