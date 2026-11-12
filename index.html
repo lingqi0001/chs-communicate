@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20261111-module-v5">
+    <link rel="stylesheet" href="style.css?v=20261111-module-v6">
 
     <script type="importmap">
     {
@@ -2974,7 +2974,7 @@
 
             if (!currentlyLiked) {
                 window._justLikedPostId = postId;
-                setTimeout(() => { if (window._justLikedPostId === postId) window._justLikedPostId = null; }, 800);
+                setTimeout(() => { if (window._justLikedPostId === postId) window._justLikedPostId = null; }, 450);
             }
 
             const allLikeBtns = document.querySelectorAll(`button[data-like-btn="${postId}"]`);
@@ -2993,7 +2993,7 @@
                         const wave = document.createElement('span');
                         wave.className = 'heart-ripple-wave';
                         iconWrap.appendChild(wave);
-                        setTimeout(() => wave.remove(), 700);
+                        setTimeout(() => wave.remove(), 400);
                     }
                     if (countSpan) {
                         const c = parseInt(countSpan.textContent.trim(), 10) || 0;

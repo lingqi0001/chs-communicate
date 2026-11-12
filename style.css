@@ -6018,35 +6018,29 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     }
 }
 
-/* Like Heart Pop & Lightwave Ripple Animation */
+/* Like Heart Pop & Lightwave Ripple Animation (Subtle & Refined) */
 @keyframes heartPop {
   0% { transform: scale(1); }
-  25% { transform: scale(0.68); }
-  60% { transform: scale(1.35); }
+  30% { transform: scale(0.86); }
+  65% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 
 @keyframes heartRipple {
   0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 1;
-    border-width: 2.5px;
-    box-shadow: 0 0 5px rgba(239, 68, 68, 0.9);
-  }
-  50% {
-    opacity: 0.85;
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+    transform: translate(-50%, -50%) scale(0.75);
+    opacity: 0.9;
+    border-width: 1.5px;
   }
   100% {
-    transform: translate(-50%, -50%) scale(2.4);
+    transform: translate(-50%, -50%) scale(1.35);
     opacity: 0;
     border-width: 1px;
-    box-shadow: 0 0 18px rgba(239, 68, 68, 0);
   }
 }
 
 .heart-pop {
-  animation: heartPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.35) forwards !important;
+  animation: heartPop 0.32s cubic-bezier(0.2, 0.8, 0.25, 1) forwards !important;
 }
 
 .heart-icon-wrap {
@@ -6066,9 +6060,9 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
   width: 24px;
   height: 24px;
   border-radius: 9999px;
-  border: 2px solid #ef4444;
+  border: 1.5px solid #ef4444;
   pointer-events: none;
   z-index: 10;
-  animation: heartRipple 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: heartRipple 0.35s ease-out forwards;
 }
 
