@@ -167,7 +167,7 @@ export const SecurityModule = {
 
         // 4. Request Firebase database
         try {
-            const snap = await get(ref(db, `users/${userId}`));
+            const snap = await get(ref(db, `user_search/${userId}`));
             if (snap.exists()) {
                 window.ALL_USERS[cleanedId] = snap.val();
                 return window.ALL_USERS[cleanedId];

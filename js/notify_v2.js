@@ -89,9 +89,9 @@ export const NotifyModule = {
      * [焦点管理] 监听用户是否正在查看网页
      */
     _initFocusListeners() {
-        // 当用户回到网页时，自动清除当前活跃聊天室的红点
+        // 当用户回到网页时，仅当当前活跃聊天室有未读时才清除红点与上报云端
         const onBack = () => {
-            if (window.activeTargetId) {
+            if (window.activeTargetId && this.isUnread(window.activeTargetId)) {
                 this.markAsRead(window.activeTargetId);
             }
             this.syncPermissionState();
@@ -181,8 +181,14 @@ export const NotifyModule = {
             this._previousUnreadKeys.clear();
         }
 
+        const targetDb = db || this.context.db || window.db;
+        if (!targetDb) {
+            console.warn('[Notify] Database instance not ready yet in initMonitor.');
+            return;
+        }
+
         const deviceId = window.getOrCreateDeviceId();
-        this._deviceUnsub = onValue(ref(db, `users/${uid}/devices/${deviceId}`), (snapshot) => {
+        this._deviceUnsub = onValue(ref(targetDb, `users/${uid}/devices/${deviceId}`), (snapshot) => {
             const data = snapshot.val();
             if (window.deviceRegistered && !data) {
                 console.log('[Notify] Current device removed from DB. Logging out...');
@@ -192,7 +198,7 @@ export const NotifyModule = {
             }
         });
 
-        this._notificationsUnsub = onValue(ref(db, `user_notifications/${uid}`), (snapshot) => {
+        this._notificationsUnsub = onValue(ref(targetDb, `user_notifications/${uid}`), (snapshot) => {
             const data = snapshot.val() || {};
             const nextUnreadKeys = new Set(Object.keys(data).filter(key => data[key] === true));
             const newlyUnreadKeys = this._notificationSnapshotInitialized
@@ -298,10 +304,17 @@ export const NotifyModule = {
         this.updateUI();
     },
 
-    markAsRead(targetId) {
+    markAsRead(targetId, force = false) {
         if (!targetId) return;
         const targetKey = String(targetId).toLowerCase();
         const notificationKey = this.notificationKey(targetId);
+        
+        // Check if this room actually had an unread flag in local state before clearing
+        const hadUnread = force ||
+            this.unreadSet.has(targetId) ||
+            this.unreadSet.has(targetKey) ||
+            this.unreadSet.has(notificationKey);
+
         // Conversation IDs can arrive from the UI with their original casing,
         // while notification keys are stored lower-case. Clear both forms so
         // opening a conversation always clears its matching notification.
@@ -312,14 +325,19 @@ export const NotifyModule = {
         const dot = document.getElementById(`dot-${targetId}`);
         if (dot) dot.classList.add('hidden');
 
-        if (this.context.currentUser) {
+        // Only issue network write to Firebase if it was actually unread!
+        // Prevents every click/focus event from triggering duplicate 1.7 KB snapshot reflections.
+        if (hadUnread && this.context.currentUser) {
             const uid = String(this.context.currentUser.id || '').toLowerCase();
             // Clear the exact-cased key too: the server writes group unread
             // flags with the class id's original casing, and a lowercase-only
             // write left them stuck at true forever.
             const updates = { [targetId]: false, [notificationKey]: false };
             if (targetKey !== notificationKey) updates[targetKey] = false;
-            update(ref(db, `user_notifications/${uid}`), updates);
+            const targetDb = db || this.context.db || window.db;
+            if (targetDb) {
+                update(ref(targetDb, `user_notifications/${uid}`), updates);
+            }
         }
         
         this.unreadCount = this.unreadSet.size;
@@ -722,8 +740,9 @@ export const NotifyModule = {
             }
         }
         
-        if (db) {
-            await update(ref(db), updates);
+        const targetDb = db || this.context.db || window.db;
+        if (targetDb) {
+            await update(ref(targetDb), updates);
             console.log('[Notify] Device state synchronized to DB.');
             window.deviceRegistered = true;
         }

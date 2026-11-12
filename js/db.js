@@ -14,13 +14,20 @@
 import { getDatabase, ref, get, set, update, push, remove, onValue, onChildAdded, serverTimestamp, query, limitToLast, orderByKey } from "../vendor/firebase/10.7.1/firebase-database.js";
 
 // --- 1. 云端实例占位与注入 ---
-export let db, auth, storage;
+export let db = (typeof window !== 'undefined' && window.db) ? window.db : undefined;
+export let auth = (typeof window !== 'undefined' && window.auth) ? window.auth : undefined;
+export let storage = (typeof window !== 'undefined' && window.storage) ? window.storage : undefined;
 let isInitialized = false;
 
 export const initCloudRefs = (instances) => {
     db = instances.db;
     auth = instances.auth;
     storage = instances.storage;
+    if (typeof window !== 'undefined') {
+        window.db = db;
+        window.auth = auth;
+        window.storage = storage;
+    }
     isInitialized = true;
 };
 
@@ -76,7 +83,7 @@ export let localDB;
 
 export function initLocalDB() {
     return new Promise((resolve) => {
-        const dbReq = indexedDB.open("CHSChatCache", 4);
+        const dbReq = indexedDB.open("CHSChatCache", 5);
 
         dbReq.onupgradeneeded = (e) => {
             const db = e.target.result;
@@ -112,6 +119,11 @@ export function initLocalDB() {
                 const modStore = e.currentTarget.transaction.objectStore("modules");
                 if (!modStore.indexNames.contains("moduleName")) modStore.createIndex("moduleName", "moduleName", { unique: false });
                 if (!modStore.indexNames.contains("timestamp")) modStore.createIndex("timestamp", "timestamp", { unique: false });
+            }
+
+            // 4. Writing project menu metadata (never comment snapshots)
+            if (!db.objectStoreNames.contains("writingMeta")) {
+                db.createObjectStore("writingMeta", { keyPath: "chatId" });
             }
         };
 
@@ -187,9 +199,18 @@ export async function isMessagesCacheEmpty() {
 export async function saveNewsItemLocal(tabType, key, data) {
     const db = await dbReady;
     if (!db) return;
-    const transaction = db.transaction(["news"], "readwrite");
-    const store = transaction.objectStore("news");
-    store.put({ compositeId: `${tabType}_${key}`, tabType, key, ...data });
+    return new Promise((resolve) => {
+        try {
+            const transaction = db.transaction(["news"], "readwrite");
+            const store = transaction.objectStore("news");
+            store.put({ ...data, compositeId: `${tabType}_${key}`, tabType, key });
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => resolve();
+        } catch (e) {
+            console.error('[DB] saveNewsItemLocal error:', e);
+            resolve();
+        }
+    });
 }
 
 export async function deleteNewsItemLocal(tabType, key) {
@@ -208,11 +229,27 @@ export async function getLocalNews(tabType) {
     const db = await dbReady;
     if (!db) return [];
     return new Promise((resolve) => {
-        const transaction = db.transaction(["news"], "readonly");
-        const store = transaction.objectStore("news");
-        const index = store.index("tabType");
-        const request = index.getAll(IDBKeyRange.only(tabType));
-        request.onsuccess = (e) => resolve(e.target.result || []);
+        try {
+            const transaction = db.transaction(["news"], "readonly");
+            const store = transaction.objectStore("news");
+            if (store.indexNames.contains("tabType")) {
+                const index = store.index("tabType");
+                const request = index.getAll(IDBKeyRange.only(tabType));
+                request.onsuccess = (e) => resolve(e.target.result || []);
+                request.onerror = () => resolve([]);
+            } else {
+                const request = store.getAll();
+                request.onsuccess = (e) => {
+                    const all = e.target.result || [];
+                    const filtered = all.filter(item => item.tabType === tabType || (item.compositeId && item.compositeId.startsWith(`${tabType}_`)));
+                    resolve(filtered);
+                };
+                request.onerror = () => resolve([]);
+            }
+        } catch (e) {
+            console.error('[DB] getLocalNews error:', e);
+            resolve([]);
+        }
     });
 }
 
@@ -240,6 +277,34 @@ export async function getLocalModulePosts(moduleName) {
         const index = store.index("moduleName");
         const request = index.getAll(IDBKeyRange.only(moduleName));
         request.onsuccess = (e) => resolve(e.target.result || []);
+    });
+}
+
+export async function getWritingMetaLocal(chatId) {
+    const db = await dbReady;
+    if (!db || !chatId || !db.objectStoreNames.contains("writingMeta")) return null;
+    return new Promise((resolve) => {
+        const transaction = db.transaction(["writingMeta"], "readonly");
+        const request = transaction.objectStore("writingMeta").get(chatId);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+    });
+}
+
+export async function saveWritingMetaLocal(chatId, meta, updatedTimeET = '') {
+    const db = await dbReady;
+    if (!db || !chatId || !meta || !db.objectStoreNames.contains("writingMeta")) return;
+    return new Promise((resolve) => {
+        const transaction = db.transaction(["writingMeta"], "readwrite");
+        transaction.objectStore("writingMeta").put({
+            chatId,
+            meta,
+            updatedTimeET,
+            updatedAt: Date.now()
+        });
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = () => resolve(false);
+        transaction.onabort = () => resolve(false);
     });
 }
 
@@ -272,6 +337,8 @@ export const DBModule = {
         deleteNews: deleteNewsItemLocal,
         getNews: getLocalNews,
         saveModulePost: saveModulePostLocal,
-        getModulePosts: getLocalModulePosts
+        getModulePosts: getLocalModulePosts,
+        getWritingMeta: getWritingMetaLocal,
+        saveWritingMeta: saveWritingMetaLocal
     }
 };

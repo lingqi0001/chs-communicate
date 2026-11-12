@@ -3,6 +3,19 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 admin.initializeApp();
 
+// Keep client-side message caches in sync with deletions without streaming the
+// deleted message body to every connected client. The client listens to this
+// small ID-only feed instead of attaching an unbounded child-removed listener
+// to the entire message history.
+exports.recordMessageDeletion = functions.database.ref('/messages/{chatId}/{messageId}').onDelete(async (snapshot, context) => {
+    if (!snapshot.exists()) return null;
+    await admin.database().ref(`message_deletions/${context.params.chatId}`).push({
+        messageId: context.params.messageId,
+        deletedAt: Date.now()
+    });
+    return null;
+});
+
 // Single-institution Canvas connection. The token is accepted and used only by
 // callable functions; the browser never receives the stored credential back.
 const CANVAS_API_BASE = 'https://hcpss.instructure.com/api/v1';
@@ -1280,6 +1293,18 @@ async function runGoogleDocSync(data) {
     if (stateRef) {
         try {
             await stateRef.set(nextState);
+            if (chatId) {
+                const etNow = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hour12: false
+                }).format(new Date());
+                db.ref(`writing_projects/${chatId}/_meta`).update({
+                    updatedTimeET: etNow,
+                    updatedAt: Date.now()
+                }).catch(() => {});
+            }
         } catch (e) {
             console.warn('[GoogleDoc] Failed to persist writing_doc_state:', e.message);
         }
@@ -1586,15 +1611,16 @@ exports.fetchGoogleDocComments = functions.runWith({ secrets: ['GOOGLE_SA_JSON']
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-// Every 15 minutes: refresh active doc snapshots so Google-side comments and
-// replies get pushed into their chats even while nobody has the chat open.
-exports.syncGoogleDocsTimer = onSchedule({
-    schedule: 'every 15 minutes',
+// Refresh active docs only during weekday working hours. The busier 11:00–13:00
+// window runs every 15 minutes; other daytime windows run less often.
+const googleDocsTimerOptions = {
     timeZone: 'America/New_York',
     timeoutSeconds: 540,
     memoryMb: 256,
     secrets: ['GOOGLE_SA_JSON']
-}, async () => {
+};
+
+const syncGoogleDocsTimerRun = async () => {
     const db = admin.database();
     let ledger = (await db.ref('writing_sync_index').once('value')).val() || {};
     if (!Object.keys(ledger).length) {
@@ -1652,7 +1678,22 @@ exports.syncGoogleDocsTimer = onSchedule({
         }
     }
     console.log(`[GoogleDoc][Timer] queued=${queue.length} ran=${batch.length} ok=${ok} fail=${failed}`);
-});
+};
+
+exports.syncGoogleDocsTimer = onSchedule({
+    ...googleDocsTimerOptions,
+    schedule: '*/15 11-12 * * 1-5'
+}, syncGoogleDocsTimerRun);
+
+exports.syncGoogleDocsTimerHalfHourly = onSchedule({
+    ...googleDocsTimerOptions,
+    schedule: '0,30 7-10,13-14 * * 1-5'
+}, syncGoogleDocsTimerRun);
+
+exports.syncGoogleDocsTimerHourly = onSchedule({
+    ...googleDocsTimerOptions,
+    schedule: '0 15-20 * * 1-5'
+}, syncGoogleDocsTimerRun);
 
 // ==========================================
 // DOC REQUESTS
@@ -1866,6 +1907,45 @@ exports.submitDocRequest = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).ht
 // ==========================================
 const CLASS_ID_RE = /^[A-Za-z0-9_-]{8,40}$/;
 const STUDENT_EMAIL_RE = /^[a-z0-9][a-z0-9._-]{0,60}@inst\.hcpss\.org$/;
+
+exports.joinClassWithCode = functions.https.onCall(async (data, context) => {
+    const email = String(context.auth && context.auth.token && context.auth.token.email || '').trim().toLowerCase();
+    if (!context.auth || !STUDENT_EMAIL_RE.test(email)) {
+        throw new functions.https.HttpsError('permission-denied', 'Sign in with your student school account to join a class.');
+    }
+    const code = String(data && data.code || '').trim();
+    if (!/^\d{8}$/.test(code)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Enter the 8-digit class join code.');
+    }
+
+    const db = admin.database();
+    const classesSnap = await db.ref('classes').once('value');
+    const classes = classesSnap.val() || {};
+    const now = Date.now();
+    let match = null;
+    let expired = false;
+    for (const [classId, cls] of Object.entries(classes)) {
+        if (!cls || String(cls.joinCode || '').trim() !== code) continue;
+        if (now - (Number(cls.joinCodeCreatedAt) || 0) > 5 * 24 * 60 * 60 * 1000) expired = true;
+        else { match = { classId, cls }; break; }
+    }
+    if (!match) {
+        throw new functions.https.HttpsError('not-found', expired ? 'This class code has expired. Ask your teacher for a new one.' : 'No class matches that code. Check it and try again.');
+    }
+
+    const studentId = email.split('@')[0].replace(/\./g, '_');
+    if (match.cls.students && match.cls.students[studentId]) {
+        return { alreadyJoined: true, classId: match.classId, className: match.cls.name || 'Class' };
+    }
+    const teacherId = String(match.cls.teacherId || '').toLowerCase();
+    const updates = {
+        [`classes/${match.classId}/students/${studentId}`]: true,
+        [`user_chats/${studentId}/group_${match.classId}`]: now
+    };
+    if (teacherId) updates[`user_chats/${teacherId}/group_${match.classId}`] = now;
+    await db.ref().update(updates);
+    return { alreadyJoined: false, classId: match.classId, className: match.cls.name || 'Class' };
+});
 
 function titleCaseName(part) {
     const clean = String(part || '').trim().replace(/\s+/g, ' ').replace(/[<>&]/g, '').slice(0, 20);

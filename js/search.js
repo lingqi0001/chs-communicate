@@ -989,11 +989,6 @@ export const SearchModule = {
                                 console.log('[SEARCH] → Fetching user_search from Firebase...');
                                 let allSnap = await get(query(ref(db, 'user_search'), orderByKey(), limitToFirst(5000)));
                                 console.log('[SEARCH] → user_search exists:', allSnap.exists(), 'count:', allSnap.exists() ? Object.keys(allSnap.val() || {}).length : 0);
-                                if (!allSnap.exists() || Object.keys(allSnap.val() || {}).length < 10) {
-                                    console.log('[SEARCH] → Falling back to users node...');
-                                    allSnap = await get(query(ref(db, 'users'), orderByKey(), limitToFirst(5000)));
-                                    console.log('[SEARCH] → users exists:', allSnap.exists(), 'count:', allSnap.exists() ? Object.keys(allSnap.val() || {}).length : 0);
-                                }
                                 if (allSnap.exists()) {
                                     Object.assign(window.ALL_USERS, allSnap.val());
                                     window._lastUserFetch = now;

@@ -70,9 +70,9 @@
     },
 
     "users": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email == 'moss104088@gmail.com'",
       "$userId": {
-        ".read": "auth != null",
+        ".read": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com')",
         ".write": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
       }
     },
@@ -104,6 +104,12 @@
           ".write": "auth != null && ((!data.exists() && ((($chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || auth.token.email.endsWith('@inst.hcpss.org') || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $chatId.replace('group_','') + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists() || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.uid || root.child('classes/' + $chatId.replace('group_','') + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))) || ((!$chatId.matches(/^group_[A-Za-z0-9_-]+$/)) && ($chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')) || $chatId === 'moss104088_safety_bot' || $chatId === 'advice_bot_moss104088')))) || (!newData.exists() && data.child('type').val() === 'text' && data.child('text').isString() && data.child('text').val().contains('docs.google.com/document/d/') && (data.child('senderId').val() === auth.uid || data.child('senderId').val() === auth.uid.toLowerCase() || data.child('senderId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))))",
           ".validate": "newData.hasChildren(['senderId','senderName','type','timestamp']) && newData.child('senderId').isString() && newData.child('senderName').isString() && newData.child('type').isString() && newData.child('timestamp').exists() && (newData.child('senderId').val() === auth.uid || newData.child('senderId').val() === auth.uid.toLowerCase() || newData.child('senderId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') || (newData.child('senderId').val() === 'safety_bot' && ($chatId === 'moss104088_safety_bot' || $chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')))) || (newData.child('senderId').val() === 'advice_bot' && ($chatId === 'advice_bot_moss104088' || $chatId.contains(auth.uid) || $chatId.contains(auth.uid.toLowerCase()) || $chatId.contains(auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_'))))) && ((newData.child('type').val() === 'text' && newData.child('text').isString()) || (newData.child('type').val() === 'image_group' && newData.child('text').isString()) || (newData.child('type').val() === 'comment_card' && newData.child('text').isString() && newData.child('commentCard').exists()))"
         }
+      }
+    },
+
+    "message_deletions": {
+      "$chatId": {
+        ".read": "auth != null && auth.token.email == 'moss104088@gmail.com'"
       }
     },
 
@@ -153,9 +159,10 @@
     },
 
     "classes": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email == 'moss104088@gmail.com'",
       ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
       "$classId": {
+        ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || root.child('classes/' + $classId + '/teacherId').val() === auth.uid || root.child('classes/' + $classId + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') || root.child('classes/' + $classId + '/students/' + auth.uid).exists() || root.child('classes/' + $classId + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $classId + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists())",
         "students": {
           "$studentId": {
             ".write": "auth != null && (auth.uid === $studentId || auth.uid.toLowerCase() === $studentId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $studentId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $studentId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"

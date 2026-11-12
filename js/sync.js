@@ -129,20 +129,39 @@ export const SyncModule = {
             try {
                 const containerId = tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent';
                 
-                // If this session has already synced the latest 20 items for this tab, render local and rely on real-time listeners
+                // 1. Read local items from IndexedDB first for instant rendering
+                const localItems = await DBModule.Local.getNews(tab);
+                const localKeys = (localItems || [])
+                    .map(it => it.key || it.id || (it.compositeId ? String(it.compositeId).replace(new RegExp(`^${tab}_`), '') : null))
+                    .filter(Boolean);
+                if (this.callbacks.renderNews && localItems && localItems.length > 0) {
+                    this.callbacks.renderNews(localItems, containerId, tab);
+                }
+
+                // If this session has already synced this tab, rely on real-time listeners
                 if (this._newsSyncedTabs.has(tab)) {
                     console.log(`Sync: news/${tab} already synced this session, using cached data.`);
-                    const localItems = await DBModule.Local.getNews(tab);
-                    if (this.callbacks.renderNews) {
-                        this.callbacks.renderNews(localItems, containerId, tab);
-                    }
                     continue;
                 }
 
+                // Dual check: IndexedDB latest key + synchronous localStorage key cache
+                const sortedLocalKeys = localKeys.slice().sort();
+                const idbMaxKey = sortedLocalKeys.length > 0 ? sortedLocalKeys[sortedLocalKeys.length - 1] : null;
+                const cachedMaxKey = localStorage.getItem(`chs_news_max_key_${tab}`);
+                const maxLocalKey = idbMaxKey || cachedMaxKey || null;
+
                 let remoteData;
                 try {
-                    // Only fetch the latest 20 announcements instead of full table
-                    const qLatest = query(ref(db, `news/${tab}`), orderByKey(), limitToLast(20));
+                    let qLatest;
+                    if (maxLocalKey) {
+                        // Incremental sync: Only fetch announcements newer than our latest local cache
+                        console.log(`Sync: news/${tab} incremental sync starting after [${maxLocalKey}]...`);
+                        qLatest = query(ref(db, `news/${tab}`), orderByKey(), startAfter(maxLocalKey));
+                    } else {
+                        // Cold start: Only fetch the latest 20 announcements to populate initial cache
+                        console.log(`Sync: news/${tab} cold start, fetching latest 20 items...`);
+                        qLatest = query(ref(db, `news/${tab}`), orderByKey(), limitToLast(20));
+                    }
                     const remoteSnap = await window.withNetworkTimeout(get(qLatest));
                     remoteData = remoteSnap.val() || {};
                 } catch (remoteErr) {
@@ -150,51 +169,71 @@ export const SyncModule = {
                     // session, so render it and skip the cloud listeners.
                     console.warn(`Sync: news/${tab} unreachable, serving local cache:`, remoteErr.message);
                     newsCloudMiss = true;
-                    const localOnly = await DBModule.Local.getNews(tab);
-                    if (this.callbacks.renderNews) {
-                        this.callbacks.renderNews(localOnly, containerId, tab);
-                        window.bootMark?.(`news/${tab} painted from cache (${localOnly.length} items)`);
+                    if (!localItems || localItems.length === 0) {
+                        const localOnly = await DBModule.Local.getNews(tab);
+                        if (this.callbacks.renderNews) {
+                            this.callbacks.renderNews(localOnly, containerId, tab);
+                            window.bootMark?.(`news/${tab} painted from cache (${localOnly.length} items)`);
+                        }
                     }
                     continue;
                 }
                 const remoteKeys = Object.keys(remoteData);
 
-                // 1. Read local keys to find synchronization delta
-                const localItems = await DBModule.Local.getNews(tab);
-                const localKeys = localItems.map(it => it.key);
-
                 // 2. Align local cache with cloud records
-                await this.reconcileNews(tab, remoteData, localKeys);
+                if (maxLocalKey) {
+                    if (remoteKeys.length > 0) {
+                        console.log(`Sync: Found ${remoteKeys.length} new items for news/${tab}. Syncing...`);
+                        for (const key of remoteKeys) {
+                            const post = { key, ...remoteData[key] };
+                            await DBModule.Local.saveNews(tab, key, post);
+                        }
+                        const updatedLocal = await DBModule.Local.getNews(tab);
+                        if (this.callbacks.renderNews) {
+                            this.callbacks.renderNews(updatedLocal, containerId, tab);
+                        }
+                        const newestRemoteKey = remoteKeys.slice().sort().pop();
+                        if (newestRemoteKey) localStorage.setItem(`chs_news_max_key_${tab}`, newestRemoteKey);
+                    } else {
+                        console.log(`Sync: news/${tab} local cache is already up-to-date (0 bytes transferred).`);
+                        if (maxLocalKey) localStorage.setItem(`chs_news_max_key_${tab}`, maxLocalKey);
+                    }
+                } else {
+                    // Cold start: align full 20 items
+                    await this.reconcileNews(tab, remoteData, localKeys);
+                    const finalLocal = await DBModule.Local.getNews(tab);
+                    if (this.callbacks.renderNews) {
+                        this.callbacks.renderNews(finalLocal, containerId, tab);
+                    }
+                    if (remoteKeys.length > 0) {
+                        const newestRemoteKey = remoteKeys.slice().sort().pop();
+                        if (newestRemoteKey) localStorage.setItem(`chs_news_max_key_${tab}`, newestRemoteKey);
+                    }
+                }
                 this._newsSyncedTabs.add(tab);
 
-                // 3. Render immediately to give instant feedback
-                const finalLocal = await DBModule.Local.getNews(tab);
-                if (this.callbacks.renderNews) {
-                    this.callbacks.renderNews(finalLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
-                }
-
-                // 4. Incremental Real-time Sync for future updates
-                const lastKey = remoteKeys.sort().pop();
+                // 3. Incremental Real-time Sync for future updates
+                const lastKey = remoteKeys.length > 0 ? remoteKeys.slice().sort().pop() : maxLocalKey;
                 const q = lastKey ? query(ref(db, `news/${tab}`), orderByKey(), startAfter(lastKey)) : query(ref(db, `news/${tab}`), orderByKey(), limitToLast(1));
                 const unsubNewsAdded = onChildAdded(q, async (snap) => {
                     console.log(`Sync: New item received for news/${tab}`);
                     await DBModule.Local.saveNews(tab, snap.key, snap.val());
                     const updatedLocal = await DBModule.Local.getNews(tab);
                     if (this.callbacks.renderNews) {
-                        this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
+                        this.callbacks.renderNews(updatedLocal, containerId, tab);
                     }
                 });
                 this._activeUnsubscribers.push(unsubNewsAdded);
 
-                // Listen for announcement deletions to update UI and IndexedDB in real-time
-                const unsubNewsRemoved = onChildRemoved(ref(db, `news/${tab}`), async (snap) => {
+                // Listen for announcement deletions scoped to the cursor query (prevents downloading all historical items)
+                const unsubNewsRemoved = onChildRemoved(q, async (snap) => {
                     console.log(`Sync: Item removed from news/${tab}: ${snap.key}`);
                     if (DBModule.Local.deleteNews) {
                         await DBModule.Local.deleteNews(tab, snap.key);
                     }
                     const updatedLocal = await DBModule.Local.getNews(tab);
                     if (this.callbacks.renderNews) {
-                        this.callbacks.renderNews(updatedLocal, tab === 'school' ? 'schoolNewsContent' : 'clubNewsContent', tab);
+                        this.callbacks.renderNews(updatedLocal, containerId, tab);
                     }
                 });
                 this._activeUnsubscribers.push(unsubNewsRemoved);
@@ -384,9 +423,15 @@ export const SyncModule = {
     async syncGroupChats(db, currentUser, classesFromListener = null) {
         if (!currentUser || !currentUser.id) return;
         try {
-            const classes = classesFromListener !== null
-                ? classesFromListener
-                : ((await window.withNetworkTimeout(get(query(ref(db, 'classes'), orderByKey(), limitToLast(200))))).val() || {});
+            let classes = classesFromListener;
+            if (classes === null) {
+                const chatsSnap = await window.withNetworkTimeout(get(ref(db, `user_chats/${currentUser.id.toLowerCase()}`)));
+                const classIds = Object.keys(chatsSnap.val() || {})
+                    .filter(id => id.startsWith('group_'))
+                    .map(id => id.slice(6));
+                const snaps = await Promise.all(classIds.map(id => window.withNetworkTimeout(get(ref(db, `classes/${id}`)))));
+                classes = Object.fromEntries(snaps.flatMap((snap, index) => snap.exists() ? [[classIds[index], snap.val()]] : []));
+            }
             
             this.existingClassIds = {};
             Object.keys(classes).forEach(id => {

@@ -6,6 +6,7 @@ export function initChatEngine(deps) {
         db, ref, push, set, get, update, query, orderByKey, startAfter, limitToLast, onChildAdded, onChildChanged, onChildRemoved, onValue, serverTimestamp, endBefore,
         UIComponents, AppModules, getChatId, getLocalMessages, saveMessageLocal, deleteMessageLocal, escapeHTML,
         getCurrentUser, getActiveTargetId, getStopCurrentChatListener, setStopCurrentChatListener,
+        getWritingMetaLocal, saveWritingMetaLocal,
         getAllUsers, SAFETY_BOT_ID, getCnCache, uploadImageToStorage,
         setActiveTargetId, getCtCache, getSidebarClasses, getIsSyncDone, getIsPhotoDisabled,
         formatLastSeen, isExtensionTargetId, openExtensionNotificationTarget, extensionIdFromTarget, fetchUser,
@@ -251,10 +252,6 @@ export function initChatEngine(deps) {
             ? window.CHAT_PREVIEW?.messages?.[chatId]
             : null;
         const isPreviewChat = !!previewMessages;
-        // The project switcher needs this chat's doc metadata.  Read it with the
-        // thread instead of when the bar is opened, so the first click already
-        // has the full list locally.
-        if (!isPreviewChat) prefetchChatProjects(chatId);
         // Guests land at the TOP of the community preview so the demo reads
         // as a story from its first message.  Only that chat, only while
         // signed out — every other thread keeps anchoring to the newest
@@ -298,9 +295,21 @@ export function initChatEngine(deps) {
         // Render local cache immediately without waiting for Firebase network
         renderCurrentMessages();
 
+        // Determine incremental sync starting point from local cache
+        let lastKey = null;
+        if (currentLocalMsgs.length > 0) {
+            const allKeys = currentLocalMsgs.map(m => m.key).filter(Boolean).sort();
+            lastKey = allKeys.length > 0 ? allKeys[allKeys.length - 1] : null;
+        }
+
         // Background reconcile recent messages from Firebase without blocking local render
         if (!isPreviewChat) {
-            window.withNetworkTimeout(get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50))))
+            // Incremental: only fetch messages newer than local cache. If no new messages, payload is empty (0 B).
+            const qReconcile = lastKey
+                ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey))
+                : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
+
+            window.withNetworkTimeout(get(qReconcile))
                 .then(async (remoteSnap) => {
                     if (chatGeneration !== thisGeneration) return;
                     if (remoteSnap.exists()) {
@@ -318,6 +327,10 @@ export function initChatEngine(deps) {
                         if (hasMissing) {
                             currentLocalMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                             renderCurrentMessages();
+                            const updatedKeys = currentLocalMsgs.map(m => m.key).filter(Boolean).sort();
+                            if (updatedKeys.length > 0) {
+                                lastKey = updatedKeys[updatedKeys.length - 1];
+                            }
                         }
                     }
                 })
@@ -326,7 +339,6 @@ export function initChatEngine(deps) {
                 });
         }
 
-        let lastKey = currentLocalMsgs.length > 0 ? currentLocalMsgs[currentLocalMsgs.length - 1].key : null;
         let isLoadingOlder = false;
 
         const loadOlderMessages = async () => {
@@ -481,20 +493,33 @@ export function initChatEngine(deps) {
             oldEl.replaceWith(quietHistory(newEl));
         });
 
-        // A portfolio deletion is a real RTDB child removal. Mirror it into every
-        // open client's cache and rendered chat instead of leaving a stale card.
-        const stopRemoved = onChildRemoved(ref(db, `messages/${chatId}`), (snap) => {
-            const msgKey = snap.key;
-            if (!msgKey) return;
-
-            deleteMessageLocal(chatId, msgKey).catch(err => {
-                console.warn('[Chat] Could not remove deleted message from local cache:', err);
-            });
-            currentLocalMsgs = currentLocalMsgs.filter(message => message?.key !== msgKey);
-            currentDisplayMsgs = currentDisplayMsgs.filter(message => message?.key !== msgKey);
-            loadedMsgKeys.delete(msgKey);
-            chatBox.querySelector(`[data-key="${msgKey}"]`)?.remove();
-        });
+        // Deletion notifications carry message IDs only. Listening to
+        // onChildRemoved(messages/{chatId}) streams the deleted message's old
+        // snapshot; this bounded cursor feed keeps cache cleanup lightweight.
+        const deletionCursorKey = `chs_message_deletion_cursor_${chatId}`;
+        let deletionCursor = '';
+        try { deletionCursor = localStorage.getItem(deletionCursorKey) || ''; } catch (e) {}
+        const deletionFeed = ref(db, `message_deletions/${chatId}`);
+        const deletionQuery = deletionCursor
+            ? query(deletionFeed, orderByKey(), startAfter(deletionCursor))
+            : query(deletionFeed, orderByKey());
+        const stopRemoved = onChildAdded(deletionQuery, async (snap) => {
+            const msgKey = snap.val()?.messageId;
+            let cacheUpdated = true;
+            if (msgKey) {
+                try {
+                    cacheUpdated = await deleteMessageLocal(chatId, msgKey);
+                } catch (err) {
+                    cacheUpdated = false;
+                    console.warn('[Chat] Could not remove deleted message from local cache:', err);
+                }
+                currentLocalMsgs = currentLocalMsgs.filter(message => message?.key !== msgKey);
+                currentDisplayMsgs = currentDisplayMsgs.filter(message => message?.key !== msgKey);
+                loadedMsgKeys.delete(msgKey);
+                chatBox.querySelector(`[data-key="${msgKey}"]`)?.remove();
+            }
+            try { if (snap.key && cacheUpdated) localStorage.setItem(deletionCursorKey, snap.key); } catch (e) {}
+        }, (err) => console.warn(`[Chat] Message deletion feed failed for ${chatId}:`, err));
 
         setStopCurrentChatListener(() => {
             stopAdded();
@@ -5339,15 +5364,40 @@ export function initChatEngine(deps) {
         return docs;
     }
 
-    // The list has three sources: the doc cards rendered in the chat right now
-    // (instant, local) and two server paths that know about docs outside the
-    // rendered window plus their manual groupings (network).  The server paths
-    // are read in parallel, cached per chat and prefetched with the thread, so
-    // opening the bar always paints from local state and a late or stalled read
-    // can only add rows to it — never delay it.
+    // The list uses rendered docs plus compact metadata cached in IndexedDB.
+    // Scheme 1: Light-weight Eastern Time timestamp comparison avoids downloading full 21+ KB.
     const WP_CHAT_META_TIMEOUT_MS = 4000;
     const _wpMetaByChat = new Map();
+    const _wpMetaUpdatedAtByChat = new Map();
+    const _wpMetaETByChat = new Map();
     let _wpMetaInflight = null;
+
+    function getEasternTimeString(date = new Date()) {
+        try {
+            return new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(date);
+        } catch (e) {
+            return date.toISOString();
+        }
+    }
+
+    function touchChatProjectsMetaET(chatId) {
+        if (!chatId) return;
+        const etNow = getEasternTimeString();
+        _wpMetaETByChat.set(chatId, etNow);
+        update(ref(db, `writing_projects/${chatId}/_meta`), {
+            updatedTimeET: etNow,
+            updatedAt: Date.now()
+        }).catch(err => console.warn('[ChatProjects] Failed to update ET meta tag:', err));
+    }
 
     function wpChatId() {
         const currentUser = getCurrentUser();
@@ -5356,6 +5406,26 @@ export function initChatEngine(deps) {
         return activeTargetId.startsWith('group_')
             ? activeTargetId
             : getChatId(currentUser.id, activeTargetId);
+    }
+
+    async function loadChatProjectsMetaLocal(chatId) {
+        if (!chatId || _wpMetaByChat.has(chatId) || typeof getWritingMetaLocal !== 'function') {
+            return _wpMetaByChat.get(chatId) || null;
+        }
+        try {
+            const cached = await getWritingMetaLocal(chatId);
+            if (cached?.meta && typeof cached.meta === 'object') {
+                _wpMetaByChat.set(chatId, cached.meta);
+                _wpMetaUpdatedAtByChat.set(chatId, Number(cached.updatedAt) || 0);
+                if (cached.updatedTimeET) {
+                    _wpMetaETByChat.set(chatId, cached.updatedTimeET);
+                }
+            }
+            return _wpMetaByChat.get(chatId) || null;
+        } catch (e) {
+            console.warn('[ChatProjects] Failed to load local project metadata:', e);
+            return null;
+        }
     }
 
     // The message scan is bounded by what is currently rendered, so a chat
@@ -5413,11 +5483,35 @@ export function initChatEngine(deps) {
     }
 
     // Resolves with the cached metadata, or null when the network did not answer
-    // inside the window.  Never rejects, and never blocks a caller that only
+    // inside the window. Never rejects, and never blocks a caller that only
     // wants to paint.
-    function readChatProjectsMeta(chatId) {
+    async function readChatProjectsMeta(chatId, { forceRefresh = false } = {}) {
         if (!chatId || window.isChatPreview) return Promise.resolve(null);
         if (_wpMetaInflight && _wpMetaInflight.chatId === chatId) return _wpMetaInflight.promise;
+
+        await loadChatProjectsMetaLocal(chatId);
+        const cachedMeta = _wpMetaByChat.get(chatId);
+        const cachedET = _wpMetaETByChat.get(chatId);
+
+        // Scheme 1: Light-weight Eastern Time timestamp comparison
+        // Instead of pulling full 21+ KB, check tiny `writing_projects/${chatId}/_meta` (~30 bytes).
+        if (!forceRefresh && cachedMeta && cachedET) {
+            try {
+                const metaSnap = await (window.withNetworkTimeout
+                    ? window.withNetworkTimeout(get(ref(db, `writing_projects/${chatId}/_meta`)), WP_CHAT_META_TIMEOUT_MS)
+                    : get(ref(db, `writing_projects/${chatId}/_meta`)));
+                if (metaSnap && metaSnap.exists()) {
+                    const remoteET = metaSnap.val()?.updatedTimeET;
+                    if (remoteET && remoteET === cachedET) {
+                        console.log(`[ChatProjects] Cache valid (Eastern Time: ${cachedET}). 0 KB transferred.`);
+                        return cachedMeta;
+                    }
+                }
+            } catch (err) {
+                console.warn('[ChatProjects] Fast ET check failed, serving local cache:', err);
+                return cachedMeta;
+            }
+        }
 
         const raw = Promise.all([
             get(ref(db, `writing_projects/${chatId}`)).catch(e => {
@@ -5429,16 +5523,35 @@ export function initChatEngine(deps) {
                 return null;
             })
         ]).then(([projSnap, stSnap]) => {
-            const assigned = projSnap && projSnap.exists() ? (projSnap.val() || {}) : {};
+            const rawAssigned = projSnap && projSnap.exists() ? (projSnap.val() || {}) : {};
             const states = stSnap && stSnap.exists() ? (stSnap.val() || {}) : {};
-            // Only the two fields the project list reads are kept: a state node
-            // carries the document's whole comment snapshot, and this cache is
-            // held for every chat visited in the session.
+
+            // Extract remote ET stamp or generate current Eastern Time
+            const remoteET = rawAssigned._meta?.updatedTimeET || getEasternTimeString();
+
+            // Strip _meta from assigned projects so it won't be treated as a project/doc
+            const assigned = { ...rawAssigned };
+            delete assigned._meta;
+
             const docStates = {};
             Object.keys(states).forEach(docId => {
                 docStates[docId] = { title: states[docId]?.title, createdTime: states[docId]?.createdTime };
             });
-            return { assigned, docStates };
+            const meta = { assigned, docStates };
+            _wpMetaByChat.set(chatId, meta);
+            _wpMetaUpdatedAtByChat.set(chatId, Date.now());
+            _wpMetaETByChat.set(chatId, remoteET);
+
+            if (typeof saveWritingMetaLocal === 'function') {
+                saveWritingMetaLocal(chatId, meta, remoteET).catch(e => console.warn('[ChatProjects] Failed to save local project metadata:', e));
+            }
+
+            // Seed remote _meta if missing so all clients share the same Eastern Time version
+            if (!rawAssigned._meta?.updatedTimeET) {
+                touchChatProjectsMetaET(chatId);
+            }
+
+            return meta;
         });
 
         // A stalled read (offline, socket reconnecting) must not pin the dedupe
@@ -5453,12 +5566,7 @@ export function initChatEngine(deps) {
             return meta;
         });
         _wpMetaInflight = { chatId, promise: capped };
-        raw.then(meta => _wpMetaByChat.set(chatId, meta));
         return capped;
-    }
-
-    function prefetchChatProjects(chatId) {
-        readChatProjectsMeta(chatId);
     }
 
     // Two lists are the same when every project carries the same id and the same
@@ -5472,6 +5580,12 @@ export function initChatEngine(deps) {
     async function refreshChatProjects() {
         const chatId = wpChatId();
         if (!chatId) return;
+        await loadChatProjectsMetaLocal(chatId);
+        if (wpChatId() !== chatId) return;
+        _chatProjects = buildChatProjectsLocal();
+        if (document.getElementById('wpDocContextBar')?.classList.contains('wp-project-menu-open')) {
+            renderWpProjectList();
+        }
         const meta = await readChatProjectsMeta(chatId);
         if (!meta || wpChatId() !== chatId) return;
 
@@ -6331,6 +6445,7 @@ export function initChatEngine(deps) {
 
         try {
             await update(ref(db, `writing_projects/${portfolio.chatId}`), updates);
+            touchChatProjectsMetaET(portfolio.chatId);
             await openWritingPortfolio();
         } catch (err) {
             console.error('[WritingPortfolio] Failed to apply grouping suggestion:', err);
@@ -6501,6 +6616,7 @@ export function initChatEngine(deps) {
 
         try {
             await set(ref(db, `writing_projects/${chatId}/${docId}`), assignObj);
+            touchChatProjectsMetaET(chatId);
             if (!window._writingProjectsCache) window._writingProjectsCache = {};
             if (!window._writingProjectsCache[chatId]) window._writingProjectsCache[chatId] = {};
             window._writingProjectsCache[chatId][docId] = assignObj;
@@ -6527,6 +6643,7 @@ export function initChatEngine(deps) {
 
         try {
             await set(ref(db, `writing_projects/${chatId}/${docId}`), null);
+            touchChatProjectsMetaET(chatId);
             if (window._writingProjectsCache && window._writingProjectsCache[chatId]) {
                 delete window._writingProjectsCache[chatId][docId];
             }
@@ -6628,6 +6745,7 @@ export function initChatEngine(deps) {
             if (docId) {
                 try {
                     await set(ref(db, `writing_projects/${chatId}/${docId}`), null);
+                    touchChatProjectsMetaET(chatId);
                     if (window._writingProjectsCache && window._writingProjectsCache[chatId]) {
                         delete window._writingProjectsCache[chatId][docId];
                     }

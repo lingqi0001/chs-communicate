@@ -1521,12 +1521,13 @@ export const SidebarModule = {
                         .map(id => ({ id, ...cached[id] }))
                         .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
                 } else {
-                    const snap = await this._fetch(rt.ref(rt.db, 'classes'));
+                    const chatsSnap = await this._fetch(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
                     if (window.sidebarMode !== 'class') return;
-                    const allClasses = snap.val() || {};
-                    myClasses = Object.keys(allClasses)
-                        .map(id => ({ id, ...allClasses[id] }))
-                        .filter(c => c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]));
+                    const classIds = Object.keys(chatsSnap.val() || {})
+                        .filter(id => id.startsWith('group_'))
+                        .map(id => id.slice(6));
+                    const classSnaps = await Promise.all(classIds.map(id => this._fetch(rt.ref(rt.db, `classes/${id}`))));
+                    myClasses = classSnaps.flatMap((snap, index) => snap.exists() ? [{ id: classIds[index], ...snap.val() }] : []);
                     window.Directory?.saveClasses(myClasses, currentUser.id);
                 }
 
@@ -1665,7 +1666,7 @@ export const SidebarModule = {
                 this._renderBarActions(null);
 
                 const subList = container.querySelector('#sidebarSubList');
-                const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20)));
                 if (window.sidebarMode !== 'recent_joined') return;
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
@@ -1760,7 +1761,7 @@ export const SidebarModule = {
 
                 if (!offline && Object.keys(chatMap).length === 0) {
                     try {
-                        const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'users'), rt.orderByKey(), rt.limitToLast(20)));
+                        const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20)));
                         if (recentSnap.exists()) {
                             const recents = recentSnap.val();
                             Object.keys(recents).forEach(rid => {
@@ -2236,7 +2237,7 @@ export const SidebarModule = {
             const classData = classSnap.val();
             const currentStudents = classData.students || {};
 
-            const usersSnap = await rt.get(rt.ref(rt.db, 'users'));
+            const usersSnap = await rt.get(rt.ref(rt.db, 'user_search'));
             const allUsers = usersSnap.val() || {};
             const userList = Object.keys(allUsers)
                 .filter(uid => uid !== classData.teacherId)
