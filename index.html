@@ -2599,7 +2599,7 @@
 
                     const isJustLiked = (window._justLikedPostId === post.id);
                     let interactions = `<div class="flex items-center gap-5 mt-3">
-                        <button type="button" data-like-btn="${post.id}" onclick="toggleLike('${post.id}', event)" class="inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
+                        <button type="button" data-like-btn="${post.id}" onclick="toggleLike('${post.id}', event)" class="h-6 inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
                             <div class="heart-icon-wrap relative flex items-center justify-center w-6 h-6 shrink-0">
                                 <svg class="w-6 h-6 shrink-0 block ${isLiked ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} transition-all ${isJustLiked ? 'heart-pop' : ''}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                                 ${isJustLiked ? '<span class="heart-ripple-wave"></span>' : ''}
@@ -2609,8 +2609,8 @@
 
                     if (config.hasComments) {
                         const commentsCount = Object.keys(post.comments || {}).length;
-                        interactions += `<button type="button" onclick="openPostDetail('${post.id}')" class="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group p-0 m-0 border-0 bg-transparent leading-none">
-                            <div class="relative flex items-center justify-center">
+                        interactions += `<button type="button" onclick="openPostDetail('${post.id}')" class="h-6 inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group p-0 m-0 border-0 bg-transparent leading-none cursor-pointer">
+                            <div class="relative flex items-center justify-center w-6 h-6 shrink-0">
                                 <svg class="w-6 h-6 shrink-0 block fill-none group-active:scale-90 transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                 </svg>
@@ -2620,7 +2620,7 @@
                         </button>`;
                     }
 
-                    interactions += `<button type="button" onclick="reportPost('${post.id}')" class="inline-flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 p-0 m-0 border-0 bg-transparent leading-none" title="Report Post"><svg class="w-6 h-6 shrink-0 block fill-none transition-transform translate-y-[3.5px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
+                    interactions += `<button type="button" onclick="reportPost('${post.id}')" class="h-6 w-6 inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 p-0 m-0 border-0 bg-transparent leading-none" title="Report Post"><svg class="w-6 h-6 shrink-0 block fill-none transition-transform translate-y-[1px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
 
                     interactions += `<div class="flex-1"></div>`;
 
@@ -3089,7 +3089,7 @@
 
             const isJustLiked = (window._justLikedPostId === postId);
             const likeBtnHtml = `
-                <button type="button" data-like-btn="${postId}" onclick="toggleLike('${postId}', event)" class="inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
+                <button type="button" data-like-btn="${postId}" onclick="toggleLike('${postId}', event)" class="h-6 inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
                     <div class="heart-icon-wrap relative flex items-center justify-center w-6 h-6 shrink-0">
                         <svg class="w-6 h-6 shrink-0 block ${isLiked ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} transition-all ${isJustLiked ? 'heart-pop' : ''}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                         ${isJustLiked ? '<span class="heart-ripple-wave"></span>' : ''}
@@ -3099,17 +3099,19 @@
             `;
 
             const commentCountBtnHtml = config.hasComments ? `
-                <div class="inline-flex items-center gap-1.5 text-gray-400 leading-none">
-                    <svg class="w-6 h-6 shrink-0 block fill-none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                    </svg>
+                <div class="h-6 inline-flex items-center gap-1.5 text-gray-400 leading-none">
+                    <div class="relative flex items-center justify-center w-6 h-6 shrink-0">
+                        <svg class="w-6 h-6 shrink-0 block fill-none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                    </div>
                     <span class="text-sm font-medium leading-none text-gray-500 dark:text-gray-400">${Object.keys(post.comments || {}).length}</span>
                 </div>
             ` : '';
 
             const reportBtnHtml = `
-                <button type="button" onclick="reportPost('${postId}')" class="inline-flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 leading-none" title="Report Post">
-                    <svg class="w-6 h-6 shrink-0 block fill-none translate-y-[3.5px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <button type="button" onclick="reportPost('${postId}')" class="h-6 w-6 inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 leading-none p-0 m-0 border-0 bg-transparent" title="Report Post">
+                    <svg class="w-6 h-6 shrink-0 block fill-none translate-y-[1px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                     </svg>
                 </button>
@@ -3157,7 +3159,7 @@
                                     <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">${linkify(escapeHTML(post.desc))}</p>
                                 </div>
                                 ${getSuggestionVotingHtml(post)}
-                                <div class="flex items-center gap-5 pt-3 pb-1 border-b border-gray-100 dark:border-white/5">
+                                <div class="flex items-center gap-5 pt-3 pb-1">
                                     ${likeBtnHtml}
                                     ${commentCountBtnHtml}
                                     ${reportBtnHtml}
@@ -3185,7 +3187,7 @@
                                     <p class="text-sm md:text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">${linkify(escapeHTML(post.desc))}</p>
                                 </div>
                                 ${getSuggestionVotingHtml(post)}
-                                <div class="flex items-center gap-5 pt-3 pb-1 border-b border-gray-100 dark:border-white/5">
+                                <div class="flex items-center gap-5 pt-3 pb-1">
                                     ${likeBtnHtml}
                                     ${commentCountBtnHtml}
                                     ${reportBtnHtml}
