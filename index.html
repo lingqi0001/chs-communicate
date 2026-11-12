@@ -506,7 +506,7 @@
                 const iconSvg = iconMap[eid] || defaultIcon;
 
                 const card = document.createElement('div');
-                card.className = "p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition select-none";
+                card.className = "p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition select-none";
                 card.dataset.eid = eid;
 
                 if (eid === 'ir_navigator') {
@@ -846,6 +846,24 @@
                         window.openModule(openTarget);
                     }
                 }, 150);
+            } else if (urlParams.has('post')) {
+                const initialPostId = urlParams.get('post');
+                if (initialPostId) {
+                    setTimeout(async () => {
+                        const candidates = ['lost_and_found', 'marketplace', 'peer_tutoring', 'suggestions', 'info'];
+                        for (const mod of candidates) {
+                            try {
+                                const snap = await get(ref(db, `modules/${mod}/${initialPostId}`));
+                                if (snap.exists() && snap.val()) {
+                                    if (typeof window.openModule === 'function') {
+                                        window.openModule(mod);
+                                    }
+                                    break;
+                                }
+                            } catch (e) {}
+                        }
+                    }, 180);
+                }
             }
         };
 
@@ -2028,6 +2046,14 @@
                 onOpen: () => {
                     syncDesktopDynamicOverlays();
                     setModuleSort('latest');
+                    const initialPostId = new URLSearchParams(window.location.search).get('post');
+                    if (initialPostId && currentModule === moduleName) {
+                        setTimeout(() => {
+                            if (currentModule === moduleName && !currentPostId) {
+                                window.openPostDetail(initialPostId, { fromDirectRoute: true });
+                            }
+                        }, 120);
+                    }
                 },
                 zIndex: AppModules.View.CONSTANTS.Z_INDEX.MODULE,
                 isExclusive: true
@@ -2035,10 +2061,13 @@
         };
 
         window.closeModule = () => {
+            if (currentPostId) {
+                window.closeDetail({ isBackAction: true });
+            }
             const pageId = MODULE_PAGE_MAP[currentModule];
             AppModules.View.closeOverlay(pageId, {
                 onClose: () => {
-                    window.syncCHSRouteParams?.({ tool: null });
+                    window.syncCHSRouteParams?.({ tool: null, post: null });
                     if (moduleListener) { moduleListener(); moduleListener = null; }
                     currentModule = null;
                 }
@@ -2621,7 +2650,6 @@
                     }
 
                     interactions += `<button type="button" onclick="reportPost('${post.id}')" class="h-6 w-6 inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 p-0 m-0 border-0 bg-transparent leading-none" title="Report Post"><svg class="w-6 h-6 shrink-0 block fill-none transition-transform translate-y-[1px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
-
                     interactions += `<div class="flex-1"></div>`;
 
                     const currentUserId = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : (auth.currentUser ? auth.currentUser.uid : null);
@@ -3021,11 +3049,89 @@
             } catch (err) { console.error(err); }
         };
 
+        window.showToast = (msg, duration = 2200) => {
+            let toastEl = document.getElementById('chsGlobalToast');
+            if (!toastEl) {
+                toastEl = document.createElement('div');
+                toastEl.id = 'chsGlobalToast';
+                toastEl.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2.5 rounded-full bg-black/85 dark:bg-white/90 text-white dark:text-black text-sm font-medium shadow-xl backdrop-blur-md pointer-events-none transition-all duration-300 opacity-0 translate-y-3';
+                document.body.appendChild(toastEl);
+            }
+            toastEl.innerText = msg;
+            toastEl.classList.remove('opacity-0', 'translate-y-3');
+            toastEl.classList.add('opacity-100', 'translate-y-0');
+            clearTimeout(toastEl._timer);
+            toastEl._timer = setTimeout(() => {
+                toastEl.classList.remove('opacity-100', 'translate-y-0');
+                toastEl.classList.add('opacity-0', 'translate-y-3');
+            }, duration);
+        };
+
+        window.copyPostDetailLink = async (postId, event, moduleName = null) => {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const targetModule = moduleName || currentModule || 'lost_and_found';
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('tool', targetModule);
+            url.searchParams.set('post', postId);
+            const link = url.toString();
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(link);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = link;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Link copied to clipboard!');
+                } else if (window.AppModules?.Modal?.alert) {
+                    window.AppModules.Modal.alert('Link Copied', 'Post link copied to clipboard:\n' + link);
+                }
+            } catch (err) {
+                console.error('Failed to copy post link:', err);
+            }
+        };
+
         let currentPostId = null;
         let postDetailListener = null;
 
-        window.openPostDetail = (postId) => {
+        function renderPostNotFound(postId) {
+            const contentEl = document.getElementById('detailContent');
+            if (!contentEl) return;
+            const config = MODULE_CONFIG[currentModule] || {};
+            contentEl.innerHTML = `
+                <div class="flex-1 min-h-0 w-full flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-[#1C1C1E]">
+                    <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 mb-4">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="font-bold text-lg text-black dark:text-white mb-1">Post Not Found</div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm">This post may have been deleted, or the link may be incorrect.</p>
+                    <button onclick="closeDetail()" class="px-5 py-2 rounded-full bg-black dark:bg-white text-white dark:text-black font-medium text-sm transition-transform active:scale-95 shadow-sm">
+                        Back to ${escapeHTML(config.title || 'List')}
+                    </button>
+                </div>
+            `;
+        }
+
+        window.openPostDetail = (postId, options = {}) => {
             currentPostId = postId;
+            const targetMod = options.module || currentModule;
+            let routeUpdates = { post: postId };
+            if (targetMod) {
+                currentModule = targetMod;
+                routeUpdates = { tool: targetMod, post: postId };
+            }
+
             const page = document.getElementById('detailPage');
             page.classList.remove('hidden');
             requestAnimationFrame(() => page.classList.remove('translate-x-full'));
@@ -3036,14 +3142,23 @@
                 });
             }
 
+            // Registering the detail layer pushes its own history entry. Update
+            // the URL only after that, so the underlying list entry stays clean.
+            window.syncCHSRouteParams?.(routeUpdates);
+
             if (postDetailListener) postDetailListener();
             postDetailListener = onValue(ref(db, `modules/${currentModule}/${postId}`), (snap) => {
                 const post = snap.val();
-                if (post) renderPostDetail(postId, post);
+                if (post) {
+                    renderPostDetail(postId, post);
+                } else {
+                    renderPostNotFound(postId);
+                }
             });
         };
 
         window.closeDetail = (options = {}) => {
+            window.syncCHSRouteParams?.({ post: null });
             const page = document.getElementById('detailPage');
             page.classList.add('translate-x-full');
 
@@ -4230,7 +4345,7 @@
                         </div>
                         <div id="schoolToolsList" class="space-y-3">
                             <div onclick="window.openExtension('grade_calculator')"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                 <div
                                     class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4246,7 +4361,7 @@
                             </div>
 
                             <div onclick="openCafeteria()"
-                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                 <div
                                     class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4267,7 +4382,7 @@
                             <!-- School Community Quick Actions (1 Row x 3 Icons: Peer Tutoring, Suggestions, Lost and Found) -->
                             <div class="grid grid-cols-3 gap-2.5">
                                 <div onclick="openModule('peer_tutoring')"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4280,7 +4395,7 @@
                                 </div>
 
                                 <div onclick="openModule('suggestions')"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4293,7 +4408,7 @@
                                 </div>
 
                                 <div onclick="openModule('lost_and_found')"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4308,7 +4423,7 @@
                             <!-- Admin Quick Actions (1 Row x 3 Icons) -->
                             <div id="adminToolsRow" class="grid grid-cols-3 gap-2.5 hidden" style="display: none;">
                                 <div id="toolEntryEagleTime" onclick="openEagleTime()"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4320,7 +4435,7 @@
                                 </div>
 
                                 <div id="toolEntryChsInfo" onclick="openModule('info')"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4332,7 +4447,7 @@
                                 </div>
 
                                 <div id="toolEntryMarketplace" onclick="openModule('marketplace')"
-                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
+                                    class="p-3 sm:py-3.5 sm:px-2 bg-gray-50 dark:bg-white/5 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition">
                                     <div
                                         class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-gray-700 dark:text-gray-200 mb-1.5">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4364,7 +4479,7 @@
 
                         <!-- Developer Portal Access (Synchronized UI) -->
                         <div onclick="openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition mb-3 group">
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition mb-3 group">
                             <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-black dark:text-white shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -4377,7 +4492,7 @@
                         </div>
 
                         <div
-                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-xl border border-dashed border-gray-200 dark:border-white/10 flex items-center gap-4 opacity-50">
+                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-xl flex items-center gap-4 opacity-50">
                             <div
                                 class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400 shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5063,14 +5178,12 @@
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Lost and Found</div>
             <div class="page-head-actions">
+                <div class="module-sort-pill" data-sort="latest">
+                    <div class="module-sort-slider"></div>
+                    <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                    <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+                </div>
                 <button onclick="openPostForm()" class="module-add-btn">Post</button>
-            </div>
-        </div>
-        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
-            <div class="module-sort-pill" data-sort="latest">
-                <div class="module-sort-slider"></div>
-                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
-                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
             </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
@@ -5082,14 +5195,12 @@
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Marketplace</div>
             <div class="page-head-actions">
+                <div class="module-sort-pill" data-sort="latest">
+                    <div class="module-sort-slider"></div>
+                    <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                    <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+                </div>
                 <button onclick="openPostForm()" class="module-add-btn">Post</button>
-            </div>
-        </div>
-        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
-            <div class="module-sort-pill" data-sort="latest">
-                <div class="module-sort-slider"></div>
-                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
-                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
             </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
@@ -5101,14 +5212,12 @@
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Peer Tutoring</div>
             <div class="page-head-actions">
+                <div class="module-sort-pill" data-sort="latest">
+                    <div class="module-sort-slider"></div>
+                    <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                    <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+                </div>
                 <button onclick="openPostForm()" class="module-add-btn">Post</button>
-            </div>
-        </div>
-        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
-            <div class="module-sort-pill" data-sort="latest">
-                <div class="module-sort-slider"></div>
-                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
-                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
             </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
@@ -5120,14 +5229,12 @@
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Suggestions</div>
             <div class="page-head-actions">
+                <div class="module-sort-pill" data-sort="latest">
+                    <div class="module-sort-slider"></div>
+                    <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                    <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+                </div>
                 <button onclick="openPostForm()" class="module-add-btn">Post</button>
-            </div>
-        </div>
-        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
-            <div class="module-sort-pill" data-sort="latest">
-                <div class="module-sort-slider"></div>
-                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
-                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
             </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
@@ -5139,14 +5246,12 @@
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">CHS Info</div>
             <div class="page-head-actions">
+                <div class="module-sort-pill" data-sort="latest">
+                    <div class="module-sort-slider"></div>
+                    <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                    <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+                </div>
                 <button onclick="openPostForm()" class="module-add-btn">Post</button>
-            </div>
-        </div>
-        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
-            <div class="module-sort-pill" data-sort="latest">
-                <div class="module-sort-slider"></div>
-                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
-                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
             </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
@@ -5236,20 +5341,20 @@
 
     <!-- Cafeteria Menu Page -->
     <div id="cafeteriaPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#EDEFFA] dark:bg-[#1A1D22] flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title">Cafeteria Menu</div>
             <div class="page-head-actions">
                 <button id="cafeteriaEditBtn" onclick="openCafeteriaEdit()"
-                    class="hidden text-[#007AFF] text-base font-medium active:opacity-50 transition-opacity">Edit</button>
+                    class="hidden module-add-btn">Edit</button>
             </div>
         </div>
 
         <div id="cafeteriaContent" class="flex-1 overflow-y-auto overflow-x-auto pb-[90px] lg:pb-safe">
             <!-- Weekday menu calendar: weeks from this week onward, Mon -> Fri columns -->
-            <div class="caf-dow-bar caf-week-strip sticky top-0 z-10 pt-3 pb-2 bg-[#EDEFFA]/95 dark:bg-[#1A1D22]/95 backdrop-blur">
-                <div class="caf-col text-center text-[19px] font-extrabold text-[#007AFF] dark:text-[#64B5F6] tracking-wide">Mon</div>
+            <div class="caf-dow-bar caf-week-strip sticky top-0 z-10 pt-3 pb-2 bg-[#f5f5f7]/95 dark:bg-[#242426]/95 backdrop-blur">
+                <div class="caf-col text-center text-[19px] font-extrabold text-[#AF52DE] dark:text-[#A724FF] tracking-wide">Mon</div>
                 <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Tue</div>
                 <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Wed</div>
                 <div class="caf-col text-center text-[19px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Thu</div>
@@ -5275,19 +5380,19 @@
             <div
                 class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-white/5 flex-shrink-0">
                 <button onclick="closeCafeteriaEdit()"
-                    class="text-[#007AFF] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
+                    class="text-[#AF52DE] text-base font-medium w-20 text-left active:opacity-50 transition-opacity">Cancel</button>
                 <div class="flex-1 text-center min-w-0">
                     <div class="font-bold text-base text-black dark:text-white leading-tight">Edit Menu</div>
                     <input type="date" id="cafeteriaEditDate" onchange="changeCafeteriaEditDate()"
-                        class="mt-0.5 bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-700 dark:text-gray-200 text-[13px] font-semibold rounded-lg px-2 py-1 outline-none border border-gray-200 dark:border-white/10">
+                        class="mt-0.5 bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-700 dark:text-gray-200 text-[13px] font-semibold rounded-lg px-2 py-1 outline-none ">
                 </div>
                 <button onclick="saveCafeteriaMenu()"
-                    class="text-[#007AFF] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Save</button>
+                    class="text-[#AF52DE] text-base font-bold w-20 text-right active:opacity-50 transition-opacity">Save</button>
             </div>
             <!-- AI Import -->
             <div class="px-5 pb-3 flex-shrink-0">
                 <button onclick="openCafeteriaBatchImport()"
-                    class="w-full py-2.5 text-[#007AFF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2 bg-[#007AFF]/5 dark:bg-[#007AFF]/10 rounded-2xl border border-[#007AFF]/15">
+                    class="w-full py-2.5 text-[#AF52DE] dark:text-[#A724FF] font-bold text-sm hover:opacity-70 transition-opacity active:scale-95 flex items-center justify-center gap-2 bg-[#AF52DE]/5 dark:bg-[#A724FF]/10 rounded-2xl">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -5300,7 +5405,7 @@
                 <input type="text" id="newFoodInput" placeholder="Add new food to pool..."
                     class="flex-1 bg-[#F2F2F7] dark:bg-black px-4 py-3 rounded-2xl outline-none text-black dark:text-white font-medium placeholder-gray-400">
                 <button onclick="addFoodToPool()"
-                    class="bg-[#007AFF] text-white px-5 rounded-2xl font-bold active:scale-95 transition-transform">Add</button>
+                    class="bg-[#AF52DE] text-white px-5 rounded-2xl font-bold active:scale-95 transition-transform">Add</button>
             </div>
             <!-- Food pool list -->
             <div class="flex-1 overflow-y-auto px-5 pb-safe">
@@ -5399,7 +5504,7 @@
                 <span id="extensionVisitsBadge"
                     class="hidden self-center px-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap"></span>
                 <button id="extensionThemeToggleBtn" onclick="toggleExtensionTheme()" title="Toggle Theme"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    class="p-2 text-black dark:text-white hover:text-[#007AFF] active:scale-90 transition-all">
                     <svg id="extensionThemeIconSun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
                     </svg>
@@ -5408,14 +5513,14 @@
                     </svg>
                 </button>
                 <button onclick="openExtensionExternally()" title="Open in New Window"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    class="p-2 text-black dark:text-white hover:text-[#007AFF] active:scale-90 transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                         <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                             stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
                 <button onclick="reloadExtension()" title="Refresh"
-                    class="p-2 text-gray-400 hover:text-[#007AFF] active:scale-90 transition-all">
+                    class="p-2 text-black dark:text-white hover:text-[#007AFF] active:scale-90 transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                         <path
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"

@@ -5599,6 +5599,61 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
+#extensionPage.grade-calculator-theme {
+    background: #f5f5f7;
+}
+
+#extensionPage.grade-calculator-theme > .flex-1 {
+    background: #f5f5f7;
+}
+
+#extensionPage.grade-calculator-theme .page-header {
+    background: rgba(245, 245, 247, 0.88);
+    border-bottom-color: rgba(229, 229, 234, 0.8);
+}
+
+#extensionPage.grade-calculator-theme #extensionThemeToggleBtn,
+#extensionPage.grade-calculator-theme button[onclick="openExtensionExternally()"],
+#extensionPage.grade-calculator-theme button[onclick="reloadExtension()"] {
+    color: #000;
+}
+
+#extensionPage.grade-calculator-theme #extensionThemeToggleBtn:hover,
+#extensionPage.grade-calculator-theme button[onclick="openExtensionExternally()"]:hover,
+#extensionPage.grade-calculator-theme button[onclick="reloadExtension()"]:hover {
+    color: #AF52DE;
+}
+
+.dark #extensionPage.grade-calculator-theme {
+    background: #242426;
+}
+
+.dark #extensionPage.grade-calculator-theme > .flex-1 {
+    background: #242426;
+}
+
+.dark #extensionPage.grade-calculator-theme .page-header {
+    background: rgba(28, 28, 30, 0.8);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark #extensionPage.grade-calculator-theme #extensionThemeToggleBtn,
+.dark #extensionPage.grade-calculator-theme button[onclick="openExtensionExternally()"],
+.dark #extensionPage.grade-calculator-theme button[onclick="reloadExtension()"] {
+    color: #fff;
+}
+
+.dark #extensionPage.grade-calculator-theme #extensionThemeToggleBtn:hover,
+.dark #extensionPage.grade-calculator-theme button[onclick="openExtensionExternally()"]:hover,
+.dark #extensionPage.grade-calculator-theme button[onclick="reloadExtension()"]:hover {
+    color: #A724FF;
+}
+
+#cafeteriaPage :is(button, input, select, textarea),
+#cafeteriaEditSheet :is(button, input, select, textarea) {
+    border: 0 !important;
+}
+
 .page-back-btn {
     width: 2.25rem;
     height: 2.25rem;
@@ -5706,16 +5761,33 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     transition: transform 100ms ease, opacity 100ms ease, background-color 150ms ease;
 }
 
-.dark .module-add-btn {
+#cafeteriaEditBtn.hidden {
+    display: none;
+}
+
+.module-add-btn:not(#cafeteriaEditBtn) {
+    font-size: 15px;
+    background-color: #E5E5EA;
+}
+
+.dark .module-add-btn:not(#cafeteriaEditBtn) {
     color: #fff;
-    background-color: transparent;
+    background-color: #3A3A3C;
 }
 
 .module-add-btn:hover {
     background-color: color-mix(in srgb, var(--ann-accent-color, #007AFF) 14%, transparent);
 }
 
+.module-add-btn:not(#cafeteriaEditBtn):hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color, #007AFF) 14%, transparent);
+}
+
 .dark .module-add-btn:hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color-dark, #0A84FF) 22%, transparent);
+}
+
+.dark .module-add-btn:not(#cafeteriaEditBtn):hover {
     background-color: color-mix(in srgb, var(--ann-accent-color-dark, #0A84FF) 22%, transparent);
 }
 
@@ -5738,7 +5810,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
 }
 
 .dark .module-sort-pill {
-    background: #1C1C1E;
+    background: #2C2C2E;
 }
 
 .module-sort-slider {
@@ -5756,7 +5828,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
 }
 
 .dark .module-sort-slider {
-    background: #2C2C2E;
+    background: #3A3A3C;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
@@ -6005,7 +6077,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     }
 
     .caf-dow-today {
-        color: #007AFF;
+        color: #AF52DE;
         font-weight: 800;
     }
 
@@ -6014,7 +6086,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     }
 
     .dark .caf-dow-today {
-        color: #64B5F6;
+        color: #A724FF;
     }
 }
 

@@ -86,13 +86,13 @@ export function initCafeteriaFeature(deps) {
                 if (isPast) {
                     cellClass = 'bg-white/40 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5 opacity-40';
                 } else if (isHighlighted) {
-                    cellClass = 'bg-white dark:bg-[#24272D] border-2 border-[#0062CC] shadow-md';
+                    cellClass = 'bg-white dark:bg-[#1C1C1E] border-2 border-[#AF52DE] dark:border-[#A724FF] shadow-md';
                 } else {
-                    cellClass = 'bg-white dark:bg-[#24272D] border border-gray-100 dark:border-white/5';
+                    cellClass = 'bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5';
                 }
 
                 const numClass = isHighlighted
-                    ? 'bg-[#0062CC] text-white'
+                    ? 'bg-[#AF52DE] dark:bg-[#A724FF] text-white'
                     : isPast
                         ? 'text-gray-400 dark:text-gray-600'
                         : 'text-black dark:text-white';
@@ -101,7 +101,7 @@ export function initCafeteriaFeature(deps) {
                 if (isPast) {
                     body = '';
                 } else if (items.length > 0) {
-                    body = `<div class="mt-2 space-y-2">${items.map((n) => `<div class="text-[17px] leading-snug font-semibold text-black dark:text-white flex items-start gap-1.5"><span class="w-2 h-2 rounded-full bg-[#007AFF] mt-[10px] flex-shrink-0"></span><span class="min-w-0">${escapeHTML(n)}</span></div>`).join('')}</div>`;
+                    body = `<div class="mt-2 space-y-2">${items.map((n) => `<div class="text-[17px] leading-snug font-semibold text-black dark:text-white flex items-start gap-1.5"><span class="w-2 h-2 rounded-full bg-[#AF52DE] dark:bg-[#A724FF] mt-[10px] flex-shrink-0"></span><span class="min-w-0">${escapeHTML(n)}</span></div>`).join('')}</div>`;
                 } else {
                     body = '<div class="mt-2 text-[17px] text-gray-300 dark:text-gray-600">—</div>';
                 }
@@ -148,7 +148,7 @@ export function initCafeteriaFeature(deps) {
             html += `
                 <div class="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onclick="toggleFoodSelection('${id}')">
                     <div class="flex items-center gap-4 flex-1">
-                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isChecked ? 'bg-[#007AFF] border-[#007AFF]' : 'border-gray-300 dark:border-gray-600'}">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center transition-colors ${isChecked ? 'bg-[#AF52DE] dark:bg-[#A724FF]' : 'bg-gray-200 dark:bg-[#38383A]'}">
                             ${isChecked ? '<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>' : ''}
                         </div>
                         <span class="text-base font-semibold text-black dark:text-white ${isChecked ? '' : 'opacity-80'}">${escapeHTML(item.name)}</span>
@@ -165,6 +165,7 @@ export function initCafeteriaFeature(deps) {
 
     window.openCafeteria = () => {
         setCurrentModule('cafeteria');
+        window.syncCHSRouteParams?.({ tool: 'cafeteria', open: null });
         const btn = document.getElementById('cafeteriaEditBtn');
         if (btn) {
             btn.classList.toggle('hidden', !(AppModules.User.isTeacher() || AppModules.User.isAdmin()));
@@ -404,10 +405,10 @@ Here is the original menu text:
 
         const html = `
             <div class="space-y-4 text-left">
-                <div class="p-3.5 bg-blue-500/5 dark:bg-blue-500/10 rounded-2xl border border-blue-500/15 flex flex-col gap-2.5">
-                    <div class="flex items-center justify-between border-b border-blue-500/10 pb-2">
+                <div class="p-3.5 bg-[#AF52DE]/5 dark:bg-[#A724FF]/10 rounded-2xl flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between border-b border-[#AF52DE]/10 dark:border-[#A724FF]/10 pb-2">
                         <span class="text-xs font-bold text-black dark:text-white uppercase tracking-wider">AI Prompt</span>
-                        <button onclick="window.copyCafeteriaPrompt()" class="flex items-center gap-1.5 text-xs font-bold text-[#007AFF] hover:opacity-80 active:scale-95 transition-all cursor-pointer whitespace-nowrap flex-shrink-0 bg-blue-500/10 hover:bg-blue-500/20 px-2.5 py-1 rounded-lg">
+                        <button onclick="window.copyCafeteriaPrompt()" class="flex items-center gap-1.5 text-xs font-bold text-[#AF52DE] dark:text-[#A724FF] hover:opacity-80 active:scale-95 transition-all cursor-pointer whitespace-nowrap flex-shrink-0 bg-[#AF52DE]/10 dark:bg-[#A724FF]/10 hover:bg-[#AF52DE]/20 px-2.5 py-1 rounded-lg">
                             <span id="cafeteriaCopyPromptBtnIcon" class="flex items-center">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -417,12 +418,12 @@ Here is the original menu text:
                             <span id="cafeteriaCopyPromptBtnText">Copy Prompt</span>
                         </button>
                     </div>
-                    <div class="text-[11px] text-gray-500 dark:text-gray-400 font-mono bg-white/50 dark:bg-black/30 p-2.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 max-h-40 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all">${CAFETERIA_AI_PROMPT}</div>
+                    <div class="text-[11px] text-gray-500 dark:text-gray-400 font-mono bg-white/50 dark:bg-black/30 p-2.5 rounded-xl max-h-40 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all">${CAFETERIA_AI_PROMPT}</div>
                 </div>
                 <div class="space-y-2">
                     <p class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Paste your AI generated array below</p>
                     <textarea id="cafeteriaBatchJsonInput" rows="6" placeholder='[{"date": "2026-09-21", "items": ["Chicken Teriyaki Bowl", "Rice"]}]'
-                        class="w-full bg-gray-100 dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none border border-gray-200 dark:border-gray-800 focus:ring-2 ring-[#007AFF]/20 transition-all"></textarea>
+                        class="w-full bg-gray-100 dark:bg-black text-black dark:text-white rounded-2xl px-4 py-3 text-sm font-mono outline-none focus:ring-2 ring-[#AF52DE]/20 dark:ring-[#A724FF]/20 transition-all"></textarea>
                 </div>
             </div>
         `;

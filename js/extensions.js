@@ -97,6 +97,7 @@ const showVisitCount = async (key) => {
     if (!badge) return;
     badge.classList.add('hidden');
     badge.textContent = '';
+    if (!window.AppModules?.User?.isAdmin?.()) return;
     if (!key || !window.firebaseDb || !window.fRef || !window.fGet) return;
     try {
         const snap = await window.fGet(window.fRef(window.firebaseDb, `tool_visits_count/${key}`));
@@ -262,6 +263,7 @@ export const openExtension = (eid, customUrl = null, customTitle = null) => {
     const extPage = document.getElementById('extensionPage');
 
     if (extPage) {
+        extPage.classList.toggle('grade-calculator-theme', eid === 'grade_calculator');
         if (isPanel) {
             _isPanelExtensionOpen = true;
             extPage.classList.add('desktop-dynamic-left');
