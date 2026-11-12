@@ -142,7 +142,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20261108-news-tabs-single-indicator">
+    <link rel="stylesheet" href="style.css?v=20261111-module-v5">
 
     <script type="importmap">
     {
@@ -2050,10 +2050,8 @@
             const pageId = MODULE_PAGE_MAP[currentModule];
             const page = document.getElementById(pageId);
             if (page) {
-                const latestBtn = page.querySelector('.sort-latest-btn');
-                const hotBtn = page.querySelector('.sort-hot-btn');
-                if (latestBtn) latestBtn.className = sort === 'latest' ? 'sort-latest-btn text-sm font-semibold text-black dark:text-white transition-colors' : 'sort-latest-btn text-sm font-medium text-gray-400 hover:text-black dark:hover:text-white transition-colors';
-                if (hotBtn) hotBtn.className = sort === 'hot' ? 'sort-hot-btn text-sm font-semibold text-black dark:text-white transition-colors' : 'sort-hot-btn text-sm font-medium text-gray-400 hover:text-black dark:hover:text-white transition-colors';
+                const sortPill = page.querySelector('.module-sort-pill');
+                if (sortPill) sortPill.setAttribute('data-sort', sort);
             }
             loadModuleData();
         };
@@ -2063,7 +2061,14 @@
             const moduleName = currentModule;
             const pageId = MODULE_PAGE_MAP[moduleName];
             const listEl = document.querySelector(`#${pageId} .module-list`);
-            if (listEl) listEl.innerHTML = '<div class="text-center text-gray-400 mt-10">Loading...</div>';
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="flex flex-col items-center justify-center mt-20 text-gray-400">
+                        <div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 dark:border-white/20 border-t-gray-800 dark:border-t-white mb-4"></div>
+                        <p class="text-sm font-medium">Loading...</p>
+                    </div>
+                `;
+            }
 
             // 1. Initial Load from Cache (for instant UI)
             const cached = await getLocalModulePosts(moduleName);
@@ -2093,7 +2098,321 @@
             });
         }
 
+        let attachedPollData = null;
+        let currentPollEditorType = 'pk'; // 'pk' or 'poll'
+
+        window.openPollTypeSelector = () => {
+            document.getElementById('pollTypeSelectorModal').classList.remove('hidden');
+        };
+
+        window.closePollTypeSelector = () => {
+            document.getElementById('pollTypeSelectorModal').classList.add('hidden');
+        };
+
+        window.choosePollType = (type) => {
+            currentPollEditorType = type;
+            closePollTypeSelector();
+            openPollEditor(type);
+        };
+
+        window.switchBackToSelector = () => {
+            closePollEditor();
+            openPollTypeSelector();
+        };
+
+        window.openPollEditor = (type = 'pk') => {
+            currentPollEditorType = type;
+            const modal = document.getElementById('pollEditorModal');
+            const titleHeader = document.getElementById('pollEditorHeaderTitle');
+            const titleInput = document.getElementById('pollEditorTitle');
+            const optionsList = document.getElementById('pollEditorOptionsList');
+            const addOptionBtn = document.getElementById('pollEditorAddOptionBtn');
+
+            if (type === 'pk') {
+                titleHeader.innerText = 'PK组件';
+                titleInput.placeholder = '请填写PK标题，不超过15个字';
+                addOptionBtn.classList.add('hidden');
+
+                const opt1 = (attachedPollData && attachedPollData.type === 'pk') ? (attachedPollData.options[0]?.text || '') : '支持';
+                const opt2 = (attachedPollData && attachedPollData.type === 'pk') ? (attachedPollData.options[1]?.text || '') : '反对';
+                if (attachedPollData && attachedPollData.type === 'pk') {
+                    titleInput.value = attachedPollData.title || '';
+                } else if (!titleInput.value) {
+                    titleInput.value = '';
+                }
+
+                optionsList.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-red-500 w-12 shrink-0">观点 1</span>
+                        <input type="text" id="pkOpt1" value="${escapeHTML(opt1)}" maxlength="10" placeholder="请填写选项（红方）"
+                            class="flex-1 bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-xl px-3.5 py-2.5 text-sm outline-none border border-transparent focus:border-red-500">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-blue-500 w-12 shrink-0">观点 2</span>
+                        <input type="text" id="pkOpt2" value="${escapeHTML(opt2)}" maxlength="10" placeholder="请填写选项（蓝方）"
+                            class="flex-1 bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-xl px-3.5 py-2.5 text-sm outline-none border border-transparent focus:border-blue-500">
+                    </div>
+                `;
+            } else {
+                titleHeader.innerText = '投票组件';
+                titleInput.placeholder = '请填写投票标题，不超过15个字';
+                addOptionBtn.classList.remove('hidden');
+
+                let opts = ['观点 1', '观点 2', '观点 3'];
+                if (attachedPollData && attachedPollData.type === 'poll' && attachedPollData.options?.length) {
+                    opts = attachedPollData.options.map(o => o.text);
+                    titleInput.value = attachedPollData.title || '';
+                } else if (!titleInput.value) {
+                    titleInput.value = '';
+                }
+
+                optionsList.innerHTML = '';
+                opts.forEach((optText, idx) => {
+                    window._appendPollRow(idx, optText);
+                });
+            }
+
+            modal.classList.remove('hidden');
+        };
+
+        window._appendPollRow = (idx, text = '') => {
+            const list = document.getElementById('pollEditorOptionsList');
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 poll-option-row';
+            row.innerHTML = `
+                <span class="text-xs font-bold text-emerald-500 w-12 shrink-0">观点 ${list.children.length + 1}</span>
+                <input type="text" value="${escapeHTML(text)}" maxlength="20" placeholder="请填写选项"
+                    class="flex-1 bg-[#F2F2F7] dark:bg-black text-black dark:text-white rounded-xl px-3.5 py-2.5 text-sm outline-none border border-transparent focus:border-emerald-500 poll-opt-input">
+                <button type="button" onclick="removePollOptionRow(this)" class="text-gray-400 hover:text-red-500 p-1.5 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            list.appendChild(row);
+            _updatePollRowLabels();
+        };
+
+        window.addPollOptionRow = () => {
+            const list = document.getElementById('pollEditorOptionsList');
+            if (list.children.length >= 5) {
+                AppModules.Modal.alert("提示", "最多添加 5 个选项");
+                return;
+            }
+            window._appendPollRow(list.children.length, '');
+            _updatePollRowLabels();
+        };
+
+        window.removePollOptionRow = (btn) => {
+            const list = document.getElementById('pollEditorOptionsList');
+            if (list.children.length <= 2) {
+                AppModules.Modal.alert("提示", "投票最少需要保留 2 个选项");
+                return;
+            }
+            btn.closest('.poll-option-row').remove();
+            _updatePollRowLabels();
+        };
+
+        function _updatePollRowLabels() {
+            const list = document.getElementById('pollEditorOptionsList');
+            Array.from(list.children).forEach((child, i) => {
+                const span = child.querySelector('span');
+                if (span) span.innerText = `观点 ${i + 1}`;
+            });
+            const addBtn = document.getElementById('pollEditorAddOptionBtn');
+            if (addBtn) {
+                if (list.children.length >= 5) addBtn.classList.add('hidden');
+                else addBtn.classList.remove('hidden');
+            }
+        }
+
+        window.closePollEditor = () => {
+            document.getElementById('pollEditorModal').classList.add('hidden');
+        };
+
+        window.savePollEditorContent = () => {
+            const title = document.getElementById('pollEditorTitle').value.trim();
+            if (!title) {
+                AppModules.Modal.alert("提示", "请填写组件标题");
+                return;
+            }
+
+            if (currentPollEditorType === 'pk') {
+                const opt1 = document.getElementById('pkOpt1').value.trim();
+                const opt2 = document.getElementById('pkOpt2').value.trim();
+                if (!opt1 || !opt2) {
+                    AppModules.Modal.alert("提示", "请完整填写两个PK选项");
+                    return;
+                }
+                attachedPollData = {
+                    type: 'pk',
+                    title: title,
+                    options: [
+                        { id: 'opt_1', text: opt1 },
+                        { id: 'opt_2', text: opt2 }
+                    ]
+                };
+            } else {
+                const inputs = document.querySelectorAll('.poll-opt-input');
+                const options = [];
+                inputs.forEach((inp, idx) => {
+                    const val = inp.value.trim();
+                    if (val) options.push({ id: 'opt_' + (idx + 1), text: val });
+                });
+                if (options.length < 2) {
+                    AppModules.Modal.alert("提示", "请至少填写 2 个有效选项");
+                    return;
+                }
+                attachedPollData = {
+                    type: 'poll',
+                    title: title,
+                    options: options
+                };
+            }
+
+            closePollEditor();
+            renderAttachedPollPreview();
+        };
+
+        function renderAttachedPollPreview() {
+            const previewEl = document.getElementById('postPollPreview');
+            const triggerContainer = document.getElementById('postAddPollBtnContainer');
+            if (!attachedPollData) {
+                if (previewEl) previewEl.classList.add('hidden');
+                if (triggerContainer) triggerContainer.classList.remove('hidden');
+                return;
+            }
+
+            if (triggerContainer) triggerContainer.classList.add('hidden');
+            if (previewEl) previewEl.classList.remove('hidden');
+
+            const badge = document.getElementById('postPollBadge');
+            if (badge) {
+                badge.innerText = attachedPollData.type === 'pk' ? 'PK 对决' : '多项投票';
+                badge.className = attachedPollData.type === 'pk'
+                    ? 'text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-500'
+                    : 'text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500';
+            }
+
+            const titleEl = document.getElementById('postPollPreviewTitle');
+            if (titleEl) titleEl.innerText = attachedPollData.title;
+
+            const optsContainer = document.getElementById('postPollPreviewOptions');
+            if (optsContainer) {
+                optsContainer.innerHTML = attachedPollData.options.map((opt, i) => `
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full ${attachedPollData.type === 'pk' ? (i === 0 ? 'bg-red-500' : 'bg-blue-500') : 'bg-emerald-500'}"></span>
+                        <span class="text-xs text-gray-700 dark:text-gray-300 font-medium">${escapeHTML(opt.text)}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        window.editAttachedPoll = () => {
+            if (attachedPollData) openPollEditor(attachedPollData.type);
+        };
+
+        window.removeAttachedPoll = () => {
+            attachedPollData = null;
+            renderAttachedPollPreview();
+        };
+
         function getSuggestionVotingHtml(post) {
+            // Check for modern interactive poll data (PK or Multi-option Poll)
+            if (post.poll && post.poll.options && post.poll.options.length) {
+                const poll = post.poll;
+                const votes = post.pollVotes || {};
+                const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+                const userVotedOptionId = currentUid ? votes[currentUid] : null;
+
+                const counts = {};
+                poll.options.forEach(opt => counts[opt.id] = 0);
+                Object.values(votes).forEach(optId => {
+                    if (counts[optId] !== undefined) counts[optId]++;
+                });
+                const total = Object.values(votes).length;
+
+                // 1. PK 模式渲染 (红蓝纯色对比，无任何发光光效)
+                if (poll.type === 'pk' && poll.options.length === 2) {
+                    const opt1 = poll.options[0];
+                    const opt2 = poll.options[1];
+                    const c1 = counts[opt1.id] || 0;
+                    const c2 = counts[opt2.id] || 0;
+                    const p1 = total > 0 ? Math.round((c1 / total) * 100) : 0;
+                    const p2 = total > 0 ? Math.round((c2 / total) * 100) : 0;
+
+                    let barHtml = '';
+                    if (total === 0) {
+                        barHtml = '<div class="h-full flex-1 bg-gray-200 dark:bg-white/10"></div>';
+                    } else {
+                        let slantHtml = (p1 > 0 && p2 > 0) ? '<div class="h-[150%] w-[3px] bg-white dark:bg-[#1C1C1E] transform skew-x-[-20deg] z-10 -mx-[1.5px]"></div>' : '';
+                        barHtml = `<div class="h-full bg-red-500 transition-all duration-700 ease-out" style="width: ${p1}%;"></div>` +
+                            slantHtml +
+                            `<div class="h-full bg-blue-500 transition-all duration-700 ease-out flex-1"></div>`;
+                    }
+
+                    return `
+                        <div class="mt-4">
+                            ${poll.title ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[10px] font-extrabold tracking-wider">PK</span> ${escapeHTML(poll.title)}</div>` : ''}
+                            <div class="flex justify-between items-center px-0 py-1 mb-2">
+                                <button onclick="votePollOption('${post.id}', '${opt1.id}'); event.stopPropagation();"
+                                        class="flex flex-col items-start active:scale-95 transition-transform group cursor-pointer w-1/2">
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVotedOptionId === opt1.id ? 'bg-red-500 text-white' : 'bg-red-500/15 text-red-500 group-hover:bg-red-500/25'} transition-all">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </div>
+                                        <span class="font-bold text-sm ${userVotedOptionId === opt1.id ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} truncate max-w-[120px]">${escapeHTML(opt1.text)}</span>
+                                    </div>
+                                    <div class="text-xs font-bold mt-1 ${userVotedOptionId === opt1.id ? 'text-red-500' : 'text-gray-400'} ml-7">${p1}% (${c1})</div>
+                                </button>
+
+                                <button onclick="votePollOption('${post.id}', '${opt2.id}'); event.stopPropagation();"
+                                        class="flex flex-col items-end active:scale-95 transition-transform group cursor-pointer w-1/2">
+                                    <div class="flex items-center gap-1.5 justify-end w-full">
+                                        <span class="font-bold text-sm ${userVotedOptionId === opt2.id ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'} truncate max-w-[120px]">${escapeHTML(opt2.text)}</span>
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVotedOptionId === opt2.id ? 'bg-blue-500 text-white' : 'bg-blue-500/15 text-blue-500 group-hover:bg-blue-500/25'} transition-all">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                        </div>
+                                    </div>
+                                    <div class="text-xs font-bold mt-1 ${userVotedOptionId === opt2.id ? 'text-blue-500' : 'text-gray-400'} mr-7">${p2}% (${c2})</div>
+                                </button>
+                            </div>
+
+                            <div class="h-2 w-full bg-gray-200 dark:bg-black/50 rounded-full overflow-hidden flex items-center">
+                                ${barHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 2. 多项投票组件 (小红书胶囊条列表，2-5个选项)
+                return `
+                    <div class="mt-4 space-y-2">
+                        ${poll.title ? `<div class="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-extrabold tracking-wider">投票</span> ${escapeHTML(poll.title)}</div>` : ''}
+                        ${poll.options.map(opt => {
+                            const c = counts[opt.id] || 0;
+                            const p = total > 0 ? Math.round((c / total) * 100) : 0;
+                            const isSelected = userVotedOptionId === opt.id;
+
+                            return `
+                                <div onclick="votePollOption('${post.id}', '${opt.id}'); event.stopPropagation();"
+                                     class="relative overflow-hidden rounded-xl border ${isSelected ? 'border-blue-500 bg-blue-500/5 dark:bg-blue-500/10' : 'border-gray-200/80 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'} p-2.5 cursor-pointer active:scale-[0.99] transition-all">
+                                    <div class="absolute inset-y-0 left-0 bg-blue-500/15 transition-all duration-500" style="width: ${p}%;"></div>
+                                    <div class="relative flex items-center justify-between text-xs">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-4 h-4 rounded-full border ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-400 dark:border-gray-600'} flex items-center justify-center shrink-0">
+                                                ${isSelected ? '<svg class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+                                            </div>
+                                            <span class="font-semibold text-black dark:text-white">${escapeHTML(opt.text)}</span>
+                                        </div>
+                                        <span class="font-bold text-gray-500 dark:text-gray-400">${p}% (${c})</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // Fallback: Suggestions 专有支持/反对 (红蓝纯色，无外底色框，无光晕阴影)
             if (currentModule !== 'suggestions') return '';
             const supportVotes = post.supportVotes || {};
             const notSupportVotes = post.notSupportVotes || {};
@@ -2118,12 +2437,12 @@
             }
 
             return `
-                <div class="mt-4 border border-gray-100 dark:border-white/5 rounded-2xl p-2 bg-gray-50/50 dark:bg-white/5 shadow-sm">
-                    <div class="flex justify-between items-center px-2 py-1 mb-2">
+                <div class="mt-4">
+                    <div class="flex justify-between items-center px-0 py-1 mb-2">
                         <button onclick="voteSuggestion('${post.id}', 'not_support'); event.stopPropagation();"
                                 class="flex flex-col items-start active:scale-95 transition-transform group cursor-pointer w-1/2">
                             <div class="flex items-center gap-1.5">
-                                <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVote === 'not_support' ? 'bg-red-500 text-white shadow-md shadow-red-500/30' : 'bg-red-100 text-red-500 dark:bg-red-500/20 group-hover:bg-red-200 dark:group-hover:bg-red-500/30'} transition-all">
+                                <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVote === 'not_support' ? 'bg-red-500 text-white' : 'bg-red-500/15 text-red-500 group-hover:bg-red-500/25'} transition-all">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </div>
                                 <span class="font-bold text-sm ${userVote === 'not_support' ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}">Not Support</span>
@@ -2135,7 +2454,7 @@
                                 class="flex flex-col items-end active:scale-95 transition-transform group cursor-pointer w-1/2">
                             <div class="flex items-center gap-1.5 justify-end w-full">
                                 <span class="font-bold text-sm ${userVote === 'support' ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'}">Support</span>
-                                <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVote === 'support' ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30' : 'bg-blue-100 text-blue-500 dark:bg-blue-500/20 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/30'} transition-all">
+                                <div class="w-6 h-6 rounded-full flex items-center justify-center ${userVote === 'support' ? 'bg-blue-500 text-white' : 'bg-blue-500/15 text-blue-500 group-hover:bg-blue-500/25'} transition-all">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                                 </div>
                             </div>
@@ -2143,12 +2462,39 @@
                         </button>
                     </div>
 
-                    <div class="h-2 w-full bg-gray-200 dark:bg-black/50 rounded-full overflow-hidden flex items-center shadow-inner">
+                    <div class="h-2 w-full bg-gray-200 dark:bg-black/50 rounded-full overflow-hidden flex items-center">
                         ${barHtml}
                     </div>
                 </div>
             `;
         }
+
+        window.votePollOption = async (postId, optionId) => {
+            if (!window.isLoggedIn || !auth.currentUser) {
+                if (typeof window.promptSignIn === 'function') {
+                    window.promptSignIn("Please sign in with your HCPSS account to vote.");
+                } else if (window.AppModules?.Modal?.confirm) {
+                    window.AppModules.Modal.confirm("Sign In Required", "Please sign in with your HCPSS account to vote.", "Sign In", "OK");
+                }
+                return;
+            }
+            const uid = auth.currentUser.uid;
+            const pollVoteRef = ref(db, `modules/${currentModule}/${postId}/pollVotes/${uid}`);
+            const post = modulePosts.find(p => p.id === postId) || (currentPostId === postId ? (await get(ref(db, `modules/${currentModule}/${postId}`))).val() : null);
+            if (!post) return;
+
+            const currentVoteOpt = (post.pollVotes && post.pollVotes[uid]) ? post.pollVotes[uid] : null;
+            try {
+                if (currentVoteOpt === optionId) {
+                    await set(pollVoteRef, null);
+                } else {
+                    await set(pollVoteRef, optionId);
+                }
+            } catch (err) {
+                AppModules.Modal.alert("Error", "Failed to vote: " + err.message);
+                console.error(err);
+            }
+        };
 
         window.voteSuggestion = async (postId, voteType) => {
             if (!window.isLoggedIn || !auth.currentUser) {
@@ -2251,31 +2597,36 @@
                     const authorName = config.anonymous ? 'Anonymous User' : (post.authorName || 'Unknown');
                     const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anonymous&background=random' : (ALL_USERS[post.authorId]?.avatar || 'https://ui-avatars.com/api/?name=' + authorName + '&background=random');
 
+                    const isJustLiked = (window._justLikedPostId === post.id);
                     let interactions = `<div class="flex items-center gap-5 mt-3">
-                        <button onclick="toggleLike('${post.id}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'} transition-colors group">
-                            <svg class="w-6 h-6 ${isLiked ? 'fill-current scale-110' : 'fill-none group-active:scale-90'} transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                            <span class="text-sm font-medium">${likesCount}</span>
+                        <button type="button" data-like-btn="${post.id}" onclick="toggleLike('${post.id}', event)" class="inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
+                            <div class="heart-icon-wrap relative flex items-center justify-center w-6 h-6 shrink-0">
+                                <svg class="w-6 h-6 shrink-0 block ${isLiked ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} transition-all ${isJustLiked ? 'heart-pop' : ''}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                ${isJustLiked ? '<span class="heart-ripple-wave"></span>' : ''}
+                            </div>
+                            <span class="like-count-num text-sm font-medium leading-none text-gray-500 dark:text-gray-400">${likesCount}</span>
                         </button>`;
 
                     if (config.hasComments) {
                         const commentsCount = Object.keys(post.comments || {}).length;
-                        interactions += `<button onclick="openPostDetail('${post.id}')" class="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group">
-                            <div class="relative">
-                                <svg class="w-6 h-6 fill-none group-active:scale-90 transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        interactions += `<button type="button" onclick="openPostDetail('${post.id}')" class="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group p-0 m-0 border-0 bg-transparent leading-none">
+                            <div class="relative flex items-center justify-center">
+                                <svg class="w-6 h-6 shrink-0 block fill-none group-active:scale-90 transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                 </svg>
                                 <div class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-black hidden"></div>
                             </div>
-                            <span class="text-sm font-medium">${commentsCount}</span>
+                            <span class="text-sm font-medium leading-none text-gray-500 dark:text-gray-400">${commentsCount}</span>
                         </button>`;
                     }
 
-                    interactions += `<button onclick="reportPost('${post.id}')" class="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95" title="Report Post"><svg class="w-6 h-6 fill-none transition-transform" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
+                    interactions += `<button type="button" onclick="reportPost('${post.id}')" class="inline-flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 p-0 m-0 border-0 bg-transparent leading-none" title="Report Post"><svg class="w-6 h-6 shrink-0 block fill-none transition-transform translate-y-[3.5px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>`;
 
                     interactions += `<div class="flex-1"></div>`;
 
-                    if (!config.anonymous && post.authorId !== currentUser.id) {
-                        interactions += `<button onclick="window.startModuleChat('${post.authorId}')" class="bg-[#007AFF] text-white px-4 py-1.5 rounded-full text-sm font-semibold active:scale-95 transition-transform shadow-md shadow-blue-500/20 ml-3">Chat</button>`;
+                    const currentUserId = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : (auth.currentUser ? auth.currentUser.uid : null);
+                    if (!config.anonymous && post.authorId && post.authorId !== currentUserId) {
+                        interactions += `<button onclick="window.startModuleChat('${post.authorId}')" class="bg-black hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-200 dark:text-black px-4 py-1.5 rounded-full text-sm font-semibold active:scale-95 transition-all shadow-sm ml-3">Chat</button>`;
                     }
 
                     interactions += `</div>`;
@@ -2285,31 +2636,39 @@
                         adminDeleteBtn = `<button onclick="deletePost('${post.id}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 active:scale-95 transition-transform p-1 ml-2" title="Delete Post"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
                     }
 
-                    return `
-                        <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-white/5 transition-colors w-full">
-                            <div class="flex items-start mb-3">
-                                <img src="${authorAvatar}" class="w-10 h-10 rounded-full object-cover shadow-sm mr-3">
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-sm leading-tight text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
-                                    <div class="text-xs text-gray-500 font-medium mt-0.5">${new Date(post.timestamp).toLocaleString()}</div>
-                                </div>
-                                ${adminDeleteBtn}
+                    const authorHeaderHtml = currentModule === 'suggestions' ? `
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-xs text-gray-500 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
+                            ${adminDeleteBtn}
+                        </div>
+                    ` : `
+                        <div class="flex items-start mb-3">
+                            <img src="${authorAvatar}" class="w-10 h-10 rounded-full object-cover shadow-sm mr-3">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm leading-tight text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
+                                <div class="text-xs text-gray-500 font-medium mt-0.5">${new Date(post.timestamp).toLocaleString()}</div>
                             </div>
-                            <div class="font-bold text-lg mb-2 text-black dark:text-white leading-snug cursor-pointer" ${config.hasComments ? `onclick="openPostDetail('${post.id}')"` : ''}>${escapeHTML(post.title)}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                            ${(post.image && !window.isPhotoDisabled) ? `
-                            <div class="relative w-full">
-                                <img src="${post.image}" class="w-full aspect-square object-cover rounded-2xl mt-3 cursor-pointer border border-gray-100 dark:border-white/5"
-                                     onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
+                            ${adminDeleteBtn}
+                        </div>
+                    `;
+
+                    const imageHtml = (post.image && !window.isPhotoDisabled) ? `
+                            <div class="relative w-full overflow-hidden shrink-0">
+                                <img src="${post.image}" class="w-full aspect-square object-cover rounded-t-3xl rounded-b-none cursor-zoom-in block"
+                                     onerror="this.parentElement.style.display='none';"
                                      onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">
-                                <div class="hidden mt-3 px-4 py-3 bg-gray-50 dark:bg-white/5 rounded-2xl text-gray-400 text-xs italic flex items-center gap-2 border border-dashed border-gray-200 dark:border-gray-800">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    Photo no longer available
-                                </div>
-                            </div>` : ''}
-                            ${(post.image && window.isPhotoDisabled) ? `<div class="mt-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-100 dark:border-white/5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>` : ''}
-                            ${getSuggestionVotingHtml(post)}
-                            ${interactions}
+                            </div>` : ((post.image && window.isPhotoDisabled) ? `<div class="m-3 px-4 py-3 bg-gray-100 dark:bg-white/5 rounded-xl text-gray-400 text-xs italic flex items-center gap-2 border border-gray-100 dark:border-white/5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Disabled</div>` : '');
+
+                    return `
+                        <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 transition-colors w-full overflow-hidden flex flex-col">
+                            ${imageHtml}
+                            <div class="p-4 flex flex-col flex-1">
+                                ${authorHeaderHtml}
+                                <div class="font-bold text-lg mb-2 text-black dark:text-white leading-snug cursor-pointer" ${config.hasComments ? `onclick="openPostDetail('${post.id}')"` : ''}>${escapeHTML(post.title)}</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
+                                ${getSuggestionVotingHtml(post)}
+                                ${interactions}
+                            </div>
                         </div>
                     `;
                 }).join('') + `</div>`;
@@ -2428,6 +2787,7 @@
             document.getElementById('postInputTitle').value = '';
             document.getElementById('postInputDesc').value = '';
             window.clearPostImage();
+            window.removeAttachedPoll();
             const postBtnLabel = (currentModule && MODULE_CONFIG[currentModule]) ? MODULE_CONFIG[currentModule].postBtn : 'Post';
             document.getElementById('postPageTitle').innerText = 'New ' + (postBtnLabel || 'Post');
             document.getElementById('batchImportBtn')?.classList.add('hidden');
@@ -2480,6 +2840,7 @@
                 document.getElementById('postPage').classList.add('hidden');
                 isPostingNews = false;
                 isRequestingExtension = false;
+                window.removeAttachedPoll();
                 // Reset placeholders
                 document.getElementById('postInputTitle').placeholder = "Subject";
                 document.getElementById('postInputDesc').placeholder = "What's on your mind?";
@@ -2497,8 +2858,15 @@
             const desc = document.getElementById('postInputDesc').value.trim();
             if (!title || !desc) { AppModules.Modal.alert("Required", "Title and description are required."); return; }
 
-            if (title.length > 200 || desc.length > 1000) {
-                AppModules.Modal.alert("Content Too Long", "Titles are limited to 200 characters and descriptions to 1000 characters.");
+            // Count words in description
+            const wordCount = (desc.match(/\S+/g) || []).length;
+            if (wordCount > 500) {
+                AppModules.Modal.alert("Content Too Long", `Description exceeds the 500-word limit (currently ${wordCount} words).`);
+                return;
+            }
+
+            if (title.length > 200) {
+                AppModules.Modal.alert("Content Too Long", "Titles are limited to 200 characters.");
                 return;
             }
 
@@ -2562,14 +2930,22 @@
                 const dbRefStr = isPostingNews ? `news/${currentNewsTab}` : `modules/${currentModule}`;
                 const finalAuthorId = (isAnonymous || !window.currentUser) ? 'anonymous' : (currentUser ? currentUser.id : 'anonymous');
                 const finalAuthorName = (isAnonymous || !window.currentUser) ? 'Anonymous' : (currentUser ? currentUser.name : 'Anonymous');
-                set(push(ref(db, dbRefStr)), {
+                
+                const postPayload = {
                     title, desc,
                     image: finalImageUrl,
                     authorId: finalAuthorId,
                     authorName: finalAuthorName,
                     timestamp: Date.now(),
                     likes: {}
-                }).then(() => {
+                };
+
+                if (attachedPollData) {
+                    postPayload.poll = attachedPollData;
+                    postPayload.pollVotes = {};
+                }
+
+                set(push(ref(db, dbRefStr)), postPayload).then(() => {
                     AppModules.Modal.alert("Success", "Published successfully!");
                     closePostForm();
                     if (isPostingNews && typeof window.globalDataSync === 'function') window.globalDataSync();
@@ -2582,7 +2958,7 @@
             publishContent();
         };
 
-        window.toggleLike = async (postId) => {
+        window.toggleLike = async (postId, evt) => {
             if (!window.isLoggedIn || !auth.currentUser) {
                 if (typeof window.promptSignIn === 'function') {
                     window.promptSignIn("Please sign in with your HCPSS account to like posts.");
@@ -2591,11 +2967,53 @@
                 }
                 return;
             }
+
             const uid = auth.currentUser.uid;
+            const post = modulePosts.find(p => p.id === postId) || (currentPostId === postId ? (await get(ref(db, `modules/${currentModule}/${postId}`))).val() : null);
+            const currentlyLiked = !!(post && post.likes && post.likes[uid]);
+
+            if (!currentlyLiked) {
+                window._justLikedPostId = postId;
+                setTimeout(() => { if (window._justLikedPostId === postId) window._justLikedPostId = null; }, 800);
+            }
+
+            const allLikeBtns = document.querySelectorAll(`button[data-like-btn="${postId}"]`);
+            allLikeBtns.forEach(btn => {
+                const svg = btn.querySelector('svg');
+                const iconWrap = btn.querySelector('.heart-icon-wrap') || svg?.parentElement;
+                const countSpan = btn.querySelector('.like-count-num');
+
+                if (!currentlyLiked) {
+                    if (svg) {
+                        svg.classList.remove('fill-none', 'text-gray-400');
+                        svg.classList.add('fill-red-500', 'text-red-500', 'heart-pop');
+                    }
+                    if (iconWrap) {
+                        iconWrap.querySelectorAll('.heart-ripple-wave').forEach(w => w.remove());
+                        const wave = document.createElement('span');
+                        wave.className = 'heart-ripple-wave';
+                        iconWrap.appendChild(wave);
+                        setTimeout(() => wave.remove(), 700);
+                    }
+                    if (countSpan) {
+                        const c = parseInt(countSpan.textContent.trim(), 10) || 0;
+                        countSpan.textContent = c + 1;
+                    }
+                } else {
+                    if (svg) {
+                        svg.classList.remove('fill-red-500', 'text-red-500', 'heart-pop');
+                        svg.classList.add('fill-none', 'text-gray-400');
+                    }
+                    if (countSpan) {
+                        const c = parseInt(countSpan.textContent.trim(), 10) || 0;
+                        countSpan.textContent = Math.max(0, c - 1);
+                    }
+                }
+            });
+
             const postRef = ref(db, `modules/${currentModule}/${postId}/likes/${uid}`);
-            const post = modulePosts.find(p => p.id === postId);
             try {
-                if (post && post.likes && post.likes[uid]) {
+                if (currentlyLiked) {
                     await set(postRef, null);
                 } else {
                     await set(postRef, true);
@@ -2612,17 +3030,11 @@
             page.classList.remove('hidden');
             requestAnimationFrame(() => page.classList.remove('translate-x-full'));
 
-
             if (window.AppModules && window.AppModules.View) {
                 window.AppModules.View.registerLayer('detailPage', () => {
-                    window._isPopStateClosing = true;
-                    window.closeDetail();
-                    setTimeout(() => { window._isPopStateClosing = false; }, 420);
+                    window.closeDetail({ isBackAction: true });
                 });
             }
-
-            const config = MODULE_CONFIG[currentModule];
-            document.getElementById('commentInputArea').classList.toggle('hidden', !config.hasComments);
 
             if (postDetailListener) postDetailListener();
             postDetailListener = onValue(ref(db, `modules/${currentModule}/${postId}`), (snap) => {
@@ -2631,16 +3043,12 @@
             });
         };
 
-        window.closeDetail = () => {
+        window.closeDetail = (options = {}) => {
             const page = document.getElementById('detailPage');
             page.classList.add('translate-x-full');
 
             if (window.AppModules && window.AppModules.View) {
-                window.AppModules.View.unregisterLayer('detailPage');
-                if (!window._isPopStateClosing) {
-                    window._isProgrammaticBack = true;
-                    history.back();
-                }
+                window.AppModules.View.unregisterLayer('detailPage', options);
             }
 
             setTimeout(() => page.classList.add('hidden'), 380);
@@ -2650,7 +3058,7 @@
 
         async function renderPostDetail(postId, post) {
             const contentEl = document.getElementById('detailContent');
-            const config = MODULE_CONFIG[currentModule];
+            const config = MODULE_CONFIG[currentModule] || {};
             const likesCount = Object.keys(post.likes || {}).length;
             const isLiked = post.likes && auth.currentUser && post.likes[auth.currentUser.uid];
 
@@ -2658,53 +3066,156 @@
             const author = !config.anonymous ? await fetchUser(post.authorId) : null;
             const authorAvatar = config.anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=random' : (author?.avatar || 'https://ui-avatars.com/api/?name=' + authorName);
 
-            let html = `
-                <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5">
-                    <div class="flex items-center gap-4 mb-5">
-                        <img src="${authorAvatar}" class="w-14 h-14 rounded-full object-cover">
-                        <div>
-                            <div class="font-bold text-lg text-black dark:text-white">${escapeHTML(authorName)}</div>
-                            <div class="text-sm text-gray-400 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
-                        </div>
-                    </div>
-                    <div class="font-extrabold text-2xl mb-3 text-black dark:text-white">${escapeHTML(post.title)}</div>
-                    <div class="text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${linkify(escapeHTML(post.desc))}</div>
-                    ${(post.image && !window.isPhotoDisabled) ? `
-                    <div class="relative w-full">
-                        <img src="${post.image}" class="w-full rounded-2xl mt-5 border border-gray-100 dark:border-white/5 cursor-pointer"
-                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-                             onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">
-                        <div class="hidden mt-5 px-5 py-4 bg-gray-50 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-dashed border-gray-200 dark:border-gray-800">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            Photo no longer available
-                        </div>
-                    </div>` : ''}
-                    ${(post.image && window.isPhotoDisabled) ? `<div class="mt-5 px-5 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-gray-500 text-sm italic flex items-center gap-3 border border-gray-100 dark:border-white/5"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Photos Blocked by Administrator</div>` : ''}
-                    <div class="flex items-center gap-5 mt-5 pt-5 border-t border-gray-100 dark:border-white/5">
-                        <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}">
-                            <svg class="w-7 h-7 ${isLiked ? 'fill-current' : 'fill-none'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                            <span class="text-base font-medium">${likesCount}</span>
-                        </button>
-                        <button onclick="reportPost('${postId}')" class="text-gray-400 hover:text-gray-600"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></button>
-                    </div>
-                </div>`;
+            const hasImage = !!(post.image && !window.isPhotoDisabled);
 
+            let commentsListHtml = '';
             if (config.hasComments) {
                 const comments = post.comments || {};
                 const sorted = Object.keys(comments).map(k => ({ id: k, ...comments[k] })).sort((a, b) => a.timestamp - b.timestamp);
-                html += `<div class="mt-8 font-bold text-xl mb-5 px-2 text-black dark:text-white">Comments (${sorted.length})</div>`;
+                commentsListHtml += `<div class="mt-5 pt-4 border-t border-gray-100 dark:border-white/5">
+                    <div class="font-bold text-base mb-3 text-black dark:text-white">Comments (${sorted.length})</div>`;
                 if (sorted.length === 0) {
-                    html += `<div class="text-center text-gray-400 text-sm mt-5">No comments yet.</div>`;
+                    commentsListHtml += `<div class="text-center text-gray-400 text-sm py-6">No comments yet.</div>`;
                 } else {
-                    html += `<div class="space-y-4">`;
+                    commentsListHtml += `<div class="space-y-3.5">`;
                     for (const c of sorted) {
                         const cAuthor = !config.anonymous ? await fetchUser(c.authorId) : null;
-                        html += UIComponents.renderComment(c, config, currentUser, cAuthor);
+                        commentsListHtml += UIComponents.renderComment(c, config, currentUser, cAuthor);
                     }
-                    html += `</div>`;
+                    commentsListHtml += `</div>`;
+                }
+                commentsListHtml += `</div>`;
+            }
+
+            const isJustLiked = (window._justLikedPostId === postId);
+            const likeBtnHtml = `
+                <button type="button" data-like-btn="${postId}" onclick="toggleLike('${postId}', event)" class="inline-flex items-center gap-1.5 group p-0 m-0 border-0 bg-transparent leading-none relative cursor-pointer">
+                    <div class="heart-icon-wrap relative flex items-center justify-center w-6 h-6 shrink-0">
+                        <svg class="w-6 h-6 shrink-0 block ${isLiked ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} transition-all ${isJustLiked ? 'heart-pop' : ''}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        ${isJustLiked ? '<span class="heart-ripple-wave"></span>' : ''}
+                    </div>
+                    <span class="like-count-num text-sm font-medium leading-none text-gray-500 dark:text-gray-400">${likesCount}</span>
+                </button>
+            `;
+
+            const commentCountBtnHtml = config.hasComments ? `
+                <div class="inline-flex items-center gap-1.5 text-gray-400 leading-none">
+                    <svg class="w-6 h-6 shrink-0 block fill-none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                    <span class="text-sm font-medium leading-none text-gray-500 dark:text-gray-400">${Object.keys(post.comments || {}).length}</span>
+                </div>
+            ` : '';
+
+            const reportBtnHtml = `
+                <button type="button" onclick="reportPost('${postId}')" class="inline-flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors group active:scale-95 leading-none" title="Report Post">
+                    <svg class="w-6 h-6 shrink-0 block fill-none translate-y-[3.5px]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </button>
+            `;
+
+            const floatingCommentInputHtml = config.hasComments ? `
+                <div id="commentInputArea" class="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex justify-center">
+                    <div id="commentInputPill" class="w-full max-w-xl flex items-center rounded-[24px] pl-[16px] pr-[5px] py-1 min-h-[46px] overflow-hidden pointer-events-auto transition-all shadow-lg">
+                        <input id="commentInput" type="text" placeholder="Add a comment..."
+                            onkeydown="if(event.key==='Enter') submitComment()"
+                            class="flex-1 bg-transparent outline-none text-[14.5px] text-black dark:text-white placeholder-black/55 dark:placeholder-white/65 py-1.5 leading-[20px]">
+                        <button id="commentSendBtn" onclick="submitComment()"
+                            class="w-[32px] h-[32px] chat-accent-bg bg-[#007AFF] hover:bg-[#0062CC] rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 shadow-sm ml-2"
+                            title="Send comment">
+                            <svg class="h-[15px] w-[15px] text-white translate-x-[1px]" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            ` : '';
+
+            let html = '';
+            if (hasImage) {
+                html = `
+                    <div class="flex-1 min-h-0 w-full flex flex-col lg:flex-row overflow-hidden bg-white dark:bg-[#1C1C1E]">
+                        <div class="w-full lg:flex-1 h-[42vh] lg:h-full bg-black/[0.03] dark:bg-black/30 flex items-center justify-center p-4 lg:p-6 shrink-0 overflow-hidden relative">
+                            <img src="${post.image}" class="max-w-full max-h-full object-contain rounded-2xl cursor-zoom-in shadow-sm select-none"
+                                 onerror="this.parentElement.style.display='none';"
+                                 onclick="openGallery('${encodeURIComponent(JSON.stringify([post.image]))}')">
+                        </div>
+                        <div class="w-full lg:w-[480px] xl:w-[540px] flex flex-col h-full bg-white dark:bg-[#1C1C1E] border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-white/5 relative shrink-0">
+                            <div class="flex-1 overflow-y-auto p-5 md:p-6 pb-28 space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="${authorAvatar}" class="w-10 h-10 rounded-full object-cover shadow-sm">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-sm text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
+                                        <div class="text-xs text-gray-400 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h1 class="font-bold text-lg md:text-xl text-black dark:text-white leading-snug mb-2">${escapeHTML(post.title)}</h1>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">${linkify(escapeHTML(post.desc))}</p>
+                                </div>
+                                ${getSuggestionVotingHtml(post)}
+                                <div class="flex items-center gap-5 pt-3 pb-1 border-b border-gray-100 dark:border-white/5">
+                                    ${likeBtnHtml}
+                                    ${commentCountBtnHtml}
+                                    ${reportBtnHtml}
+                                </div>
+                                ${commentsListHtml}
+                            </div>
+                            ${floatingCommentInputHtml}
+                        </div>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="flex-1 min-h-0 w-full flex justify-center overflow-hidden bg-white dark:bg-[#1C1C1E]">
+                        <div class="w-full max-w-3xl flex flex-col h-full relative">
+                            <div class="flex-1 overflow-y-auto p-5 md:p-8 pb-28 space-y-4">
+                                <div class="flex items-center gap-3.5 mb-2">
+                                    <img src="${authorAvatar}" class="w-11 h-11 rounded-full object-cover shadow-sm">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-base text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
+                                        <div class="text-xs text-gray-400 font-medium">${new Date(post.timestamp).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h1 class="font-bold text-xl md:text-2xl text-black dark:text-white leading-snug mb-2.5">${escapeHTML(post.title)}</h1>
+                                    <p class="text-sm md:text-base text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">${linkify(escapeHTML(post.desc))}</p>
+                                </div>
+                                ${getSuggestionVotingHtml(post)}
+                                <div class="flex items-center gap-5 pt-3 pb-1 border-b border-gray-100 dark:border-white/5">
+                                    ${likeBtnHtml}
+                                    ${commentCountBtnHtml}
+                                    ${reportBtnHtml}
+                                </div>
+                                ${commentsListHtml}
+                            </div>
+                            ${floatingCommentInputHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            contentEl.innerHTML = html;
+
+            const pill = document.getElementById('commentInputPill');
+            if (pill) {
+                if (document.getElementById('chatInputPill')?.classList.contains('liquid-glass-active')) {
+                    pill.classList.add('liquid-glass-active');
+                }
+                if (!pill._liquidGlassInit && typeof LiquidGlassEffect !== 'undefined') {
+                    pill._liquidGlassInit = true;
+                    new LiquidGlassEffect(pill, {
+                        radius: 24,
+                        refractionWidth: 12,
+                        maxDisplacement: 8,
+                        mouseRadius: 55,
+                        mouseStrength: 6
+                    });
                 }
             }
-            contentEl.innerHTML = html;
         }
 
 
@@ -4545,101 +5056,96 @@
 
     <!-- Dedicated Module Pages for Stacked Navigation -->
     <div id="lostFoundPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Lost and Found</div>
             <div class="page-head-actions">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
+                <button onclick="openPostForm()" class="module-add-btn">Post</button>
             </div>
         </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
+        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
+            <div class="module-sort-pill" data-sort="latest">
+                <div class="module-sort-slider"></div>
+                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+            </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
     </div>
 
     <div id="marketplacePage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Marketplace</div>
             <div class="page-head-actions">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
+                <button onclick="openPostForm()" class="module-add-btn">Post</button>
             </div>
         </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
+        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
+            <div class="module-sort-pill" data-sort="latest">
+                <div class="module-sort-slider"></div>
+                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+            </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
     </div>
 
     <div id="tutoringPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Peer Tutoring</div>
             <div class="page-head-actions">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
+                <button onclick="openPostForm()" class="module-add-btn">Post</button>
             </div>
         </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
+        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
+            <div class="module-sort-pill" data-sort="latest">
+                <div class="module-sort-slider"></div>
+                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+            </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
     </div>
 
     <div id="suggestionsPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">Suggestions</div>
             <div class="page-head-actions">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
+                <button onclick="openPostForm()" class="module-add-btn">Post</button>
             </div>
         </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
+        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
+            <div class="module-sort-pill" data-sort="latest">
+                <div class="module-sort-slider"></div>
+                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+            </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
     </div>
 
     <div id="infoPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[100] bg-[#f5f5f7] dark:bg-[#242426] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
         <div class="page-header">
             <button class="page-back-btn accent-hover-soft" onclick="closeModule()" title="Back"></button>
             <div class="page-head-title module-title">CHS Info</div>
             <div class="page-head-actions">
-                <button onclick="openPostForm()"
-                    class="module-add-btn text-[#007AFF] text-[17px] font-semibold active:opacity-50 transition-opacity">Post</button>
+                <button onclick="openPostForm()" class="module-add-btn">Post</button>
             </div>
         </div>
-        <div
-            class="flex-shrink-0 px-5 py-2.5 flex justify-end gap-4 bg-[#F2F2F7] dark:bg-black border-b border-gray-200/50 dark:border-white/5">
-            <button onclick="setModuleSort('latest')"
-                class="sort-latest-btn text-[14px] font-bold text-black dark:text-white transition-colors">Latest</button>
-            <button onclick="setModuleSort('hot')"
-                class="sort-hot-btn text-[14px] font-semibold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Hot</button>
+        <div class="flex-shrink-0 px-5 pt-3 pb-1 flex justify-end bg-[#f5f5f7] dark:bg-[#242426]">
+            <div class="module-sort-pill" data-sort="latest">
+                <div class="module-sort-slider"></div>
+                <button type="button" onclick="setModuleSort('latest')" class="module-sort-btn sort-latest-btn">Latest</button>
+                <button type="button" onclick="setModuleSort('hot')" class="module-sort-btn sort-hot-btn">Hot</button>
+            </div>
         </div>
         <div class="module-list flex-1 overflow-y-auto p-4 pb-[90px] lg:pb-safe"></div>
     </div>
@@ -4715,32 +5221,14 @@
 
     <!-- Post Detail & Comments Page -->
     <div id="detailPage"
-        class="hidden fixed inset-0 desktop-dynamic-left z-[510] bg-[#F2F2F7] dark:bg-black flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-        <div class="page-header">
+        class="hidden fixed inset-0 desktop-dynamic-left z-[510] bg-[#f5f5f7] dark:bg-[#1C1C1E] flex flex-col transform translate-x-full transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
+        <div class="page-header shrink-0">
             <button class="page-back-btn accent-hover-soft" onclick="closeDetail()" title="Back"></button>
             <div class="page-head-title">Details</div>
+            <div class="page-head-actions"></div>
         </div>
-        <div id="detailContent" class="flex-1 overflow-y-auto p-4 space-y-6 pb-[90px] lg:pb-safe">
-            <!-- Details and comments injected here -->
-        </div>
-        <!-- Comment Input Area -->
-        <div id="commentInputArea"
-            class="hidden flex-shrink-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-gray-200/80 dark:border-white/10 p-3 pb-[90px] lg:pb-safe px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-            <div class="flex items-center gap-3">
-                <div
-                    class="flex-1 bg-[#F2F2F7] dark:bg-black border border-gray-200 dark:border-gray-800 rounded-full px-5 py-2.5 flex items-center">
-                    <input id="commentInput" type="text" placeholder="Add a comment..."
-                        onkeydown="if(event.key==='Enter') submitComment()"
-                        class="flex-1 bg-transparent text-base outline-none text-black dark:text-white placeholder-gray-400">
-                </div>
-                <button onclick="submitComment()"
-                    class="w-10 h-10 bg-[#007AFF] rounded-full flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30 active:scale-95 transition-transform">
-                    <svg class="w-5 h-5 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                </button>
-            </div>
+        <div id="detailContent" class="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative">
+            <!-- Injected by renderPostDetail -->
         </div>
     </div>
 

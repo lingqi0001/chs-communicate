@@ -1234,7 +1234,8 @@ body.compact-four-panel-layout #searchResults {
     background: linear-gradient(to top, rgba(242, 242, 247, 0.4), rgba(242, 242, 247, 0));
 }
 
-#chatInputPill {
+#chatInputPill,
+#commentInputPill {
     container-type: inline-size;
     container-name: chat-input;
     border: 1px solid transparent;
@@ -1252,6 +1253,7 @@ body.compact-four-panel-layout #searchResults {
 }
 
 #chatInputPill.liquid-glass-active,
+#commentInputPill.liquid-glass-active,
 #chatCameraBtn.chat-fab-btn.liquid-glass-active,
 #attachMenu.liquid-glass-active,
 #globalSearchResults.liquid-glass-active,
@@ -1646,7 +1648,8 @@ body.compact-four-panel-layout #searchResults {
     background: linear-gradient(to top, rgba(8, 10, 16, 0.34), rgba(8, 10, 16, 0));
 }
 
-.dark #chatInputPill {
+.dark #chatInputPill,
+.dark #commentInputPill {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(52, 52, 55, 0.7); /* middle-ground grey in dark mode */
     box-shadow:
@@ -1656,6 +1659,7 @@ body.compact-four-panel-layout #searchResults {
 }
 
 .dark #chatInputPill.liquid-glass-active,
+.dark #commentInputPill.liquid-glass-active,
 .dark #chatCameraBtn.chat-fab-btn.liquid-glass-active,
 .dark #attachMenu.liquid-glass-active,
 .dark #globalSearchResults.liquid-glass-active,
@@ -5686,6 +5690,117 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     flex-shrink: 0;
 }
 
+.module-add-btn {
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #000;
+    background-color: transparent;
+    cursor: pointer;
+    transition: transform 100ms ease, opacity 100ms ease, background-color 150ms ease;
+}
+
+.dark .module-add-btn {
+    color: #fff;
+    background-color: transparent;
+}
+
+.module-add-btn:hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color, #007AFF) 14%, transparent);
+}
+
+.dark .module-add-btn:hover {
+    background-color: color-mix(in srgb, var(--ann-accent-color-dark, #0A84FF) 22%, transparent);
+}
+
+.module-add-btn:active {
+    transform: scale(0.94);
+    opacity: 0.8;
+}
+
+/* Module Sort Pill Switcher (Latest / Hot) */
+.module-sort-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: #E5E5EA;
+    padding: 4px;
+    border-radius: 9999px;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background-color 200ms ease;
+}
+
+.dark .module-sort-pill {
+    background: #1C1C1E;
+}
+
+.module-sort-slider {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    background: #fff;
+    border-radius: 9999px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.dark .module-sort-slider {
+    background: #2C2C2E;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.module-sort-pill[data-sort="hot"] .module-sort-slider {
+    transform: translateX(100%);
+}
+
+.module-sort-btn {
+    position: relative;
+    z-index: 2;
+    min-width: 68px;
+    padding: 7px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.25;
+    border-radius: 9999px;
+    color: #8E8E93;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 200ms ease, transform 100ms ease;
+    outline: none;
+}
+
+.dark .module-sort-btn {
+    color: #98989D;
+}
+
+.module-sort-pill[data-sort="latest"] .sort-latest-btn,
+.module-sort-pill[data-sort="hot"] .sort-hot-btn {
+    color: #000;
+    font-weight: 700;
+}
+
+.dark .module-sort-pill[data-sort="latest"] .sort-latest-btn,
+.dark .module-sort-pill[data-sort="hot"] .sort-hot-btn {
+    color: #fff;
+    font-weight: 700;
+}
+
+.module-sort-btn:active {
+    transform: scale(0.95);
+}
+
 /* ===== Offline indicators (js/connection.js) =====
    Same glass capsule family as .sidebar-tabs / #wpDocContextBar, with a
    fixed red disc as the only coloured element: body text stays black on
@@ -5902,3 +6017,58 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
         color: #64B5F6;
     }
 }
+
+/* Like Heart Pop & Lightwave Ripple Animation */
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  25% { transform: scale(0.68); }
+  60% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes heartRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+    border-width: 2.5px;
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.9);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+    border-width: 1px;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0);
+  }
+}
+
+.heart-pop {
+  animation: heartPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.35) forwards !important;
+}
+
+.heart-icon-wrap {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.heart-ripple-wave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border: 2px solid #ef4444;
+  pointer-events: none;
+  z-index: 10;
+  animation: heartRipple 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

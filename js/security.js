@@ -286,10 +286,18 @@ export const SecurityModule = {
      * Report inappropriate forum posts
      */
     async reportPost(postId) {
-        const adminId = window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
         const post = window.modulePosts ? window.modulePosts.find(p => p.id === postId) : null;
         if (!post) return;
 
+        const confirmed = await window.AppModules.Modal.confirm(
+            "Report Post",
+            `Are you sure you want to report this post "${post.title || 'Untitled'}" for inappropriate content?`,
+            "Report",
+            "Cancel"
+        );
+        if (!confirmed) return;
+
+        const adminId = window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL.split('@')[0].replace(/\./g, '_');
         const author = await SecurityModule.fetchUser(post.authorId);
         const receiverName = author?.name || 'Unknown';
 
