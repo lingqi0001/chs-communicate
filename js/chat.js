@@ -13,6 +13,13 @@ export function initChatEngine(deps) {
         initGlobalNotificationMonitor
     } = deps;
 
+    const classDisplayName = value => {
+        const name = typeof value === 'string' ? value.trim() : '';
+        return name && name.toLowerCase() !== 'undefined' && name.toLowerCase() !== 'null'
+            ? name
+            : 'Class Group Chat';
+    };
+
     let chatLoadingLock = null;
     let lastLoadTime = 0;
     let loadedMsgKeys = new Set();
@@ -1293,7 +1300,7 @@ export function initChatEngine(deps) {
             chatId = targetId;
             const classId = targetId.replace('group_', '');
             animateNameBar(() => {
-                titleEl.innerText = getCnCache()[classId] || "Class Group Chat";
+                titleEl.innerText = isRemoved ? 'Class Group Chat' : classDisplayName(getCnCache()[classId]);
                 if (isDisbanded) {
                     statusEl.innerText = "Class disbanded";
                 } else if (isRemoved) {
@@ -1307,13 +1314,14 @@ export function initChatEngine(deps) {
                 get(ref(db, `classes/${classId}`)).then(async snap => {
                     if (!snap.exists()) return;
                     const cData = snap.val();
-                    getCnCache()[classId] = cData.name;
+                    const className = classDisplayName(cData.name);
+                    getCnCache()[classId] = className;
                     if (getActiveTargetId() === targetId) {
                         animateNameBar(() => {
-                            titleEl.innerText = cData.name;
+                            titleEl.innerText = isRemoved ? 'Class Group Chat' : className;
                         });
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
-                        if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${cData.name}`;
+                        if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${className}`;
                     }
                     if (cData.teacherId) {
                         const teacher = await safeFetchUser(cData.teacherId);

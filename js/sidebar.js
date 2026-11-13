@@ -62,6 +62,43 @@ export const SidebarModule = {
         ]);
     },
 
+    async _fetchRecentUsers(rt) {
+        const query = rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20));
+        let lastError;
+
+        // The panel can be opened immediately after sign-in, before RTDB has
+        // accepted the refreshed auth token. Retry only transient auth/network
+        // failures; the user_search security rules still require authentication.
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                return await this._fetch(query);
+            } catch (error) {
+                lastError = error;
+                const message = String(error?.message || error || '').toLowerCase();
+                const code = String(error?.code || '').toLowerCase();
+                const permissionDenied = code.includes('permission') || message.includes('permission denied');
+                const timedOut = message.includes('network-timeout');
+                const transientNetworkError = !timedOut && /offline|unavailable|network|503/.test(`${code} ${message}`);
+                const retryable = permissionDenied || transientNetworkError;
+                if (!retryable || attempt === 1 || navigator.onLine === false) throw error;
+
+                if (permissionDenied) {
+                    const authUser = window.firebaseAuth?.currentUser;
+                    if (!authUser) throw error;
+                    try {
+                        await authUser.getIdToken(true);
+                    } catch (tokenError) {
+                        throw error;
+                    }
+                }
+
+                await new Promise(resolve => setTimeout(resolve, permissionDenied ? 250 : 400));
+            }
+        }
+
+        throw lastError;
+    },
+
     _fetchUser(userId) {
         if (typeof this._runtime.fetchUser === 'function') {
             return this._runtime.fetchUser(userId);
@@ -70,6 +107,42 @@ export const SidebarModule = {
             window.fetchUser(userId),
             new Promise(resolve => setTimeout(() => resolve(null), this._offlineTimeoutMs()))
         ]);
+    },
+
+    async _fetchClassStudent(rt, userId) {
+        const userKey = String(userId || '').toLowerCase();
+        if (!userKey) return null;
+
+        const cached = window.ALL_USERS?.[userKey];
+        if (cached && (cached.name || cached.email)) return { ...cached, id: userId };
+
+        try {
+            const indexedProfile = await this._fetchUser(userId);
+            if (indexedProfile) return { ...indexedProfile, id: userId };
+        } catch (error) {
+            console.warn(`Could not load indexed class student ${userId}:`, error);
+        }
+
+        // Older accounts can be missing from user_search even though their
+        // regular profile is readable by the class teacher/admin.
+        try {
+            const profileSnap = await this._fetch(rt.ref(rt.db, `users/${userId}`));
+            if (!profileSnap.exists()) return null;
+            const profile = { ...profileSnap.val(), id: userId };
+            window.ALL_USERS = window.ALL_USERS || {};
+            window.ALL_USERS[userKey] = profile;
+            return profile;
+        } catch (error) {
+            console.warn(`Could not load class student profile ${userId}:`, error);
+            return null;
+        }
+    },
+
+    _classDisplayName(value) {
+        const name = typeof value === 'string' ? value.trim() : '';
+        return name && name.toLowerCase() !== 'undefined' && name.toLowerCase() !== 'null'
+            ? name
+            : 'Class Group Chat';
     },
 
     _loadingHtml(label) {
@@ -362,12 +435,18 @@ export const SidebarModule = {
                         subList1._isProgrammaticScroll = false;
                     });
                 }
-                // First ensure Level 1 is populated (so it is visible underneath)
-                if (!level1Container.querySelector('#sidebarSubList')) {
-                    const origMode = window.sidebarMode;
-                    window.sidebarMode = 'recent';
+                // Keep the hidden Level 1 list in sync with the selected tab.
+                // A direct class route can arrive after the default Recent list
+                // has already painted; preserving that stale list here makes
+                // Back reveal Recent rows beneath the selected Class tab.
+                let level1SubList = level1Container.querySelector('#sidebarSubList');
+                if (!level1SubList) {
                     await this._renderLevel1(level1Container, false);
-                    window.sidebarMode = origMode;
+                    level1SubList = level1Container.querySelector('#sidebarSubList');
+                } else if (window.sidebarMode === 'class' && level1SubList.dataset.listMode !== 'class') {
+                    level1SubList.innerHTML = this._loadingHtml('Loading classes...');
+                    delete level1SubList.dataset.sidebarListSignature;
+                    this.renderClassLevel1(level1SubList);
                 }
 
                 // The shared bar becomes the sub-panel header: back + title, left-aligned.
@@ -1337,8 +1416,9 @@ export const SidebarModule = {
                 const c = snap.val();
                 if (!c) { window.currentClassId = null; this.renderSidebar(); return; }
 
-                window.cnCache[window.currentClassId] = c.name;
-                this._setBarTitle(c.name);
+                const className = this._classDisplayName(c.name);
+                window.cnCache[window.currentClassId] = className;
+                this._setBarTitle(className);
 
                 const canManage = window.AppModules.User.isAdmin() || c.teacherId === currentUser.id;
                 this._renderBarActions(canManage ? {
@@ -1360,34 +1440,34 @@ export const SidebarModule = {
                 const groupActive = activeTargetId === `group_${window.currentClassId}`;
 
                 // Forced extensions (only visible to the class teacher or admin):
-                // 1. Generate Join Class Code (copy class code / join with code)
-                // 2. Add Doc Link Accessible For Everyone
+                // 1. Generate a Class Join Code
+                // 2. Set up Google Doc submission
                 let extensionHtml = '';
                 let forcedRows = '';
                 if (canManage) {
                     const joinCodeRow = `
                         <div onclick="AppModules.Sidebar.openClassJoinCode('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
+                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm text-black dark:text-white truncate">Generate Join Class Code</div>
-                                <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Share code with students to join</div>
+                                <div class="font-bold text-sm text-black dark:text-white truncate">Generate a Class Join Code</div>
+                                <div class="text-[10px] text-gray-400 tracking-tight truncate">Share this code with students so they can join your class.</div>
                             </div>
                         </div>
                     `;
                     const joinLinkRow = `
                         <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF] bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
+                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.72-1.71" />
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm text-black dark:text-white truncate">Add Doc Link Accessible For Everyone</div>
-                                <div class="text-[10px] text-gray-400 uppercase tracking-tight truncate">Students can upload their Google Docs</div>
+                                <div class="font-bold text-sm text-black dark:text-white truncate">Set up Google Doc submission</div>
+                                <div class="text-[10px] text-gray-400 tracking-tight truncate">Students would submit the link to their Google Doc</div>
                             </div>
                         </div>
                     `;
@@ -1447,13 +1527,14 @@ export const SidebarModule = {
                 `;
 
                 const studentData = await Promise.all(students.map(async uid => {
-                    const data = await this._fetchUser(uid);
-                    return data ? { ...data, id: uid } : null;
+                    const data = await this._fetchClassStudent(rt, uid);
+                    // Keep the roster row visible even if both profile sources
+                    // are unavailable; this preserves the membership entry.
+                    return { ...(data || {}), id: uid, name: data?.name || uid };
                 }));
                 const canEdit = (window.AppModules.User.isAdmin() || c.teacherId === currentUser.id);
 
                 html += studentData.map(u => {
-                    if (!u) return '';
                     const isActive = activeTargetId === u.id;
                     let badge = '';
                     const isAdminUser = u.role === 'admin' || u.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
@@ -1465,7 +1546,7 @@ export const SidebarModule = {
                             <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
                                 <div class="flex flex-col overflow-hidden">
                                     <div class="font-bold text-sm text-black dark:text-white flex items-center">
-                                        ${window.escapeHTML(u.name)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
+                                        ${window.escapeHTML(u.name || u.id)} ${u.id === currentUser.id ? '<span class="text-[10px] text-gray-400 font-normal ml-1">(You)</span>' : ''}
                                     </div>
                                     <div class="text-xs text-gray-400 truncate flex items-baseline">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || u.id))}${badge}</div>
                                 </div>
@@ -1570,13 +1651,21 @@ export const SidebarModule = {
                     wrapper.appendChild(noClass);
                 } else {
                     myClasses.forEach(c => {
-                        window.cnCache[c.id] = c.name;
-                        const escName = window.escapeHTML(c.name);
+                        const className = this._classDisplayName(c.name);
+                        window.cnCache[c.id] = className;
+                        const currentId = String(currentUser.id || '').toLowerCase();
+                        const teacherId = String(c.teacherId || '').toLowerCase();
+                        const isParticipant = teacherId === currentId || Object.entries(c.students || {}).some(([studentId, enrolled]) =>
+                            String(studentId).toLowerCase() === currentId && !!enrolled
+                        );
+                        const isRemoved = !isParticipant;
+                        const rowName = isRemoved ? 'Class Group Chat' : className;
+                        const escName = window.escapeHTML(rowName);
                         const item = document.createElement('div');
                         item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                         item.dataset.classId = c.id;
                         item.onclick = event => {
-                            this._armFlyFromRow(item, c, event);
+                            this._armFlyFromRow(item, { ...c, name: rowName }, event);
                             window.currentClassId = c.id;
                             window.syncCHSRouteParams?.({ sidebar: 'class', classid: c.id });
                             AppModules.Sidebar.renderSidebar();
@@ -1584,12 +1673,12 @@ export const SidebarModule = {
                         };
                         item.innerHTML = `
                             <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-[#007AFF] dark:text-[#0A84FF]">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                                <div class="w-10 h-10 ${isRemoved ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10'} rounded-xl flex items-center justify-center ${isRemoved ? '' : 'text-[#007AFF] dark:text-[#0A84FF]'}">
+                                    ${isRemoved ? (rt.eagleIconBw || '') : '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>'}
                                 </div>
                                 <div>
                                     <div data-fly-name${this._rowHandoffId === c.id ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-tight">${escName}</div>
-                                    <div class="text-xs text-gray-400 mt-0.5">Click to view members</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">${isRemoved ? 'You have been removed from this chat' : 'Click to view members'}</div>
                                 </div>
                             </div>
                         `;
@@ -1666,7 +1755,7 @@ export const SidebarModule = {
                 this._renderBarActions(null);
 
                 const subList = container.querySelector('#sidebarSubList');
-                const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20)));
+                const recentSnap = await this._fetchRecentUsers(rt);
                 if (window.sidebarMode !== 'recent_joined') return;
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
@@ -1761,7 +1850,7 @@ export const SidebarModule = {
 
                 if (!offline && Object.keys(chatMap).length === 0) {
                     try {
-                        const recentSnap = await this._fetch(rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20)));
+                        const recentSnap = await this._fetchRecentUsers(rt);
                         if (recentSnap.exists()) {
                             const recents = recentSnap.val();
                             Object.keys(recents).forEach(rid => {
@@ -1866,7 +1955,9 @@ export const SidebarModule = {
                     const isDisbanded = window.isSyncDone && !(AppModules.Sync.existingClassIds && AppModules.Sync.existingClassIds[classId]);
                     const isParticipant = window.sidebarClasses[classId];
 
-                    displayName = window.cnCache[classId] || 'Class Group Chat';
+                    displayName = window.isSyncDone && !isParticipant
+                        ? 'Class Group Chat'
+                        : this._classDisplayName(window.cnCache[classId]);
 
                     if (isDisbanded) displayEmail = 'Class disbanded';
                     else if (window.isSyncDone && !isParticipant) displayEmail = 'You have been removed from this chat';
@@ -2130,11 +2221,11 @@ export const SidebarModule = {
         };
 
         const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
-        tEl.innerText = 'Generate Join Class Code';
+        tEl.innerText = 'Generate a Class Join Code';
 
         const renderModalBody = (codeVal, createdVal) => `
             <div class="space-y-3.5 text-left">
-                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this 8-digit code with your students. Students can tap <span class="font-bold text-black dark:text-white">"Join new class"</span> and enter this code to join your roster.</p>
+                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this 8-digit code with students. They can select <span class="font-bold text-black dark:text-white">"Join new class"</span> and enter it to join your class.</p>
                 <div class="p-3 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
                     <div class="flex items-start gap-2">
                         <span class="text-[#007AFF] font-bold">1.</span>
@@ -2305,12 +2396,12 @@ export const SidebarModule = {
             const forcedExtRow = `
                 <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
+                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.72-1.71" /></svg>
                         </div>
                         <div class="flex flex-col text-left">
-                            <span class="font-bold text-sm text-black dark:text-white">Add Doc Link Accessible For Everyone</span>
-                            <span class="text-[10px] text-gray-400 uppercase tracking-tight">Students can upload their Google Docs · always on</span>
+                            <span class="font-bold text-sm text-black dark:text-white">Set up Google Doc submission</span>
+                            <span class="text-[10px] text-gray-400 tracking-tight">Students would submit the link to their Google Doc · always on</span>
                         </div>
                     </div>
                     <div class="relative inline-flex items-center opacity-60" title="Always on">
@@ -2328,7 +2419,7 @@ export const SidebarModule = {
                     if (!item) return false;
                     return item.title.toLowerCase().includes(termLower) || (item.category || '').toLowerCase().includes(termLower);
                 });
-                if (!'add doc link accessible for everyone'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
+                if (!'set up google doc submission'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
 
                 return forcedExtRow + filteredKeys.map(eid => {
                     const regItem = registry[eid];

@@ -94,7 +94,11 @@ export const CoreModule = {
             } catch (e) {
                 console.error('[Core] Error clearing device on sign out:', e);
             }
-            signOut(auth).then(() => location.reload());
+            await signOut(auth);
+            // Do not reload a protected chat/project deep link after signing
+            // out. Guest startup only knows the public preview routes, so a
+            // stale chatid would trigger a sign-in prompt on the home screen.
+            window.location.replace(new URL('/', window.location.origin).href);
         };
 
         // 5. Inject DB Cloud References
