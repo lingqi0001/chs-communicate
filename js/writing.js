@@ -447,13 +447,13 @@ export const WritingDocCard = {
         const commentsListHtml = WritingDocCard.renderDocCommentsHtml(key, comments, count, openCount, resolvedCount, docId, docUrl, docData);
 
         return `
-            <div data-doc-id="${docId}" data-doc-url="${UIUtils.escape(docUrl)}" data-open-count="${openCount}" data-total-comments="${count}" class="doc-card-container w-full bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden text-left my-1">
+            <div data-doc-id="${docId}" data-doc-url="${UIUtils.escape(docUrl)}" data-open-count="${openCount}" data-total-comments="${count}" class="doc-card-container w-full bg-gray-50 dark:bg-[#242424] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden text-left my-1">
                 <!-- Card Header -->
-                <div class="p-3.5 flex items-center justify-between gap-3 bg-gradient-to-b from-white to-gray-50/50 dark:from-[#1C1C1E] dark:to-white/[0.02]">
+                <div class="p-3.5 flex items-center justify-between gap-3 bg-gray-50 dark:bg-[#242424]">
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <!-- Minimal Document SVG Icon with Soft Blue Circle -->
-                        <div class="w-9 h-9 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white flex items-center justify-center flex-shrink-0">
-                            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <div class="w-9 h-9 rounded-full text-black dark:text-white flex items-center justify-center flex-shrink-0">
+                            <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
                                 <line x1="16" y1="13" x2="8" y2="13"/>
@@ -465,7 +465,7 @@ export const WritingDocCard = {
                             <h4 id="docTitle-${key}" class="text-[15px] font-semibold text-black dark:text-white truncate leading-snug" title="${UIUtils.escape(docTitle)}">${UIUtils.escape(docTitle)}</h4>
                             <div class="flex items-center gap-2 mt-0.5">
                                 <!-- Light Blue Pill Badge -->
-                                <span id="docBadge-${key}" class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#007AFF]/10 text-black dark:text-white dark:bg-[#0A84FF]/20 leading-tight">
+                                <span id="docBadge-${key}" class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-gray-200 text-gray-700 dark:bg-[#343434] dark:text-gray-200 leading-tight">
                                     ${badgeLabel}
                                 </span>
                                 ${createdDateTag}
@@ -513,7 +513,7 @@ export const WritingDocCard = {
 
                 ${statusNoticeHtml}
                 <!-- Expandable Comments Drawer Area with Smooth Accordion -->
-                <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50/50 dark:bg-black/20">
+                <div id="docDrawer-${key}" class="doc-drawer-accordion hidden bg-gray-50 dark:bg-[#242424]">
                     <div class="min-h-0 overflow-hidden">
                         <div class="px-3.5 pt-2.5 pb-1.5">
                             <div id="docList-${key}">
@@ -1425,6 +1425,10 @@ export function initWritingBehavior(deps) {
             out.title = (base && !isPlaceholder(base.title) && base.title)
                 || (winner && !isPlaceholder(winner.title) && winner.title)
                 || out.title;
+        }
+        if ((!out.comments || out.comments.length === 0) && base?.comments && base.comments.length > 0) {
+            out.comments = base.comments;
+            out.commentsCount = base.commentsCount || base.comments.length;
         }
         return out;
     }

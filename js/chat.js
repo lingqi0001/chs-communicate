@@ -44,6 +44,9 @@ export function initChatEngine(deps) {
     let currentLocalMsgs = [];
     let currentDisplayMsgs = [];
     let currentOldestLoadedKey = null;
+    const isOrphanDocMetadata = (msg) => !!(msg?.docData && !(
+        msg.senderId || msg.senderName || msg.type || msg.text || msg.timestamp || msg.commentCard
+    ));
     const safeSetActiveTargetId = typeof setActiveTargetId === 'function'
         ? setActiveTargetId
         : (id) => { window.activeTargetId = id; };
@@ -232,7 +235,7 @@ export function initChatEngine(deps) {
             lastChatId = chatId;
 
             loadingTimer = setTimeout(() => {
-                if (!isLoaded) {
+                if (!isLoaded && chatGeneration === thisGeneration) {
                     chatBox.innerHTML = `
                         <div class="h-full min-h-[200px] flex items-center justify-center">
                             <div class="flex flex-col items-center gap-2 text-gray-400">
@@ -261,6 +264,9 @@ export function initChatEngine(deps) {
         currentLocalMsgs = isPreviewChat
             ? Object.entries(previewMessages).map(([key, message]) => ({ key, ...message }))
             : await getLocalMessages(chatId);
+        // A chat switch can happen while IndexedDB is being read. Do not let
+        // the older read replace the newer thread's messages or empty state.
+        if (chatGeneration !== thisGeneration) return;
         isLoaded = true;
         if (loadingTimer) clearTimeout(loadingTimer);
 
@@ -268,7 +274,7 @@ export function initChatEngine(deps) {
         currentLocalMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
         const renderCurrentMessages = () => {
-            currentDisplayMsgs = currentLocalMsgs.slice(-50);
+            currentDisplayMsgs = currentLocalMsgs.filter(m => !isOrphanDocMetadata(m)).slice(-50);
             const initialFrag = document.createDocumentFragment();
             currentDisplayMsgs.forEach(m => {
                 if (m.key) {
@@ -295,19 +301,12 @@ export function initChatEngine(deps) {
         // Render local cache immediately without waiting for Firebase network
         renderCurrentMessages();
 
-        // Determine incremental sync starting point from local cache
-        let lastKey = null;
-        if (currentLocalMsgs.length > 0) {
-            const allKeys = currentLocalMsgs.map(m => m.key).filter(Boolean).sort();
-            lastKey = allKeys.length > 0 ? allKeys[allKeys.length - 1] : null;
-        }
-
-        // Background reconcile recent messages from Firebase without blocking local render
+        // Reconcile against a bounded recent window instead of using the
+        // lexicographically greatest cached key as a cursor. Older/imported
+        // messages can have non-push IDs (for example "portfolio-doc-1") that
+        // sort after Firebase push IDs and would make startAfter skip the chat.
         if (!isPreviewChat) {
-            // Incremental: only fetch messages newer than local cache. If no new messages, payload is empty (0 B).
-            const qReconcile = lastKey
-                ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey))
-                : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
+            const qReconcile = query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
 
             window.withNetworkTimeout(get(qReconcile))
                 .then(async (remoteSnap) => {
@@ -315,22 +314,24 @@ export function initChatEngine(deps) {
                     if (remoteSnap.exists()) {
                         const remoteVal = remoteSnap.val() || {};
                         const localKeySet = new Set((currentLocalMsgs || []).map(m => m.key));
-                        let hasMissing = false;
+                        const remoteAdds = [];
                         for (const rKey of Object.keys(remoteVal)) {
+                            if (chatGeneration !== thisGeneration) return;
                             if (!localKeySet.has(rKey)) {
                                 const newMsg = { key: rKey, ...remoteVal[rKey] };
-                                currentLocalMsgs.push(newMsg);
+                                remoteAdds.push(newMsg);
                                 await saveMessageLocal(chatId, rKey, remoteVal[rKey]);
-                                hasMissing = true;
                             }
                         }
-                        if (hasMissing) {
+                        if (remoteAdds.length > 0) {
+                            // Do not mutate the shared message list until the
+                            // async cache writes finish and this thread is still
+                            // active; a chat switch may have happened meanwhile.
+                            if (chatGeneration !== thisGeneration) return;
+                            const currentKeys = new Set((currentLocalMsgs || []).map(m => m.key));
+                            currentLocalMsgs.push(...remoteAdds.filter(m => !currentKeys.has(m.key)));
                             currentLocalMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                             renderCurrentMessages();
-                            const updatedKeys = currentLocalMsgs.map(m => m.key).filter(Boolean).sort();
-                            if (updatedKeys.length > 0) {
-                                lastKey = updatedKeys[updatedKeys.length - 1];
-                            }
                         }
                     }
                 })
@@ -349,7 +350,7 @@ export function initChatEngine(deps) {
 
             // 1. Try loading older messages from local memory/IndexedDB array first
             const currentlyRenderedKeys = new Set(currentDisplayMsgs.map(m => m.key));
-            const remainingLocalMsgs = currentLocalMsgs.filter(m => !currentlyRenderedKeys.has(m.key));
+            const remainingLocalMsgs = currentLocalMsgs.filter(m => !isOrphanDocMetadata(m) && !currentlyRenderedKeys.has(m.key));
 
             if (remainingLocalMsgs.length > 0) {
                 const nextChunk = remainingLocalMsgs.slice(-50);
@@ -442,11 +443,10 @@ export function initChatEngine(deps) {
 
         let isSyncing = true;
         let syncBuffer = [];
-        const q = lastKey
-            ? query(ref(db, `messages/${chatId}`), orderByKey(), startAfter(lastKey))
-            : query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
+        const q = query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(50));
 
         const stopAdded = onChildAdded(q, (snap) => {
+            if (chatGeneration !== thisGeneration) return;
             const msg = snap.val();
             if (!msg || !snap.key || loadedMsgKeys.has(snap.key)) return;
             loadedMsgKeys.add(snap.key);
@@ -466,6 +466,7 @@ export function initChatEngine(deps) {
         });
 
         const stopChanged = onChildChanged(q, (snap) => {
+            if (chatGeneration !== thisGeneration) return;
             const updatedMsg = snap.val();
             const msgKey = snap.key;
             if (!updatedMsg || !msgKey) return;
@@ -504,6 +505,7 @@ export function initChatEngine(deps) {
             ? query(deletionFeed, orderByKey(), startAfter(deletionCursor))
             : query(deletionFeed, orderByKey());
         const stopRemoved = onChildAdded(deletionQuery, async (snap) => {
+            if (chatGeneration !== thisGeneration) return;
             const msgKey = snap.val()?.messageId;
             let cacheUpdated = true;
             if (msgKey) {
@@ -1669,11 +1671,17 @@ export function initChatEngine(deps) {
     function initChatListObserver() {
         const currentUser = getCurrentUser();
         if (!currentUser || !currentUser.id) return;
+        let firstChatOpenPending = false;
 
         const pickFirstRegularChat = (chatMap) => {
             const map = chatMap || {};
             const myId = String(currentUser.id || '').toLowerCase();
             const activeTargetId = getActiveTargetId();
+            // A URL-selected conversation has priority over the recent-list
+            // default. The list listener can fire before route restoration and
+            // must not start a competing switch in that window.
+            if (new URLSearchParams(window.location.search).get('chatid')) return;
+            if (firstChatOpenPending) return;
             const hasRegularActive = !!activeTargetId &&
                 !safeIsExtensionTargetId(activeTargetId) &&
                 activeTargetId !== 'safety_bot';
@@ -1693,8 +1701,15 @@ export function initChatEngine(deps) {
                 );
             });
 
-            if (firstUserId) window.switchChat?.(firstUserId);
+            if (firstUserId && window.switchChat) {
+                firstChatOpenPending = true;
+                Promise.resolve(window.switchChat(firstUserId))
+                    .catch(error => console.warn('[Chat] Failed to open the most recent conversation:', error))
+                    .finally(() => { firstChatOpenPending = false; });
+            }
         };
+
+        window.openFirstRegularChat = () => pickFirstRegularChat(lastKnownChatMap);
 
         let _chatListRenderTimer = null;
         onValue(ref(db, `user_chats/${currentUser.id.toLowerCase()}`), (snapshot) => {
@@ -2192,10 +2207,17 @@ export function initChatEngine(deps) {
         const icon = document.getElementById('sendBtnIcon');
         const spin = document.getElementById('sendBtnSpin');
         const sendBtn = document.getElementById('sendBtn');
+        const previousSendBtnBackground = sendBtn?.style.getPropertyValue('background-color') || '';
+        const previousSendBtnBackgroundPriority = sendBtn?.style.getPropertyPriority('background-color') || '';
 
         if (icon) icon.classList.add('hidden');
         if (spin) spin.classList.remove('hidden');
-        if (sendBtn) sendBtn.disabled = true;
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            // Chat theme accent rules use !important, so the inline loading
+            // color must also be important to win while Canvas is sending.
+            sendBtn.style.setProperty('background-color', '#E02424', 'important');
+        }
 
         try {
             if (!window.canvasCallable) {
@@ -2283,7 +2305,14 @@ export function initChatEngine(deps) {
         } finally {
             if (icon) icon.classList.remove('hidden');
             if (spin) spin.classList.add('hidden');
-            if (sendBtn) sendBtn.disabled = false;
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                if (previousSendBtnBackground) {
+                    sendBtn.style.setProperty('background-color', previousSendBtnBackground, previousSendBtnBackgroundPriority);
+                } else {
+                    sendBtn.style.removeProperty('background-color');
+                }
+            }
         }
     }
 
@@ -3306,15 +3335,11 @@ export function initChatEngine(deps) {
                 if (m && m.key) msgMap.set(m.key, m);
             });
 
-            if (!previewMessages) try {
-                // Increased limit to ensure we capture documents that may be grouped
-                // but not visible in the most recent 150 messages. This prevents
-                // "doc not found" errors when opening portfolio from All Projects bar.
-                const snap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(500)));
+            if (!previewMessages && localMsgs.length === 0) try {
+                // If local messages empty (e.g. opened cold before entering chat), fetch recent messages
+                const snap = await get(query(ref(db, `messages/${chatId}`), orderByKey(), limitToLast(100)));
                 if (snap.exists()) {
                     const val = snap.val();
-                    const rtdbKeys = Object.keys(val).length;
-                    
                     Object.keys(val).forEach(k => {
                         msgMap.set(k, { key: k, ...val[k] });
                     });
@@ -3348,17 +3373,20 @@ export function initChatEngine(deps) {
                 
                 // If target doc not found in recent messages, try loading from writing_doc_state
                 if (!targetDocFoundInMessages) {
-                    try {
-                        const stateSnap = await get(ref(db, `writing_doc_state/${chatId}/${targetDocId}`));
-                        if (stateSnap.exists()) {
-                            const docState = normalizeDocSyncState(stateSnap.val());
-                            if (docState) {
-                                // Merge cached doc info into message processing
-                                mergeDocViewIntoCache(targetDocId, docState);
+                    const cachedView = window.resolveDocViewData?.(targetDocId);
+                    if (!cachedView) {
+                        try {
+                            const stateSnap = await get(ref(db, `writing_doc_state/${chatId}/${targetDocId}`));
+                            if (stateSnap.exists()) {
+                                const docState = normalizeDocSyncState(stateSnap.val());
+                                if (docState) {
+                                    // Merge cached doc info into message processing
+                                    mergeDocViewIntoCache(targetDocId, docState);
+                                }
                             }
+                        } catch (e) {
+                            console.error('%c❌ Error loading from writing_doc_state:', 'color:red', e);
                         }
-                    } catch (e) {
-                        console.error('%c❌ Error loading from writing_doc_state:', 'color:red', e);
                     }
                 }
             }
@@ -3368,6 +3396,33 @@ export function initChatEngine(deps) {
                 console.warn('%c⚠️ Chat switched during loading, aborting', 'color:orange');
                 return;
             }
+
+            // 1. Fetch manual project assignments & doc states via Scheme 1 (cached + ET timestamp check)
+            let assignedProjects = {};
+            let knownDocStates = {};
+            if (!previewMessages) {
+                try {
+                    const meta = await readChatProjectsMeta(chatId);
+                    if (meta) {
+                        assignedProjects = meta.assigned || {};
+                        knownDocStates = meta.rawStates || {};
+                        Object.entries(knownDocStates).forEach(([fid, st]) => {
+                            if (!st) return;
+                            const view = normalizeDocSyncState(st);
+                            if (view) {
+                                view.fileId = view.fileId || fid;
+                                if (!view.docUrl) view.docUrl = `https://docs.google.com/document/d/${fid}/edit`;
+                                mergeDocViewIntoCache(fid, view);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[WritingPortfolio] Failed to load cached writing projects/states:', e);
+                }
+            }
+
+            window._writingProjectsCache = window._writingProjectsCache || {};
+            window._writingProjectsCache[chatId] = assignedProjects;
 
             const rawDocMsgs = (localMsgs || []).filter(m => {
                 if (!m) return false;
@@ -3429,8 +3484,55 @@ export function initChatEngine(deps) {
                 }
             }
             
-            if (targetDocId) {
-            }
+            // Union in all documents recorded in writing_projects and writing_doc_state
+            // so documents whose chat messages have scrolled out of the local window
+            // remain permanently visible in the Writing Portfolio!
+            const allArchiveDocIds = new Set([
+                ...Object.keys(assignedProjects || {}),
+                ...Object.keys(knownDocStates || {})
+            ]);
+
+            allArchiveDocIds.forEach(docId => {
+                if (!docId || docId === '_meta' || seenDocIds.has(docId)) return;
+                seenDocIds.add(docId);
+
+                const st = knownDocStates[docId] || {};
+                const assign = assignedProjects[docId] || {};
+                const cachedView = (window.resolveDocViewData && window.resolveDocViewData(docId)) || {};
+                const docUrl = cachedView.docUrl || st.docUrl || `https://docs.google.com/document/d/${docId}/edit`;
+                const title = cachedView.title || st.title || assign.title || 'Google Document';
+                const createdTime = cachedView.createdTime || st.createdTime || null;
+                const synthKey = `archive-${docId}`;
+
+                const synthMsg = {
+                    key: synthKey,
+                    _portfolioDocId: docId,
+                    timestamp: Number(createdTime) || Number(assign.updatedAt) || 0,
+                    senderName: assign.senderName || chatPartnerName || "Google Doc",
+                    text: docUrl,
+                    docData: {
+                        fileId: docId,
+                        docUrl: docUrl,
+                        title: title,
+                        createdTime: createdTime,
+                        comments: cachedView.comments || st.snapshotComments || [],
+                        commentsCount: cachedView.commentsCount || st.lastKnownCommentCount || 0,
+                        syncStatus: cachedView.syncStatus || st.lastSyncStatus || null,
+                        fileAccessStatus: cachedView.fileAccessStatus || st.fileAccessStatus || null
+                    }
+                };
+
+                docMessages.push(synthMsg);
+                if (!docIdToKeys.has(docId)) docIdToKeys.set(docId, []);
+                docIdToKeys.get(docId).push(synthKey);
+            });
+
+            // Sort all docMessages chronologically (newest first)
+            docMessages.sort((a, b) => {
+                const timeA = a.docData?.createdTime ? new Date(a.docData.createdTime).getTime() : (a.timestamp || 0);
+                const timeB = b.docData?.createdTime ? new Date(b.docData.createdTime).getTime() : (b.timestamp || 0);
+                return timeB - timeA;
+            });
 
             // Save docIdToKeys mapping for quick message lookup on delete
             window._portfolioDocIdToKeys = docIdToKeys;
@@ -3465,39 +3567,6 @@ export function initChatEngine(deps) {
                 `;
                 return;
             }
-
-            // 1. Fetch manual project assignments
-            let assignedProjects = {};
-            if (!previewMessages) try {
-                const projSnap = await get(ref(db, `writing_projects/${chatId}`));
-                if (projSnap.exists()) {
-                    assignedProjects = projSnap.val() || {};
-                }
-            } catch (e) {
-                // Ignore permission/offline warnings gracefully
-            }
-
-            window._writingProjectsCache = window._writingProjectsCache || {};
-            window._writingProjectsCache[chatId] = assignedProjects;
-
-            // Load the snapshot state (single source of truth) and seed the session cache,
-            // so docs wiped by the legacy empty-overwrite bug recover from RTDB state.
-            if (!previewMessages) try {
-                const stSnap = await get(ref(db, `writing_doc_state/${chatId}`));
-                if (stSnap.exists()) {
-                    const docStates = stSnap.val() || {};
-                    Object.entries(docStates).forEach(([fid, st]) => {
-                        const view = normalizeDocSyncState(st);
-                        if (view) {
-                            view.fileId = view.fileId || fid;
-                            mergeDocViewIntoCache(fid, view);
-                        }
-                    });
-                }
-            } catch (e) {
-                console.warn('[WritingPortfolio] Failed to load writing_doc_state (falling back to docData):', e);
-            }
-
 
             // 2. Separate into manually grouped projects and standalone docs
             const projectMap = new Map();
@@ -3732,25 +3801,22 @@ export function initChatEngine(deps) {
                 const lastIdx = versionGroups.length - 1; // Default to latest stage
 
                 html += `
-                    <div id="${projId}" data-has-open="${proj.hasOpen ? 'true' : 'false'}" data-has-resolved="${proj.hasResolved ? 'true' : 'false'}" class="portfolio-group-item bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm p-4 text-left">
+                    <div id="${projId}" data-has-open="${proj.hasOpen ? 'true' : 'false'}" data-has-resolved="${proj.hasResolved ? 'true' : 'false'}" class="portfolio-group-item portfolio-project-card bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm text-left">
                         <!-- Project Header & Version Stepper -->
-                        <div id="projHeader-${projId}" class="portfolio-project-header flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div id="projHeader-${projId}" class="portfolio-project-header flex flex-col md:flex-row md:items-center justify-between gap-3 p-4">
                             <div class="flex items-center gap-3 min-w-0 md:flex-1">
-                                <div class="w-9 h-9 rounded-xl bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <div class="w-9 h-9 rounded-xl text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-[21px] h-[21px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"></path>
                                     </svg>
                                 </div>
                                 <div class="min-w-0">
                                     <h3 class="text-[16px] font-bold text-black dark:text-white truncate">${UIUtils.escape(proj.projectName)}</h3>
-                                    <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="text-[12px] text-black dark:text-white font-medium whitespace-nowrap">${proj.items.length} ${proj.items.length === 1 ? 'Version' : 'Versions'}</span>
-                                    </div>
                                 </div>
                             </div>
 
                             <!-- Version Stepper Tabs -->
-                            <div class="portfolio-version-steps flex items-center gap-1 bg-gray-100 dark:bg-white/5 p-1 rounded-xl overflow-x-auto">
+                            <div class="portfolio-version-steps flex items-center gap-1 p-1 rounded-xl overflow-x-auto">
                                 ${versionGroups.map((group, vIdx) => {
                                     const isActive = vIdx === lastIdx;
                                     return `
@@ -3780,7 +3846,7 @@ export function initChatEngine(deps) {
                                             const cardHtml = UIComponents.renderDocCard(item.msg, pkey, false);
                                             return `
                                                 <div data-item-key="${item.key}">
-                                                    <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-1 mb-1.5">
+                                                    <div class="flex items-center justify-between gap-2 text-[12px] font-medium px-4 mb-1.5">
                                                         <span class="text-black dark:text-white truncate">${UIUtils.escape(item.msg.senderName || '')}</span>
                                                         <span id="portfolio-date-${item.docId}" data-msg-key="${item.key}" class="text-black dark:text-white truncate text-center flex-1 min-w-0">${dateDisplay}</span>
                                                         <div class="flex items-center gap-1 flex-shrink-0">
@@ -3800,7 +3866,7 @@ export function initChatEngine(deps) {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    <div id="portfolio-item-${item.key}">${cardHtml}</div>
+                                                    <div id="portfolio-item-${item.key}" class="portfolio-project-document">${cardHtml}</div>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -5282,6 +5348,10 @@ export function initChatEngine(deps) {
         const host = chatBox.parentElement;
         let hint = document.getElementById('wpProjectEmptyHint');
         const wantHint = !!project && hidden === chatBox.querySelectorAll('.msg-pop').length;
+        // The chat's own empty state is inside #chatBox. When a project has no
+        // matching messages, show only the project-specific empty state.
+        const chatPlaceholder = chatBox.querySelector('[data-chat-placeholder="true"]');
+        if (chatPlaceholder) chatPlaceholder.classList.toggle('hidden', wantHint);
         if (wantHint && !hint && host) {
             hint = document.createElement('div');
             hint.id = 'wpProjectEmptyHint';
@@ -5495,7 +5565,7 @@ export function initChatEngine(deps) {
 
         // Scheme 1: Light-weight Eastern Time timestamp comparison
         // Instead of pulling full 21+ KB, check tiny `writing_projects/${chatId}/_meta` (~30 bytes).
-        if (!forceRefresh && cachedMeta && cachedET) {
+        if (!forceRefresh && cachedMeta && cachedET && cachedMeta.rawStates) {
             try {
                 const metaSnap = await (window.withNetworkTimeout
                     ? window.withNetworkTimeout(get(ref(db, `writing_projects/${chatId}/_meta`)), WP_CHAT_META_TIMEOUT_MS)
@@ -5537,7 +5607,7 @@ export function initChatEngine(deps) {
             Object.keys(states).forEach(docId => {
                 docStates[docId] = { title: states[docId]?.title, createdTime: states[docId]?.createdTime };
             });
-            const meta = { assigned, docStates };
+            const meta = { assigned, docStates, rawStates: states };
             _wpMetaByChat.set(chatId, meta);
             _wpMetaUpdatedAtByChat.set(chatId, Date.now());
             _wpMetaETByChat.set(chatId, remoteET);

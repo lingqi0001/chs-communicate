@@ -1919,7 +1919,7 @@ exports.joinClassWithCode = functions.https.onCall(async (data, context) => {
     }
 
     const db = admin.database();
-    const classesSnap = await db.ref('classes').once('value');
+    const classesSnap = await db.ref('classes').orderByChild('joinCode').equalTo(code).once('value');
     const classes = classesSnap.val() || {};
     const now = Date.now();
     let match = null;

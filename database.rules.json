@@ -161,6 +161,7 @@
     "classes": {
       ".read": "auth != null && auth.token.email == 'moss104088@gmail.com'",
       ".write": "auth != null && (auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))",
+      ".indexOn": ["joinCode"],
       "$classId": {
         ".read": "auth != null && (auth.token.email == 'moss104088@gmail.com' || root.child('classes/' + $classId + '/teacherId').val() === auth.uid || root.child('classes/' + $classId + '/teacherId').val() === auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') || root.child('classes/' + $classId + '/students/' + auth.uid).exists() || root.child('classes/' + $classId + '/students/' + auth.uid.toLowerCase()).exists() || root.child('classes/' + $classId + '/students/' + auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_')).exists())",
         "students": {

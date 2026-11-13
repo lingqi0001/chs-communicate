@@ -34,6 +34,12 @@ export const UIComponents = {
         const isAdmin = UserModule.isAdmin ? UserModule.isAdmin() : false;
         if (msg.isSecret && !isAdmin) return null;
 
+        // A legacy portfolio metadata child can live under messages/{chatId}
+        // without being an actual chat message. Keep its docData available to
+        // portfolio readers, but do not append a phantom bubble on every open.
+        const hasMessageEnvelope = !!(msg.senderId || msg.senderName || msg.type || msg.text || msg.timestamp || msg.commentCard);
+        if (msg.docData && !hasMessageEnvelope) return null;
+
         if (msg && typeof msg === 'object') {
             msg.key = key;
         }
@@ -86,6 +92,8 @@ export const UIComponents = {
 
         let content = '';
         let images = [];
+        const messageText = typeof msg.text === 'string' ? msg.text : '';
+        const hasDocData = !!msg.docData && typeof msg.docData === 'object' && Object.keys(msg.docData).length > 0;
         // 隗｣譫仙崟迚ｻ ｻ霎 
         if (msg.type === 'image_group' || (msg.text && msg.text.trim().startsWith('['))) {
             try { images = JSON.parse(msg.text); } catch (e) { }
@@ -112,12 +120,13 @@ export const UIComponents = {
             } else {
                 content = UIComponents.renderImageMedia(images, key, isMe, msg.isExpired);
             }
-        } else if (msg.text && msg.text.includes('docs.google.com/document/d/')) {
+        } else if (messageText.includes('docs.google.com/document/d/')) {
             // Render Clean Google Doc Writing Card (No emojis, minimal light blue design)
             content = UIComponents.renderDocCard(msg, key, isMe);
         } else {
             const bS = isMe ? 'chat-accent-bg bg-[#007AFF] text-white rounded-3xl rounded-br-sm' : 'other-accent-bg bg-[#E9E9EB] dark:bg-gray-700 text-black dark:text-white rounded-3xl rounded-bl-sm';
-            content = `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(msg.text), isMe)}</div>`;
+            const fallbackText = messageText || (msg.type ? `Message content unavailable (${msg.type})` : 'Message content unavailable');
+            content = `<div class="px-[18px] py-2 text-base leading-[1.4] max-w-[75%] inline-block break-words whitespace-pre-wrap shadow-sm ${bS}">${UIUtils.linkify(UIUtils.escape(fallbackText), isMe)}</div>`;
         }
 
 
@@ -129,7 +138,8 @@ export const UIComponents = {
         if (setupLongPressCallback) setupLongPressCallback(msgEl, msg);
 
         const shouldRenderSenderName = !isMe && showSenderName;
-        div.appendChild(shouldRenderSenderName ? (Object.assign(document.createElement('span'), { className: 'text-xs text-gray-400 mb-0.5 ml-3', innerText: msg.senderName || "Unknown" })) : document.createTextNode(''));
+        const senderLabel = String(msg.senderName || '').trim() || String(msg.senderId || '').trim() || String(msg.docData?.title || '').trim() || (hasDocData ? 'Google Document' : 'Unknown');
+        div.appendChild(shouldRenderSenderName ? (Object.assign(document.createElement('span'), { className: 'text-xs text-gray-400 mb-0.5 ml-3', innerText: senderLabel })) : document.createTextNode(''));
         div.appendChild(msgEl);
 
         if (msg.sentViaCanvas) {

@@ -1,3 +1,5 @@
+import { APP_CONSTANTS } from './config.js';
+
 /**
  * ==================================================================================
  * 模块名称：AppUtils (全站工具?
@@ -50,6 +52,8 @@ export const UIUtils = {
     formatDisplayEmail: (email) => {
         if (!email || typeof email !== 'string') return email || '';
         const trimmed = email.trim();
+        const adminEmail = String(APP_CONSTANTS.ADMIN_EMAIL || '').trim().toLowerCase();
+        if (trimmed.toLowerCase() === adminEmail) return trimmed;
         if (/@gmail\.com$/i.test(trimmed)) {
             return 'encrypted@gmail.com';
         }

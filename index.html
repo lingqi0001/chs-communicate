@@ -154,9 +154,9 @@
         "./js/view.js": "./js/view.js?v=20261111-settings-mobile-fullscreen-1",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20261112-v5",
         "./js/modal.js": "./js/modal.js?v=20260922-lgpref-1",
-        "./js/utils.js": "./js/utils.js?v=20260923-offline-9",
-        "./js/writing.js": "./js/writing.js?v=20260921-previewpostguard-v1",
-        "./js/ui-components.js": "./js/ui-components.js?v=20261012-hubfix-1",
+        "./js/utils.js": "./js/utils.js?v=20261112-admin-email-visible-v1",
+        "./js/writing.js": "./js/writing.js?v=20261112-merge-fix-1",
+        "./js/ui-components.js": "./js/ui-components.js?v=20261112-ignore-orphan-doc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
@@ -169,7 +169,7 @@
         "./js/search.js": "./js/search.js?v=20261108-search-theme-sync",
         "./js/settings.js": "./js/settings.js?v=20261111-settings-mobile-fullscreen-1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20261112-et-cache-v1"
+        "./js/chat.js": "./js/chat.js?v=20261112-wp-opt-v10"
       }
     }
     </script>
@@ -764,10 +764,14 @@
                         const chatSwitchResult = await window.switchChat(initialChatId, true);
                         initialChatRouteAccepted = chatSwitchResult !== false && String(window.activeTargetId || '') === initialChatId;
                         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                        if (!initialChatRouteAccepted) window.openFirstRegularChat?.();
                     }
 
-                    if (initialProjectId && (!initialChatId || initialChatRouteAccepted) && (window.isLoggedIn || window.isChatPreview)) {
-                        await window.restoreChatProjectFromRoute?.(initialProjectId);
+                    if ((initialProjectId || initialChatId) && (!initialChatId || initialChatRouteAccepted) && (window.isLoggedIn || window.isChatPreview)) {
+                        // A direct chat route without a project parameter means
+                        // "All Projects". Apply that state explicitly so a
+                        // previously focused project cannot hide the thread.
+                        await window.restoreChatProjectFromRoute?.(initialProjectId || 'all');
                     }
 
                     if (['open', 'openfull'].includes(initialWpState) && (!initialChatId || initialChatRouteAccepted) && (window.isLoggedIn || window.isChatPreview) && window.activeTargetId) {
@@ -3573,36 +3577,88 @@
         };
 
         window.joinClassWithCode = async () => {
-            const rawCode = await AppModules.Modal.prompt("Join new class", "Enter the 8-digit class join code from your teacher:");
-            if (!rawCode || !rawCode.trim()) return;
-            const code = rawCode.trim();
-
             if (!currentUser || !currentUser.id) {
                 AppModules.Modal.alert("Sign In Required", "Please sign in before joining a class.");
                 return;
             }
 
-            try {
-                const join = window.httpsCallable(window.firebaseFunctions, 'joinClassWithCode');
-                const result = (await join({ code })).data;
-                const matchedClassId = result.classId;
-                const className = result.className || 'Class';
-                if (result.alreadyJoined) {
-                    AppModules.Modal.alert("Already Joined", `You are already enrolled in "${className}".`);
-                    return;
-                }
-                // Update caches & re-render
-                window.cnCache = window.cnCache || {};
-                window.cnCache[matchedClassId] = className;
-                if (AppModules.Sync?.sidebarClasses) {
-                    AppModules.Sync.sidebarClasses[matchedClassId] = true;
-                }
+            let joinedClass = null;
+            const html = `
+                <div class="mb-2">Enter the 8-digit class join code from your teacher:</div>
+                <input type="text" id="classJoinCodeInput" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all" />
+                <div id="classJoinCodeError" class="hidden mt-2 text-sm text-red-500" role="alert"></div>
+            `;
 
-                AppModules.Sidebar.renderSidebar();
-                AppModules.Modal.alert("Joined Successfully", `You have successfully joined "${className}".`);
-            } catch (e) {
-                AppModules.Modal.alert("Error", "Failed to join class: " + e.message);
+            await AppModules.Modal.showCustom("Join new class", html, [
+                {
+                    text: "Save",
+                    value: true,
+                    onClick: async (els) => {
+                        const input = document.getElementById('classJoinCodeInput');
+                        const errorEl = document.getElementById('classJoinCodeError');
+                        const code = (input?.value || '').trim();
+                        if (!/^\d{8}$/.test(code)) {
+                            if (errorEl) {
+                                errorEl.textContent = 'Enter an 8-digit code.';
+                                errorEl.classList.remove('hidden');
+                            }
+                            input?.focus();
+                            return false;
+                        }
+
+                        const saveButton = els.confirm;
+                        const cancelButton = els.cancel;
+                        if (saveButton) {
+                            saveButton.disabled = true;
+                            saveButton.innerHTML = '<span class="inline-flex items-center justify-center gap-2"><span class="animate-spin rounded-full h-4 w-4" style="border:2px solid currentColor;border-right-color:transparent"></span><span>Checking…</span></span>';
+                        }
+                        if (cancelButton) cancelButton.disabled = true;
+                        if (input) input.disabled = true;
+                        if (errorEl) errorEl.classList.add('hidden');
+
+                        try {
+                            const join = window.httpsCallable(window.firebaseFunctions, 'joinClassWithCode');
+                            const result = (await join({ code })).data;
+                            const matchedClassId = result.classId;
+                            const className = result.className || 'Class';
+                            joinedClass = { classId: matchedClassId, className, alreadyJoined: !!result.alreadyJoined };
+
+                            // Update caches & re-render after the server confirms the code.
+                            window.cnCache = window.cnCache || {};
+                            window.cnCache[matchedClassId] = className;
+                            if (AppModules.Sync?.sidebarClasses) {
+                                AppModules.Sync.sidebarClasses[matchedClassId] = true;
+                            }
+                            AppModules.Sidebar.renderSidebar();
+                            return true;
+                        } catch (e) {
+                            if (saveButton) {
+                                saveButton.disabled = false;
+                                saveButton.textContent = 'Save';
+                            }
+                            if (cancelButton) cancelButton.disabled = false;
+                            if (input) {
+                                input.disabled = false;
+                                input.focus();
+                                input.select();
+                            }
+                            if (errorEl) {
+                                errorEl.textContent = e?.message || 'Could not check this code. Please try again.';
+                                errorEl.classList.remove('hidden');
+                            }
+                            return false;
+                        }
+                    }
+                },
+                { text: "Cancel", value: null }
+            ]);
+
+            if (!joinedClass) return;
+            if (joinedClass.alreadyJoined) {
+                AppModules.Modal.alert("Already Joined", `You are already enrolled in "${joinedClass.className}".`);
+                return;
             }
+            AppModules.Modal.alert("Joined Successfully", `You have successfully joined "${joinedClass.className}".`);
         };
 
 
@@ -5034,7 +5090,7 @@
                         <!-- Actions -->
                         <div class="flex items-center justify-between gap-3 mt-6 pt-3 border-t border-gray-100 dark:border-white/5">
                             <button type="button" id="portfolioBtnUngroup" onclick="window.submitPortfolioUngroup()" class="text-[13px] font-semibold text-red-500 hover:underline transition-colors">
-                                Remove from Project
+                                Ungroup from project
                             </button>
                             <div class="flex items-center gap-2 ml-auto">
                                 <button type="button" onclick="window.closePortfolioProjectModal()" class="px-4 py-2 rounded-xl text-[13px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">

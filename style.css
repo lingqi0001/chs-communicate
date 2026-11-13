@@ -144,6 +144,20 @@ body {
     min-width: 0;
 }
 
+/* In grouped projects, let the selected document run edge to edge beneath
+   the padded project header and metadata. */
+.portfolio-project-card {
+    overflow: hidden;
+}
+.portfolio-project-document .doc-card-container {
+    margin: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 /* One continuous rail connects the month and document milestones. */
 .portfolio-timeline-track { position: relative; }
 .portfolio-timeline-track::before {
@@ -818,9 +832,9 @@ body {
     padding-left: 1px;
     padding-right: 1px;
     gap: 7px;
-    /* Outer card is 24px rounded with a 6px inset, so its hover surface must
-       be 18px rounded to remain the same pill shape at every edge. */
-    border-radius: 18px;
+    /* Match the actual inset at the inner border edge (fractional border
+       rasterization makes it 6.67px in the live layout). */
+    border-radius: 17.33px;
 }
 
 #wpProjectHeaderIcon {
@@ -1798,6 +1812,7 @@ body.compact-four-panel-layout #searchResults {
    shifts the layout). */
 #writingPortfolioContent {
     scrollbar-gutter: stable;
+    overflow-anchor: none;
 }
 
 /* The drawer is moved directly under <body> while open, outside #chatSection's
