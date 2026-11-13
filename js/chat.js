@@ -1348,7 +1348,7 @@ export function initChatEngine(deps) {
 
                 const statusText = safeIsExtensionTargetId(targetId)
                     ? "Extension Tool"
-                    : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : (window.formatDisplayEmail ? window.formatDisplayEmail(u?.email) : (u?.email || "")));
+                    : (u?.lastSeen ? safeFormatLastSeen(u.lastSeen) : "offline");
                 statusEl.innerText = statusText;
                 if (statusText === "online") {
                     statusEl.classList.add('text-[#007AFF]');
@@ -1359,16 +1359,37 @@ export function initChatEngine(deps) {
                 }
             });
 
-            safeFetchUser(targetId).then(user => {
+            const refreshChatHeaderProfile = async () => {
+                let user = null;
+                if (!safeIsExtensionTargetId(targetId)) {
+                    try {
+                        const snap = await (window.withNetworkTimeout
+                            ? window.withNetworkTimeout(get(ref(db, `user_search/${targetId}`)))
+                            : get(ref(db, `user_search/${targetId}`)));
+                        if (snap.exists()) user = snap.val();
+                        if (user && !user.lastSeen) {
+                            // Old accounts only have lastSeen under users/{id}; read just that field.
+                            try {
+                                const ls = await get(ref(db, `users/${targetId}/lastSeen`));
+                                if (ls.exists()) user = { ...user, lastSeen: ls.val() };
+                            } catch (e) {}
+                        }
+                    } catch (error) {
+                        // Continue with the in-memory profile when offline.
+                    }
+                }
+                if (!user) user = await safeFetchUser(targetId);
                 if (!user || getActiveTargetId() !== targetId) return;
+                const users = getAllUsers() || {};
+                users[targetId] = { ...(users[targetId] || {}), ...user, id: targetId };
                 animateNameBar(() => {
                     if (user.name) {
                         titleEl.innerText = user.name;
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
                         if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${user.name}`;
                     }
-                    if (!user.lastSeen) return;
-                    const updatedText = safeFormatLastSeen(user.lastSeen);
+                    const prevSeen = (getAllUsers() || {})[targetId]?.lastSeen;
+                    const updatedText = user.lastSeen ? safeFormatLastSeen(user.lastSeen) : (prevSeen ? safeFormatLastSeen(prevSeen) : "offline");
                     statusEl.innerText = updatedText;
                     if (updatedText === "online") {
                         statusEl.classList.add('text-[#007AFF]');
@@ -1378,7 +1399,8 @@ export function initChatEngine(deps) {
                         statusEl.classList.add('text-gray-400');
                     }
                 });
-            });
+            };
+            refreshChatHeaderProfile().catch(error => console.warn('Could not refresh chat header profile:', error));
         }
 
         const writingBtn = document.getElementById('chatWritingBtn');

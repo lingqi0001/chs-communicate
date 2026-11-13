@@ -4,12 +4,12 @@
 
 // 1. æœ�åŠ¡æ�¡æ¬¾ (Terms of Service)
 export const TOS_CONTENT = `
-    <h1 class="text-2xl font-black text-black dark:text-white">Terms of Service for CHS-Communicate (CHSchat)</h1>
-    <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Last Updated: May 2, 2026</p>
+    <h1 class="text-2xl font-black text-black dark:text-white">Terms of Service for CHShub</h1>
+    <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Last Updated: November 12, 2026</p>
 
     <section class="space-y-2">
         <h2 class="font-bold text-black dark:text-white">1. Acceptance of Terms</h2>
-        <p>By accessing or using CHS iMESSage Ultimate (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access the Service.</p>
+        <p>By accessing or using CHShub (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access the Service.</p>
     </section>
 
     <section class="space-y-2">
@@ -17,11 +17,12 @@ export const TOS_CONTENT = `
         <p><strong>Authorized Users:</strong> This Service is designed for students and staff of Centennial High School and the Howard County Public School System (HCPSS).</p>
         <p><strong>Authentication:</strong> Users are required to authenticate using their official HCPSS-provided email addresses.</p>
         <p><strong>Account Responsibility:</strong> You are responsible for maintaining the confidentiality of your login credentials. You agree to accept responsibility for all activities that occur under your account.</p>
+        <p><strong>Minors:</strong> CHShub is intended for the school community and is not directed to children under 13. If you are under 13, do not use the Service. If you are a minor under the age of majority where you live, you may use the Service only with permission from a parent or legal guardian where required by law. Contact us if you believe a child under 13 has provided personal information.</p>
     </section>
 
     <section class="space-y-2">
         <h2 class="font-bold text-black dark:text-white">3. Nature of Service (Student Project Disclosure)</h2>
-        <p><strong>Non-Commercial/Educational Use:</strong> CHS-Communicate is a non-profit, student-developed experimental project. It is not an official product of HCPSS or any commercial entity.</p>
+        <p><strong>Non-Commercial/Educational Use:</strong> CHShub is a non-profit, student-developed experimental project. It is not an official product of HCPSS or any commercial entity.</p>
         <p><strong>"As-Is" Provision:</strong> The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The developer makes no warranties, expressed or implied, regarding the reliability, availability, or lack of errors within the application.</p>
     </section>
 
@@ -30,6 +31,7 @@ export const TOS_CONTENT = `
         <p>The Service relies on third-party infrastructure to function:</p>
         <p><strong>Hosting:</strong> The Service is hosted via Vercel.</p>
         <p><strong>Database and Authentication:</strong> Data storage and user authentication are managed through Google Firebase.</p>
+        <p><strong>Third-Party Processing:</strong> These providers may process information as needed to host, authenticate, store, secure, and operate the Service, subject to their own terms and privacy practices. Their services may be unavailable or may change. You can review their privacy information at <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Vercel</a> and <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Firebase</a>.</p>
         <p><strong>Limitation of Third-Party Liability:</strong> You acknowledge that the developer has no control over the uptime or security practices of Vercel or Firebase. Any service interruptions or data loss caused by these third-party providers are outside the developerâ€™s liability.</p>
     </section>
 
@@ -41,6 +43,7 @@ export const TOS_CONTENT = `
             <li><strong>Impersonation:</strong> Use a name other than your own or attempt to impersonate school officials, teachers, or other students.</li>
             <li><strong>Illegal Activity:</strong> Post content that violates U.S. federal law, Maryland state law, or HCPSS Board of Education policies.</li>
             <li><strong>Malicious Use:</strong> Attempt to interfere with the Serviceâ€™s operation, including but not limited to "spamming," "DDoS attacks," or unauthorized data scraping.</li>
+            <li><strong>Privacy and Safety:</strong> Share another person’s private information, intimate images, or content that could put someone at risk without their permission.</li>
         </ul>
     </section>
 
@@ -52,13 +55,18 @@ export const TOS_CONTENT = `
             <li><strong>Remove:</strong> Delete any message, announcement, or post at their sole discretion without prior notice.</li>
             <li><strong>Suspend:</strong> Terminate or suspend access to the Service for any user who violates these Terms or school policies.</li>
         </ul>
+        <p><strong>Reports and Appeals:</strong> Report harassment, unsafe content, privacy concerns, or other violations by emailing <a href="mailto:moss104088@gmail.com">moss104088@gmail.com</a>. Include enough information to identify the content or account, but avoid sending unnecessary sensitive information. We may investigate, preserve relevant information, restrict access, or remove content when appropriate. If you believe an action against your account was made in error, you may request a review at the same email address. We will review requests as reasonably practicable, but cannot guarantee a particular response time or outcome.</p>
     </section>
 
     <section class="space-y-2">
         <h2 class="font-bold text-black dark:text-white">7. Privacy and Data Access</h2>
         <p>While we strive to protect user data, please be aware that:</p>
         <p><strong>No Expectation of Privacy:</strong> As this is a school-focused communication tool, administrators may access message logs if required for safety, security, or disciplinary investigations.</p>
-        <p><strong>Data Usage:</strong> Your HCPSS email and name are used solely for identification and functional purposes within the app.</p>
+        <p><strong>Information We Handle:</strong> Depending on how you use the Service, this may include your HCPSS email address, name, account identifiers, profile information, messages, posts, images you upload, reports you submit, and technical or diagnostic information needed to operate and protect the Service.</p>
+        <p><strong>How Information Is Used:</strong> Information is used to authenticate users, display and deliver content, provide Service features, moderate content, respond to reports and requests, maintain security, troubleshoot problems, and meet applicable legal obligations. We do not authorize use of message or student information for unrelated advertising.</p>
+        <p><strong>Storage and Retention:</strong> Information may be stored by Firebase and cached on your device or browser to support the Service. We retain information for as long as reasonably necessary to operate the Service, address safety or security issues, or meet legal obligations. Deleted content may remain temporarily in backups or copies held by other users. We do not promise immediate removal from every system.</p>
+        <p><strong>Access and Disclosure:</strong> The developer and appointed administrators may access information for operation, moderation, safety, security, and support. Information may also be processed by the providers described above or disclosed when required by law or reasonably necessary to address a safety, security, or legal issue.</p>
+        <p><strong>School Relationship:</strong> CHShub is a student-developed project and is not an official HCPSS service. Do not assume that information submitted to CHShub is an official school record or that HCPSS has approved or controls the Service. If a school or district agreement applies, that agreement governs where it conflicts with these Terms.</p>
     </section>
 
     <section class="space-y-2">
@@ -78,7 +86,32 @@ export const TOS_CONTENT = `
 
     <section class="space-y-2">
         <h2 class="font-bold text-black dark:text-white">11. Changes to Terms</h2>
-        <p>We reserve the right to modify or replace these Terms at any time. Your continued use of the Service after such changes constitutes acceptance of the new Terms.</p>
+        <p>We may modify these Terms from time to time. We will post the revised Terms in the Service and update the "Last Updated" date. Material changes will be highlighted or otherwise brought to users’ attention when reasonably practicable. Your continued use of the Service after revised Terms take effect constitutes acceptance of the changes. If you do not agree, stop using the Service.</p>
+    </section>
+
+    <section class="space-y-2">
+        <h2 class="font-bold text-black dark:text-white">12. User Content</h2>
+        <p>You retain any rights you have in the content you submit. You grant the Service a non-exclusive, worldwide, royalty-free license to host, store, reproduce, transmit, display, and format that content only as needed to operate, secure, and provide the Service and its features. This permission ends when the content is deleted from the Service, except for temporary backup copies, copies retained for safety, security, or legal reasons, and copies already viewed, saved, or shared by other users. You confirm that you have the rights and permissions needed to submit the content.</p>
+    </section>
+
+    <section class="space-y-2">
+        <h2 class="font-bold text-black dark:text-white">13. Account Deletion and Data Requests</h2>
+        <p>You may request account deletion or ask about access to, correction of, or deletion of your information by emailing <a href="mailto:moss104088@gmail.com">moss104088@gmail.com</a> from your HCPSS email address when possible. We may ask for reasonable information to verify your request. We will review and process requests as reasonably practicable, subject to applicable law, safety needs, technical limitations, and any required retention. Deleting an account may end access to the Service, and content already shared with other users or retained in backups may not be removed immediately.</p>
+    </section>
+
+    <section class="space-y-2">
+        <h2 class="font-bold text-black dark:text-white">14. Service Availability and Emergencies</h2>
+        <p>The Service may be changed, interrupted, or discontinued at any time. CHShub is not an emergency service and is not monitored continuously. Do not use it to request urgent help; contact emergency services or a trusted adult or school official directly.</p>
+    </section>
+
+    <section class="space-y-2">
+        <h2 class="font-bold text-black dark:text-white">15. Severability and No Waiver</h2>
+        <p>If any part of these Terms is found unenforceable, the remaining parts will continue to apply to the extent permitted by law. If we do not enforce a provision immediately, that does not waive our right to enforce it later.</p>
+    </section>
+
+    <section class="space-y-2">
+        <h2 class="font-bold text-black dark:text-white">16. Entire Agreement and Contact</h2>
+        <p>These Terms, together with any applicable privacy notice or written agreement that governs your use of the Service, describe the agreement concerning your use of CHShub. For questions about these Terms, privacy, account deletion, or reports, email <a href="mailto:moss104088@gmail.com">moss104088@gmail.com</a>.</p>
     </section>
 `;
 

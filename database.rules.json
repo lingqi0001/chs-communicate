@@ -71,6 +71,7 @@
 
     "users": {
       ".read": "auth != null && auth.token.email == 'moss104088@gmail.com'",
+      ".indexOn": ["registeredAt"],
       "$userId": {
         ".read": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com')",
         ".write": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId.toLowerCase() || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org'))"
@@ -88,6 +89,7 @@
 
     "user_search": {
       ".read": "auth != null",
+      ".indexOn": ["registeredAt"],
       "$userId": {
         ".write": "auth != null && (auth.uid === $userId || auth.uid.toLowerCase() === $userId.toLowerCase() || auth.token.email.replace('@gmail.com','').replace('@hcpss.org','').replace('@inst.hcpss.org','').replace('.','_') === $userId || auth.token.email == 'moss104088@gmail.com' || auth.token.email.endsWith('@hcpss.org') || auth.token.email.endsWith('@inst.hcpss.org'))"
       }

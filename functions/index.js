@@ -1908,6 +1908,40 @@ exports.submitDocRequest = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).ht
 const CLASS_ID_RE = /^[A-Za-z0-9_-]{8,40}$/;
 const STUDENT_EMAIL_RE = /^[a-z0-9][a-z0-9._-]{0,60}@inst\.hcpss\.org$/;
 
+exports.getRecentlyJoinedUsers = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in to view community members.');
+    }
+
+    const requestedLimit = Number(data && data.limit);
+    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(50, Math.floor(requestedLimit))) : 50;
+    const email = String(context.auth.token.email || '').toLowerCase();
+    const currentUserId = email ? email.split('@')[0].replace(/\./g, '_') : '';
+    const snapshot = await admin.database().ref('users')
+        .orderByChild('registeredAt')
+        .limitToLast(limit + 1)
+        .once('value');
+    const users = [];
+
+    snapshot.forEach(child => {
+        const id = child.key;
+        const profile = child.val() || {};
+        if (!id || id.toLowerCase() === currentUserId.toLowerCase()) return;
+        users.push({
+            id,
+            name: profile.name || id,
+            email: profile.email || '',
+            role: profile.role || 'user',
+            avatar: profile.avatar || null,
+            registeredAt: Number(profile.registeredAt) || 0
+        });
+    });
+
+    return users
+        .sort((a, b) => b.registeredAt - a.registeredAt || b.id.localeCompare(a.id))
+        .slice(0, limit);
+});
+
 exports.joinClassWithCode = functions.https.onCall(async (data, context) => {
     const email = String(context.auth && context.auth.token && context.auth.token.email || '').trim().toLowerCase();
     if (!context.auth || !STUDENT_EMAIL_RE.test(email)) {
@@ -2072,7 +2106,9 @@ exports.submitClassJoin = functions.runWith({ secrets: ['GOOGLE_SA_JSON'] }).htt
     await db.ref(`user_search/${idPrefix}`).set({
         name: fullName,
         email: email,
-        avatar: (existingUser && existingUser.avatar) || null
+        avatar: (existingUser && existingUser.avatar) || null,
+        registeredAt: (existingUser && Number(existingUser.registeredAt)) || ts,
+        lastSeen: (existingUser && Number(existingUser.lastSeen)) || ts
     });
 
     // The document belongs to the student, so it lands in the teacher chat

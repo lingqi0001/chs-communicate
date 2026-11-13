@@ -341,7 +341,18 @@ export const AuthModule = {
             localStorage.setItem('panelLayout', this.getDefaultPanelLayout(window.currentUser.email));
             this.applyNewUserVisualDefaults(window.currentUser.email);
             document.getElementById('nameSetupPage').classList.add('hidden');
-            callbacks.onEnterApp();
+            // Wait for the authenticated app and chat engine to finish mounting
+            // before opening the welcome conversation. The user_chats observer
+            // can otherwise race this transition and leave the message pane
+            // without a selected conversation.
+            await callbacks.onEnterApp();
+            if (typeof window.switchChat === 'function') {
+                try {
+                    await window.switchChat('moss104088');
+                } catch (e) {
+                    console.warn('Failed to open the new-user admin conversation:', e);
+                }
+            }
         } catch (err) {
             btn.disabled = false;
             btn.innerText = "Start Chatting";

@@ -313,37 +313,41 @@ export const SyncModule = {
      */
     initPresence(db, currentUser) {
         if (!currentUser || !currentUser.id) return;
-        const userStatusRef = ref(db, `users/${currentUser.id}/status`);
+        const userSearchRef = ref(db, `user_search/${currentUser.id}`);
+        const userSearchLastSeenRef = ref(db, `user_search/${currentUser.id}/lastSeen`);
         const connectedRef = ref(db, ".info/connected");
 
         onValue(connectedRef, (snap) => {
             if (snap.val() === true) {
-                // Set status to online immediately on connection
-                set(userStatusRef, "online");
+                // Update presence timestamp in lightweight search index (0 listener bounce)
+                update(userSearchRef, { lastSeen: serverTimestamp() }).catch(error => {
+                    console.warn('Presence index update failed:', error);
+                });
 
                 // Graceful presence handling on disconnect
-                onDisconnect(userStatusRef).set("offline");
                 onDisconnect(ref(db, `users/${currentUser.id}/lastSeen`)).set(serverTimestamp());
+                onDisconnect(userSearchLastSeenRef).set(serverTimestamp());
             }
         });
 
-        // Tab focus monitoring
+        // Tab focus monitoring: refresh lastSeen only when tab becomes visible
         if (this._visibilityHandler) {
             document.removeEventListener('visibilitychange', this._visibilityHandler);
         }
         this._visibilityHandler = () => {
             if (document.visibilityState === 'visible') {
-                set(userStatusRef, "online");
-            } else {
-                set(userStatusRef, "away");
+                update(userSearchRef, { lastSeen: serverTimestamp() }).catch(() => {});
             }
         };
         document.addEventListener('visibilitychange', this._visibilityHandler);
 
-        // 60s Heartbeat loop (moved from index.html)
+        // 60s Heartbeat loop: update ONLY lightweight user_search index (~50 bytes)
+        // Never write to `users/${currentUser.id}` here to avoid triggering security.js onValue (saving 3.09 kB/min)
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
         this._heartbeatInterval = setInterval(() => {
-            update(ref(db, `users/${currentUser.id}`), { lastSeen: serverTimestamp() });
+            update(userSearchRef, { lastSeen: serverTimestamp() }).catch(error => {
+                console.warn('Presence index heartbeat failed:', error);
+            });
         }, 60000);
     },
 

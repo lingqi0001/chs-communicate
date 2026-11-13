@@ -63,7 +63,25 @@ export const SidebarModule = {
     },
 
     async _fetchRecentUsers(rt) {
-        const query = rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(20));
+        if (window.httpsCallable && window.firebaseFunctions) {
+            try {
+                const response = await window.withNetworkTimeout(
+                    window.httpsCallable(window.firebaseFunctions, 'getRecentlyJoinedUsers')({ limit: 50 })
+                );
+                const users = Object.fromEntries((response.data || []).filter(user => user?.id).map(user => [user.id, user]));
+                return {
+                    exists: () => Object.keys(users).length > 0,
+                    val: () => users
+                };
+            } catch (error) {
+                console.warn('Recently joined callable unavailable; using the search index:', error);
+            }
+        }
+
+        // Keep the legacy index fallback independent from the new database
+        // ordering rule so the list remains usable until that rule/function is
+        // deployed. The callable above provides the complete chronological list.
+        const query = rt.query(rt.ref(rt.db, 'user_search'), rt.orderByKey(), rt.limitToLast(51));
         let lastError;
 
         // The panel can be opened immediately after sign-in, before RTDB has
@@ -1760,10 +1778,12 @@ export const SidebarModule = {
                 if (recentSnap.exists()) {
                     subList.innerHTML = '';
                     const users = recentSnap.val();
-                    const sortedIds = Object.keys(users).reverse();
+                    const sortedIds = Object.keys(users)
+                        .filter(id => id.toLowerCase() !== String(currentUser.id).toLowerCase())
+                        .sort((a, b) => (Number(users[b]?.registeredAt) || 0) - (Number(users[a]?.registeredAt) || 0) || b.localeCompare(a))
+                        .slice(0, 50);
 
                     sortedIds.forEach(id => {
-                        if (id === currentUser.id) return;
                         const u = users[id];
                         if (!window.ALL_USERS[id]) window.ALL_USERS[id] = u;
 

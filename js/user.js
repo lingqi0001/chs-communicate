@@ -122,6 +122,7 @@ export const UserModule = {
 
         const email = firebaseUser.email.toLowerCase();
         const idPrefix = email.split('@')[0].replace(/\./g, '_');
+        const authRegisteredAt = Date.parse(firebaseUser.metadata?.creationTime || '') || null;
         
         let role = 'user';
         if (email === ADMIN_EMAIL) role = 'admin';
@@ -164,6 +165,12 @@ export const UserModule = {
 
         if (userData) {
             profile = { ...profile, ...userData };
+            // Older profiles may not have a registration timestamp yet. The
+            // Firebase account creation time is stable, unlike lastSeen.
+            if (!Number(profile.registeredAt) && authRegisteredAt) {
+                profile.registeredAt = authRegisteredAt;
+                await CloudDB.update(PATHS.user(idPrefix), { registeredAt: authRegisteredAt });
+            }
             // 更新最后登录时间与角色
             await CloudDB.update(PATHS.user(idPrefix), { 
                 lastSeen: CloudDB.serverTime(), 
@@ -181,6 +188,7 @@ export const UserModule = {
             }
         } else {
             // 新用户初始化
+            profile.registeredAt = authRegisteredAt || Date.now();
             profile.hasAcceptedTerms = false;
             profile._isNewUser = true;
             await CloudDB.set(PATHS.user(idPrefix), {
@@ -188,7 +196,7 @@ export const UserModule = {
                 role: role,
                 email: email,
                 lastSeen: CloudDB.serverTime(),
-                registeredAt: CloudDB.serverTime(),
+                registeredAt: profile.registeredAt,
                 hasAcceptedTerms: false
             });
         }
@@ -199,7 +207,9 @@ export const UserModule = {
         await CloudDB.set(`user_search/${idPrefix}`, {
             name: profile.name,
             email: email,
-            avatar: profile.avatar || null
+            avatar: profile.avatar || null,
+            registeredAt: Number(profile.registeredAt) || authRegisteredAt || null,
+            lastSeen: CloudDB.serverTime()
         });
 
         writeCachedProfile(profile);
