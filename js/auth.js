@@ -345,15 +345,27 @@ export const AuthModule = {
             // before opening the welcome conversation. The user_chats observer
             // can otherwise race this transition and leave the message pane
             // without a selected conversation.
+            const adminId = 'moss104088';
+            window._newUserWelcomeTargetId = adminId;
             await callbacks.onEnterApp();
             if (typeof window.switchChat === 'function') {
                 try {
-                    await window.switchChat('moss104088');
+                    const opened = await window.switchChat(adminId, true);
+                    if (opened === false || String(window.activeTargetId || '').toLowerCase() !== adminId) {
+                        console.warn('New-user admin conversation was not selected.');
+                    }
                 } catch (e) {
                     console.warn('Failed to open the new-user admin conversation:', e);
+                } finally {
+                    if (window._newUserWelcomeTargetId === adminId) {
+                        delete window._newUserWelcomeTargetId;
+                    }
                 }
+            } else {
+                delete window._newUserWelcomeTargetId;
             }
         } catch (err) {
+            delete window._newUserWelcomeTargetId;
             btn.disabled = false;
             btn.innerText = "Start Chatting";
             window.AppModules.Modal.alert("Error", "Failed to save profile: " + err.message);

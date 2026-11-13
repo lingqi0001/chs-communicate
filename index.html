@@ -718,6 +718,9 @@
 
             const initialHub = urlParams.get('hub');
             const initialChatId = urlParams.get('chatid');
+            // A newly completed profile must open its admin welcome thread even
+            // when the browser still has a chatid from an earlier session.
+            const newUserWelcomeTargetId = window._newUserWelcomeTargetId || null;
             const initialWpState = urlParams.get('wp');
             const initialProjectId = urlParams.get('project');
             const initialSidebar = urlParams.get('sidebar');
@@ -760,7 +763,7 @@
                         window.AppModules.Sidebar.restoreUrlState(resolvedSidebar || 'class', resolvedClassId);
                     }
 
-                    if (initialChatId && (window.isLoggedIn || window.isChatPreview) && typeof window.switchChat === 'function') {
+                    if (initialChatId && !newUserWelcomeTargetId && (window.isLoggedIn || window.isChatPreview) && typeof window.switchChat === 'function') {
                         const chatSwitchResult = await window.switchChat(initialChatId, true);
                         initialChatRouteAccepted = chatSwitchResult !== false && String(window.activeTargetId || '') === initialChatId;
                         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -1568,6 +1571,7 @@
                     ref,
                     orderByKey,
                     limitToLast,
+                    getLocalMessages,
                     getCurrentUser: () => currentUser,
                     getActiveTargetId: () => activeTargetId,
                     getAllUsers: () => ALL_USERS,

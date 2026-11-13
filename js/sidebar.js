@@ -1866,9 +1866,14 @@ export const SidebarModule = {
                     const chatSnap = await this._fetch(rt.ref(rt.db, `user_chats/${currentUser.id.toLowerCase()}`));
                     chatMap = chatSnap.val() || {};
                 }
+                if (listMode === 'recent' && !Object.keys(chatMap).some(id => id.toLowerCase() === 'moss104088')) {
+                    // The admin contact is a permanent entry in Recent, even
+                    // for accounts that have not sent any messages yet.
+                    chatMap.moss104088 = 0;
+                }
                 let chatIds = Object.keys(chatMap).filter(id => !id.includes('_gmail_') && !id.includes('_inst_'));
 
-                if (!offline && Object.keys(chatMap).length === 0) {
+                if (!offline && listMode !== 'recent' && Object.keys(chatMap).length === 0) {
                     try {
                         const recentSnap = await this._fetchRecentUsers(rt);
                         if (recentSnap.exists()) {
@@ -1883,7 +1888,7 @@ export const SidebarModule = {
                     } catch (e) { }
                 }
 
-                const validIds = [];
+                let validIds = [];
                 await Promise.all(chatIds.map(async id => {
                     if (id.startsWith('group_')) {
                         validIds.push(id);
@@ -1897,8 +1902,43 @@ export const SidebarModule = {
                     // Offline there is nothing to ask: a person shows up only if
                     // their name is already in the index.
                     if (!u && !offline) u = await this._fetchUser(id);
-                    if (u && u.name) validIds.push(id);
+                    if ((u && u.name) || id.toLowerCase() === 'moss104088') validIds.push(id);
                 }));
+
+                if (listMode === 'recent') {
+                    const adminEmail = String(window.AppModules?.Config?.APP_CONSTANTS?.ADMIN_EMAIL || '').toLowerCase();
+                    const currentId = String(currentUser.id || '').toLowerCase();
+                    const hasConversationMessage = messageMap => Object.values(messageMap || {}).some(message =>
+                        message && typeof message === 'object' && String(message.senderId || '').toLowerCase() === currentId
+                    );
+                    const hasRecentConversation = await Promise.all(validIds.map(async id => {
+                        if (id.startsWith('group_') || (rt.isExtensionTargetId && rt.isExtensionTargetId(id))) return true;
+                        const user = window.ALL_USERS[id] || {};
+                        const normalizedId = String(id).toLowerCase();
+                        if (normalizedId === 'moss104088' || (adminEmail && String(user.email || '').toLowerCase() === adminEmail) || String(user.role || '').toLowerCase() === 'admin') {
+                            return true;
+                        }
+
+                        const chatId = [currentId, normalizedId].sort().join('_');
+                        try {
+                            const localMessages = await rt.getLocalMessages?.(chatId);
+                            if (hasConversationMessage(localMessages)) return true;
+                            if (offline) {
+                                return false;
+                            }
+                            const messagesSnap = await this._fetch(rt.query(
+                                rt.ref(rt.db, `messages/${chatId}`),
+                                rt.orderByKey(),
+                                rt.limitToLast(10)
+                            ));
+                            return hasConversationMessage(messagesSnap.val());
+                        } catch (error) {
+                            console.warn(`[Sidebar] Could not verify recent conversation with ${id}:`, error);
+                            return false;
+                        }
+                    }));
+                    validIds = validIds.filter((id, index) => hasRecentConversation[index]);
+                }
 
                 if (!offline) {
                     const known = {};

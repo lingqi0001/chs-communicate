@@ -1707,6 +1707,9 @@ export function initChatEngine(deps) {
             const map = chatMap || {};
             const myId = String(currentUser.id || '').toLowerCase();
             const activeTargetId = getActiveTargetId();
+            // The new-user profile flow opens its admin welcome thread after
+            // app setup; don't let the recent-chat default race that choice.
+            if (window._newUserWelcomeTargetId) return;
             // A URL-selected conversation has priority over the recent-list
             // default. The list listener can fire before route restoration and
             // must not start a competing switch in that window.
