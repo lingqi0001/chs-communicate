@@ -478,12 +478,90 @@ export function initChatEngine(deps) {
             const msgKey = snap.key;
             if (!updatedMsg || !msgKey) return;
 
-            // Save updated message locally
-            saveMessageLocal(chatId, msgKey, updatedMsg);
+            // Preserve locally cached comments before saving updated message to local DB
+            try {
+                getLocalMessages(chatId).then(localMsgs => {
+                    const targetMsg = localMsgs.find(m => m && m.key === msgKey);
+                    if (targetMsg?.docData?.comments && (!updatedMsg.docData || !updatedMsg.docData.comments || updatedMsg.docData.comments.length === 0)) {
+                        updatedMsg.docData = { ...(updatedMsg.docData || {}), comments: targetMsg.docData.comments };
+                    }
+                    saveMessageLocal(chatId, msgKey, updatedMsg);
+                }).catch(() => {
+                    saveMessageLocal(chatId, msgKey, updatedMsg);
+                });
+            } catch (err) {
+                saveMessageLocal(chatId, msgKey, updatedMsg);
+            }
 
-            // If it's a doc message, update rendered bubble if present
             const oldEl = chatBox.querySelector(`[data-key="${msgKey}"]`);
             if (!oldEl) return;
+
+            // If it's a doc message with an existing card in DOM, update in place.
+            // NEVER call replaceWith() here: tearing down the card destroys the active drawer,
+            // interrupts accordion animation, wipes comments (since Firebase messages don't
+            // carry full comment bodies), and causes the card to collapse and re-expand.
+            const oldDocCard = oldEl.querySelector('.doc-card-container');
+            if (oldDocCard) {
+                const docData = updatedMsg.docData;
+                if (docData) {
+                    // Update Title
+                    if (docData.title && docData.title !== 'Google Document') {
+                        const titleEl = oldDocCard.querySelector('[id^="docTitle-"]');
+                        if (titleEl) {
+                            titleEl.innerText = docData.title;
+                            titleEl.title = docData.title;
+                        }
+                    }
+                    // Update Badge
+                    const badgeEl = oldDocCard.querySelector('[id^="docBadge-"]');
+                    if (badgeEl && window.WritingDocCard?.docBadgeLabel) {
+                        badgeEl.innerText = window.WritingDocCard.docBadgeLabel(docData);
+                    }
+                    // Update Date
+                    const dateEl = oldDocCard.querySelector('[id^="docDate-"]');
+                    if (dateEl && docData.createdTime) {
+                        const cStr = new Date(docData.createdTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        dateEl.innerText = `Created ${cStr}`;
+                        dateEl.classList.remove('hidden');
+                    }
+                    // Update attributes
+                    if (docData.commentsCount !== undefined) {
+                        oldDocCard.setAttribute('data-total-comments', docData.commentsCount);
+                    }
+                    // Update status notice
+                    if (window.WritingDocCard?.renderDocStatusNoticeHtml) {
+                        const existingNotice = oldDocCard.querySelector('[id^="docStatusNotice-"]');
+                        const cardKey = oldDocCard.querySelector('[id^="docList-"]')?.id.replace('docList-', '') || msgKey;
+                        const noticeHtml = window.WritingDocCard.renderDocStatusNoticeHtml(docData, cardKey);
+                        if (existingNotice) {
+                            if (noticeHtml) existingNotice.outerHTML = noticeHtml;
+                            else existingNotice.remove();
+                        } else if (noticeHtml) {
+                            const cardDrawer = oldDocCard.querySelector('[id^="docDrawer-"]');
+                            if (cardDrawer) cardDrawer.insertAdjacentHTML('beforebegin', noticeHtml);
+                        }
+                    }
+                    // Only update comments if updatedMsg explicitly provided a non-empty comments array
+                    if (Array.isArray(docData.comments) && docData.comments.length > 0 && window.WritingDocCard?.renderDocCommentsHtml) {
+                        const cardList = oldDocCard.querySelector('[id^="docList-"]');
+                        if (cardList) {
+                            const cardKey = cardList.id.replace('docList-', '');
+                            const liveComments = window.WritingDocCard.docLiveComments(docData.comments);
+                            let openCount = 0;
+                            liveComments.forEach(c => { if (!c.resolved) openCount++; });
+                            const resolvedCount = liveComments.length - openCount;
+                            const match = (updatedMsg.text || '').match(/\/d\/([a-zA-Z0-9-_]+)/);
+                            const docId = docData.fileId || (match ? match[1] : '');
+                            const docUrl = docData.docUrl || (match ? match[0] : '');
+                            const nextHtml = window.WritingDocCard.renderDocCommentsHtml(cardKey, docData.comments, liveComments.length, openCount, resolvedCount, docId, docUrl, docData);
+                            if (cardList.innerHTML !== nextHtml) {
+                                cardList.innerHTML = nextHtml;
+                            }
+                        }
+                    }
+                }
+                return;
+            }
 
             const newEl = UIComponents.createChatBubble(updatedMsg, msgKey, getCurrentUser(), setupLongPress);
             if (!newEl) return;
@@ -1182,6 +1260,29 @@ export function initChatEngine(deps) {
             let targetUser = users[targetId] || users[normalizedTargetId] || null;
             if (!targetUser) targetUser = await safeFetchUser(targetId);
 
+            // If remote fetch failed, check if we have local message history with this target
+            if (!targetUser) {
+                try {
+                    const fallbackDb = window.localDB || (typeof localDB !== 'undefined' ? localDB : null);
+                    if (fallbackDb) {
+                        const tx = fallbackDb.transaction('messages', 'readonly');
+                        const store = tx.objectStore('messages');
+                        const allMsgs = await store.getAll();
+                        const hasLocalRecord = allMsgs.some(m =>
+                            String(m.chatId || '').toLowerCase().includes(normalizedTargetId) ||
+                            String(m.chatName || '').toLowerCase() === normalizedTargetId ||
+                            String(m.senderId || '').toLowerCase() === normalizedTargetId ||
+                            String(m.recipientId || '').toLowerCase() === normalizedTargetId
+                        );
+                        if (hasLocalRecord) {
+                            targetUser = { id: targetId, name: targetId, email: `${targetId}@gmail.com` };
+                            window.ALL_USERS = window.ALL_USERS || {};
+                            window.ALL_USERS[normalizedTargetId] = targetUser;
+                        }
+                    }
+                } catch (e) {}
+            }
+
             const resolvedUserId = String(targetUser?.id || targetId).toLowerCase();
             const isAdminAlias = normalizedTargetId === 'admin_moss' && resolvedUserId === 'moss104088';
             if (!targetUser || (targetUser.id && resolvedUserId !== normalizedTargetId && !isAdminAlias)) {
@@ -1418,22 +1519,26 @@ export function initChatEngine(deps) {
         if (forceReload) await loadChatThread(chatId, true);
         else loadChatThread(chatId);
 
-        document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
-            const divId = div.id.replace('item-', '');
-            if (divId === targetId) {
-                div.classList.add('active-chat-item');
-                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'hover:bg-black/5', 'dark:hover:bg-white/5');
-            } else {
-                div.classList.remove('active-chat-item');
-                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
-                if (!div.classList.contains('hover:bg-black/5')) {
-                    div.classList.add('hover:bg-black/5');
+        if (window.AppModules?.Sidebar?.updateActiveChatItem) {
+            window.AppModules.Sidebar.updateActiveChatItem(targetId);
+        } else {
+            document.querySelectorAll('#sidebarLevel1Container div[id^="item-"], #sidebarLevel2Container div[id^="item-"], #sidebarSubList div[id^="item-"]').forEach(div => {
+                const divId = div.id.replace('item-', '');
+                if (divId === targetId) {
+                    div.classList.add('active-chat-item');
+                    div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'hover:bg-black/5', 'dark:hover:bg-white/5');
+                } else {
+                    div.classList.remove('active-chat-item');
+                    div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                    if (!div.classList.contains('hover:bg-black/5')) {
+                        div.classList.add('hover:bg-black/5');
+                    }
+                    if (!div.classList.contains('dark:hover:bg-white/5')) {
+                        div.classList.add('dark:hover:bg-white/5');
+                    }
                 }
-                if (!div.classList.contains('dark:hover:bg-white/5')) {
-                    div.classList.add('dark:hover:bg-white/5');
-                }
-            }
-        });
+            });
+        }
 
         // If Writing Portfolio drawer is currently open, switch it to the newly active contact
         const writingDrawer = document.getElementById('writingPortfolioDrawer');
@@ -1779,16 +1884,20 @@ export function initChatEngine(deps) {
             // When shrinking into phone layout (<640), default back to message list panel.
             if (!wasMobileLayout && isMobileLayout) {
                 window.AppModules?.View?.showPanel?.('messages');
-                document.querySelectorAll('#sidebarSubList div[id^="item-"]').forEach(div => {
-                    div.classList.remove('active-chat-item');
-                    div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
-                    if (!div.classList.contains('hover:bg-black/5')) {
-                        div.classList.add('hover:bg-black/5');
-                    }
-                    if (!div.classList.contains('dark:hover:bg-white/5')) {
-                        div.classList.add('dark:hover:bg-white/5');
-                    }
-                });
+                if (window.AppModules?.Sidebar?.updateActiveChatItem) {
+                    window.AppModules.Sidebar.updateActiveChatItem(null);
+                } else {
+                    document.querySelectorAll('#sidebarLevel1Container div[id^="item-"], #sidebarLevel2Container div[id^="item-"], #sidebarSubList div[id^="item-"]').forEach(div => {
+                        div.classList.remove('active-chat-item');
+                        div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                        if (!div.classList.contains('hover:bg-black/5')) {
+                            div.classList.add('hover:bg-black/5');
+                        }
+                        if (!div.classList.contains('dark:hover:bg-white/5')) {
+                            div.classList.add('dark:hover:bg-white/5');
+                        }
+                    });
+                }
             }
 
             if (wasFullDesktop && isMidRange) {
@@ -2961,7 +3070,7 @@ export function initChatEngine(deps) {
                         </svg>
                     </div>
                     <div class="flex flex-col min-w-0">
-                        <span class="text-[13px] font-semibold text-black dark:text-white leading-tight truncate">${escapeHTML(d.title)}</span>
+                        <span class="text-[13px] font-semibold text-black dark:text-white leading-normal pb-0.5 truncate">${escapeHTML(d.title)}</span>
                         <span class="text-[11px] text-black dark:text-white mt-0.5">${d.sub}</span>
                     </div>
                 </button>`).join('');
@@ -5732,7 +5841,7 @@ export function initChatEngine(deps) {
                 class="w-full px-3 py-2.5 rounded-[14px] flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
                 <span class="w-7 h-7 rounded-full wp-row-disc text-black dark:text-white flex items-center justify-center flex-shrink-0">${icon}</span>
                 <span class="flex flex-col min-w-0 flex-1">
-                    <span class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">${UIUtils.escape(name)}</span>
+                    <span class="text-[14px] font-semibold text-black dark:text-white leading-normal pb-0.5 truncate">${UIUtils.escape(name)}</span>
                     ${sub ? `<span class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">${sub}</span>` : ''}
                 </span>
                 ${selected ? WP_ROW_CHECK : ''}
@@ -6968,6 +7077,8 @@ export function initChatEngine(deps) {
     window.sendCommentCardTo = sendCommentCardTo;
     window.handleMsgJumpDoc = handleMsgJumpDoc;
     window.jumpCommentCard = jumpCommentCard;
+    window.showDocAccessHelp = WB.showDocAccessHelp;
+    window.copyDocBotEmail = WB.copyDocBotEmail;
     window.replyCommentCardStrip = replyCommentCardStrip;
     window.handleImg = handleImg;
     window.switchChat = switchChat;

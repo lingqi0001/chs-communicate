@@ -417,10 +417,60 @@ export const ViewModule = {
         }
     },
     toggleSidebarPin: function () {
+        if (this.state.isSidebarTransitioning) return;
+        this.state.isSidebarTransitioning = true;
+
         const sidebarHandle = document.getElementById('sidebarHandle');
         const chatSection = document.getElementById('chatSection');
         const chatBox = document.getElementById('chatBox');
         const glass = document.getElementById('chatSectionGlass');
+
+        // Clear any active divider highlights immediately so lines don't stay lit up
+        document.querySelectorAll('.is-highlighted').forEach(el => el.classList.remove('is-highlighted'));
+
+        // 缩放展开时的磨砂模糊动画开关（触发与过渡代码完整保留，暂时配置为都不触发）
+        const ENABLE_TRANSITION_GLASS = false;
+        const useGlass = ENABLE_TRANSITION_GLASS && !!glass && !this.isMobile();
+
+        // Immediately show the frosted glass overlay for smooth visual blur transition
+        if (useGlass) {
+            glass.style.opacity = '1';
+            glass.style.pointerEvents = 'auto';
+        }
+
+        if (sidebarHandle) {
+            sidebarHandle.classList.add('is-transitioning');
+        }
+
+        // Find the top-most visible message bubble to use as a scroll anchor
+        let anchorElement = null;
+        let anchorOffset = 0;
+        const isAtBottom = chatBox ? (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 50) : false;
+
+        if (chatBox && !isAtBottom) {
+            const bubbles = chatBox.querySelectorAll('.msg-pop');
+            const boxRect = chatBox.getBoundingClientRect();
+            for (let i = 0; i < bubbles.length; i++) {
+                const rect = bubbles[i].getBoundingClientRect();
+                if (rect.bottom > boxRect.top) {
+                    anchorElement = bubbles[i];
+                    anchorOffset = rect.top - boxRect.top;
+                    break;
+                }
+            }
+        }
+
+        const restoreScroll = () => {
+            if (!chatBox) return;
+            if (isAtBottom) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } else if (anchorElement) {
+                const boxRect = chatBox.getBoundingClientRect();
+                const elemRect = anchorElement.getBoundingClientRect();
+                const currentOffset = elemRect.top - boxRect.top;
+                chatBox.scrollTop += (currentOffset - anchorOffset);
+            }
+        };
 
         // In four-panel mode the handle belongs to the Hub+Tools pair, so collapse
         // both left panels together without changing the normal sidebar preference.
@@ -430,99 +480,27 @@ export const ViewModule = {
             document.body.classList.toggle('four-panel-collapsed', collapsed);
             this.state.isSidebarOpen = !collapsed;
             localStorage.setItem('fourPanelCollapsed', collapsed ? 'true' : 'false');
-            sidebarHandle?.classList.add('is-transitioning');
-            setTimeout(() => sidebarHandle?.classList.remove('is-transitioning'), 500);
+
+            setTimeout(() => {
+                sidebarHandle?.classList.remove('is-transitioning');
+                this.state.isSidebarTransitioning = false;
+
+                // Smoothly fade out the glass overlay
+                if (useGlass) {
+                    glass.style.opacity = '0';
+                    glass.style.pointerEvents = 'none';
+                }
+
+                restoreScroll();
+                requestAnimationFrame(restoreScroll);
+                setTimeout(restoreScroll, 60);
+                window.dispatchEvent(new Event('resize'));
+            }, 500);
             return;
         }
 
-        // Detect if we should use the glass overlay/width-locking effect
-        let useGlass = true;
-        if (chatBox) {
-            const messages = chatBox.querySelectorAll('.msg-pop');
-            // Only inspect the last 35 messages (representing the active visible messages in the viewport)
-            const activeMessages = Array.from(messages).slice(-35);
-            
-            let complexCount = 0;
-            let hasTallCard = false;
-            for (let i = 0; i < activeMessages.length; i++) {
-                const msg = activeMessages[i];
-                // Group chats append a sender name element before the bubble. 
-                // Target the actual bubble (last child) to avoid name height/text bias.
-                const bubble = msg.lastElementChild || msg;
-                const height = bubble.offsetHeight || 0;
-                const text = bubble.textContent || bubble.innerText || '';
-                
-                // Height > 200px indicates an extremely tall card/media block
-                if (height > 200) {
-                    hasTallCard = true;
-                    break;
-                }
-                // Height > 60px, containing newlines, or text length > 200 indicates complex rich text/wrap
-                if (height > 60 || text.includes('\n') || text.trim().length > 200) {
-                    complexCount++;
-                }
-            }
-            // If there are no extremely tall media/cards and at most 12 wrapping multiline messages, it won't stutter
-            if (!hasTallCard && complexCount <= 12) {
-                useGlass = false;
-            }
-        }
-
-        if (sidebarHandle) {
-            sidebarHandle.classList.add('is-transitioning');
-        }
-
+        // Trigger the standard / 3-panel sidebar transition
         const isCollapsed = !document.body.classList.contains('sidebar-collapsed'); // next state
-
-        let startWidth = 0;
-        let finalWidth = 0;
-
-        if (useGlass && chatSection) {
-            startWidth = chatSection.getBoundingClientRect().width;
-            
-            // Measure final width by temporarily toggling the class and measuring
-            document.body.classList.toggle('sidebar-collapsed');
-            finalWidth = chatSection.getBoundingClientRect().width;
-            document.body.classList.toggle('sidebar-collapsed'); // toggle back
-        }
-
-        if (useGlass && glass && !this.isMobile()) {
-            // Immediately show the glass overlay to cover layout snap
-            glass.style.opacity = '1';
-            glass.style.pointerEvents = 'auto';
-        }
-
-        if (useGlass && chatBox && !this.isMobile()) {
-            // Lock chatBox to its current start width right-aligned during the transition
-            // to keep it perfectly stationary on the screen with no layout thrashing.
-            chatBox.style.width = startWidth + 'px';
-            chatBox.style.alignSelf = 'flex-end';
-            chatBox.style.flex = 'none';
-            chatBox.style.transform = '';
-            chatBox.style.transition = '';
-            chatBox.offsetHeight; // force reflow
-        }
-
-        // Find the top-most visible message bubble to use as a scroll anchor
-        let anchorElement = null;
-        let anchorOffset = 0;
-        const isAtBottom = chatBox ? (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 50) : false;
-        
-        if (chatBox && !isAtBottom) {
-            const bubbles = chatBox.querySelectorAll('.msg-pop');
-            const boxRect = chatBox.getBoundingClientRect();
-            for (let i = 0; i < bubbles.length; i++) {
-                const rect = bubbles[i].getBoundingClientRect();
-                // Find the first bubble that is visible (its top is near or below the chat container's top)
-                if (rect.bottom > boxRect.top) {
-                    anchorElement = bubbles[i];
-                    anchorOffset = rect.top - boxRect.top;
-                    break;
-                }
-            }
-        }
-
-        // Trigger the sidebar transition
         document.body.classList.toggle('sidebar-collapsed');
         this.state.isSidebarOpen = !isCollapsed;
         localStorage.setItem('sidebarPinned', isCollapsed ? 'false' : 'true');
@@ -531,40 +509,21 @@ export const ViewModule = {
             if (sidebarHandle) {
                 sidebarHandle.classList.remove('is-transitioning');
             }
+            this.state.isSidebarTransitioning = false;
 
-            // Once left panel animation is complete, reset inline styles
-            // to let the chatBox stretch to fill the newly layout width
-            if (useGlass) {
-                this.updateChatBoxDimensions();
-            }
+            this.updateChatBoxDimensions();
 
             // Smoothly fade out the glass overlay
-            if (useGlass && glass) {
+            if (useGlass) {
                 glass.style.opacity = '0';
                 glass.style.pointerEvents = 'none';
             }
 
-            // Precisely restore scroll position using element-based anchoring
-            const restoreScroll = () => {
-                if (!chatBox) return;
-                if (isAtBottom) {
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                } else if (anchorElement) {
-                    const boxRect = chatBox.getBoundingClientRect();
-                    const elemRect = anchorElement.getBoundingClientRect();
-                    const currentOffset = elemRect.top - boxRect.top;
-                    chatBox.scrollTop += (currentOffset - anchorOffset);
-                }
-            };
-
-            // Run restoration immediately and also after next frame to catch layout calculations
             restoreScroll();
             requestAnimationFrame(restoreScroll);
-            setTimeout(restoreScroll, 60); // catch any resize-induced layout shifts
+            setTimeout(restoreScroll, 60);
+            window.dispatchEvent(new Event('resize'));
         }, 500);
-
-        // 侧边栏切换时，触发 resize 以便聊天窗口滚动对齐
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
     },
 
     /**
@@ -637,6 +596,7 @@ export const ViewModule = {
     },
 
     setDarkMode: function (isDark, storageMode = null) {
+        // storageMode 可能是 'dark', 'light', 'system' 或 null
         // storageMode 可以�?'dark', 'light', 'system' �?null
         this.state.isDarkMode = isDark;
         if (isDark) {
@@ -674,6 +634,9 @@ export const ViewModule = {
 
         if (typeof window.updateSettingsLabels === 'function') {
             window.updateSettingsLabels();
+        }
+        if (typeof window.updateQuickThemeTooltips === 'function') {
+            window.updateQuickThemeTooltips();
         }
 
         // 刷新导航栏颜色样式以适应新主题
@@ -1587,6 +1550,9 @@ export const ViewModule = {
         }
         if (typeof window.updateSettingsLabels === 'function') {
             window.updateSettingsLabels();
+        }
+        if (typeof window.updateQuickThemeTooltips === 'function') {
+            window.updateQuickThemeTooltips();
         }
     },
 

@@ -454,17 +454,14 @@ export const SidebarModule = {
                     });
                 }
                 // Keep the hidden Level 1 list in sync with the selected tab.
-                // A direct class route can arrive after the default Recent list
-                // has already painted; preserving that stale list here makes
-                // Back reveal Recent rows beneath the selected Class tab.
-                let level1SubList = level1Container.querySelector('#sidebarSubList');
-                if (!level1SubList) {
+                let activeLevel1List = this.getActiveSubList();
+                if (!activeLevel1List) {
                     await this._renderLevel1(level1Container, false);
-                    level1SubList = level1Container.querySelector('#sidebarSubList');
-                } else if (window.sidebarMode === 'class' && level1SubList.dataset.listMode !== 'class') {
-                    level1SubList.innerHTML = this._loadingHtml('Loading classes...');
-                    delete level1SubList.dataset.sidebarListSignature;
-                    this.renderClassLevel1(level1SubList);
+                    activeLevel1List = this.getActiveSubList();
+                } else if (window.sidebarMode === 'class' && activeLevel1List.dataset.listMode !== 'class') {
+                    activeLevel1List.innerHTML = this._loadingHtml('Loading classes...');
+                    delete activeLevel1List.dataset.sidebarListSignature;
+                    this.renderClassLevel1(activeLevel1List);
                 }
 
                 // The shared bar becomes the sub-panel header: back + title, left-aligned.
@@ -578,20 +575,9 @@ export const SidebarModule = {
 
             await this._renderLevel1(level1Container, isTabSwitch);
 
-            const subList1 = level1Container.querySelector('#sidebarSubList');
-            if (isTabSwitch && subList1 && !returnFired) {
-                // A return flight owns the Level 1 scroll: no top-reset, the
-                // landing row was centred by _rowTextRect instead — iOS pops
-                // back to where you were, never to the top.
-                subList1._isProgrammaticScroll = true;
-                subList1.scrollTop = 0;
-                requestAnimationFrame(() => {
-                    subList1._isProgrammaticScroll = false;
-                });
-            }
-
-            if (subList1 && window.setupCustomScrollbar) {
-                window.setupCustomScrollbar(subList1);
+            const activeSubList = this.getActiveSubList();
+            if (activeSubList && window.setupCustomScrollbar) {
+                window.setupCustomScrollbar(activeSubList);
             }
 
         } catch (err) {
@@ -609,51 +595,93 @@ export const SidebarModule = {
         }
     },
 
-    async _renderLevel1(level1Container, isTabSwitch) {
-        if (!level1Container.querySelector('#sidebarSubList')) {
-            level1Container.innerHTML = `
-                <div id="sidebarSubList" class="flex-1 overflow-y-auto pb-28 lg:pb-4"></div>
+    _renderLevel1Panes(container) {
+        if (!container.querySelector('#subListRecent')) {
+            container.innerHTML = `
+                <div class="relative w-full h-full flex-1 min-h-0 overflow-hidden">
+                    <div id="subListRecent" class="sidebar-tab-pane" data-pane-mode="recent"></div>
+                    <div id="subListAll" class="sidebar-tab-pane" data-pane-mode="all"></div>
+                    <div id="subListClass" class="sidebar-tab-pane" data-pane-mode="class"></div>
+                </div>
             `;
         }
+        return {
+            recent: container.querySelector('#subListRecent'),
+            all: container.querySelector('#subListAll'),
+            class: container.querySelector('#subListClass')
+        };
+    },
 
-        // The switcher now lives in the shared chrome bar, so a Level 1 render
-        // only re-syncs its active segment and the indicator pill.
+    getActiveSubList() {
+        const mode = window.sidebarMode || 'recent';
+        if (mode === 'class') return document.getElementById('subListClass') || document.getElementById('sidebarSubList');
+        if (mode === 'all') return document.getElementById('subListAll') || document.getElementById('sidebarSubList');
+        return document.getElementById('subListRecent') || document.getElementById('sidebarSubList');
+    },
+
+    updateActiveChatItem(targetId = null) {
+        const rt = this._runtime;
+        const activeId = targetId !== null ? targetId : (rt?.getActiveTargetId ? rt.getActiveTargetId() : (window.activeTargetId || null));
+        const items = document.querySelectorAll('#sidebarLevel1Container div[id^="item-"], #sidebarLevel2Container div[id^="item-"], #sidebarSubList div[id^="item-"]');
+        items.forEach(div => {
+            const id = div.id.replace('item-', '');
+            if (activeId && id === activeId) {
+                div.classList.add('active-chat-item');
+                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50', 'hover:bg-black/5', 'dark:hover:bg-white/5');
+            } else {
+                div.classList.remove('active-chat-item');
+                div.classList.remove('hover:bg-gray-50/5', 'hover:bg-gray-50/50');
+                if (!div.classList.contains('hover:bg-black/5')) {
+                    div.classList.add('hover:bg-black/5');
+                }
+                if (!div.classList.contains('dark:hover:bg-white/5')) {
+                    div.classList.add('dark:hover:bg-white/5');
+                }
+            }
+        });
+    },
+
+    async _renderLevel1(level1Container, isTabSwitch) {
+        const panes = this._renderLevel1Panes(level1Container);
+
+        // Sync tab buttons & indicator pill
         this._syncTabState();
 
-        const subList = level1Container.querySelector('#sidebarSubList');
-        const tabAnimationKey = `${window.sidebarMode || 'recent'}:${window.currentClassId || ''}`;
-        // A sync-triggered render can be queued while the click render is
-        // still settling.  It carries the same tab state, so it must not
-        // restart the list entrance animation.
-        const shouldAnimateTab = isTabSwitch && this._lastTabAnimationKey !== tabAnimationKey;
-        if (shouldAnimateTab) this._lastTabAnimationKey = tabAnimationKey;
-        const shouldAnimateList = shouldAnimateTab || window._isPopNav;
-        if (shouldAnimateList) {
-            subList?.classList.remove('tab-fade-up', 'sidebar-full-slide-pop', 'sidebar-full-slide-in');
+        // Immediately sync the active chat selection highlight across panes (0ms, no flash)
+        this.updateActiveChatItem();
+
+        const modes = ['recent', 'all', 'class'];
+        const targetMode = window.sidebarMode || 'recent';
+        const targetIndex = modes.indexOf(targetMode);
+
+        // Slide & crossfade all 3 panes exactly like Hub/Tool in switchLeftTab
+        modes.forEach((m, idx) => {
+            const pane = panes[m];
+            if (!pane) return;
+            if (m === targetMode) {
+                pane.style.opacity = '1';
+                pane.style.transform = 'translateX(0)';
+                pane.style.pointerEvents = 'auto';
+                pane.style.zIndex = '10';
+            } else {
+                const offset = (idx < targetIndex) ? '-40px' : '40px';
+                pane.style.opacity = '0';
+                pane.style.transform = `translateX(${offset})`;
+                pane.style.pointerEvents = 'none';
+                pane.style.zIndex = '0';
+            }
+        });
+
+        // Trigger asynchronous data renders into the respective independent panes
+        if (targetMode === 'class') {
+            this.renderClassLevel1(panes.class);
+        } else if (targetMode === 'all') {
+            this.renderUserSidebarItems(panes.all);
+        } else {
+            this.renderUserSidebarItems(panes.recent);
         }
 
-        // When returning from Level 2, Level 1 was already populated underneath; preserve it to eliminate flickering
-        if (window._isPopNav && subList && subList.children.length > 0) {
-            window._isPopNav = false;
-            if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
-            return;
-        }
-
-        // Same rule as Level 2: schedule the data render, never await it —
-        // the render paints its own loading state and updates when data lands.
-        if (window.sidebarMode === 'class') this.renderClassLevel1(subList);
-        else this.renderUserSidebarItems(subList);
-
-        if (shouldAnimateList) {
-            void subList.offsetWidth;
-            requestAnimationFrame(() => {
-                if (!window._isPopNav) {
-                    // In fadeSlide, Level 1 stays stationary when popping, so we do not animate it
-                    subList.classList.add('tab-fade-up');
-                }
-                window._isPopNav = false;
-            });
-        }
+        window._isPopNav = false;
 
         if (window.AppModules && window.AppModules.Notify) window.AppModules.Notify.updateUI();
     },
@@ -796,7 +824,7 @@ export const SidebarModule = {
     // cached: entering Level 2 scrolls Level 1 back to the top, so a rect
     // captured at click time would drift by the scroll delta.
     _rowTextRect(classId, ensureVisible) {
-        const list = document.querySelector('#sidebarLevel1Container #sidebarSubList');
+        const list = document.querySelector('#sidebarLevel1Container #subListClass') || document.querySelector('#sidebarLevel1Container #sidebarSubList');
         const row = this._rowEl(classId);
         const nameEl = row && row.querySelector('[data-fly-name]');
         if (!list || !nameEl) return null;
@@ -1036,7 +1064,7 @@ export const SidebarModule = {
         // the user tapped whenever the list repeats an entry.
         const tracked = this._rowRefs && this._rowRefs[classId];
         if (tracked && tracked.isConnected) return tracked;
-        return document.querySelector('#sidebarLevel1Container #sidebarSubList [data-class-id="' + classId + '"]');
+        return document.querySelector('#sidebarLevel1Container [data-class-id="' + classId + '"]');
     },
 
     _trackRow(classId, el) {
@@ -1185,7 +1213,15 @@ export const SidebarModule = {
         if (window.ResizeObserver && !group._tabPillRO) {
             // Covers a 0-width first measure (sidebar hidden at build time):
             // the pill lands with no flight as soon as the bar has a size.
-            group._tabPillRO = new ResizeObserver(() => this._syncTabPill(group, false));
+            group._tabPillRO = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    const { width, height } = entry.contentRect;
+                    if (group._lastW === width && group._lastH === height) continue;
+                    group._lastW = width;
+                    group._lastH = height;
+                    this._syncTabPill(group, false);
+                }
+            });
             group._tabPillRO.observe(group);
         }
         return undefined;
@@ -1630,6 +1666,12 @@ export const SidebarModule = {
                     window.Directory?.saveClasses(myClasses, currentUser.id);
                 }
 
+                const classSignature = `class|${myClasses.map(c => c.id).join('|')}`;
+                if (container.dataset.classListSignature === classSignature) {
+                    if (loadingTimer) clearTimeout(loadingTimer);
+                    return;
+                }
+
                 const wrapper = document.createElement('div');
 
                 if (window.AppModules.User.isTeacher() || window.AppModules.User.isAdmin()) {
@@ -1705,11 +1747,12 @@ export const SidebarModule = {
                 }
 
                 container.dataset.listMode = 'class';
+                container.dataset.classListSignature = classSignature;
                 // The class rows replace the shared subList wholesale, so the
                 // user-list paint signature is no longer truthful — leaving it
                 // would make the next recent/all render skip its repaint.
                 delete container.dataset.sidebarListSignature;
-                container.replaceChildren(wrapper);
+                container.replaceChildren(...wrapper.childNodes);
                 window._isPopNav = false;
             } catch (err) {
                 console.error('renderClassLevel1 error:', err);
@@ -1828,17 +1871,17 @@ export const SidebarModule = {
             // recent_joined pre-fills Level 1 as 'recent' and restores the
             // real mode before this render finishes, so compare a derived
             // mode; also bail out of painting if the user switched tabs.
-            const currentListMode = () => window.sidebarMode === 'recent_joined' ? 'recent' : window.sidebarMode;
+            const currentListMode = () => subList.dataset.paneMode || (window.sidebarMode === 'recent_joined' ? 'recent' : window.sidebarMode);
             const listMode = currentListMode();
             const hadListItems = !!subList.querySelector('div[id^="item-"]');
             const canShowDelayedLoading = !hadListItems;
             let loadingShown = false;
-            if (this._subListLoadingTimer) {
-                clearTimeout(this._subListLoadingTimer);
-                this._subListLoadingTimer = null;
+            if (subList._subListLoadingTimer) {
+                clearTimeout(subList._subListLoadingTimer);
+                subList._subListLoadingTimer = null;
             }
             if (canShowDelayedLoading) {
-                this._subListLoadingTimer = setTimeout(() => {
+                subList._subListLoadingTimer = setTimeout(() => {
                     if (currentListMode() !== listMode) return;
                     loadingShown = true;
                     subList.innerHTML = `
@@ -1977,7 +2020,7 @@ export const SidebarModule = {
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                         </div>
                         <div class="flex flex-col overflow-hidden">
-                            <span data-fly-name${this._rowHandoffId === 'recent_joined' ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-tight truncate">Recently Joined</span>
+                            <span data-fly-name${this._rowHandoffId === 'recent_joined' ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-normal pb-0.5 truncate">Recently Joined</span>
                             <span class="text-xs text-gray-400 mt-0.5 truncate">Meet new community members</span>
                         </div>
                     </div>
@@ -1985,19 +2028,16 @@ export const SidebarModule = {
                 fragment.appendChild(entry);
             }
 
-                const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
-                // Sync and tab navigation can finish their reads in the same
-                // frame.  If they resolve to the same visible list, retaining
-                // the DOM prevents the second paint from replaying the list.
                 const canvasLinkSignature = window.canvasConnectionActive
                     ? Object.keys(window.canvasStudentLinks || {}).sort().join(',')
                     : '';
-                const listSignature = `${listMode}|${activeTargetId || ''}|${sortedIds.join('|')}|canvas:${window.canvasConnectionActive ? 1 : 0}:${canvasLinkSignature}`;
+                const listSignature = `${listMode}|${sortedIds.join('|')}|canvas:${window.canvasConnectionActive ? 1 : 0}:${canvasLinkSignature}`;
                 if (subList.dataset.sidebarListSignature === listSignature) {
-                    if (this._subListLoadingTimer) {
-                        clearTimeout(this._subListLoadingTimer);
-                        this._subListLoadingTimer = null;
+                    if (subList._subListLoadingTimer) {
+                        clearTimeout(subList._subListLoadingTimer);
+                        subList._subListLoadingTimer = null;
                     }
+                    this.updateActiveChatItem();
                     return;
                 }
                 for (const id of sortedIds) {
@@ -2141,9 +2181,9 @@ export const SidebarModule = {
                 }
                     fragment.appendChild(div);
                 }
-                if (this._subListLoadingTimer) {
-                    clearTimeout(this._subListLoadingTimer);
-                    this._subListLoadingTimer = null;
+                if (subList._subListLoadingTimer) {
+                    clearTimeout(subList._subListLoadingTimer);
+                    subList._subListLoadingTimer = null;
                 }
                 if (currentListMode() !== listMode) return;
                 subList.dataset.listMode = listMode;
@@ -2161,10 +2201,11 @@ export const SidebarModule = {
                 // the login card afterwards caused a second layout pass during
                 // the tab entrance, which read as a repeated animation.
                 subList.replaceChildren(fragment);
+                this.updateActiveChatItem();
             } catch (err) {
-                if (this._subListLoadingTimer) {
-                    clearTimeout(this._subListLoadingTimer);
-                    this._subListLoadingTimer = null;
+                if (subList._subListLoadingTimer) {
+                    clearTimeout(subList._subListLoadingTimer);
+                    subList._subListLoadingTimer = null;
                 }
                 console.error('renderUserSidebarItems error:', err);
                 if (currentListMode() !== listMode) return;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chs-v15-20261112';
+const CACHE_NAME = 'chs-v16-20261113';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

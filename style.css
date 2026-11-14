@@ -6,6 +6,32 @@
 /* -------------------------------------------------------------------------- */
 /* Part 1: Global Styles & Overrides                                          */
 /* -------------------------------------------------------------------------- */
+/* Unified smooth theme color transitions (200ms ease for synchronized elegance) */
+body,
+#newsSection,
+#toolsSection,
+#newsHeader,
+#toolsHeader,
+#sidePanel,
+#sidePanelHeader,
+#chatSection,
+#newsAnnouncementsScrollArea,
+#toolsSectionBody,
+#cafeteriaNewsHighlight,
+[data-news-key] {
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+/* Precise slide transition for Hub and Tools main panes with synchronized theme transition */
+#newsMainContent,
+#toolsMainContent {
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 200ms ease,
+                border-color 200ms ease,
+                color 200ms ease;
+}
+
 html,
 body {
     overflow-x: hidden;
@@ -1768,12 +1794,15 @@ body.compact-four-panel-layout #searchResults {
 
 /* 视觉补丁 */
 #sidebarSubList>div,
-#sidebarSubList>button {
+#sidebarSubList>button,
+.sidebar-tab-pane>div,
+.sidebar-tab-pane>button {
     margin-right: -4px !important;
     padding-right: 4px !important;
 }
 
-#sidebarSubList {
+#sidebarSubList,
+.sidebar-tab-pane {
     overflow-x: hidden !important;
 }
 
@@ -2513,7 +2542,13 @@ body {
     }
 
     #newsSection {
-        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    min-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    background-color 200ms ease,
+                    border-color 200ms ease;
         transform-origin: left center;
         overflow: hidden;
         flex-shrink: 0;
@@ -2532,12 +2567,22 @@ body {
         pointer-events: none;
         border-right-width: 0;
         visibility: hidden;
-        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.5s;
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    min-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    background-color 200ms ease,
+                    border-color 200ms ease,
+                    visibility 0s 0.5s;
     }
 
     #sidePanel,
     #chatSection {
-        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.5s ease;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    border-radius 0.5s ease,
+                    background-color 200ms ease,
+                    border-color 200ms ease;
     }
 
     body.sidebar-collapsed #sidePanel,
@@ -2588,6 +2633,12 @@ body {
         box-shadow: none;
     }
 
+    body:not(.sidebar-collapsed):not(.four-panel-collapsed):not(.is-resizing-news):not(.is-resizing-writing-chat):not(.is-resizing-four-panel) #sidebarHandle {
+        transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.35s ease;
+    }
+
     body:not(.sidebar-collapsed):not(.four-panel-collapsed) #sidebarHandle:hover {
         opacity: 1;
         width: 22px;
@@ -2607,44 +2658,57 @@ body {
 
 @media (min-width: 1280px) {
     body.is-logged-in:not(.sidebar-collapsed):not(.four-panel-collapsed):not(.four-panel-layout):not(.compact-four-panel-layout) #sidebarHandle {
-        left: var(--news-panel-width);
+        left: var(--news-panel-width, 370px) !important;
     }
 
     body.is-logged-in:not(.sidebar-collapsed):not(.four-panel-collapsed):not(.four-panel-layout):not(.compact-four-panel-layout) #newsSection {
-        width: var(--news-panel-width) !important;
-        min-width: var(--news-panel-width) !important;
-        max-width: var(--news-panel-width) !important;
+        width: var(--news-panel-width, 370px) !important;
+        min-width: var(--news-panel-width, 370px) !important;
+        max-width: var(--news-panel-width, 370px) !important;
         border-right: 0 !important;
     }
 
     body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #newsSection > * {
-        width: var(--news-panel-width) !important;
+        width: var(--news-panel-width, 370px) !important;
         flex-shrink: 0 !important;
     }
 
     body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #sidePanel {
-        /* The list needs enough room for names, previews, and search. */
-        width: clamp(360px, 25vw, 440px) !important;
-        min-width: clamp(360px, 25vw, 440px) !important;
-        max-width: clamp(360px, 25vw, 440px) !important;
-        flex: 0 0 clamp(360px, 25vw, 440px) !important;
-        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+        width: var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
+        min-width: 330px !important;
+        max-width: var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
+        flex: 0 0 var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
+        border-right: 0 !important;
+    }
+
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #sidePanel::after {
+        display: none !important;
     }
 
     .dark body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #sidePanel {
-        border-right-color: rgba(55, 65, 81, 0.78) !important;
+        border-right: 0 !important;
+    }
+
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #writingChatDivider {
+        display: block !important;
+        pointer-events: auto !important;
+        z-index: 55 !important;
+        margin-top: 0 !important;
+        height: 100% !important;
     }
 
     #chatSection {
-        min-width: 0;
+        min-width: clamp(330px, 22vw, 380px) !important;
         flex: 1 1 auto;
     }
 
-    #newsSideDivider {
+    #newsSideDivider,
+    #hubToolsDivider,
+    #writingChatDivider {
         width: 1px;
         min-width: 1px;
         height: 100%;
-        cursor: col-resize;
+        cursor: default;
         position: relative;
         z-index: 25;
         user-select: none;
@@ -2654,22 +2718,170 @@ body {
         border-right: 0 !important;
         border-top: 0 !important;
         border-bottom: 0 !important;
-        box-shadow: none !important;
+        box-shadow: none;
+        transition: border-left-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+                    box-shadow 160ms cubic-bezier(0.25, 1, 0.5, 1);
     }
 
-    .dark #newsSideDivider {
+    .dark #newsSideDivider,
+    .dark #hubToolsDivider,
+    .dark #writingChatDivider {
         background: #1C1C1E; /* Dark background under the border */
         border-left-color: rgba(55, 65, 81, 0.78);
     }
 
-    #newsSideDivider::before {
-        content: none;
+    #newsSideDivider::before,
+    #hubToolsDivider::before,
+    #writingChatDivider::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -10px;
+        right: -10px;
+        cursor: default;
+        z-index: 30;
+        background: transparent;
+        pointer-events: auto;
     }
 
-    body.is-resizing-news #newsSideDivider,
-    #newsSideDivider:hover {
-        border-left-color: rgba(0, 122, 255, 0.95);
+    #newsSideDivider.is-highlighted,
+    #newsSideDivider.is-highlighted::before,
+    #hubToolsDivider.is-highlighted,
+    #hubToolsDivider.is-highlighted::before,
+    #writingChatDivider.is-highlighted,
+    #writingChatDivider.is-highlighted::before,
+    body.is-resizing-news,
+    body.is-resizing-news *,
+    body.is-resizing-writing-chat,
+    body.is-resizing-writing-chat *,
+    body.is-resizing-four-panel,
+    body.is-resizing-four-panel * {
+        cursor: col-resize !important;
     }
+
+    body.is-resizing-news,
+    body.is-resizing-news *,
+    body.is-resizing-writing-chat,
+    body.is-resizing-writing-chat *,
+    body.is-resizing-four-panel,
+    body.is-resizing-four-panel * {
+        user-select: none !important;
+    }
+
+    /* Kill transitions completely during interactive divider dragging for zero animation lag */
+    body.is-resizing-news #newsSection,
+    body.is-resizing-news #toolsSection,
+    body.is-resizing-news #sidePanel,
+    body.is-resizing-news #chatSection,
+    body.is-resizing-news #newsSideDivider,
+    body.is-resizing-news #writingChatDivider,
+    body.is-resizing-news #sidebarHandle,
+    body.is-resizing-news #sidePanelHeader,
+    body.is-resizing-writing-chat #newsSection,
+    body.is-resizing-writing-chat #toolsSection,
+    body.is-resizing-writing-chat #sidePanel,
+    body.is-resizing-writing-chat #chatSection,
+    body.is-resizing-writing-chat #newsSideDivider,
+    body.is-resizing-writing-chat #writingChatDivider,
+    body.is-resizing-writing-chat #sidebarHandle,
+    body.is-resizing-writing-chat #sidePanelHeader,
+    body.is-resizing-four-panel #newsSection,
+    body.is-resizing-four-panel #toolsSection,
+    body.is-resizing-four-panel #sidePanel,
+    body.is-resizing-four-panel #chatSection,
+    body.is-resizing-four-panel #writingChatDivider,
+    body.is-resizing-four-panel #sidebarHandle,
+    body.is-resizing-four-panel #sidePanelHeader {
+        transition: none !important;
+    }
+
+    body.is-resizing-news #newsSideDivider.is-active:not(.divider-limit-flash),
+    body.is-resizing-writing-chat #writingChatDivider.is-active:not(.divider-limit-flash),
+    body.is-resizing-four-panel #newsSideDivider.is-active:not(.divider-limit-flash),
+    body.is-resizing-four-panel #hubToolsDivider.is-active:not(.divider-limit-flash),
+    body.is-resizing-four-panel #writingChatDivider.is-active:not(.divider-limit-flash),
+    #newsSideDivider.is-highlighted:not(.divider-limit-flash),
+    #hubToolsDivider.is-highlighted:not(.divider-limit-flash),
+    #writingChatDivider.is-highlighted:not(.divider-limit-flash) {
+        border-left-color: var(--ann-accent-color, #007AFF) !important;
+        box-shadow: 0 0 6px color-mix(in srgb, var(--ann-accent-color, #007AFF) 35%, transparent) !important;
+    }
+
+    /* 3-pulse flash alert when boundary is reached */
+    @keyframes dividerBlink3 {
+        0%, 100% {
+            border-left-color: rgba(229, 231, 235, 0.95);
+            box-shadow: 0 0 0 rgba(0, 122, 255, 0);
+        }
+        16%, 50%, 83% {
+            border-left-color: var(--ann-accent-color, #007AFF);
+            box-shadow: 0 0 8px var(--ann-accent-color, #007AFF),
+                        0 0 16px color-mix(in srgb, var(--ann-accent-color, #007AFF) 65%, transparent),
+                        0 0 26px color-mix(in srgb, var(--ann-accent-color, #007AFF) 40%, transparent);
+        }
+        33%, 66% {
+            border-left-color: rgba(229, 231, 235, 0.95);
+            box-shadow: 0 0 0 rgba(0, 122, 255, 0);
+        }
+    }
+
+    @keyframes dividerBlink3Dark {
+        0%, 100% {
+            border-left-color: rgba(55, 65, 81, 0.78);
+            box-shadow: 0 0 0 rgba(0, 122, 255, 0);
+        }
+        16%, 50%, 83% {
+            border-left-color: var(--ann-accent-color, #007AFF);
+            box-shadow: 0 0 8px var(--ann-accent-color, #007AFF),
+                        0 0 16px color-mix(in srgb, var(--ann-accent-color, #007AFF) 65%, transparent),
+                        0 0 26px color-mix(in srgb, var(--ann-accent-color, #007AFF) 40%, transparent);
+        }
+        33%, 66% {
+            border-left-color: rgba(55, 65, 81, 0.78);
+            box-shadow: 0 0 0 rgba(0, 122, 255, 0);
+        }
+    }
+
+    .divider-limit-flash {
+        animation: dividerBlink3 1.05s ease-in-out !important;
+        z-index: 70 !important;
+        transition: none !important;
+    }
+
+    .dark .divider-limit-flash {
+        animation: dividerBlink3Dark 1.05s ease-in-out !important;
+        z-index: 70 !important;
+        transition: none !important;
+    }
+
+    #writingChatDivider.divider-limit-flash {
+        animation: dividerBlink3 1.05s ease-in-out !important;
+        z-index: 58 !important;
+        transition: none !important;
+    }
+
+    .dark #writingChatDivider.divider-limit-flash {
+        animation: dividerBlink3Dark 1.05s ease-in-out !important;
+        z-index: 58 !important;
+        transition: none !important;
+    }
+}
+
+#chatSectionGlass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: opacity 280ms cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: none;
+    z-index: 15;
+}
+
+body:not(.dark) #chatSectionGlass {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.dark #chatSectionGlass {
+    background: rgba(0, 0, 0, 0.35);
 }
 
 @media (min-width: 1024px) {
@@ -2684,6 +2896,8 @@ body.is-guest-three-panel #bottomNavContainer,
 body.is-guest-three-panel #sidebarHandle,
 body.is-guest-three-panel #sidebarTrigger,
 body.is-guest-three-panel #newsSideDivider,
+body.is-guest-three-panel #hubToolsDivider,
+body.is-guest-three-panel #writingChatDivider,
 body.is-guest-three-panel #headTabTools,
 body.is-guest-three-panel .bottom-gradient-shim,
 body.is-guest-two-panel #chatSection,
@@ -2691,17 +2905,33 @@ body.is-guest-two-panel #bottomNavContainer,
 body.is-guest-two-panel #sidebarHandle,
 body.is-guest-two-panel #sidebarTrigger,
 body.is-guest-two-panel #newsSideDivider,
+body.is-guest-two-panel #hubToolsDivider,
+body.is-guest-two-panel #writingChatDivider,
 body.is-guest-two-panel .bottom-gradient-shim {
     display: none !important;
 }
 
 /* Authenticated four-panel desktop layout: Hub | Tools | Message list | Conversation. */
 @media (min-width: 1280px) {
-    /* Four-panel mode uses fixed equal-width columns.  The old desktop
-       divider is a draggable Hub/message-list resizer and must not advertise
-       resizing when that layout is active.  Keep the panel borders as the
-       visual separators, but remove the hit target and hover treatment. */
-    body.four-panel-layout #newsSideDivider {
+    /* Four-panel mode uses interactive dividers between Hub, Tools, Writing, and Chat. */
+    body.four-panel-layout:not(.four-panel-collapsed) #newsSideDivider,
+    body.four-panel-layout:not(.four-panel-collapsed) #hubToolsDivider {
+        display: block !important;
+        pointer-events: auto !important;
+        z-index: 65 !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed) #writingChatDivider {
+        display: block !important;
+        pointer-events: auto !important;
+        z-index: 55 !important;
+        margin-top: 4.5rem !important;
+        height: calc(100% - 4.5rem) !important;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #newsSideDivider,
+    body.four-panel-layout.four-panel-collapsed #hubToolsDivider,
+    body.four-panel-layout.four-panel-collapsed #writingChatDivider {
         display: none !important;
         pointer-events: none !important;
         cursor: default !important;
@@ -2716,21 +2946,52 @@ body.is-guest-two-panel .bottom-gradient-shim {
         transform: none !important;
     }
 
-    /* Messages needs more working room than either Hub or Tools.  Treating
-       all four columns as 25% makes the contact list feel like a cramped rail
-       while the combined Hub + Tools side consumes half the window. */
-    body.four-panel-layout:not(.four-panel-collapsed) #newsSection,
-    body.four-panel-layout:not(.four-panel-collapsed) #toolsSection {
-        flex: 0 0 22% !important;
-        width: 22% !important;
-        max-width: 22% !important;
+    /* Adjustable four-panel columns driven by CSS variables */
+    body.four-panel-layout:not(.four-panel-collapsed) #newsSection {
+        flex: 0 0 var(--four-panel-hub-width, 22%) !important;
+        width: var(--four-panel-hub-width, 22%) !important;
+        min-width: 310px !important;
+        max-width: var(--four-panel-hub-width, 22%) !important;
+        border-right: 0 !important;
     }
 
-    body.four-panel-layout:not(.four-panel-collapsed) #sidePanel,
+    body.four-panel-layout:not(.four-panel-collapsed) #toolsSection {
+        flex: 0 0 var(--four-panel-tools-width, 22%) !important;
+        width: var(--four-panel-tools-width, 22%) !important;
+        min-width: 310px !important;
+        max-width: var(--four-panel-tools-width, 22%) !important;
+        border-right: 0 !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed) #sidePanel {
+        flex: 0 0 var(--four-panel-writing-width, 28%) !important;
+        width: var(--four-panel-writing-width, 28%) !important;
+        min-width: 330px !important;
+        max-width: var(--four-panel-writing-width, 28%) !important;
+    }
+
     body.four-panel-layout:not(.four-panel-collapsed) #chatSection {
-        flex: 0 0 28% !important;
-        width: 28% !important;
-        max-width: 28% !important;
+        flex: 1 1 0% !important;
+        width: auto !important;
+        min-width: clamp(330px, 22vw, 380px) !important;
+        max-width: none !important;
+    }
+
+    body.is-resizing-four-panel #newsSection,
+    body.is-resizing-four-panel #toolsSection,
+    body.is-resizing-four-panel #sidePanel,
+    body.is-resizing-four-panel #chatSection,
+    body.is-resizing-four-panel #writingChatDivider,
+    body.is-resizing-four-panel #sidebarHandle,
+    body.is-resizing-four-panel #sidePanelHeader,
+    body.four-panel-layout.is-resizing-four-panel #newsSection,
+    body.four-panel-layout.is-resizing-four-panel #toolsSection,
+    body.four-panel-layout.is-resizing-four-panel #sidePanel,
+    body.four-panel-layout.is-resizing-four-panel #chatSection,
+    body.four-panel-layout.is-resizing-four-panel #writingChatDivider,
+    body.four-panel-layout.is-resizing-four-panel #sidebarHandle,
+    body.four-panel-layout.is-resizing-four-panel #sidePanelHeader {
+        transition: none !important;
     }
 
     body.four-panel-layout.four-panel-collapsed #sidePanel,
@@ -2740,11 +3001,14 @@ body.is-guest-two-panel .bottom-gradient-shim {
         max-width: 50% !important;
     }
 
-    body.four-panel-layout #sidePanel,
-    body.four-panel-layout #chatSection {
+    body.four-panel-layout:not(.is-resizing-four-panel) #sidePanel,
+    body.four-panel-layout:not(.is-resizing-four-panel) #chatSection {
         transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 200ms ease,
+            border-color 200ms ease,
+            color 200ms ease !important;
     }
 
     body.four-panel-layout #newsSection > *,
@@ -2754,15 +3018,18 @@ body.is-guest-two-panel .bottom-gradient-shim {
         min-width: 0 !important;
     }
 
-    body.four-panel-layout #newsSection,
-    body.four-panel-layout #toolsSection {
+    body.four-panel-layout:not(.is-resizing-four-panel) #newsSection,
+    body.four-panel-layout:not(.is-resizing-four-panel) #toolsSection {
         overflow: hidden !important;
         transform-origin: left center;
         transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             opacity 0.35s ease,
-            transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 200ms ease,
+            border-color 200ms ease,
+            color 200ms ease !important;
         will-change: flex-basis, width, opacity, transform;
     }
 
@@ -2777,11 +3044,16 @@ body.is-guest-two-panel .bottom-gradient-shim {
         z-index: 10 !important;
     }
 
-    /* Vertical divider between Message list and Chat section, starting below the tabs row (so it doesn't cut between CLASS and Moss Mo) */
-    body.four-panel-layout #sidePanel::after {
+    /* In four-panel mode, #writingChatDivider provides the interactive divider between Writing and Chat.
+       Hide the static pseudo-element so there are no duplicate borders. */
+    body.four-panel-layout:not(.four-panel-collapsed) #sidePanel::after {
+        display: none !important;
+    }
+
+    body.four-panel-layout.four-panel-collapsed #sidePanel::after {
         content: '';
         position: absolute;
-        top: 7.25rem; /* 4.5rem top bar + 2.75rem tabs bar */
+        top: 7.25rem;
         bottom: 0;
         right: 0;
         width: 1px;
@@ -2792,17 +3064,17 @@ body.is-guest-two-panel .bottom-gradient-shim {
         z-index: 25;
     }
 
-    .dark body.four-panel-layout #sidePanel::after {
+    .dark body.four-panel-layout.four-panel-collapsed #sidePanel::after {
         background-color: rgba(55, 65, 81, 0.7);
     }
 
     /* Top bar spans from Messages panel all the way to the right edge of the screen (covering Chat header area) */
     body.four-panel-layout #sidePanelHeader {
-        position: absolute !important;
+        position: fixed !important;
         top: 0 !important;
-        left: 0 !important;
-        right: -100% !important; /* Spans across Chat panel to the right edge */
-        width: 200% !important;
+        left: var(--four-panel-boundary, 44vw) !important;
+        right: 0 !important;
+        width: auto !important;
         max-width: none !important;
         z-index: 60 !important;
         display: flex !important;
@@ -2822,6 +3094,19 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #1C1C1E !important;
     }
 
+    body.four-panel-layout.four-panel-collapsed #sidePanelHeader {
+        left: 0 !important;
+        right: 0 !important;
+        width: auto !important;
+    }
+
+    body.four-panel-layout:not(.is-resizing-four-panel) #sidePanelHeader {
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    background-color 200ms ease,
+                    border-color 200ms ease,
+                    color 200ms ease !important;
+    }
+
     body.four-panel-layout #sidePanelHeaderTopRow {
         display: contents !important;
     }
@@ -2836,10 +3121,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
     /* Wide flexible search bar in the unified top header */
     body.four-panel-layout #sidePanelSearchWrap {
         order: 2 !important;
-        flex: 1 1 0 !important;
+        flex: 1 1 0% !important;
         min-width: 0 !important;
         margin: 0 !important;
-        width: 100% !important;
+        width: auto !important;
         z-index: 70 !important;
     }
 
@@ -2902,13 +3187,13 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
 
 
-    /* Keep a clear divider between the independent Hub and Tools panels. */
-    body.four-panel-layout #newsSection {
-        border-right: 1px solid rgba(229, 231, 235, 0.95) !important;
+    /* In four-panel mode, #hubToolsDivider provides the divider between Hub and Tools. */
+    body.four-panel-layout:not(.four-panel-collapsed) #newsSection {
+        border-right: 0 !important;
     }
 
-    .dark body.four-panel-layout #newsSection {
-        border-right-color: rgba(55, 65, 81, 0.78) !important;
+    .dark body.four-panel-layout:not(.four-panel-collapsed) #newsSection {
+        border-right: 0 !important;
     }
 
     /* Hub and Tools are 22% each in this layout, so their shared outer edge
@@ -2924,6 +3209,9 @@ body.is-guest-two-panel .bottom-gradient-shim {
         opacity: 0.4 !important;
         transform: translateY(-50%) translateX(-100%) scaleX(-1) !important;
         z-index: 90 !important;
+    }
+
+    body.four-panel-layout:not(.four-panel-collapsed):not(.is-resizing-four-panel) #sidebarHandle {
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -3015,7 +3303,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
         transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            opacity 0.35s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 200ms ease,
+            border-color 200ms ease,
+            color 200ms ease !important;
     }
 
     body.compact-four-panel-layout #toolsSection {
@@ -3028,8 +3319,8 @@ body.is-guest-two-panel .bottom-gradient-shim {
         min-width: 0 !important;
     }
 
-    body.compact-four-panel-layout #sidePanel,
-    body.compact-four-panel-layout #chatSection {
+    body.compact-four-panel-layout:not(.is-resizing-four-panel) #sidePanel,
+    body.compact-four-panel-layout:not(.is-resizing-four-panel) #chatSection {
         display: flex !important;
         flex: 0 0 30% !important;
         width: 30% !important;
@@ -3038,7 +3329,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
         transform: none !important;
         transition: flex-basis 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 200ms ease,
+            border-color 200ms ease,
+            color 200ms ease !important;
     }
 
     body.compact-four-panel-layout #sidePanel {
@@ -3073,11 +3367,11 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
     /* Top bar spans from Messages panel all the way to the right edge of the screen */
     body.compact-four-panel-layout #sidePanelHeader {
-        position: absolute !important;
+        position: fixed !important;
         top: 0 !important;
-        left: 0 !important;
-        right: -100% !important;
-        width: 200% !important;
+        left: var(--four-panel-boundary, 40vw) !important;
+        right: 0 !important;
+        width: auto !important;
         max-width: none !important;
         z-index: 60 !important;
         display: flex !important;
@@ -3097,6 +3391,19 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #1C1C1E !important;
     }
 
+    body.compact-four-panel-layout.four-panel-collapsed #sidePanelHeader {
+        left: 0 !important;
+        right: 0 !important;
+        width: auto !important;
+    }
+
+    body.compact-four-panel-layout:not(.is-resizing-four-panel) #sidePanelHeader {
+        transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    background-color 200ms ease,
+                    border-color 200ms ease,
+                    color 200ms ease !important;
+    }
+
     body.compact-four-panel-layout #sidePanelHeaderTopRow {
         display: contents !important;
     }
@@ -3110,10 +3417,10 @@ body.is-guest-two-panel .bottom-gradient-shim {
 
     body.compact-four-panel-layout #sidePanelSearchWrap {
         order: 2 !important;
-        flex: 1 1 0 !important;
+        flex: 1 1 0% !important;
         min-width: 0 !important;
         margin: 0 !important;
-        width: 100% !important;
+        width: auto !important;
         z-index: 70 !important;
     }
 
@@ -3186,6 +3493,9 @@ body.is-guest-two-panel .bottom-gradient-shim {
         background: #8E8E93 !important;
         transform: translateY(-50%) translateX(-100%) scaleX(-1) !important;
         z-index: 90 !important;
+    }
+
+    body.compact-four-panel-layout:not(.four-panel-collapsed):not(.is-resizing-four-panel) #sidebarHandle {
         transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
             width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease !important;
     }
@@ -4924,8 +5234,45 @@ html:not(.dark) #customModal {
    the list now scrolls *under* it, so the fade plate + capsule need their own
    stacking above the list. */
 #sidebarLevel1Container > #sidebarSubList,
+#sidebarLevel1Container .sidebar-tab-pane,
 #sidebarLevel2Container #sidebarSubList {
     padding-top: 62px;
+}
+
+/* Sidebar Tab Panes (Stacked layout like Hub/Tool) */
+.sidebar-tab-pane {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 7rem;
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+@media (min-width: 1024px) {
+    .sidebar-tab-pane {
+        padding-bottom: 1rem;
+    }
+}
+
+.sidebar-tab-pane::-webkit-scrollbar {
+    display: none !important;
+}
+
+.sidebar-tab-pane {
+    scrollbar-width: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-tab-pane {
+        transition: opacity 150ms ease !important;
+        transform: none !important;
+    }
 }
 
 /* The capsule + its fade live in their own layer above both sidebar levels:
@@ -5003,8 +5350,8 @@ html:not(.dark) #customModal {
     user-select: none;
     -webkit-user-select: none;
     transition:
-        left 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
-        width 420ms cubic-bezier(0.25, 0.1, 0.25, 1);
+        left 300ms cubic-bezier(0.25, 1, 0.5, 1),
+        width 300ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .dark .sidebar-tabs {
@@ -5046,6 +5393,7 @@ html:not(.dark) #customModal {
    tab labels, the sub-panel title and the action label stay one size. */
 .sidebar-tab {
     font-size: 13px;
+    white-space: nowrap;
 }
 
 /* The incoming set enters from the side the capsule is travelling to. */
@@ -5221,7 +5569,7 @@ html:not(.dark) #customModal {
     width: max-content;
     gap: 0;
     transform: translateX(calc(100% + 12px));
-    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .sidebar-tabs-actions[hidden] {
@@ -5282,10 +5630,8 @@ html:not(.dark) #customModal {
 }
 
 /* ONE shared indicator living in .sidebar-tabs, glided by JS to the active
-   tab's geometry. `left` rides a spring curve (overshoots the target, then
-   settles back like hitting a cushion); `width`/`top` use a plain ease so the
-   pill doesn't balloon at both ends. Snap class: first landing and resizes
-   place it with no flight. */
+   tab's geometry. Smooth ease-out curve with no overshoot/bounce.
+   Snap class: first landing and resizes place it with no flight. */
 .sidebar-tab-pill {
     position: absolute;
     left: 0;
@@ -5298,9 +5644,9 @@ html:not(.dark) #customModal {
     background: var(--msg-accent-color-alpha10, rgba(120, 120, 128, 0.16));
     opacity: 0;
     pointer-events: none;
-    transition: left 420ms cubic-bezier(0.34, 1.56, 0.64, 1),
-        width 420ms cubic-bezier(0.25, 0.1, 0.25, 1),
-        top 420ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    transition: left 300ms cubic-bezier(0.25, 1, 0.5, 1),
+        width 300ms cubic-bezier(0.25, 1, 0.5, 1),
+        top 300ms cubic-bezier(0.25, 1, 0.5, 1),
         opacity 150ms ease;
 }
 
@@ -5372,7 +5718,8 @@ html:not(.dark) #customModal {
 
 /* Ensure list item borders/separators in dark mode are neutral and clean (not blueish) */
 .dark .dark\:border-gray-800,
-.dark #sidebarSubList .border-b {
+.dark #sidebarSubList .border-b,
+.dark .sidebar-tab-pane .border-b {
     border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -5541,11 +5888,11 @@ textarea,
    not a narrow rail.  Keep this separate from the equal-width four-panel
    rule and from the collapsed state. */
 @media (min-width: 1280px) {
-    body.is-logged-in:not(.four-panel-layout) #sidePanel {
-        width: clamp(420px, 30vw, 520px) !important;
-        min-width: clamp(420px, 30vw, 520px) !important;
-        max-width: clamp(420px, 30vw, 520px) !important;
-        flex: 0 0 clamp(420px, 30vw, 520px) !important;
+    body.is-logged-in:not(.four-panel-layout):not(.compact-four-panel-layout) #sidePanel {
+        width: var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
+        min-width: 330px !important;
+        max-width: var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
+        flex: 0 0 var(--three-panel-writing-width, clamp(380px, 28vw, 480px)) !important;
     }
 }
 
@@ -6152,4 +6499,126 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
   z-index: 10;
   animation: heartRipple 0.35s ease-out forwards;
 }
+
+/* Quick Theme Toggle Button & Micro-animation */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #007AFF;
+  position: relative;
+  transition: transform 150ms cubic-bezier(0.25, 1, 0.5, 1), opacity 150ms ease;
+}
+
+.theme-toggle-btn:hover {
+  opacity: 0.82;
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.88);
+}
+
+.theme-toggle-icon-wrap {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.theme-toggle-sun,
+.theme-toggle-moon {
+  position: absolute;
+  inset: 0;
+  width: 24px;
+  height: 24px;
+  transform-origin: center center;
+  transition: transform 320ms cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 220ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+/* Light mode (default): Moon is visible, Sun is rotated & hidden */
+html:not(.dark) .theme-toggle-sun {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.3);
+  pointer-events: none;
+}
+
+html:not(.dark) .theme-toggle-moon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+  pointer-events: auto;
+}
+
+/* Dark mode: Sun is visible, Moon is rotated & hidden */
+html.dark .theme-toggle-sun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+  pointer-events: auto;
+}
+
+html.dark .theme-toggle-moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.3);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-sun,
+  .theme-toggle-moon {
+    transition: opacity 150ms ease !important;
+    transform: none !important;
+  }
+}
+
+/* Document Status Notice Help Icon Button */
+.doc-status-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent;
+  border-radius: 9999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 150ms ease, transform 120ms ease;
+  line-height: 0;
+}
+
+.doc-status-help-btn:hover {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.dark .doc-status-help-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.doc-status-help-btn:active {
+  transform: scale(0.92);
+}
+
+.doc-status-help-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+
 

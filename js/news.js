@@ -40,7 +40,7 @@ export function createNewsModule(deps) {
         const remaining = view.posts.length - view.visible;
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'w-full py-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-all duration-300 text-[13px] font-semibold text-black dark:text-white text-center';
+        btn.className = 'w-full py-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors duration-150 text-[13px] font-semibold text-black dark:text-white text-center';
         
         const countText = remaining > 0 ? Math.min(NEWS_PAGE, remaining) : NEWS_PAGE;
         btn.textContent = `Load ${countText} more announcements`;
@@ -200,7 +200,7 @@ export function createNewsModule(deps) {
         const name = esc(info.name);
         const leadIn = info.isToday ? "We're serving" : 'We will be serving';
         return `
-            <div id="cafeteriaNewsHighlight" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div id="cafeteriaNewsHighlight" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-white/10 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <div class="flex items-center gap-2 mb-1">
                     <h3 class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF] leading-snug">Cafeteria</h3>
                 </div>

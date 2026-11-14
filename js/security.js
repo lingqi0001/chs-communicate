@@ -165,12 +165,55 @@ export const SecurityModule = {
         // 3. Check memory cache (ALL_USERS)
         if (window.ALL_USERS[cleanedId]) return window.ALL_USERS[cleanedId];
 
-        // 4. Request Firebase database
+        // 4. Request Firebase database (first check user_search index, then fallback to users)
         try {
             const snap = await get(ref(db, `user_search/${userId}`));
             if (snap.exists()) {
                 window.ALL_USERS[cleanedId] = snap.val();
                 return window.ALL_USERS[cleanedId];
+            }
+
+            // Fallback: check users/${userId} if user_search entry was missing/desynced
+            try {
+                const userSnap = await get(ref(db, `users/${userId}`));
+                if (userSnap.exists()) {
+                    const uData = userSnap.val() || {};
+                    const profile = {
+                        id: userId,
+                        name: uData.name || userId,
+                        email: uData.email || `${userId}@gmail.com`,
+                        avatar: uData.avatar || null,
+                        role: uData.role || 'USER'
+                    };
+                    window.ALL_USERS[cleanedId] = profile;
+
+                    // Auto-heal user_search index if current user has permission (admin or self)
+                    try {
+                        await set(ref(db, `user_search/${userId}`), profile);
+                        console.log(`[SECURITY] Auto-healed missing user_search/${userId}`);
+                    } catch (syncErr) {
+                        // Silent if security rules forbid write
+                    }
+
+                    return profile;
+                }
+            } catch (fallbackErr) {
+                // If direct users/ read is forbidden by rules, proceed to local fallback
+            }
+
+            // 5. Local fallback: if we have local chat records or memory traces for this user
+            if (window.Directory && typeof window.Directory.getRecentChats === 'function') {
+                const recent = window.Directory.getRecentChats();
+                if (recent && recent[cleanedId]) {
+                    const u = recent[cleanedId];
+                    window.ALL_USERS[cleanedId] = {
+                        id: userId,
+                        name: u.name || userId,
+                        email: u.email || `${userId}@gmail.com`,
+                        avatar: u.avatar || null
+                    };
+                    return window.ALL_USERS[cleanedId];
+                }
             }
         } catch (err) {
             console.warn(`Failed to fetch user ${userId} in SecurityModule:`, err);

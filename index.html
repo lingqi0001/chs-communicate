@@ -20,6 +20,44 @@
             }
         })();
 
+        window.updateQuickThemeTooltips = function() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+            document.querySelectorAll('#quickThemeBtnNews, #quickThemeBtnSidePanel, .theme-toggle-btn').forEach(btn => {
+                btn.title = label;
+                btn.setAttribute('aria-label', label);
+            });
+        };
+
+        window.toggleQuickTheme = function(e) {
+            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+            const isDark = document.documentElement.classList.contains('dark');
+            const targetDark = !isDark;
+            const View = window.ViewModule || window.AppModules?.View;
+            if (View && typeof View.setDarkMode === 'function') {
+                View.setDarkMode(targetDark, targetDark ? 'dark' : 'light');
+            } else {
+                if (targetDark) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+                localStorage.setItem('theme', targetDark ? 'dark' : 'light');
+            }
+            if (typeof window.updateExtensionThemeIcons === 'function') {
+                window.updateExtensionThemeIcons();
+            }
+            if (typeof window.updateQuickThemeTooltips === 'function') {
+                window.updateQuickThemeTooltips();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.updateQuickThemeTooltips === 'function') {
+                window.updateQuickThemeTooltips();
+            }
+        });
+
         // ON-SCREEN CONSOLE INJECTOR FOR iOS PWA DEBUGGING
         (function() {
             const consoleDiv = document.createElement('div');
@@ -142,7 +180,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css?v=20261111-module-v6">
+    <link rel="stylesheet" href="style.css?v=20261113-sidebar-glass-blur-v1">
 
     <script type="importmap">
     {
@@ -151,25 +189,25 @@
         "./js/config.js": "./js/config.js?v=20260516-2380",
         "./js/db.js": "./js/db.js?v=20261112-et-cache-v1",
         "./js/user.js": "./js/user.js?v=20261112-last-seen-index-v1",
-        "./js/view.js": "./js/view.js?v=20261111-settings-mobile-fullscreen-1",
+        "./js/view.js": "./js/view.js?v=20261113-sidebar-glass-disabled-v1",
         "./js/notify_v2.js": "./js/notify_v2.js?v=20261112-v5",
         "./js/modal.js": "./js/modal.js?v=20260922-lgpref-1",
         "./js/utils.js": "./js/utils.js?v=20261112-admin-email-visible-v1",
-        "./js/writing.js": "./js/writing.js?v=20261112-merge-fix-1",
+        "./js/writing.js": "./js/writing.js?v=20261113-doc-expand-fix-v2",
         "./js/ui-components.js": "./js/ui-components.js?v=20261112-ignore-orphan-doc-v1",
         "./js/content.js": "./js/content.js?v=20260516-2380",
         "./js/app-bridge.js": "./js/app-bridge.js?v=20260516-2380",
         "./js/gallery.js": "./js/gallery.js?v=20260922-gallerypill-1",
         "./js/sync.js": "./js/sync.js?v=20261112-heartbeat-opt-v1",
-        "./js/sidebar.js": "./js/sidebar.js?v=20261112-new-members-full-users-v2",
+        "./js/sidebar.js": "./js/sidebar.js?v=20261113-stacked-panes-v2",
         "./js/extensions.js": "./js/extensions.js?v=20261108-url-routing-2",
         "./js/bridge.js": "./js/bridge.js?v=20260522",
         "./js/auth.js": "./js/auth.js?v=20260923-offline-3",
-        "./js/security.js": "./js/security.js?v=20260519-0935",
+        "./js/security.js": "./js/security.js?v=20261113-user-search-fallback-v1",
         "./js/search.js": "./js/search.js?v=20261108-search-theme-sync",
-        "./js/settings.js": "./js/settings.js?v=20261111-settings-mobile-fullscreen-1",
+        "./js/settings.js": "./js/settings.js?v=20261113-quick-tooltips-v1",
         "./js/admin.js": "./js/admin.js?v=20260522",
-        "./js/chat.js": "./js/chat.js?v=20261112-last-seen-chat-status-v1"
+        "./js/chat.js": "./js/chat.js?v=20261113-user-search-fallback-v1"
       }
     }
     </script>
@@ -2682,7 +2720,7 @@
                         <div class="flex items-start mb-3">
                             <img src="${authorAvatar}" class="w-10 h-10 rounded-full object-cover shadow-sm mr-3">
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm leading-tight text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
+                                <div class="font-bold text-sm leading-normal pb-0.5 text-black dark:text-white truncate">${escapeHTML(authorName)}</div>
                                 <div class="text-xs text-gray-500 font-medium mt-0.5">${new Date(post.timestamp).toLocaleString()}</div>
                             </div>
                             ${adminDeleteBtn}
@@ -3443,9 +3481,8 @@
         }
 
         (() => {
-            const desktopMinWidth = 1280;
+            const desktopMinWidth = 1024;
             const minLeft = 310;
-            const maxLeft = 520;
             const appContainer = document.querySelector('.app-container');
             const widthScope = appContainer || document.documentElement;
             const overlayScope = document.documentElement;
@@ -3472,8 +3509,15 @@
             };
 
             const applyWidth = (nextWidth) => {
+                const writingSec = document.getElementById('sidePanel');
+                const writingW = writingSec ? writingSec.getBoundingClientRect().width : 380;
+                const minChat = Math.max(330, Math.min(380, window.innerWidth - (minLeft + writingW)));
+                const maxAllowed = Math.max(minLeft, window.innerWidth - writingW - minChat);
+                const maxLeft = Math.min(maxAllowed, Math.max(520, window.innerWidth * 0.45));
+
                 const clamped = Math.max(minLeft, Math.min(maxLeft, nextWidth));
                 widthScope.style.setProperty('--news-panel-width', `${clamped}px`);
+                document.documentElement.style.setProperty('--news-panel-width', `${clamped}px`);
                 overlayScope.style.setProperty('--desktop-overlay-left', clamped + 'px');
                 window.dispatchEvent(new CustomEvent('news-panel-width-change', {
                     detail: { width: clamped }
@@ -3481,13 +3525,32 @@
             };
 
             const saved = Number(localStorage.getItem('desktopNewsPanelWidth'));
-            if (Number.isFinite(saved) && saved > 0) applyWidth(saved);
+            if (Number.isFinite(saved) && saved >= minLeft) applyWidth(saved);
             syncDesktopOverlayLeft();
+
+            // Flash visual alert on Writing <-> Chat divider when Hub hits bounds
+            let lastFlashTime = 0;
+            const triggerWritingChatFlash = () => {
+                const now = performance.now();
+                if (now - lastFlashTime < 1200) return;
+                lastFlashTime = now;
+                const wcDivider = document.getElementById('writingChatDivider');
+                if (!wcDivider) return;
+                wcDivider.classList.remove('divider-limit-flash', 'is-highlighted');
+                void wcDivider.offsetWidth;
+                wcDivider.classList.add('divider-limit-flash');
+                const onAnimEnd = () => {
+                    wcDivider.classList.remove('divider-limit-flash');
+                    wcDivider.removeEventListener('animationend', onAnimEnd);
+                };
+                wcDivider.addEventListener('animationend', onAnimEnd);
+            };
 
             const stopDrag = () => {
                 if (!isDragging) return;
                 isDragging = false;
                 document.body.classList.remove('is-resizing-news');
+                divider.classList.remove('is-active', 'is-highlighted');
                 const widthValue = getComputedStyle(widthScope).getPropertyValue('--news-panel-width').trim();
                 const width = Number.parseFloat(widthValue);
                 if (Number.isFinite(width)) localStorage.setItem('desktopNewsPanelWidth', String(width));
@@ -3496,28 +3559,710 @@
             const onDrag = (e) => {
                 if (!isDragging || window.innerWidth < desktopMinWidth) return;
                 const deltaX = e.clientX - startX;
-                applyWidth(startWidth + deltaX);
+                const tentative = startWidth + deltaX;
+
+                const writingSec = document.getElementById('sidePanel');
+                const writingW = writingSec ? writingSec.getBoundingClientRect().width : 380;
+                const minChat = Math.max(330, Math.min(380, window.innerWidth - (minLeft + writingW)));
+                const maxAllowed = Math.max(minLeft, window.innerWidth - writingW - minChat);
+                const maxLeft = Math.min(maxAllowed, Math.max(520, window.innerWidth * 0.45));
+
+                if (tentative <= minLeft) {
+                    if (deltaX < (minLeft - startWidth)) {
+                        triggerWritingChatFlash();
+                    }
+                } else if (tentative >= maxLeft) {
+                    if (deltaX > (maxLeft - startWidth)) {
+                        triggerWritingChatFlash();
+                    }
+                }
+                applyWidth(tentative);
             };
 
             divider.addEventListener('pointerdown', (e) => {
                 if (window.innerWidth < desktopMinWidth || document.body.classList.contains('sidebar-collapsed')) return;
+                if (document.body.classList.contains('four-panel-layout') && !document.body.classList.contains('four-panel-collapsed')) return;
                 e.preventDefault();
                 isDragging = true;
                 startX = e.clientX;
                 startWidth = newsSection.getBoundingClientRect().width || 370;
                 divider.setPointerCapture(e.pointerId);
                 document.body.classList.add('is-resizing-news');
+                divider.classList.add('is-active', 'is-highlighted');
             });
 
             divider.addEventListener('pointermove', onDrag);
             divider.addEventListener('pointerup', stopDrag);
             divider.addEventListener('pointercancel', stopDrag);
             divider.addEventListener('lostpointercapture', stopDrag);
+
+            divider.addEventListener('dblclick', () => {
+                if (!document.body.classList.contains('four-panel-layout')) {
+                    localStorage.removeItem('desktopNewsPanelWidth');
+                    applyWidth(370);
+                }
+            });
+
             window.addEventListener('resize', syncDesktopOverlayLeft);
             window.addEventListener('news-panel-width-change', syncDesktopOverlayLeft);
 
             const classObserver = new MutationObserver(syncDesktopOverlayLeft);
             classObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        })();
+
+        // FOUR-PANEL INTERACTIVE WIDTH ADJUSTER & DIVIDERS CONTROLLER
+        (() => {
+            const MIN_HUB = 310;
+            const MIN_TOOLS = 310;
+            const MIN_WRITING = 330;
+            const getMinChat = () => Math.max(330, Math.min(380, window.innerWidth - (MIN_HUB + MIN_TOOLS + MIN_WRITING)));
+
+            const hubToolsDivider = document.getElementById('hubToolsDivider');
+            const toolsWritingDivider = document.getElementById('newsSideDivider');
+            const writingChatDivider = document.getElementById('writingChatDivider');
+            const newsSection = document.getElementById('newsSection');
+            const toolsSection = document.getElementById('toolsSection');
+            const sidePanel = document.getElementById('sidePanel');
+
+            if (!hubToolsDivider || !toolsWritingDivider || !writingChatDivider || !newsSection || !toolsSection || !sidePanel) {
+                return;
+            }
+
+            const applyFourPanelWidths = (hubW, toolsW, writingW) => {
+                hubW = Math.round(hubW);
+                toolsW = Math.round(toolsW);
+                writingW = Math.round(writingW);
+                const boundary = hubW + toolsW;
+                const headerWidth = Math.max(0, window.innerWidth - boundary);
+
+                const scopes = [document.documentElement, document.querySelector('.app-container')].filter(Boolean);
+                scopes.forEach(scope => {
+                    scope.style.setProperty('--four-panel-hub-width', `${hubW}px`);
+                    scope.style.setProperty('--four-panel-tools-width', `${toolsW}px`);
+                    scope.style.setProperty('--four-panel-writing-width', `${writingW}px`);
+                    scope.style.setProperty('--four-panel-boundary', `${boundary}px`);
+                    scope.style.setProperty('--writing-chat-header-width', `${headerWidth}px`);
+                });
+
+                window.dispatchEvent(new CustomEvent('four-panel-width-change', {
+                    detail: { hubWidth: hubW, toolsWidth: toolsW, writingWidth: writingW, boundary, headerWidth }
+                }));
+            };
+
+            window.applyFourPanelWidths = applyFourPanelWidths;
+
+            // Flash Divider 2 (Tools <-> Writing) 3 times as a visual alert when Hub or Tool hits minimum limit
+            let lastFlashTime = 0;
+            const triggerDividerLimitFlash = () => {
+                const now = performance.now();
+                if (now - lastFlashTime < 1200) return;
+                lastFlashTime = now;
+
+                toolsWritingDivider.classList.remove('divider-limit-flash', 'is-highlighted');
+                void toolsWritingDivider.offsetWidth; // force animation restart
+                toolsWritingDivider.classList.add('divider-limit-flash');
+
+                const onAnimEnd = () => {
+                    toolsWritingDivider.classList.remove('divider-limit-flash');
+                    toolsWritingDivider.removeEventListener('animationend', onAnimEnd);
+                };
+                toolsWritingDivider.addEventListener('animationend', onAnimEnd);
+            };
+
+            // Flash Divider 3 (Writing <-> Chat) 3 times as a visual alert when Writing hits its minimum limit (330px)
+            let lastWcFlashTime = 0;
+            const triggerWritingChatLimitFlash = () => {
+                const now = performance.now();
+                if (now - lastWcFlashTime < 1200) return;
+                lastWcFlashTime = now;
+
+                writingChatDivider.classList.remove('divider-limit-flash', 'is-highlighted');
+                void writingChatDivider.offsetWidth; // force animation restart
+                writingChatDivider.classList.add('divider-limit-flash');
+
+                const onAnimEnd = () => {
+                    writingChatDivider.classList.remove('divider-limit-flash');
+                    writingChatDivider.removeEventListener('animationend', onAnimEnd);
+                };
+                writingChatDivider.addEventListener('animationend', onAnimEnd);
+            };
+
+
+            // Load saved widths from localStorage
+            const initSavedWidths = () => {
+                let savedHub = Number(localStorage.getItem('fourPanelHubWidth'));
+                let savedTools = Number(localStorage.getItem('fourPanelToolsWidth'));
+                let savedWriting = Number(localStorage.getItem('fourPanelWritingWidth'));
+
+                if (Number.isFinite(savedHub) && savedHub > 0 &&
+                    Number.isFinite(savedTools) && savedTools > 0 &&
+                    Number.isFinite(savedWriting) && savedWriting > 0) {
+                    
+                    savedHub = Math.max(MIN_HUB, savedHub);
+                    savedTools = Math.max(MIN_TOOLS, savedTools);
+                    savedWriting = Math.max(MIN_WRITING, savedWriting);
+
+                    const maxAllowed = window.innerWidth - getMinChat();
+                    const total = savedHub + savedTools + savedWriting;
+                    if (total > maxAllowed && maxAllowed > (MIN_HUB + MIN_TOOLS + MIN_WRITING)) {
+                        const ratio = maxAllowed / total;
+                        applyFourPanelWidths(savedHub * ratio, savedTools * ratio, savedWriting * ratio);
+                    } else {
+                        applyFourPanelWidths(savedHub, savedTools, savedWriting);
+                    }
+                } else if (window.innerWidth >= 1280) {
+                    const defaultHub = Math.max(MIN_HUB, Math.round(window.innerWidth * 0.22));
+                    const defaultTools = Math.max(MIN_TOOLS, Math.round(window.innerWidth * 0.22));
+                    const defaultWriting = Math.max(MIN_WRITING, Math.round(window.innerWidth * 0.28));
+                    applyFourPanelWidths(defaultHub, defaultTools, defaultWriting);
+                }
+            };
+
+            initSavedWidths();
+
+            // Divider 1: Hub <-> Tools (#hubToolsDivider)
+            // Hub + Tools combined total width remains strictly CONSTANT.
+            // Adjusting this divider adjusts Hub vs Tools width without squeezing Writing.
+            // If user reaches min limit (310px), Divider 2 flashes 3 times to prompt user to expand space first.
+            let isDraggingHubTools = false;
+            let htStartX = 0;
+            let htStartHub = 0;
+            let htStartTools = 0;
+            let htStartWriting = 0;
+            let htCurrentHub = 0;
+            let htCurrentTools = 0;
+            let htCurrentWriting = 0;
+
+            const onHubToolsPointerDown = (e) => {
+                if (!document.body.classList.contains('four-panel-layout') ||
+                    document.body.classList.contains('four-panel-collapsed') ||
+                    window.innerWidth < 1280) return;
+
+                e.preventDefault();
+                isDraggingHubTools = true;
+                htStartX = e.clientX;
+                htStartHub = newsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                htStartTools = toolsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                htStartWriting = sidePanel.getBoundingClientRect().width || (window.innerWidth * 0.28);
+                htCurrentHub = htStartHub;
+                htCurrentTools = htStartTools;
+                htCurrentWriting = htStartWriting;
+
+                hubToolsDivider.setPointerCapture(e.pointerId);
+                document.body.classList.add('is-resizing-four-panel');
+                hubToolsDivider.classList.add('is-active', 'is-highlighted');
+            };
+
+            const onHubToolsPointerMove = (e) => {
+                if (!isDraggingHubTools) return;
+                const deltaX = e.clientX - htStartX;
+
+                // Total width of Hub + Tools stays constant; Writing is NOT squeezed
+                const totalHubTools = htStartHub + htStartTools;
+
+                const minHub = MIN_HUB;
+                const maxHub = Math.max(minHub, totalHubTools - MIN_TOOLS);
+
+                let tentativeHub = htStartHub + deltaX;
+                let hitLimit = false;
+
+                if (tentativeHub <= minHub) {
+                    tentativeHub = minHub;
+                    if (deltaX < (minHub - htStartHub) || totalHubTools <= MIN_HUB + MIN_TOOLS) {
+                        hitLimit = true;
+                    }
+                } else if (tentativeHub >= maxHub) {
+                    tentativeHub = maxHub;
+                    if (deltaX > (maxHub - htStartHub) || totalHubTools <= MIN_HUB + MIN_TOOLS) {
+                        hitLimit = true;
+                    }
+                }
+
+                if (hitLimit) {
+                    triggerDividerLimitFlash();
+                }
+
+                const newHub = tentativeHub;
+                const newTools = totalHubTools - newHub;
+                const newWriting = htStartWriting; // Writing panel is unchanged!
+
+                htCurrentHub = newHub;
+                htCurrentTools = newTools;
+                htCurrentWriting = newWriting;
+                applyFourPanelWidths(newHub, newTools, newWriting);
+            };
+
+            const stopHubToolsDrag = () => {
+                if (!isDraggingHubTools) return;
+                isDraggingHubTools = false;
+                document.body.classList.remove('is-resizing-four-panel');
+                hubToolsDivider.classList.remove('is-active', 'is-highlighted');
+
+                if (htCurrentHub > 0 && htCurrentTools > 0 && htCurrentWriting > 0) {
+                    localStorage.setItem('fourPanelHubWidth', String(Math.round(htCurrentHub)));
+                    localStorage.setItem('fourPanelToolsWidth', String(Math.round(htCurrentTools)));
+                    localStorage.setItem('fourPanelWritingWidth', String(Math.round(htCurrentWriting)));
+                }
+            };
+
+            hubToolsDivider.addEventListener('pointerdown', onHubToolsPointerDown);
+            hubToolsDivider.addEventListener('pointermove', onHubToolsPointerMove);
+            hubToolsDivider.addEventListener('pointerup', stopHubToolsDrag);
+            hubToolsDivider.addEventListener('pointercancel', stopHubToolsDrag);
+            hubToolsDivider.addEventListener('lostpointercapture', stopHubToolsDrag);
+
+            // Divider 2: Tools <-> Writing (#newsSideDivider in four-panel mode)
+            // Widening Writing (dragging left, deltaX < 0): Borne entirely by Tool panel shrinking (Hub unchanged).
+            // Narrowing Writing (dragging right, deltaX > 0): Borne entirely by Tool panel expanding (Hub unchanged).
+            let isDraggingToolsWriting = false;
+            let twStartX = 0;
+            let twStartHub = 0;
+            let twStartTools = 0;
+            let twStartWriting = 0;
+            let twCurrentHub = 0;
+            let twCurrentTools = 0;
+            let twCurrentWriting = 0;
+
+            const onToolsWritingPointerDown = (e) => {
+                if (!document.body.classList.contains('four-panel-layout') ||
+                    document.body.classList.contains('four-panel-collapsed') ||
+                    window.innerWidth < 1280) return;
+
+                e.preventDefault();
+                isDraggingToolsWriting = true;
+                twStartX = e.clientX;
+                twStartHub = newsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                twStartTools = toolsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                twStartWriting = sidePanel.getBoundingClientRect().width || (window.innerWidth * 0.28);
+                twCurrentHub = twStartHub;
+                twCurrentTools = twStartTools;
+                twCurrentWriting = twStartWriting;
+
+                toolsWritingDivider.setPointerCapture(e.pointerId);
+                document.body.classList.add('is-resizing-four-panel');
+                toolsWritingDivider.classList.add('is-active', 'is-highlighted');
+            };
+
+            const onToolsWritingPointerMove = (e) => {
+                if (!isDraggingToolsWriting) return;
+                const deltaX = e.clientX - twStartX;
+                // Moving left (deltaX < 0) widens Writing; moving right narrows Writing
+                const desiredWritingDelta = -deltaX;
+
+                let newHub = twStartHub; // Hub remains strictly unchanged
+                let newTools = twStartTools;
+                let newWriting = twStartWriting;
+
+                if (desiredWritingDelta > 0) {
+                    // Widening Writing: Borne entirely by Tool panel shrinking (Hub does NOT shrink)
+                    const toolsRoom = Math.max(0, twStartTools - MIN_TOOLS);
+                    const actualDelta = Math.min(desiredWritingDelta, toolsRoom);
+
+                    if (desiredWritingDelta > toolsRoom) {
+                        triggerDividerLimitFlash();
+                    }
+
+                    newHub = twStartHub;
+                    newTools = twStartTools - actualDelta;
+                    newWriting = twStartWriting + actualDelta;
+                } else {
+                    // Narrowing Writing: Writing shrinks, Tool panel expands (Hub does NOT expand)
+                    const maxWritingShrink = Math.max(0, twStartWriting - MIN_WRITING);
+                    const shrinkAmount = Math.min(-desiredWritingDelta, maxWritingShrink);
+
+                    if (-desiredWritingDelta > maxWritingShrink) {
+                        triggerDividerLimitFlash();
+                    }
+
+                    newHub = twStartHub;
+                    newWriting = twStartWriting - shrinkAmount;
+                    newTools = twStartTools + shrinkAmount;
+                }
+
+                twCurrentHub = newHub;
+                twCurrentTools = newTools;
+                twCurrentWriting = newWriting;
+                applyFourPanelWidths(newHub, newTools, newWriting);
+            };
+
+            const stopToolsWritingDrag = () => {
+                if (!isDraggingToolsWriting) return;
+                isDraggingToolsWriting = false;
+                document.body.classList.remove('is-resizing-four-panel');
+                toolsWritingDivider.classList.remove('is-active', 'is-highlighted');
+
+                if (twCurrentHub > 0 && twCurrentTools > 0 && twCurrentWriting > 0) {
+                    localStorage.setItem('fourPanelHubWidth', String(Math.round(twCurrentHub)));
+                    localStorage.setItem('fourPanelToolsWidth', String(Math.round(twCurrentTools)));
+                    localStorage.setItem('fourPanelWritingWidth', String(Math.round(twCurrentWriting)));
+                }
+            };
+
+            toolsWritingDivider.addEventListener('pointerdown', onToolsWritingPointerDown);
+            toolsWritingDivider.addEventListener('pointermove', onToolsWritingPointerMove);
+            toolsWritingDivider.addEventListener('pointerup', stopToolsWritingDrag);
+            toolsWritingDivider.addEventListener('pointercancel', stopToolsWritingDrag);
+            toolsWritingDivider.addEventListener('lostpointercapture', stopToolsWritingDrag);
+
+            // Divider 3: Writing <-> Chat (#writingChatDivider)
+            // Supports both Four-Panel mode and Three-Panel mode!
+            // Dragging right widens Writing (compresses Chat).
+            // Dragging left narrows Writing (down to MIN_WRITING = 330px, expands Chat).
+            // Hub (and Tools in 4-panel) remain strictly unchanged.
+            // When reaching bounds, flashes the divider to the left of Writing 3 times as visual alert.
+            let isDraggingWritingChat = false;
+            let wcStartX = 0;
+            let wcStartHub = 0;
+            let wcStartTools = 0;
+            let wcStartWriting = 0;
+            let wcCurrentHub = 0;
+            let wcCurrentTools = 0;
+            let wcCurrentWriting = 0;
+
+            // Three-panel mode tracking state
+            let is3DraggingWritingChat = false;
+            let wc3StartX = 0;
+            let wc3StartWriting = 0;
+            let wc3StartNews = 0;
+            let wc3CurrentWriting = 0;
+
+            const applyThreePanelWritingWidth = (w) => {
+                const rounded = Math.round(w);
+                const scopes = [document.documentElement, document.querySelector('.app-container')].filter(Boolean);
+                scopes.forEach(scope => {
+                    scope.style.setProperty('--three-panel-writing-width', `${rounded}px`);
+                });
+                window.dispatchEvent(new CustomEvent('three-panel-width-change', {
+                    detail: { writingWidth: rounded }
+                }));
+            };
+
+            const onWritingChatPointerDown = (e) => {
+                const isFourPanel = document.body.classList.contains('four-panel-layout') &&
+                    !document.body.classList.contains('four-panel-collapsed') &&
+                    window.innerWidth >= 1280;
+
+                const isThreePanel = !document.body.classList.contains('four-panel-layout') &&
+                    window.innerWidth >= 1024 &&
+                    !document.body.classList.contains('is-guest-three-panel') &&
+                    !document.body.classList.contains('is-guest-two-panel');
+
+                if (!isFourPanel && !isThreePanel) return;
+
+                e.preventDefault();
+
+                if (isFourPanel) {
+                    isDraggingWritingChat = true;
+                    wcStartX = e.clientX;
+                    wcStartHub = newsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                    wcStartTools = toolsSection.getBoundingClientRect().width || (window.innerWidth * 0.22);
+                    wcStartWriting = sidePanel.getBoundingClientRect().width || (window.innerWidth * 0.28);
+                    wcCurrentHub = wcStartHub;
+                    wcCurrentTools = wcStartTools;
+                    wcCurrentWriting = wcStartWriting;
+
+                    writingChatDivider.setPointerCapture(e.pointerId);
+                    document.body.classList.add('is-resizing-four-panel');
+                    writingChatDivider.classList.add('is-active', 'is-highlighted');
+                } else {
+                    is3DraggingWritingChat = true;
+                    wc3StartX = e.clientX;
+                    wc3StartWriting = sidePanel.getBoundingClientRect().width || 380;
+                    wc3StartNews = document.body.classList.contains('sidebar-collapsed') ? 0 : (newsSection.getBoundingClientRect().width || 370);
+                    wc3CurrentWriting = wc3StartWriting;
+
+                    writingChatDivider.setPointerCapture(e.pointerId);
+                    document.body.classList.add('is-resizing-writing-chat');
+                    writingChatDivider.classList.add('is-active', 'is-highlighted');
+                }
+            };
+
+            const onWritingChatPointerMove = (e) => {
+                if (isDraggingWritingChat) {
+                    const deltaX = e.clientX - wcStartX;
+
+                    const boundary = wcStartHub + wcStartTools;
+                    const minWriting = MIN_WRITING;
+                    const minChat = getMinChat();
+                    const maxWriting = Math.max(minWriting, window.innerWidth - boundary - minChat);
+
+                    let tentativeWriting = wcStartWriting + deltaX;
+
+                    if (tentativeWriting >= maxWriting) {
+                        tentativeWriting = maxWriting;
+                        // Upper limit reached / pulled to the far right (Chat compressed to minimum width):
+                        // As requested, flash ONLY the divider between Tool and Writing (toolsWritingDivider)!
+                        if (deltaX > (maxWriting - wcStartWriting)) {
+                            triggerDividerLimitFlash();
+                        }
+                    } else if (tentativeWriting <= minWriting) {
+                        tentativeWriting = minWriting;
+                        // Lower limit reached / pulled to the far left (Writing compressed to 330px minimum width):
+                        // As requested, flash ONLY the divider between Tool and Writing (toolsWritingDivider)!
+                        if (deltaX < (minWriting - wcStartWriting)) {
+                            triggerDividerLimitFlash();
+                        }
+                    }
+
+                    wcCurrentWriting = tentativeWriting;
+                    wcCurrentHub = wcStartHub;
+                    wcCurrentTools = wcStartTools;
+                    applyFourPanelWidths(wcCurrentHub, wcCurrentTools, tentativeWriting);
+                } else if (is3DraggingWritingChat) {
+                    const deltaX = e.clientX - wc3StartX;
+                    const minWriting = MIN_WRITING;
+                    const minChat = Math.max(330, Math.min(380, window.innerWidth - (wc3StartNews + minWriting)));
+                    const maxWriting = Math.max(minWriting, window.innerWidth - wc3StartNews - minChat);
+
+                    let tentativeWriting = wc3StartWriting + deltaX;
+
+                    if (tentativeWriting >= maxWriting) {
+                        tentativeWriting = maxWriting;
+                        // Far right limit: Chat at min-width, flash ONLY the divider to the left of Writing (newsSideDivider)
+                        if (deltaX > (maxWriting - wc3StartWriting)) {
+                            triggerDividerLimitFlash();
+                        }
+                    } else if (tentativeWriting <= minWriting) {
+                        tentativeWriting = minWriting;
+                        // Far left limit: Writing at 330px min-width, flash ONLY the divider to the left of Writing (newsSideDivider)
+                        if (deltaX < (minWriting - wc3StartWriting)) {
+                            triggerDividerLimitFlash();
+                        }
+                    }
+
+                    wc3CurrentWriting = tentativeWriting;
+                    applyThreePanelWritingWidth(tentativeWriting);
+                }
+            };
+
+            const stopWritingChatDrag = () => {
+                if (isDraggingWritingChat) {
+                    isDraggingWritingChat = false;
+                    document.body.classList.remove('is-resizing-four-panel');
+                    writingChatDivider.classList.remove('is-active', 'is-highlighted');
+
+                    if (wcCurrentHub > 0 && wcCurrentTools > 0 && wcCurrentWriting > 0) {
+                        localStorage.setItem('fourPanelHubWidth', String(Math.round(wcCurrentHub)));
+                        localStorage.setItem('fourPanelToolsWidth', String(Math.round(wcCurrentTools)));
+                        localStorage.setItem('fourPanelWritingWidth', String(Math.round(wcCurrentWriting)));
+                    }
+                } else if (is3DraggingWritingChat) {
+                    is3DraggingWritingChat = false;
+                    document.body.classList.remove('is-resizing-writing-chat');
+                    writingChatDivider.classList.remove('is-active', 'is-highlighted');
+
+                    if (wc3CurrentWriting > 0) {
+                        localStorage.setItem('threePanelWritingWidth', String(Math.round(wc3CurrentWriting)));
+                    }
+                }
+            };
+
+            writingChatDivider.addEventListener('pointerdown', onWritingChatPointerDown);
+            writingChatDivider.addEventListener('pointermove', onWritingChatPointerMove);
+            writingChatDivider.addEventListener('pointerup', stopWritingChatDrag);
+            writingChatDivider.addEventListener('pointercancel', stopWritingChatDrag);
+            writingChatDivider.addEventListener('lostpointercapture', stopWritingChatDrag);
+
+            // Double click either divider to reset to defaults
+            const resetDefaults = () => {
+                localStorage.removeItem('fourPanelHubWidth');
+                localStorage.removeItem('fourPanelToolsWidth');
+                localStorage.removeItem('fourPanelWritingWidth');
+                [document.documentElement, document.querySelector('.app-container')].filter(Boolean).forEach(scope => {
+                    scope.style.removeProperty('--four-panel-hub-width');
+                    scope.style.removeProperty('--four-panel-tools-width');
+                    scope.style.removeProperty('--four-panel-writing-width');
+                    scope.style.removeProperty('--four-panel-boundary');
+                    scope.style.removeProperty('--writing-chat-header-width');
+                });
+            };
+            hubToolsDivider.addEventListener('dblclick', resetDefaults);
+            toolsWritingDivider.addEventListener('dblclick', () => {
+                if (document.body.classList.contains('four-panel-layout')) {
+                    resetDefaults();
+                }
+            });
+            writingChatDivider.addEventListener('dblclick', () => {
+                if (document.body.classList.contains('four-panel-layout')) {
+                    resetDefaults();
+                } else {
+                    localStorage.removeItem('threePanelWritingWidth');
+                    const scopes = [document.documentElement, document.querySelector('.app-container')].filter(Boolean);
+                    scopes.forEach(scope => {
+                        scope.style.removeProperty('--three-panel-writing-width');
+                    });
+                    window.dispatchEvent(new CustomEvent('three-panel-width-change', { detail: { reset: true } }));
+                }
+            });
+
+            // Restore saved 3-panel writing width from localStorage if present
+            const saved3Writing = Number(localStorage.getItem('threePanelWritingWidth'));
+            if (Number.isFinite(saved3Writing) && saved3Writing >= MIN_WRITING) {
+                applyThreePanelWritingWidth(saved3Writing);
+            }
+
+            // Adjust on resize if saved pixel widths exceed viewport width
+            window.addEventListener('resize', () => {
+                if (!document.body.classList.contains('four-panel-layout') || window.innerWidth < 1280) return;
+                const curHub = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--four-panel-hub-width'));
+                const curTools = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--four-panel-tools-width'));
+                const curWriting = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--four-panel-writing-width'));
+                if (Number.isFinite(curHub) && Number.isFinite(curTools) && Number.isFinite(curWriting)) {
+                    const total = curHub + curTools + curWriting;
+                    const maxAllowed = window.innerWidth - getMinChat();
+                    if (total > maxAllowed && maxAllowed > (MIN_HUB + MIN_TOOLS + MIN_WRITING)) {
+                        const ratio = maxAllowed / total;
+                        applyFourPanelWidths(curHub * ratio, curTools * ratio, curWriting * ratio);
+                    } else {
+                        applyFourPanelWidths(curHub, curTools, curWriting);
+                    }
+                }
+            });
+        })();
+
+        // DIVIDER DWELL HIGHLIGHT CONTROLLER
+        // Prevents accidental highlights on casual mouse sweeps across dividers.
+        // Dwell 0.15s inside the recognition area (10px) to highlight.
+        (() => {
+            const RECOG_DIST = 10;   // 识别区域 (10px from divider center, matches 21px hitbox)
+            const LEAVE_DIST = 13;   // 离开阈值 (13px from center with small hysteresis for natural hand jitter)
+            const DWELL_TIME_MS = 150; // 0.15秒停留判定
+
+            const newsSideDivider = document.getElementById('newsSideDivider');
+            const hubToolsDivider = document.getElementById('hubToolsDivider');
+            const writingChatDivider = document.getElementById('writingChatDivider');
+
+            const isSideDividerActive = () => {
+                if (window.innerWidth < 1024) return false;
+                if (document.body.classList.contains('sidebar-collapsed') ||
+                    document.body.classList.contains('four-panel-collapsed') ||
+                    document.body.classList.contains('is-guest-three-panel') ||
+                    document.body.classList.contains('is-guest-two-panel')) {
+                    return false;
+                }
+                return true;
+            };
+
+            const isHubToolsDividerActive = () => {
+                return document.body.classList.contains('four-panel-layout') &&
+                    !document.body.classList.contains('four-panel-collapsed') &&
+                    window.innerWidth >= 1280;
+            };
+
+            const isWritingChatDividerActive = () => {
+                if (window.innerWidth < 1024) return false;
+                if (document.body.classList.contains('is-guest-three-panel') ||
+                    document.body.classList.contains('is-guest-two-panel')) {
+                    return false;
+                }
+                if (document.body.classList.contains('four-panel-layout')) {
+                    return !document.body.classList.contains('four-panel-collapsed') && window.innerWidth >= 1280;
+                }
+                return true;
+            };
+
+            const createDwellTracker = (divider, getIsActive) => {
+                if (!divider) return { onPointerMove: () => {}, clear: () => {} };
+                let dwellTimer = null;
+                let lastX = -9999;
+                let lastY = -9999;
+
+                const clear = () => {
+                    if (dwellTimer) {
+                        clearTimeout(dwellTimer);
+                        dwellTimer = null;
+                    }
+                    divider.classList.remove('is-highlighted');
+                };
+
+                const onPointerMove = (e) => {
+                    if (!getIsActive()) {
+                        clear();
+                        return;
+                    }
+                    if (document.body.classList.contains('is-resizing-news') ||
+                        document.body.classList.contains('is-resizing-writing-chat') ||
+                        document.body.classList.contains('is-resizing-four-panel')) {
+                        return;
+                    }
+                    // If pointer is over the sidebar handle or trigger, do not highlight the divider
+                    if (e.target && e.target.closest && (e.target.closest('#sidebarHandle') || e.target.closest('#sidebarTrigger'))) {
+                        clear();
+                        return;
+                    }
+
+                    lastX = e.clientX;
+                    lastY = e.clientY;
+
+                    const rect = divider.getBoundingClientRect();
+                    if (lastY < rect.top || lastY > rect.bottom) {
+                        clear();
+                        return;
+                    }
+
+                    const divX = rect.left + rect.width / 2;
+                    const dist = Math.abs(lastX - divX);
+
+                    const isCurrentlyHighlighted = divider.classList.contains('is-highlighted');
+                    const threshold = isCurrentlyHighlighted ? LEAVE_DIST : RECOG_DIST;
+
+                    if (dist > threshold) {
+                        // Mouse is outside the recognition area
+                        clear();
+                        return;
+                    }
+
+                    // Mouse is inside the recognition area
+                    if (!isCurrentlyHighlighted && !dwellTimer) {
+                        dwellTimer = setTimeout(() => {
+                            dwellTimer = null;
+                            if (!getIsActive()) return;
+                            const r = divider.getBoundingClientRect();
+                            const d = Math.abs(lastX - (r.left + r.width / 2));
+                            if (d <= LEAVE_DIST && lastY >= r.top && lastY <= r.bottom) {
+                                divider.classList.add('is-highlighted');
+                            } else {
+                                clear();
+                            }
+                        }, DWELL_TIME_MS);
+                    }
+                };
+
+                return { onPointerMove, clear };
+            };
+
+            const sideTracker = createDwellTracker(newsSideDivider, isSideDividerActive);
+            const hubTracker = createDwellTracker(hubToolsDivider, isHubToolsDividerActive);
+            const writingChatTracker = createDwellTracker(writingChatDivider, isWritingChatDividerActive);
+
+            document.addEventListener('pointermove', (e) => {
+                sideTracker.onPointerMove(e);
+                hubTracker.onPointerMove(e);
+                writingChatTracker.onPointerMove(e);
+            }, { passive: true });
+
+            document.getElementById('sidebarHandle')?.addEventListener('pointerenter', () => {
+                sideTracker.clear();
+                hubTracker.clear();
+                writingChatTracker.clear();
+            });
+            document.getElementById('sidebarTrigger')?.addEventListener('pointerenter', () => {
+                sideTracker.clear();
+                hubTracker.clear();
+                writingChatTracker.clear();
+            });
+
+            document.addEventListener('pointerleave', () => {
+                sideTracker.clear();
+                hubTracker.clear();
+                writingChatTracker.clear();
+            });
+
+            window.addEventListener('blur', () => {
+                sideTracker.clear();
+                hubTracker.clear();
+                writingChatTracker.clear();
+            });
         })();
 
         window.addEventListener('resize', syncDesktopDynamicOverlays);
@@ -4136,8 +4881,24 @@
                 <div id="newsTopTabsRowMobile" class="flex justify-between items-center h-9">
                     <h2 id="newsPanelTitle" class="text-2xl font-bold tracking-tight leading-none">Hub</h2>
                     <div id="newsTopButtonsContainer" class="flex items-center gap-3 mb-1">
+                        <button onclick="toggleQuickTheme(event)"
+                            id="quickThemeBtnNews"
+                            class="theme-toggle-btn text-[#007AFF] active:scale-90 transition-transform"
+                            title="Switch to light mode"
+                            aria-label="Switch to light mode">
+                            <div class="theme-toggle-icon-wrap">
+                                <svg class="theme-toggle-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                                </svg>
+                                <svg class="theme-toggle-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                                </svg>
+                            </div>
+                        </button>
                         <button onclick="openPortfolio()"
-                            class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="View Author's Portfolio"
+                            aria-label="View Author's Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
                                 <path d="M12 3a12.5 12.5 0 0 0 0 18 12.5 12.5 0 0 0 0-18" stroke-width="2" />
@@ -4145,14 +4906,18 @@
                             </svg>
                         </button>
                         <button id="donationBtnNews" onclick="toggleDonation()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="Support Development"
+                            aria-label="Support Development">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </button>
                         <button id="settingsBtnNews" onclick="toggleSettings()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="Settings"
+                            aria-label="Settings">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
@@ -4165,7 +4930,7 @@
                 </div>
 
                 <!-- Sub-tabs pill: Grid layout for absolute 50/50 split and seamless background -->
-                <div id="newsSubTabsWrapper" class="transition-all duration-300 mt-3 h-9 opacity-100 overflow-hidden">
+                <div id="newsSubTabsWrapper" class="transition-[height,opacity,margin] duration-300 mt-3 h-9 opacity-100 overflow-hidden">
                     <div id="newsPrimaryTabs" data-active-tab="school" class="flex bg-[#E9E9EB] dark:bg-white/10 rounded-full p-1 pr-[72px] h-full items-center gap-1 overflow-hidden relative">
                         <button id="btnSchoolNews" onclick="toggleNewsTab('school')"
                             style="max-width: 50%;"
@@ -4226,7 +4991,7 @@
             <!-- Scrollable content area with min-h-0 fix -->
             <div id="newsMainWrapper" class="flex-1 relative min-h-0 overflow-hidden">
                 <div id="newsMainContent"
-                    class="relative h-full flex flex-col transition-all duration-300 transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
+                    class="relative h-full flex flex-col transform translate-x-0 opacity-100 z-10 bg-white dark:bg-[#1C1C1E]">
                     <!-- Announcements & generic scroll area -->
                     <div id="newsAnnouncementsScrollArea" class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-0">
                         <div id="schoolNewsContent" class="space-y-4 transition-opacity duration-150">
@@ -4365,7 +5130,7 @@
 
                 <!-- Global Tools / Extensions List -->
                 <div id="toolsMainContent"
-                    class="absolute inset-0 h-full flex flex-col transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
+                    class="absolute inset-0 h-full flex flex-col transform translate-x-10 opacity-0 pointer-events-none z-0 bg-white dark:bg-[#1C1C1E]">
                     <div class="flex-1 overflow-y-auto px-5 pb-28 lg:pb-8 pt-0 space-y-3">
                         <!-- School Tools Section -->
                         <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mt-0 px-1">
@@ -4419,7 +5184,7 @@
                                             </path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">Peer Tutoring</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">Peer Tutoring</span>
                                 </div>
 
                                 <div onclick="openModule('suggestions')"
@@ -4432,7 +5197,7 @@
                                             </path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">Suggestions</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">Suggestions</span>
                                 </div>
 
                                 <div onclick="openModule('lost_and_found')"
@@ -4444,7 +5209,7 @@
                                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">Lost & Found</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">Lost & Found</span>
                                 </div>
                             </div>
 
@@ -4459,7 +5224,7 @@
                                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">Eagle Time</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">Eagle Time</span>
                                 </div>
 
                                 <div id="toolEntryChsInfo" onclick="openModule('info')"
@@ -4471,7 +5236,7 @@
                                                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">CHS Info</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">CHS Info</span>
                                 </div>
 
                                 <div id="toolEntryMarketplace" onclick="openModule('marketplace')"
@@ -4483,7 +5248,7 @@
                                                 d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
                                         </svg>
                                     </div>
-                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-tight text-center truncate max-w-full">Marketplace</span>
+                                    <span class="text-[12px] sm:text-[13px] font-semibold text-gray-900 dark:text-white tracking-tight leading-normal pb-0.5 text-center truncate max-w-full">Marketplace</span>
                                 </div>
                             </div>
                         </div>
@@ -4507,7 +5272,7 @@
 
                         <!-- Developer Portal Access (Synchronized UI) -->
                         <div onclick="openExtension('developer_portal', 'docs/maintenance/developer_portal.html', 'Developer Documents')"
-                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition mb-3 group">
+                            class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition group">
                             <div class="w-10 h-10 rounded-full bg-[#007AFF]/10 dark:bg-[#0A84FF]/20 flex items-center justify-center text-black dark:text-white shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -4518,24 +5283,13 @@
                                 <p class="text-sm text-gray-500">API guides & extension development tools.</p>
                             </div>
                         </div>
-
-                        <div
-                            class="p-4 bg-gray-50/30 dark:bg-white/5 rounded-xl flex items-center gap-4 opacity-50">
-                            <div
-                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-400 shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-width="2" stroke-linecap="round" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-base text-gray-400">More Tools...</h3>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
             </div>
         </div>
+
+        <div id="hubToolsDivider" class="hidden" aria-hidden="true"></div>
 
         <!-- Dedicated Tools Panel for 3-Panel Guest Layout -->
         <div id="toolsSection"
@@ -4567,8 +5321,24 @@
                 <div id="sidePanelHeaderTopRow" class="flex justify-between items-center h-9">
                     <h2 class="text-2xl font-bold tracking-tight leading-none">Writing</h2>
                     <div id="sidePanelActionBtns" class="flex items-center gap-3 mb-1">
+                        <button onclick="toggleQuickTheme(event)"
+                            id="quickThemeBtnSidePanel"
+                            class="theme-toggle-btn text-[#007AFF] active:scale-90 transition-transform"
+                            title="Switch to light mode"
+                            aria-label="Switch to light mode">
+                            <div class="theme-toggle-icon-wrap">
+                                <svg class="theme-toggle-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                                </svg>
+                                <svg class="theme-toggle-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                                </svg>
+                            </div>
+                        </button>
                         <button onclick="openPortfolio()"
-                            class="text-[#007AFF] active:scale-90 transition-transform" title="Portfolio">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="View Author's Portfolio"
+                            aria-label="View Author's Portfolio">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="9" stroke-width="2" />
                                 <path d="M12 3a12.5 12.5 0 0 0 0 18 12.5 12.5 0 0 0 0-18" stroke-width="2" />
@@ -4576,7 +5346,9 @@
                             </svg>
                         </button>
                         <button onclick="toggleDonation()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="Support Development"
+                            aria-label="Support Development">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -4584,7 +5356,9 @@
                         </button>
 
                         <button onclick="toggleSettings()"
-                            class="text-[#007AFF] active:scale-90 transition-transform">
+                            class="text-[#007AFF] active:scale-90 transition-transform"
+                            title="Settings"
+                            aria-label="Settings">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
@@ -4629,7 +5403,7 @@
             </div>
         </div>
 
-
+        <div id="writingChatDivider" class="hidden" aria-hidden="true"></div>
 
         <div id="chatSection" class="hidden lg:flex flex-1 flex-col bg-white dark:bg-[#141416] overflow-x-hidden relative">
             <!-- Transparent geometry anchor: JS (wp bar, forward picker) measures
@@ -4647,7 +5421,7 @@
                     </svg>
                 </button>
                 <div class="min-w-0 flex flex-col justify-center px-1.5">
-                    <div class="font-bold text-base leading-[19px] tracking-tight text-black dark:text-white truncate" id="chatTitle">
+                    <div class="font-bold text-base leading-[20px] pb-0.5 tracking-tight text-black dark:text-white truncate" id="chatTitle">
                         ...</div>
                     <div id="chatStatus" class="text-[11px] text-gray-400 font-medium leading-[16px] truncate"></div>
                 </div>
@@ -4718,7 +5492,7 @@
                     </span>
                     <span id="wpProjectHeaderMain" class="flex min-w-0 flex-1 items-center gap-3 rounded-[18px]">
                         <span class="flex flex-col min-w-0 flex-1">
-                            <span id="wpDocContextTitle" class="text-[14px] font-semibold text-black dark:text-white leading-tight truncate">All Projects</span>
+                            <span id="wpDocContextTitle" class="text-[14px] font-semibold text-black dark:text-white leading-normal pb-0.5 truncate">All Projects</span>
                             <span id="wpProjectHeaderSub" class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5"></span>
                         </span>
                         <svg id="wpProjectHeaderCheck" class="w-4 h-4 flex-shrink-0 text-black dark:text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>

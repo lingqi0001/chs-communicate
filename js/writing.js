@@ -46,6 +46,55 @@ export const WritingDocCard = {
     // "Created by <platform user>: <text>" prefix that we strip for display.
     BOT_DOCS_EMAIL: 'chscommunication@appspot.gserviceaccount.com',
 
+    copyDocBotEmail: function (btn) {
+        const email = WritingDocCard.BOT_DOCS_EMAIL || 'chscommunication@appspot.gserviceaccount.com';
+        const done = () => {
+            if (!btn) return;
+            const oldText = btn.innerText;
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = oldText; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(email).then(done).catch(done);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = email;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (err) {}
+            ta.remove();
+            done();
+        }
+    },
+
+    showDocAccessHelp: function (event) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        const botEmail = WritingDocCard.BOT_DOCS_EMAIL || 'chscommunication@appspot.gserviceaccount.com';
+        const title = 'Share a Google Doc';
+        const bodyHtml = `
+            <div class="text-left space-y-3 pt-1">
+                <p class="text-[13px] leading-relaxed text-black/80 dark:text-white/80">
+                    Please give CHShub bot <strong>COMMENTOR</strong> access to your document. You may also allow anyone with the link to comment.
+                </p>
+                <div>
+                    <div class="text-xs font-semibold text-black dark:text-white mb-1.5">CHSbot's account</div>
+                    <div class="flex items-center justify-between gap-2 p-2 bg-gray-100 dark:bg-white/10 rounded-xl border border-black/5 dark:border-white/10">
+                        <code class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</code>
+                        <button type="button" onclick="window.copyDocBotEmail(this)" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy email</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (window.AppModules && window.AppModules.Modal && typeof window.AppModules.Modal.alert === 'function') {
+            window.AppModules.Modal.alert(title, bodyHtml);
+        } else {
+            alert(`Please give CHShub bot COMMENTOR access to your document. You may also allow anyone with the link to comment.\n\nCHSbot's account:\n${botEmail}`);
+        }
+    },
+
     // Add soft wrap points inside long URLs while keeping the copied text intact.
     escapeCommentText: function (content) {
         return String(content || '').split(/(https?:\/\/\S+)/g).map(part => {
@@ -180,7 +229,22 @@ export const WritingDocCard = {
         const subTone = isSoft
             ? 'text-gray-500 dark:text-gray-400'
             : 'text-black dark:text-white';
-        return `<div id="docStatusNotice-${key}" class="mx-3.5 mb-3 px-3 py-2 rounded-xl ${tone} text-[11px] leading-relaxed"><span class="font-bold">${cfg.t}</span><span class="${subTone}"> · ${UIUtils.escape(cfg.b)}</span></div>`;
+
+        const isDocAccessIssue = [
+            'file_unavailable',
+            'access_lost',
+            'access_lost_or_file_unavailable',
+            'comments_access_lost',
+            'comments_unavailable',
+            'comments_unavailable_or_empty',
+            'auth_required'
+        ].includes(status);
+
+        const infoBtnHtml = (isDocAccessIssue && key !== 'modal')
+            ? `<button type="button" onclick="event.stopPropagation(); window.showDocAccessHelp(event);" class="doc-status-help-btn text-black dark:text-white ml-1.5 -my-1" title="How to share this document" aria-label="How to share this document"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></button>`
+            : '';
+
+        return `<div id="docStatusNotice-${key}" class="mx-3.5 mb-3 px-3 py-2 rounded-xl ${tone} text-[11px] leading-relaxed"><span class="font-bold">${cfg.t}</span><span class="${subTone}"> · ${UIUtils.escape(cfg.b)}</span>${infoBtnHtml}</div>`;
     },
 
     /**
@@ -630,6 +694,11 @@ export function initWritingBehavior(deps) {
         const arrow = (container ? container.querySelector('[id^="docArrow-"]') : null) || document.getElementById(`docArrow-${key}`);
         if (!drawer) return;
 
+        // Debounce / lock while actively toggling transition to prevent rapid jitter
+        if (drawer._isToggling) return;
+        drawer._isToggling = true;
+        setTimeout(() => { drawer._isToggling = false; }, 360);
+
         const isExpanded = drawer.classList.contains('expanded');
         if (!isExpanded) {
             drawer.classList.remove('hidden');
@@ -643,22 +712,26 @@ export function initWritingBehavior(deps) {
                 }
             }, 180);
 
-            // Auto-sync: Check if document has never been synced or last sync was > 3 minutes ago
+            // Auto-sync: ONLY if document has NEVER been synced and currently has NO comments.
+            // If the card already has comments rendered or cached, DO NOT auto-sync on expand!
+            // The user is simply viewing comments; the dedicated Sync button is right next to expand.
             try {
                 const docId = container ? container.getAttribute('data-doc-id') : null;
                 const docUrl = container ? container.getAttribute('data-doc-url') : null;
                 if (docId && docUrl) {
                     const cached = window._docCache?.[docId];
+                    const cardList = container ? container.querySelector('[id^="docList-"]') : document.getElementById(`docList-${key}`);
+                    const hasRenderedComments = cardList && cardList.querySelectorAll('.comment-item-row').length > 0;
+                    const hasCachedComments = Array.isArray(cached?.comments) && cached.comments.length > 0;
                     const lastSynced = cached?.lastSyncedAt || 0;
                     const now = Date.now();
-                    const THREE_MINUTES = 3 * 60 * 1000;
                     // Backoff: transient Google failures (429/5xx) retry at most every 15 min
                     const RETRY_BACKOFF = 15 * 60 * 1000;
                     const inBackoff = cached?.syncStatus === 'sync_failed_retryable'
                         && (now - (cached.lastSyncAttemptAt || cached.lastSyncedAt || 0)) < RETRY_BACKOFF;
-                    if (!inBackoff && now - lastSynced > THREE_MINUTES) {
-                        // Trigger background silent sync
-                        syncDocCardComments(key, docUrl, null, null, true);
+                    if (!inBackoff && !hasRenderedComments && !hasCachedComments && !lastSynced) {
+                        // Background silent sync with autoExpandDrawer disabled
+                        syncDocCardComments(key, docUrl, null, null, true, false);
                     }
                 }
             } catch (syncErr) {
@@ -918,10 +991,19 @@ export function initWritingBehavior(deps) {
                 }
 
                 if (cardList) {
-                    cardList.innerHTML = WritingDocCard.renderDocCommentsHtml(cardKey, comments, liveComments.length, openCount, resolvedCount, docId, docUrl, resData);
+                    const activeFilterBtn = cardEl.querySelector('.doc-filter-bar button.bg-\\[\\#007AFF\\]');
+                    const activeFilterType = activeFilterBtn ? activeFilterBtn.id.split('-').pop() : 'all';
+                    const nextHtml = WritingDocCard.renderDocCommentsHtml(cardKey, comments, liveComments.length, openCount, resolvedCount, docId, docUrl, resData);
+                    if (cardList.innerHTML !== nextHtml) {
+                        cardList.innerHTML = nextHtml;
+                        if (activeFilterType && activeFilterType !== 'all') {
+                            filterDocComments(cardKey, activeFilterType);
+                        }
+                    }
 
-                    // For the clicked card specifically, automatically open drawer to show results
-                    if (autoExpandDrawer && cardDrawer && cardList.id === `docList-${key}` && (!cardDrawer.classList.contains('expanded') || cardDrawer.classList.contains('hidden'))) {
+                    // For the clicked card specifically, automatically open drawer to show results (only for manual sync, never background silent sync, and only if not already open)
+                    const shouldAutoExpand = autoExpandDrawer && !isSilent;
+                    if (shouldAutoExpand && cardDrawer && cardList.id === `docList-${key}` && !cardDrawer.classList.contains('expanded')) {
                         cardDrawer.classList.remove('hidden');
                         void cardDrawer.offsetHeight;
                         cardDrawer.classList.add('expanded');
@@ -987,13 +1069,16 @@ export function initWritingBehavior(deps) {
                         .replace(/<div[^>]*>/, '<div>').replace(/<\/div>/, '</div>');
                     let extra = '';
                     if (syncStatus === 'file_unavailable' || syncStatus === 'comments_access_lost' || syncStatus === 'access_lost_or_file_unavailable') {
-                        const botEmail = "chscommunication@appspot.gserviceaccount.com";
+                        const botEmail = WritingDocCard.BOT_DOCS_EMAIL || "chscommunication@appspot.gserviceaccount.com";
                         extra = `
                             <div class="mt-3 text-left text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed space-y-2.5">
-                                <div>To restore live sync, set doc sharing to <b>"Anyone with the link can comment"</b>, or add the bot as a <b>Commenter</b>:</div>
-                                <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
-                                    <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</span>
-                                    <button type="button" onclick="navigator.clipboard.writeText('${botEmail}'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy</button>
+                                <div>Please give CHShub bot <strong>COMMENTOR</strong> access to your document. You may also allow anyone with the link to comment.</div>
+                                <div>
+                                    <div class="text-xs font-semibold text-black dark:text-white mb-1">CHSbot's account</div>
+                                    <div class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10">
+                                        <span class="text-[11px] font-mono select-all break-all text-black dark:text-white flex-1">${botEmail}</span>
+                                        <button type="button" onclick="window.copyDocBotEmail(this)" class="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] text-white rounded-lg active:scale-95 transition-all flex-shrink-0">Copy email</button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1519,6 +1604,16 @@ export function initWritingBehavior(deps) {
         resolveDocViewData,
         loadSavedDocs,
         classifyCommentAuthor,
-        jumpCommentCard
+        jumpCommentCard,
+        showDocAccessHelp: WritingDocCard.showDocAccessHelp,
+        copyDocBotEmail: WritingDocCard.copyDocBotEmail
     };
+}
+
+export const copyDocBotEmail = WritingDocCard.copyDocBotEmail;
+export const showDocAccessHelp = WritingDocCard.showDocAccessHelp;
+
+if (typeof window !== 'undefined') {
+    window.copyDocBotEmail = copyDocBotEmail;
+    window.showDocAccessHelp = showDocAccessHelp;
 }

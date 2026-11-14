@@ -205,7 +205,7 @@ export const UIComponents = {
         const enterAnim = animate ? 'animate-in fade-in slide-in-from-bottom-2 duration-500' : '';
 
         return `
-            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10 ${enterAnim}">
+            <div data-news-key="${post.key}" class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-white/10 ${enterAnim}">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-[11px] font-bold ${badgeColor} uppercase tracking-wider inline-block flex-shrink-0 max-w-[60%] break-words leading-none">${UIUtils.escape(badgeText)}</span>
                     <div class="flex items-center gap-2 ml-auto">

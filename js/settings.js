@@ -1349,6 +1349,29 @@ window.applyTheme = (mode) => {
     }
 };
 
+window.toggleQuickTheme = (e) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    const isDark = document.documentElement.classList.contains('dark');
+    const targetDark = !isDark;
+    const View = window.ViewModule || window.AppModules?.View;
+    if (View && typeof View.setDarkMode === 'function') {
+        View.setDarkMode(targetDark, targetDark ? 'dark' : 'light');
+    } else {
+        if (targetDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', targetDark ? 'dark' : 'light');
+    }
+    if (typeof window.updateExtensionThemeIcons === 'function') {
+        window.updateExtensionThemeIcons();
+    }
+    if (typeof window.updateQuickThemeTooltips === 'function') {
+        window.updateQuickThemeTooltips();
+    }
+};
+
 window.closeSettingsModal = () => {
     const modal = document.getElementById('settingsModal');
     if (!modal) return;
@@ -1425,7 +1448,7 @@ window.openPortfolio = async () => {
     const confirmed = Modal
         ? await Modal.confirm(
             "Author Portfolio",
-            "You are about to visit the portfolio of chschat.xyz author, Centennial High Junior Lingqi Mo. Continue?",
+            "You are about to visit the portfolio of chschat.xyz author, Centennial High Senior Lingqi Mo. Continue?",
             "Visit",
             "Cancel"
           )
