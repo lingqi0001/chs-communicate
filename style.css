@@ -2530,7 +2530,7 @@ body {
     }
     .dark body.sidebar-collapsed .msg-theme-purple#sidebarHandle,
     .dark body.four-panel-collapsed .msg-theme-purple#sidebarHandle {
-        background: #A724FF !important;
+        background: #C084FC !important;
     }
     body.sidebar-collapsed .msg-theme-custom#sidebarHandle,
     body.four-panel-collapsed .msg-theme-custom#sidebarHandle {
@@ -4162,7 +4162,7 @@ html:not(.dark) #customModal {
 }
 
 .dark .search-announcement-label {
-    color: var(--ann-accent-color-dark, #A724FF) !important;
+    color: var(--ann-accent-color-dark, #C084FC) !important;
 }
 
 .dark #globalSearchResults {
@@ -4499,56 +4499,57 @@ html:not(.dark) #customModal {
     color: #AF52DE !important; /* iOS Purple */
 }
 .ann-theme-purple .dark\:text-\[\#0A84FF\] {
-    color: #A724FF !important; /* Neon Purple */
+    color: #C084FC !important; /* Neon Purple */
 }
 .ann-theme-purple .text-blue-500 {
     color: #AF52DE !important;
 }
 .ann-theme-purple .dark\:text-blue-300 {
-    color: #A724FF !important;
+    color: #C084FC !important;
 }
 .ann-theme-purple .bg-\[\#007AFF\] {
     background-color: #AF52DE !important;
 }
 .ann-theme-purple .dark\:bg-\[\#0A84FF\] {
-    background-color: #A724FF !important;
+    background-color: #C084FC !important;
 }
 .ann-theme-purple .bg-blue-50 {
     background-color: rgba(175, 82, 222, 0.1) !important;
 }
 .ann-theme-purple .dark\:bg-blue-500\/10 {
-    background-color: rgba(167, 36, 255, 0.1) !important;
+    background-color: rgba(192, 132, 252, 0.15) !important;
 }
 .ann-theme-purple .border-t-\[\#007AFF\] {
     border-top-color: #AF52DE !important;
 }
 .ann-theme-purple .dark\:border-t-\[\#0A84FF\] {
-    border-top-color: #A724FF !important;
+    border-top-color: #C084FC !important;
 }
 .ann-theme-purple .border-\[\#007AFF\] {
     border-color: #AF52DE !important;
 }
 .ann-theme-purple .dark\:border-\[\#0A84FF\] {
-    border-color: #A724FF !important;
+    border-color: #C084FC !important;
 }
 .ann-theme-purple .hover\:border-\[\#007AFF\]:hover {
     border-color: #AF52DE !important;
 }
 .ann-theme-purple .dark\:hover\:border-\[\#007AFF\]:hover {
-    border-color: #A724FF !important;
+    border-color: #C084FC !important;
 }
 .ann-theme-purple .shadow-blue-500\/20 {
     box-shadow: 0 4px 6px -1px rgba(175, 82, 222, 0.2), 0 2px 4px -2px rgba(175, 82, 222, 0.2) !important;
 }
 .dark .ann-theme-purple .shadow-blue-500\/20 {
-    box-shadow: 0 4px 6px -1px rgba(167, 36, 255, 0.2), 0 2px 4px -2px rgba(167, 36, 255, 0.2) !important;
+    box-shadow: 0 4px 6px -1px rgba(192, 132, 252, 0.2), 0 2px 4px -2px rgba(192, 132, 252, 0.2) !important;
 }
 .ann-theme-purple .bg-\[\#007AFF\]\/10 {
     background-color: rgba(175, 82, 222, 0.1) !important;
 }
 .dark .ann-theme-purple .dark\:bg-\[\#0A84FF\]\/20,
+.dark .ann-theme-purple .dark\:bg-\[\#0A84FF\]\/10,
 .dark .ann-theme-purple .bg-\[\#007AFF\]\/10 {
-    background-color: rgba(167, 36, 255, 0.15) !important;
+    background-color: rgba(192, 132, 252, 0.18) !important;
 }
 .ann-theme-purple .text-blue-700 {
     color: #6C3483 !important;
@@ -4557,13 +4558,13 @@ html:not(.dark) #customModal {
     background-color: #F5EEF8 !important;
 }
 .ann-theme-purple .dark\:bg-blue-500\/15 {
-    background-color: rgba(167, 36, 255, 0.15) !important;
+    background-color: rgba(192, 132, 252, 0.18) !important;
 }
 .ann-theme-purple .news-jump-highlight {
     outline-color: #AF52DE !important;
 }
 .dark .ann-theme-purple .news-jump-highlight {
-    outline-color: #A724FF !important;
+    outline-color: #C084FC !important;
 }
 
 /* 5. Announcement Theme: Custom Color Mode */
@@ -4723,28 +4724,28 @@ html:not(.dark) #customModal {
 }
 .dark .msg-theme-purple .text-\[\#007AFF\],
 .dark .msg-theme-purple .dark\:text-\[\#0A84FF\] {
-    color: #A724FF !important;
+    color: #C084FC !important;
 }
 .msg-theme-purple .bg-\[\#007AFF\] {
     background-color: #AF52DE !important;
 }
 .dark .msg-theme-purple .bg-\[\#007AFF\],
 .dark .msg-theme-purple .dark\:bg-\[\#0A84FF\] {
-    background-color: #A724FF !important;
+    background-color: #C084FC !important;
 }
 .msg-theme-purple .peer-checked\:bg-\[\#007AFF\] {
     background-color: #AF52DE !important;
 }
 .dark .msg-theme-purple .peer-checked\:bg-\[\#007AFF\],
 .dark .msg-theme-purple .dark\:peer-checked\:bg-\[\#007AFF\] {
-    background-color: #A724FF !important;
+    background-color: #C084FC !important;
 }
 .msg-theme-purple .focus\:border-\[\#007AFF\]:focus {
     border-color: #AF52DE !important;
 }
 .dark .msg-theme-purple .focus\:border-\[\#007AFF\]:focus,
 .dark .msg-theme-purple .dark\:focus\:border-\[\#007AFF\]:focus {
-    border-color: #A724FF !important;
+    border-color: #C084FC !important;
 }
 .msg-theme-purple .bg-blue-500\/10,
 .msg-theme-purple .bg-\[\#007AFF\]\/10 {
@@ -4753,8 +4754,9 @@ html:not(.dark) #customModal {
 .dark .msg-theme-purple .bg-blue-500\/10,
 .dark .msg-theme-purple .dark\:bg-blue-500\/10,
 .dark .msg-theme-purple .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-purple .dark\:bg-\[\#0A84FF\]\/10,
 .dark .msg-theme-purple .dark\:bg-\[\#0A84FF\]\/20 {
-    background-color: rgba(167, 36, 255, 0.15) !important;
+    background-color: rgba(192, 132, 252, 0.18) !important;
 }
 
 /* 5. Messaging Theme: Custom Color Mode */
@@ -4791,6 +4793,7 @@ html:not(.dark) #customModal {
 }
 .dark .msg-theme-custom .bg-blue-500\/10,
 .dark .msg-theme-custom .bg-\[\#007AFF\]\/10,
+.dark .msg-theme-custom .dark\:bg-\[\#0A84FF\]\/10,
 .dark .msg-theme-custom .dark\:bg-\[\#0A84FF\]\/20 {
     background-color: var(--msg-accent-color-dark-alpha20) !important;
 }
@@ -4822,7 +4825,7 @@ html:not(.dark) #customModal {
     border-top-color: #AF52DE !important;
 }
 .msg-theme-purple .dark\:border-t-\[\#0A84FF\] {
-    border-top-color: #A724FF !important;
+    border-top-color: #C084FC !important;
 }
 .msg-theme-custom .border-t-\[\#007AFF\] {
     border-top-color: var(--msg-accent-color) !important;
@@ -4863,11 +4866,11 @@ html:not(.dark) #customModal {
 }
 .msg-theme-purple {
     --msg-accent-color: #AF52DE;
-    --msg-accent-color-dark: #A724FF;
+    --msg-accent-color-dark: #C084FC;
     --msg-accent-color-alpha10: rgba(175, 82, 222, 0.1);
-    --msg-accent-color-dark-alpha10: rgba(167, 36, 255, 0.15);
+    --msg-accent-color-dark-alpha10: rgba(192, 132, 252, 0.18);
     --msg-accent-color-alpha20: rgba(175, 82, 222, 0.2);
-    --msg-accent-color-dark-alpha20: rgba(167, 36, 255, 0.25);
+    --msg-accent-color-dark-alpha20: rgba(192, 132, 252, 0.25);
 }
 
 
@@ -4970,7 +4973,7 @@ html:not(.dark) #customModal {
     background-color: #AF52DE !important;
 }
 .dark .chat-theme-purple .chat-accent-bg {
-    background-color: #A724FF !important;
+    background-color: #C084FC !important;
 }
 
 .chat-theme-custom .chat-accent-bg {
@@ -5036,8 +5039,8 @@ html:not(.dark) #customModal {
     color: #fff !important;
 }
 .dark .other-theme-purple .other-accent-bg {
-    background-color: #A724FF !important;
-    color: #fff !important;
+    background-color: #C084FC !important;
+    color: #000 !important;
 }
 
 .other-theme-custom .other-accent-bg {
@@ -6008,7 +6011,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
 .dark #extensionPage.grade-calculator-theme #extensionThemeToggleBtn:hover,
 .dark #extensionPage.grade-calculator-theme button[onclick="openExtensionExternally()"]:hover,
 .dark #extensionPage.grade-calculator-theme button[onclick="reloadExtension()"]:hover {
-    color: #A724FF;
+    color: #C084FC;
 }
 
 #cafeteriaPage :is(button, input, select, textarea),
@@ -6448,7 +6451,7 @@ html:not(.dark) .text-gray-400[class*="hover:text-gray-"]:hover {
     }
 
     .dark .caf-dow-today {
-        color: #A724FF;
+        color: #C084FC;
     }
 }
 

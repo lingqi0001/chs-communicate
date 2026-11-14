@@ -27,6 +27,9 @@ export const SyncModule = {
     ctCache: (() => {
         try { return JSON.parse(localStorage.getItem('chs_ct_cache') || '{}'); } catch (e) { return {}; }
     })(),
+    cTypeCache: (() => {
+        try { return JSON.parse(localStorage.getItem('chs_ctype_cache') || '{}'); } catch (e) { return {}; }
+    })(),
     callbacks: {
         renderNews: null,
         renderSidebar: null,
@@ -444,7 +447,14 @@ export const SyncModule = {
 
             const myClasses = Object.keys(classes).filter(id => {
                 const c = classes[id];
-                return c.teacherId === currentUser.id || (c.students && c.students[currentUser.id]);
+                const uidLower = String(currentUser.id || '').toLowerCase();
+                const teacherLower = String(c.teacherId || '').toLowerCase();
+                const ownerLower = String(c.ownerId || '').toLowerCase();
+                return teacherLower === uidLower ||
+                       ownerLower === uidLower ||
+                       (c.students && (c.students[currentUser.id] || c.students[uidLower])) ||
+                       (c.teachers && (c.teachers[currentUser.id] || c.teachers[uidLower])) ||
+                       (c.admins && (c.admins[currentUser.id] || c.admins[uidLower]));
             });
 
             this.sidebarClasses = {};
@@ -455,12 +465,20 @@ export const SyncModule = {
                 }
             });
 
+            for (const cid of Object.keys(classes)) {
+                const c = classes[cid];
+                if (c) {
+                    this.cTypeCache[cid] = c.type === 'group' ? 'group' : 'class';
+                }
+            }
+
             for (const cid of myClasses) {
                 const c = classes[cid];
                 this.cnCache[cid] = c.name;
 
-                if (c.teacherId && window.AppModules?.User) {
-                    window.AppModules.User.fetchUser(c.teacherId).then(u => {
+                const primaryOwnerId = c.ownerId || c.teacherId;
+                if (primaryOwnerId && window.AppModules?.User) {
+                    window.AppModules.User.fetchUser(primaryOwnerId).then(u => {
                         if (u && u.name) {
                             this.ctCache[cid] = u.name;
                             localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
@@ -481,6 +499,7 @@ export const SyncModule = {
 
             localStorage.setItem('chs_cn_cache', JSON.stringify(this.cnCache));
             localStorage.setItem('chs_ct_cache', JSON.stringify(this.ctCache));
+            localStorage.setItem('chs_ctype_cache', JSON.stringify(this.cTypeCache));
 
             const firstSync = !this.isSyncDone;
             this.isSyncDone = true;

@@ -62,7 +62,11 @@ export const DirectoryModule = {
             if (!c || !c.id || !c.name) return;
             data.classes[c.id] = {
                 name: c.name,
+                type: c.type || 'class',
                 teacherId: c.teacherId || null,
+                ownerId: c.ownerId || null,
+                teachers: c.teachers || {},
+                admins: c.admins || {},
                 students: { [uid.toLowerCase()]: true }
             };
         });

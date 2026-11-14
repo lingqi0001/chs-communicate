@@ -614,7 +614,7 @@ export const ViewModule = {
         // Re-apply saved accent colors so CSS variables update for current theme
         const currentAnn = localStorage.getItem('annAccentColor') || 'orange';
         const lightAnn = localStorage.getItem('annCustomColorLightHex') || '#F97316';
-        const darkAnn = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+        const darkAnn = localStorage.getItem('annCustomColorDarkHex') || '#C084FC';
         this.applyAnnColor(currentAnn, lightAnn, darkAnn);
 
         const currentMsg = localStorage.getItem('msgAccentColor') || 'blue';
@@ -667,7 +667,7 @@ export const ViewModule = {
     initHubColor: function () {
         const savedAnnColor = localStorage.getItem('annAccentColor') || 'orange';
         const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
-        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#C084FC';
         this.applyAnnColor(savedAnnColor, customAnnLightHex, customAnnDarkHex);
 
         const savedMsgColor = localStorage.getItem('msgAccentColor') || 'blue';
@@ -732,11 +732,11 @@ export const ViewModule = {
         } else if (color === 'purple') {
             elements.forEach(el => el && el.classList.add('ann-theme-purple'));
             resolvedLight = '#AF52DE';
-            resolvedDark = '#A724FF';
+            resolvedDark = '#C084FC';
         } else if (color === 'custom') {
             elements.forEach(el => el && el.classList.add('ann-theme-custom'));
             resolvedLight = customLightHex || localStorage.getItem('annCustomColorLightHex') || '#F97316';
-            resolvedDark = customDarkHex || localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+            resolvedDark = customDarkHex || localStorage.getItem('annCustomColorDarkHex') || '#C084FC';
             localStorage.setItem('annCustomColorLightHex', resolvedLight);
             localStorage.setItem('annCustomColorDarkHex', resolvedDark);
         }
@@ -784,7 +784,8 @@ export const ViewModule = {
         // (chat.js body.appendChild), so without tagging it here nothing under
         // .msg-theme-* reaches its doc cards — their accent stayed iOS blue.
         const portfolioDrawer = document.getElementById('writingPortfolioDrawer');
-        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle, portfolioDrawer, searchResults];
+        const customModal = document.getElementById('customModal');
+        const elements = [sidePanel, chatSection, newsTopButtonsContainer, sidebarHandle, portfolioDrawer, searchResults, customModal];
 
         elements.forEach(el => {
             if (el) {
@@ -1473,7 +1474,7 @@ export const ViewModule = {
             } else if (msgAccent === 'green') {
                 accentLightHex = '#34C759'; accentDarkHex = '#95FF14';
             } else if (msgAccent === 'purple') {
-                accentLightHex = '#AF52DE'; accentDarkHex = '#A724FF';
+                accentLightHex = '#AF52DE'; accentDarkHex = '#C084FC';
             } else if (msgAccent === 'custom') {
                 accentLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
                 accentDarkHex  = localStorage.getItem('msgCustomColorDarkHex')  || '#0A84FF';
@@ -1488,10 +1489,10 @@ export const ViewModule = {
             } else if (annAccent === 'green') {
                 accentLightHex = '#34C759'; accentDarkHex = '#95FF14';
             } else if (annAccent === 'purple') {
-                accentLightHex = '#AF52DE'; accentDarkHex = '#A724FF';
+                accentLightHex = '#AF52DE'; accentDarkHex = '#C084FC';
             } else if (annAccent === 'custom') {
                 accentLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
-                accentDarkHex  = localStorage.getItem('annCustomColorDarkHex')  || '#A724FF';
+                accentDarkHex  = localStorage.getItem('annCustomColorDarkHex')  || '#C084FC';
             } else {
                 accentLightHex = '#F97316'; accentDarkHex = '#FB923C';
             }

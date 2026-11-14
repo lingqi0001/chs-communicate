@@ -401,7 +401,7 @@ export const NotifyModule = {
             } else if (msgColor === 'green') {
                 dotColor = isDark ? '#95FF14' : '#34C759';
             } else if (msgColor === 'purple') {
-                dotColor = isDark ? '#A724FF' : '#AF52DE';
+                dotColor = isDark ? '#C084FC' : '#AF52DE';
             } else if (msgColor === 'custom') {
                 const customLightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
                 const customDarkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';

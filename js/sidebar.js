@@ -239,9 +239,12 @@ export const SidebarModule = {
     handleSidebarSearch(event) {
         const term = event?.target?.value?.toLowerCase?.().trim?.() || '';
         let matchCount = 0;
+        const groupBtn = document.getElementById('createGroupRowBtn');
+        if (groupBtn) groupBtn.style.display = term ? 'none' : 'flex';
         // The chrome layer is a #sidebarList > div too, but it is furniture,
         // not a result row — hiding it would hide the floating bar.
         document.querySelectorAll('#sidebarList > div:not(#sidebarChrome)').forEach(item => {
+            if (item.id === 'createGroupRowBtn') return;
             const nameEl = item.querySelector('span');
             if (!nameEl) return;
             const name = nameEl.innerText.toLowerCase();
@@ -766,8 +769,15 @@ export const SidebarModule = {
 
     handleSidebarBack() {
         this._startReturnFly();
-        if (window.sidebarMode === 'recent_joined') window.sidebarMode = 'recent';
-        else window.currentClassId = null;
+        if (window.sidebarMode === 'recent_joined') {
+            window.sidebarMode = 'recent';
+        } else {
+            window.currentClassId = null;
+            if (window.previousSidebarMode) {
+                window.sidebarMode = window.previousSidebarMode;
+                window.previousSidebarMode = null;
+            }
+        }
         window.syncCHSRouteParams?.({
             sidebar: window.sidebarMode === 'all' ? 'contacts' : window.sidebarMode,
             classid: null
@@ -1474,45 +1484,62 @@ export const SidebarModule = {
                 window.cnCache[window.currentClassId] = className;
                 this._setBarTitle(className);
 
-                const canManage = window.AppModules.User.isAdmin() || c.teacherId === currentUser.id;
+                const isGroup = c.type === 'group';
+                const ownerId = c.ownerId || c.teacherId;
+                const isOwner = (c.teacherId && String(c.teacherId).toLowerCase() === currentUser.id.toLowerCase()) ||
+                                (c.ownerId && String(c.ownerId).toLowerCase() === currentUser.id.toLowerCase());
+                const isTeacherOrAdmin = (c.teachers && (c.teachers[currentUser.id] || c.teachers[currentUser.id.toLowerCase()])) ||
+                                         (c.admins && (c.admins[currentUser.id] || c.admins[currentUser.id.toLowerCase()]));
+                const canManage = window.AppModules.User.isAdmin() || isOwner || isTeacherOrAdmin;
+                const canDelete = window.AppModules.User.isAdmin() || isOwner;
+
                 this._renderBarActions(canManage ? {
                     key: view,
                     html: `
-                        <button onclick="handleDeleteClass('${window.currentClassId}')" class="sidebar-action-disc text-black dark:text-white active:scale-90" title="Delete Class">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                        ${canDelete ? `
+                            <button onclick="handleDeleteClass('${window.currentClassId}')" class="sidebar-action-disc text-black dark:text-white active:scale-90" title="${isGroup ? 'Delete Group' : 'Delete Class'}">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        ` : ''}
                         <button onclick="AppModules.Sidebar.openStudentSelector('${window.currentClassId}')" class="sidebar-action-label text-black dark:text-white">Edit</button>
                     `
                 } : null);
 
                 const subList = container.querySelector('#sidebarSubList');
-                const teacher = await this._fetchUser(c.teacherId);
-                const students = c.students ? Object.keys(c.students) : [];
+                const owner = await this._fetchUser(ownerId);
+
+                // Fetch secondary teachers or administrators
+                const teacherAdminMap = isGroup ? (c.admins || c.teachers || {}) : (c.teachers || {});
+                const teacherAdminIds = Object.keys(teacherAdminMap).filter(id => id !== ownerId && !!teacherAdminMap[id]);
+                const teacherAdminUsers = await Promise.all(teacherAdminIds.map(async id => {
+                    const data = await this._fetchClassStudent(rt, id);
+                    return { ...(data || {}), id, name: data?.name || id };
+                }));
+
+                const studentKeys = c.students ? Object.keys(c.students).filter(id => id !== ownerId && !teacherAdminMap[id]) : [];
 
                 const activeTargetId = rt.getActiveTargetId ? rt.getActiveTargetId() : null;
-                const teacherActive = activeTargetId === c.teacherId;
+                const ownerActive = activeTargetId === ownerId;
                 const groupActive = activeTargetId === `group_${window.currentClassId}`;
 
-                // Forced extensions (only visible to the class teacher or admin):
-                // 1. Generate a Class Join Code
-                // 2. Set up Google Doc submission
+                // Forced extensions (only visible to owner/teacher/admin):
                 let extensionHtml = '';
                 let forcedRows = '';
                 if (canManage) {
                     const joinCodeRow = `
                         <div onclick="AppModules.Sidebar.openClassJoinCode('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
+                            <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-[#007AFF] dark:text-[#0A84FF] overflow-hidden">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                                 </svg>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm text-black dark:text-white truncate">Generate a Class Join Code</div>
-                                <div class="text-[10px] text-gray-400 tracking-tight truncate">Share this code with students so they can join your class.</div>
+                                <div class="font-bold text-sm text-black dark:text-white truncate">${isGroup ? 'Generate a Group Join Code' : 'Generate a Class Join Code'}</div>
+                                <div class="text-[10px] text-gray-400 tracking-tight truncate">${isGroup ? 'Share this code with members so they can join your group.' : 'Share this code with students so they can join your class.'}</div>
                             </div>
                         </div>
                     `;
-                    const joinLinkRow = `
+                    const joinLinkRow = !isGroup ? `
                         <div onclick="AppModules.Sidebar.openClassJoinLink('${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
                             <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 overflow-hidden">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1524,7 +1551,7 @@ export const SidebarModule = {
                                 <div class="text-[10px] text-gray-400 tracking-tight truncate">Students would submit the link to their Google Doc</div>
                             </div>
                         </div>
-                    `;
+                    ` : '';
                     forcedRows = joinCodeRow + joinLinkRow;
                 }
 
@@ -1537,7 +1564,7 @@ export const SidebarModule = {
                             if (regItem) {
                                 customExtRows += `
                                     <div onclick="openExtension('${eid}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5">
-                                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
+                                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-[#007AFF] dark:text-[#0A84FF]">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                                             </svg>
@@ -1557,44 +1584,98 @@ export const SidebarModule = {
                     extensionHtml = `<div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Extensions</div>` + forcedRows + customExtRows;
                 }
 
-                let html = `
-                    <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
-                    <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${teacherActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
-                        <div>
-                            <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(teacher?.name || 'Teacher')}</div>
-                            <div class="text-xs text-[#007AFF] font-bold">Class Teacher</div>
+                let ownerTeacherSectionHtml = '';
+                if (isGroup) {
+                    ownerTeacherSectionHtml = `
+                        <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Owner</div>
+                        <div id="item-${ownerId}" onclick="window.switchChat('${ownerId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${ownerActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
+                            <div>
+                                <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(owner?.name || 'Group Owner')}</div>
+                                <div class="text-xs text-[#007AFF] dark:text-[#0A84FF] font-bold">Group Owner</div>
+                            </div>
                         </div>
-                    </div>
-                    ${extensionHtml}
+                    `;
+                    if (teacherAdminUsers.length > 0) {
+                        ownerTeacherSectionHtml += `
+                            <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Administrator${teacherAdminUsers.length > 1 ? 's' : ''}</div>
+                        `;
+                        teacherAdminUsers.forEach(adm => {
+                            const admActive = activeTargetId === adm.id;
+                            ownerTeacherSectionHtml += `
+                                <div id="item-${adm.id}" onclick="window.switchChat('${adm.id}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${admActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
+                                    <div>
+                                        <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(adm.name || adm.id)}</div>
+                                        <div class="text-xs text-[#007AFF] dark:text-[#0A84FF] font-bold">Group Administrator</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                } else {
+                    ownerTeacherSectionHtml = `
+                        <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teacher</div>
+                        <div id="item-${c.teacherId}" onclick="window.switchChat('${c.teacherId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${ownerActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
+                            <div>
+                                <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(owner?.name || 'Teacher')}</div>
+                                <div class="text-xs text-[#007AFF] dark:text-[#0A84FF] font-bold">Class Teacher</div>
+                            </div>
+                        </div>
+                    `;
+                    if (teacherAdminUsers.length > 0) {
+                        ownerTeacherSectionHtml += `
+                            <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Teachers</div>
+                        `;
+                        teacherAdminUsers.forEach(t => {
+                            const tActive = activeTargetId === t.id;
+                            ownerTeacherSectionHtml += `
+                                <div id="item-${t.id}" onclick="window.switchChat('${t.id}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 ${tActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
+                                    <div>
+                                        <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(t.name || t.id)}</div>
+                                        <div class="text-xs text-[#007AFF] dark:text-[#0A84FF] font-bold">Class Teacher</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                const creatorName = owner?.name || (isGroup ? 'Group Owner' : 'Teacher');
+                const groupRowHtml = `
                     <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Group Chat</div>
                     <div id="item-group_${window.currentClassId}" onclick="window.switchChat('group_${window.currentClassId}')" class="p-3 px-5 cursor-pointer flex items-center gap-4 transition-all border-b border-gray-100 dark:border-gray-800 group ${groupActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
-                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-full flex items-center justify-center p-2 relative">
-                            ${(rt.eagleIcon || '')}
+                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white rounded-full flex items-center justify-center ${isGroup ? 'p-2' : 'p-1 overflow-hidden'} relative">
+                            ${isGroup ? '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' : (rt.eagleIcon || '')}
                             <span id="dot-group_${window.currentClassId}" class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#007AFF] border-2 border-white dark:border-[#1C1C1E] rounded-full ${window.AppModules.Notify.unreadSet.has('group_' + window.currentClassId) ? '' : 'hidden'}"></span>
                         </div>
                         <div class="flex-1">
                             <div class="font-bold text-base text-black dark:text-white">${window.escapeHTML(c.name)}</div>
-                            <div class="text-xs text-gray-400">By ${window.escapeHTML(teacher?.name || 'Teacher')}</div>
+                            <div class="text-xs text-gray-400">By ${window.escapeHTML(creatorName)}</div>
                         </div>
                     </div>
-                    <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">Students (${students.length})</div>
                 `;
 
-                const studentData = await Promise.all(students.map(async uid => {
+                const membersHeader = isGroup ? `Group members (${studentKeys.length})` : `Students (${studentKeys.length})`;
+                let html = ownerTeacherSectionHtml + extensionHtml + groupRowHtml + `
+                    <div class="p-2.5 px-5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-gray-50/20 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 select-none">${membersHeader}</div>
+                `;
+
+                const studentData = await Promise.all(studentKeys.map(async uid => {
                     const data = await this._fetchClassStudent(rt, uid);
                     // Keep the roster row visible even if both profile sources
                     // are unavailable; this preserves the membership entry.
                     return { ...(data || {}), id: uid, name: data?.name || uid };
                 }));
-                const canEdit = (window.AppModules.User.isAdmin() || c.teacherId === currentUser.id);
 
                 html += studentData.map(u => {
                     const isActive = activeTargetId === u.id;
                     let badge = '';
                     const isAdminUser = u.role === 'admin' || u.email === window.AppModules.Config.APP_CONSTANTS.ADMIN_EMAIL;
+                    const isGroupAdmin = isGroup && ((c.teachers && c.teachers[u.id]) || (c.admins && c.admins[u.id]));
+                    const isClassTeacher = !isGroup && (c.teachers && c.teachers[u.id]);
                     const isTeacherUser = u.role === 'teacher' || (u.email && u.email.endsWith('@hcpss.org'));
                     if (isAdminUser) badge = ' <span class="text-[10px] text-red-500 font-black ml-1 uppercase">Admin</span>';
-                    else if (isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] font-black ml-1 uppercase">Teacher</span>';
+                    else if (isGroupAdmin) badge = ' <span class="text-[10px] text-[#007AFF] dark:text-[#0A84FF] font-black ml-1 uppercase">Admin</span>';
+                    else if (isClassTeacher || isTeacherUser) badge = ' <span class="text-[10px] text-[#007AFF] dark:text-[#0A84FF] font-black ml-1 uppercase">Teacher</span>';
                     return `
                         <div id="item-${u.id}" class="flex items-center transition-all border-b border-gray-100 dark:border-gray-800 group relative ${isActive ? 'active-chat-item' : 'hover:bg-black/5 dark:hover:bg-white/5'}">
                             <div onclick="window.switchChat('${u.id}')" class="flex flex-1 items-center gap-4 cursor-pointer p-3 px-5">
@@ -1608,8 +1689,8 @@ export const SidebarModule = {
                             <div class="flex items-center gap-2 pr-5">
                                 <span id="dot-${u.id}" class="w-2.5 h-2.5 bg-[#007AFF] rounded-full ${window.AppModules.Notify.isUnread(u.id) ? '' : 'hidden'}"></span>
                             </div>
-                            ${canEdit && u.id !== c.teacherId ? `
-                                <button onclick="removeStudentFromClass('${window.currentClassId}', '${u.id}', '${window.escapeHTML(u.name)}')" class="opacity-0 group-hover:opacity-100 p-2 mr-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all" title="Remove from class">
+                            ${canManage && u.id !== ownerId ? `
+                                <button onclick="removeStudentFromClass('${window.currentClassId}', '${u.id}', '${window.escapeHTML(u.name)}')" class="opacity-0 group-hover:opacity-100 p-2 mr-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all" title="${isGroup ? 'Remove from group' : 'Remove from class'}">
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
                             ` : ''}
@@ -1679,11 +1760,11 @@ export const SidebarModule = {
                     createBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                     createBtn.onclick = () => window.addNewClass();
                     createBtn.innerHTML = `
-                        <div class="w-10 h-10 bg-[#007AFF]/10 rounded-xl flex items-center justify-center text-[#007AFF]">
+                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-black dark:text-white">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                         </div>
                         <div>
-                            <div class="font-bold text-base text-[#007AFF]">Create New Class</div>
+                            <div class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF]">Create New Class</div>
                             <div class="text-xs text-gray-400 mt-0.5">Set up a new roster and group chat</div>
                         </div>
                     `;
@@ -1693,15 +1774,31 @@ export const SidebarModule = {
                     joinBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
                     joinBtn.onclick = () => window.joinClassWithCode();
                     joinBtn.innerHTML = `
-                        <div class="w-10 h-10 bg-[#007AFF]/10 rounded-xl flex items-center justify-center text-[#007AFF]">
+                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-black dark:text-white">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                         </div>
                         <div>
-                            <div class="font-bold text-base text-[#007AFF]">Join new class</div>
+                            <div class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF]">Join new class</div>
                             <div class="text-xs text-gray-400 mt-0.5">Join with a code</div>
                         </div>
                     `;
                     wrapper.appendChild(joinBtn);
+                }
+
+                if (currentUser && currentUser.id) {
+                    const createGroupBtn = document.createElement('div');
+                    createGroupBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
+                    createGroupBtn.onclick = () => window.addNewGroup();
+                    createGroupBtn.innerHTML = `
+                        <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-black dark:text-white">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <div>
+                            <div class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF]">Create New Group</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Set up a new roster and group chat</div>
+                        </div>
+                    `;
+                    wrapper.appendChild(createGroupBtn);
                 }
 
                 if (myClasses.length === 0) {
@@ -1715,11 +1812,15 @@ export const SidebarModule = {
                         window.cnCache[c.id] = className;
                         const currentId = String(currentUser.id || '').toLowerCase();
                         const teacherId = String(c.teacherId || '').toLowerCase();
-                        const isParticipant = teacherId === currentId || Object.entries(c.students || {}).some(([studentId, enrolled]) =>
-                            String(studentId).toLowerCase() === currentId && !!enrolled
-                        );
+                        const ownerId = String(c.ownerId || '').toLowerCase();
+                        const isGroup = c.type === 'group';
+                        const isParticipant = teacherId === currentId ||
+                            ownerId === currentId ||
+                            Object.entries(c.students || {}).some(([studentId, enrolled]) => String(studentId).toLowerCase() === currentId && !!enrolled) ||
+                            Object.entries(c.teachers || {}).some(([tid, enrolled]) => String(tid).toLowerCase() === currentId && !!enrolled) ||
+                            Object.entries(c.admins || {}).some(([aid, enrolled]) => String(aid).toLowerCase() === currentId && !!enrolled);
                         const isRemoved = !isParticipant;
-                        const rowName = isRemoved ? 'Class Group Chat' : className;
+                        const rowName = isRemoved ? (isGroup ? 'Group Chat' : 'Class Group Chat') : className;
                         const escName = window.escapeHTML(rowName);
                         const item = document.createElement('div');
                         item.className = 'p-4 px-6 cursor-pointer flex items-center justify-between border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
@@ -1731,14 +1832,21 @@ export const SidebarModule = {
                             AppModules.Sidebar.renderSidebar();
                             if (window.innerWidth >= 800) window.switchChat('group_' + c.id);
                         };
+                        const iconHtml = isGroup
+                            ? '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>'
+                            : (isRemoved ? (rt.eagleIconBw || '') : (rt.eagleIcon || ''));
+                        const iconBg = isRemoved
+                            ? 'bg-gray-100 dark:bg-white/10'
+                            : (isGroup ? 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10');
+
                         item.innerHTML = `
                             <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 ${isRemoved ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10'} rounded-xl flex items-center justify-center ${isRemoved ? '' : 'text-[#007AFF] dark:text-[#0A84FF]'}">
-                                    ${isRemoved ? (rt.eagleIconBw || '') : '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>'}
+                                <div class="w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center ${isGroup ? 'p-2' : 'p-1 overflow-hidden'}">
+                                    ${iconHtml}
                                 </div>
                                 <div>
                                     <div data-fly-name${this._rowHandoffId === c.id ? ' style="visibility: hidden"' : ''} class="font-bold text-base text-black dark:text-white leading-tight">${escName}</div>
-                                    <div class="text-xs text-gray-400 mt-0.5">${isRemoved ? 'You have been removed from this chat' : 'Click to view members'}</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">${isRemoved ? (isGroup ? 'You have been removed from this group' : 'You have been removed from this chat') : (isGroup ? 'Group Chat · Click to view details' : 'Click to view members')}</div>
                                 </div>
                             </div>
                         `;
@@ -2026,6 +2134,21 @@ export const SidebarModule = {
                     </div>
                 `;
                 fragment.appendChild(entry);
+            } else if (listMode === 'all') {
+                const groupBtn = document.createElement('div');
+                groupBtn.id = 'createGroupRowBtn';
+                groupBtn.className = 'p-4 px-6 cursor-pointer flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-all group';
+                groupBtn.onclick = () => window.addNewGroup();
+                groupBtn.innerHTML = `
+                    <div class="w-10 h-10 bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 rounded-xl flex items-center justify-center text-black dark:text-white">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    </div>
+                    <div>
+                        <div class="font-bold text-base text-[#007AFF] dark:text-[#0A84FF]">Create New Group</div>
+                        <div class="text-xs text-gray-400 mt-0.5">Set up a new roster and group chat</div>
+                    </div>
+                `;
+                fragment.appendChild(groupBtn);
             }
 
                 const canvasLinkSignature = window.canvasConnectionActive
@@ -2054,18 +2177,27 @@ export const SidebarModule = {
                     const classId = id.replace('group_', '');
                     const isDisbanded = window.isSyncDone && !(AppModules.Sync.existingClassIds && AppModules.Sync.existingClassIds[classId]);
                     const isParticipant = window.sidebarClasses[classId];
+                    const classType = window.cTypeCache?.[classId] || (window.Directory?.classes() || {})[classId]?.type || 'class';
+                    const isGroupItem = classType === 'group';
 
                     displayName = window.isSyncDone && !isParticipant
-                        ? 'Class Group Chat'
+                        ? (isGroupItem ? 'Group Chat' : 'Class Group Chat')
                         : this._classDisplayName(window.cnCache[classId]);
 
-                    if (isDisbanded) displayEmail = 'Class disbanded';
+                    if (isDisbanded) displayEmail = isGroupItem ? 'Group disbanded' : 'Class disbanded';
                     else if (window.isSyncDone && !isParticipant) displayEmail = 'You have been removed from this chat';
-                    else displayEmail = window.ctCache[classId] || 'Multi-person conversation';
+                    else displayEmail = window.ctCache[classId] || (isGroupItem ? 'Group conversation' : 'Multi-person conversation');
 
-                    const bgClass = isDisbanded || (window.isSyncDone && !isParticipant) ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10';
-                    const iconToUse = isDisbanded || (window.isSyncDone && !isParticipant) ? (rt.eagleIconBw || '') : (rt.eagleIcon || '');
-                    avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-xl flex items-center justify-center p-2">${iconToUse}</div>`;
+                    const isDimmed = isDisbanded || (window.isSyncDone && !isParticipant);
+                    if (isGroupItem) {
+                        const bgClass = isDimmed ? 'bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-500' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10 text-black dark:text-white';
+                        const groupSvg = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>';
+                        avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-xl flex items-center justify-center p-2">${groupSvg}</div>`;
+                    } else {
+                        const bgClass = isDimmed ? 'bg-gray-100 dark:bg-white/10' : 'bg-[#007AFF]/10 dark:bg-[#0A84FF]/10';
+                        const eagleSvg = isDimmed ? (rt.eagleIconBw || '') : (rt.eagleIcon || '');
+                        avatarHtml = `<div class="w-10 h-10 ${bgClass} rounded-xl flex items-center justify-center p-1 overflow-hidden">${eagleSvg}</div>`;
+                    }
                 } else {
                     user = window.ALL_USERS[id];
                     if (rt.isExtensionTargetId && rt.isExtensionTargetId(id)) {
@@ -2321,32 +2453,33 @@ export const SidebarModule = {
             return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''} remaining`;
         };
 
+        const isGroup = classData.type === 'group';
         const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
-        tEl.innerText = 'Generate a Class Join Code';
+        tEl.innerText = isGroup ? 'Generate a Group Join Code' : 'Generate a Class Join Code';
 
         const renderModalBody = (codeVal, createdVal) => `
             <div class="space-y-3.5 text-left">
-                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this 8-digit code with students. They can select <span class="font-bold text-black dark:text-white">"Join new class"</span> and enter it to join your class.</p>
+                <p class="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">Share this 8-digit code with ${isGroup ? 'members so they can join your group' : 'students so they can join your class'}.</p>
                 <div class="p-3 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
                     <div class="flex items-start gap-2">
-                        <span class="text-[#007AFF] font-bold">1.</span>
+                        <span class="text-[#007AFF] dark:text-[#0A84FF] font-bold">1.</span>
                         <span>Valid for <b>5 days</b> from generation.</span>
                     </div>
                     <div class="flex items-start gap-2">
-                        <span class="text-[#007AFF] font-bold">2.</span>
+                        <span class="text-[#007AFF] dark:text-[#0A84FF] font-bold">2.</span>
                         <span>Generating a new code will immediately invalidate any previous code.</span>
                     </div>
                 </div>
                 <div>
                     <div class="flex items-center justify-between ml-1 mb-1">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">8-Digit Class Code</label>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">8-Digit ${isGroup ? 'Group' : 'Class'} Code</label>
                         <span id="classJoinCodeTimer" class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">${formatRemaining(createdVal)}</span>
                     </div>
                     <input type="text" id="classJoinCodeInput" readonly value="${window.escapeHTML(codeVal)}" onclick="this.select()" class="w-full p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none text-2xl font-black text-[#007AFF] dark:text-[#0A84FF] select-all font-mono tracking-widest text-center">
                 </div>
                 <div class="pt-1 flex items-center justify-between">
                     <p class="text-[11px] text-gray-400">Old codes expire immediately when replaced.</p>
-                    <button type="button" id="btnRegenerateCode" class="text-xs font-semibold text-[#007AFF] hover:underline cursor-pointer active:scale-95 transition-transform flex items-center gap-1">
+                    <button type="button" id="btnRegenerateCode" class="text-xs font-semibold text-[#007AFF] dark:text-[#0A84FF] hover:underline cursor-pointer active:scale-95 transition-transform flex items-center gap-1">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         Regenerate Code
                     </button>
@@ -2427,16 +2560,21 @@ export const SidebarModule = {
             const classSnap = await rt.get(rt.ref(rt.db, `classes/${classId}`));
             if (!classSnap.exists()) return;
             const classData = classSnap.val();
+            const isGroup = classData.type === 'group';
+            const ownerId = classData.ownerId || classData.teacherId;
+
             const currentStudents = classData.students || {};
+            const currentTeachers = isGroup ? (classData.admins || classData.teachers || {}) : (classData.teachers || {});
 
             const usersSnap = await rt.get(rt.ref(rt.db, 'user_search'));
             const allUsers = usersSnap.val() || {};
             const userList = Object.keys(allUsers)
-                .filter(uid => uid !== classData.teacherId)
+                .filter(uid => uid !== ownerId)
                 .map(uid => ({ id: uid, ...allUsers[uid] }))
-                .sort((a, b) => a.name.localeCompare(b.name));
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-            let selectedIds = new Set(Object.keys(currentStudents));
+            let selectedStudentIds = new Set(Object.keys(currentStudents));
+            let selectedTeacherIds = new Set(Object.keys(currentTeachers).filter(id => !!currentTeachers[id]));
 
             const registry = window.AppModules && window.AppModules.Extension && window.AppModules.Extension.getRegistry ? window.AppModules.Extension.getRegistry() : {};
             const registryKeys = Object.keys(registry);
@@ -2464,37 +2602,52 @@ export const SidebarModule = {
                 extensionsState[eid] = isSelected;
             });
 
-            const renderSelectorList = (filter = '') => {
+            const renderStudentSelectorList = (filter = '') => {
+                const termLower = filter.toLowerCase().trim();
                 const filtered = userList.filter(u =>
-                    u.name.toLowerCase().includes(filter.toLowerCase()) ||
-                    (u.email || '').toLowerCase().includes(filter.toLowerCase())
+                    (u.name || '').toLowerCase().includes(termLower) ||
+                    (u.email || '').toLowerCase().includes(termLower)
                 );
+                if (filtered.length === 0) return '<div class="p-6 text-center text-xs text-gray-400">No users found</div>';
                 return filtered.map(u => `
                     <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                         <div class="flex flex-col overflow-hidden mr-4">
-                            <span class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(u.name)}</span>
+                            <span class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(u.name || u.id)}</span>
                             <span class="text-xs text-gray-400 truncate">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || u.id))}</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" class="sr-only peer" ${selectedIds.has(u.id) ? 'checked' : ''} onchange="toggleStudentSelection('${u.id}', this.checked)">
+                            <input type="checkbox" class="sr-only peer" ${selectedStudentIds.has(u.id) ? 'checked' : ''} onchange="window.toggleStudentSelection('${u.id}', this.checked)">
                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
                         </label>
                     </div>
                 `).join('');
             };
 
-            window.toggleStudentSelection = (uid, isChecked) => {
-                if (isChecked) selectedIds.add(uid);
-                else selectedIds.delete(uid);
+            const renderTeacherSelectorList = (filter = '') => {
+                const termLower = filter.toLowerCase().trim();
+                const filtered = userList.filter(u =>
+                    (u.name || '').toLowerCase().includes(termLower) ||
+                    (u.email || '').toLowerCase().includes(termLower)
+                );
+                if (filtered.length === 0) return '<div class="p-6 text-center text-xs text-gray-400">No users found</div>';
+                return filtered.map(u => `
+                    <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                        <div class="flex flex-col overflow-hidden mr-4">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-black dark:text-white truncate">${window.escapeHTML(u.name || u.id)}</span>
+                                ${selectedTeacherIds.has(u.id) ? `<span class="px-1.5 py-0.5 text-[9px] font-black rounded-full uppercase bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]">${isGroup ? 'Admin' : 'Teacher'}</span>` : ''}
+                            </div>
+                            <span class="text-xs text-gray-400 truncate">${window.escapeHTML(window.formatDisplayEmail ? window.formatDisplayEmail(u.email) : (u.email || u.id))}</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" ${selectedTeacherIds.has(u.id) ? 'checked' : ''} onchange="window.toggleTeacherSelection('${u.id}', this.checked)">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
+                        </label>
+                    </div>
+                `).join('');
             };
 
-            window.toggleExtensionSelection = (eid, isChecked) => {
-                extensionsState[eid] = !!isChecked;
-            };
-
-            // Forced extension: rendered in every Edit Class dialog with the
-            // switch locked on. It is never written to class data.
-            const forcedExtRow = `
+            const forcedExtRow = !isGroup ? `
                 <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden text-black dark:text-white bg-[#007AFF]/10 dark:bg-[#0A84FF]/10">
@@ -2510,7 +2663,7 @@ export const SidebarModule = {
                         <div class="w-11 h-6 rounded-full after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 bg-[#007AFF]"></div>
                     </div>
                 </div>
-            `;
+            ` : '';
 
             const renderExtensionsList = (filter = '') => {
                 const termLower = filter.toLowerCase().trim();
@@ -2520,7 +2673,7 @@ export const SidebarModule = {
                     if (!item) return false;
                     return item.title.toLowerCase().includes(termLower) || (item.category || '').toLowerCase().includes(termLower);
                 });
-                if (!'set up google doc submission'.includes(termLower) && filteredKeys.length === 0) return '<div class="p-4 text-center text-xs text-gray-400">No extensions found</div>';
+                if (!forcedExtRow && filteredKeys.length === 0) return '<div class="p-6 text-center text-xs text-gray-400">No extensions found</div>';
 
                 return forcedExtRow + filteredKeys.map(eid => {
                     const regItem = registry[eid];
@@ -2528,7 +2681,7 @@ export const SidebarModule = {
                     return `
                         <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: rgba(0, 122, 255, 0.10) !important; color: #007AFF !important;">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                                 </div>
                                 <div class="flex flex-col text-left">
@@ -2537,7 +2690,7 @@ export const SidebarModule = {
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" class="sr-only peer" ${isSelected ? 'checked' : ''} onchange="toggleExtensionSelection('${eid}', this.checked)">
+                                <input type="checkbox" class="sr-only peer" ${isSelected ? 'checked' : ''} onchange="window.toggleExtensionSelection('${eid}', this.checked)">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-gray-600 peer-checked:bg-[#007AFF]"></div>
                             </label>
                         </div>
@@ -2546,29 +2699,65 @@ export const SidebarModule = {
             };
 
             const { modal, title: tEl, body: bEl, confirm: confirmBtn, cancel: cancelBtn } = window.AppModules.Modal._getEls();
-            tEl.innerText = 'Edit Class';
+            tEl.innerText = isGroup ? 'Edit Group' : 'Edit Class';
             bEl.innerHTML = `
                 <div class="space-y-4 text-left">
                     <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Class Name</label>
-                        <input type="text" id="editClassName" value="${window.escapeHTML(classData.name)}" placeholder="Enter class name..." class="w-full mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">${isGroup ? 'Group Name' : 'Class Name'}</label>
+                        <input type="text" id="editClassName" value="${window.escapeHTML(classData.name || '')}" placeholder="${isGroup ? 'Enter group name...' : 'Enter class name...'}" class="w-full mt-1 p-3 bg-gray-100 dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 outline-none focus:border-[#007AFF] transition-all">
                     </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Manage Extensions</label>
-                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col mt-1">
-                            <div class="p-2 border-b border-gray-100 dark:border-gray-800">
-                                <input type="text" id="extensionSearch" placeholder="Search extensions..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
-                            </div>
-                            <div id="extensionList" class="max-h-[25vh] overflow-y-auto custom-scrollbar">${renderExtensionsList()}</div>
+
+                    <div class="flex gap-1.5 p-1 bg-gray-100 dark:bg-white/5 rounded-xl text-xs font-semibold select-none">
+                        <button type="button" id="tabBtnMembers" class="flex-1 py-2 px-2 rounded-lg transition-all text-center bg-white dark:bg-white/10 shadow-sm text-black dark:text-white">
+                            <span>${isGroup ? 'Members' : 'Students'}</span>
+                            <span id="tabCountMembers" class="ml-1 text-[11px] font-bold text-gray-400">(${selectedStudentIds.size})</span>
+                        </button>
+                        <button type="button" id="tabBtnTeachers" class="flex-1 py-2 px-2 rounded-lg transition-all text-center text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white">
+                            <span>${isGroup ? 'Admins' : 'Teachers'}</span>
+                            <span id="tabCountTeachers" class="ml-1 text-[11px] font-bold text-gray-400">(${selectedTeacherIds.size})</span>
+                        </button>
+                        <button type="button" id="tabBtnExtensions" class="flex-1 py-2 px-2 rounded-lg transition-all text-center text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white">
+                            <span>Extensions</span>
+                            <span id="tabCountExtensions" class="ml-1 text-[11px] font-bold text-gray-400">(${Object.values(extensionsState).filter(Boolean).length})</span>
+                        </button>
+                    </div>
+
+                    <!-- Panel 1: Students / Members -->
+                    <div id="panelMembers" class="space-y-2">
+                        <div class="text-[11px] text-gray-400 ml-1">
+                            ${isGroup ? 'Select members who can view and participate in this group chat.' : 'Select students enrolled in this class.'}
                         </div>
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Manage Students</label>
-                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col mt-1">
+                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col">
                             <div class="p-2 border-b border-gray-100 dark:border-gray-800">
                                 <input type="text" id="selectorSearch" placeholder="Search by name or email..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
                             </div>
-                            <div id="selectorList" class="max-h-[25vh] overflow-y-auto custom-scrollbar">${renderSelectorList()}</div>
+                            <div id="selectorList" class="max-h-[30vh] overflow-y-auto custom-scrollbar">${renderStudentSelectorList()}</div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: Teachers / Administrators -->
+                    <div id="panelTeachers" class="space-y-2 hidden">
+                        <div class="text-[11px] text-gray-400 ml-1">
+                            ${isGroup ? 'Administrators can manage the group roster, extensions, and settings.' : 'Teachers have administrator privileges to manage this class and roster.'}
+                        </div>
+                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col">
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-800">
+                                <input type="text" id="teacherSearch" placeholder="Search by name or email to add ${isGroup ? 'admins' : 'teachers'}..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
+                            </div>
+                            <div id="teacherList" class="max-h-[30vh] overflow-y-auto custom-scrollbar">${renderTeacherSelectorList()}</div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Extensions -->
+                    <div id="panelExtensions" class="space-y-2 hidden">
+                        <div class="text-[11px] text-gray-400 ml-1">
+                            Toggle extensions and tools enabled for this ${isGroup ? 'group' : 'class'}.
+                        </div>
+                        <div class="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/30 dark:bg-black/20 flex flex-col">
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-800">
+                                <input type="text" id="extensionSearch" placeholder="Search extensions..." class="w-full p-2.5 px-3.5 bg-gray-100/70 dark:bg-black/50 text-sm rounded-xl border border-gray-200/50 dark:border-gray-800/80 outline-none focus:border-[#007AFF] transition-all">
+                            </div>
+                            <div id="extensionList" class="max-h-[30vh] overflow-y-auto custom-scrollbar">${renderExtensionsList()}</div>
                         </div>
                     </div>
                 </div>
@@ -2581,10 +2770,95 @@ export const SidebarModule = {
             const nameInput = bEl.querySelector('#editClassName');
             const searchInput = bEl.querySelector('#selectorSearch');
             const listContainer = bEl.querySelector('#selectorList');
-            searchInput.oninput = (e) => { listContainer.innerHTML = renderSelectorList(e.target.value); };
-
+            const teacherSearchInput = bEl.querySelector('#teacherSearch');
+            const teacherListContainer = bEl.querySelector('#teacherList');
             const extSearchInput = bEl.querySelector('#extensionSearch');
             const extListContainer = bEl.querySelector('#extensionList');
+
+            const tabBtnMembers = bEl.querySelector('#tabBtnMembers');
+            const tabBtnTeachers = bEl.querySelector('#tabBtnTeachers');
+            const tabBtnExtensions = bEl.querySelector('#tabBtnExtensions');
+            const panelMembers = bEl.querySelector('#panelMembers');
+            const panelTeachers = bEl.querySelector('#panelTeachers');
+            const panelExtensions = bEl.querySelector('#panelExtensions');
+            const tabCountMembers = bEl.querySelector('#tabCountMembers');
+            const tabCountTeachers = bEl.querySelector('#tabCountTeachers');
+            const tabCountExtensions = bEl.querySelector('#tabCountExtensions');
+
+            const updateCounts = () => {
+                if (tabCountMembers) tabCountMembers.innerText = `(${selectedStudentIds.size})`;
+                if (tabCountTeachers) tabCountTeachers.innerText = `(${selectedTeacherIds.size})`;
+                if (tabCountExtensions) tabCountExtensions.innerText = `(${Object.values(extensionsState).filter(Boolean).length})`;
+            };
+
+            const setActiveTab = (tab) => {
+                const activeClasses = ['bg-white', 'dark:bg-white/10', 'shadow-sm', 'text-black', 'dark:text-white'];
+                const inactiveClasses = ['text-gray-500', 'dark:text-gray-400'];
+
+                [tabBtnMembers, tabBtnTeachers, tabBtnExtensions].forEach(btn => {
+                    btn?.classList.remove(...activeClasses);
+                    btn?.classList.add(...inactiveClasses);
+                });
+
+                panelMembers?.classList.add('hidden');
+                panelTeachers?.classList.add('hidden');
+                panelExtensions?.classList.add('hidden');
+
+                if (tab === 'members') {
+                    tabBtnMembers?.classList.add(...activeClasses);
+                    tabBtnMembers?.classList.remove(...inactiveClasses);
+                    panelMembers?.classList.remove('hidden');
+                    searchInput?.focus();
+                } else if (tab === 'teachers') {
+                    tabBtnTeachers?.classList.add(...activeClasses);
+                    tabBtnTeachers?.classList.remove(...inactiveClasses);
+                    panelTeachers?.classList.remove('hidden');
+                    teacherSearchInput?.focus();
+                } else if (tab === 'extensions') {
+                    tabBtnExtensions?.classList.add(...activeClasses);
+                    tabBtnExtensions?.classList.remove(...inactiveClasses);
+                    panelExtensions?.classList.remove('hidden');
+                    extSearchInput?.focus();
+                }
+            };
+
+            tabBtnMembers.onclick = () => setActiveTab('members');
+            tabBtnTeachers.onclick = () => setActiveTab('teachers');
+            tabBtnExtensions.onclick = () => setActiveTab('extensions');
+
+            window.toggleStudentSelection = (uid, isChecked) => {
+                if (isChecked) {
+                    selectedStudentIds.add(uid);
+                } else {
+                    selectedStudentIds.delete(uid);
+                    selectedTeacherIds.delete(uid);
+                    if (teacherListContainer) {
+                        teacherListContainer.innerHTML = renderTeacherSelectorList(teacherSearchInput?.value || '');
+                    }
+                }
+                updateCounts();
+            };
+
+            window.toggleTeacherSelection = (uid, isChecked) => {
+                if (isChecked) {
+                    selectedTeacherIds.add(uid);
+                    selectedStudentIds.add(uid);
+                    if (listContainer) {
+                        listContainer.innerHTML = renderStudentSelectorList(searchInput?.value || '');
+                    }
+                } else {
+                    selectedTeacherIds.delete(uid);
+                }
+                updateCounts();
+            };
+
+            window.toggleExtensionSelection = (eid, isChecked) => {
+                extensionsState[eid] = !!isChecked;
+                updateCounts();
+            };
+
+            searchInput.oninput = (e) => { listContainer.innerHTML = renderStudentSelectorList(e.target.value); };
+            teacherSearchInput.oninput = (e) => { teacherListContainer.innerHTML = renderTeacherSelectorList(e.target.value); };
             extSearchInput.oninput = (e) => { extListContainer.innerHTML = renderExtensionsList(e.target.value); };
 
             modal.classList.remove('hidden');
@@ -2595,12 +2869,16 @@ export const SidebarModule = {
                     confirmBtn.onclick = null;
                     cancelBtn.onclick = null;
                     delete window.toggleStudentSelection;
+                    delete window.toggleTeacherSelection;
                     delete window.toggleExtensionSelection;
                 };
 
                 confirmBtn.onclick = async () => {
                     const newName = nameInput.value.trim();
-                    if (!newName) { window.AppModules.Modal.alert('Required', 'Please enter a class name.'); return; }
+                    if (!newName) {
+                        window.AppModules.Modal.alert('Required', `Please enter a ${isGroup ? 'group' : 'class'} name.`);
+                        return;
+                    }
                     modal.classList.add('opacity-0');
                     _modalTimer = setTimeout(() => {
                         modal.classList.add('hidden');
@@ -2608,17 +2886,42 @@ export const SidebarModule = {
                     }, 300);
 
                     const newStudents = {};
-                    selectedIds.forEach(id => { newStudents[id] = true; });
+                    selectedStudentIds.forEach(id => { newStudents[id] = true; });
+
+                    const newTeachers = {};
+                    selectedTeacherIds.forEach(id => {
+                        newTeachers[id] = true;
+                        newStudents[id] = true; // admins/teachers are automatically participants
+                    });
+
+                    const payload = {
+                        name: newName,
+                        students: newStudents,
+                        teachers: newTeachers,
+                        extensions: extensionsState
+                    };
+                    if (isGroup) {
+                        payload.type = 'group';
+                        payload.admins = newTeachers;
+                    }
 
                     try {
-                        await rt.update(rt.ref(rt.db, `classes/${classId}`), {
-                            name: newName,
-                            students: newStudents,
-                            extensions: extensionsState
+                        await rt.update(rt.ref(rt.db, `classes/${classId}`), payload);
+                        window.cnCache[classId] = newName;
+
+                        // Update user_chats for all participants so the chat is present for everyone
+                        const allUserIds = new Set([...selectedStudentIds, ...selectedTeacherIds]);
+                        allUserIds.forEach(async uid => {
+                            try {
+                                await rt.update(rt.ref(rt.db, `user_chats/${uid.toLowerCase()}`), {
+                                    [`group_${classId}`]: Date.now()
+                                });
+                            } catch (e) {}
                         });
+
                         this.renderSidebar();
                     } catch (e) {
-                        window.AppModules.Modal.alert('Error', 'Failed to update class: ' + e.message);
+                        window.AppModules.Modal.alert('Error', `Failed to update ${isGroup ? 'group' : 'class'}: ` + e.message);
                     }
                     cleanup();
                     resolve(true);

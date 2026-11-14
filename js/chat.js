@@ -1424,12 +1424,14 @@ export function initChatEngine(deps) {
                         const wpTitleEl = document.getElementById('writingPortfolioTitle');
                         if (wpTitleEl) wpTitleEl.innerText = `Writing Portfolio - ${className}`;
                     }
-                    if (cData.teacherId) {
-                        const teacher = await safeFetchUser(cData.teacherId);
-                        ctCache[classId] = teacher?.name || "Teacher";
+                    const primaryOwnerId = cData.ownerId || cData.teacherId;
+                    if (primaryOwnerId) {
+                        const ownerUser = await safeFetchUser(primaryOwnerId);
+                        const roleName = cData.type === 'group' ? 'Group Owner' : 'Teacher';
+                        ctCache[classId] = ownerUser?.name || roleName;
                         if (getActiveTargetId() === targetId) {
                             animateNameBar(() => {
-                                statusEl.innerText = teacher?.name || "Teacher";
+                                statusEl.innerText = ctCache[classId];
                             });
                         }
                     }
@@ -1511,6 +1513,15 @@ export function initChatEngine(deps) {
                 writingBtn.classList.remove('hidden');
             } else {
                 writingBtn.classList.add('hidden');
+            }
+        }
+
+        const groupInfoBtn = document.getElementById('chatGroupInfoBtn');
+        if (groupInfoBtn) {
+            if (targetId && targetId.startsWith('group_')) {
+                groupInfoBtn.classList.remove('hidden');
+            } else {
+                groupInfoBtn.classList.add('hidden');
             }
         }
 

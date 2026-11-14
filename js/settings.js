@@ -123,7 +123,7 @@ export const SettingsModule = {
         // Announcement Color UI Update
         const annColor = localStorage.getItem('annAccentColor') || 'orange';
         const customAnnLightHex = localStorage.getItem('annCustomColorLightHex') || '#F97316';
-        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+        const customAnnDarkHex = localStorage.getItem('annCustomColorDarkHex') || '#C084FC';
 
         if (document.getElementById('currentAnnColorLabel')) {
             document.getElementById('currentAnnColorLabel').innerText = annColor === 'custom' ? 'Custom' : (annColor.charAt(0).toUpperCase() + annColor.slice(1));
@@ -151,7 +151,7 @@ export const SettingsModule = {
                 annPreview.style.borderColor = '';
             } else if (annColor === 'purple') {
                 annPreview.style.background = '';
-                annPreview.style.backgroundColor = '#A724FF';
+                annPreview.style.backgroundColor = '#C084FC';
                 annPreview.style.backgroundClip = '';
                 annPreview.style.webkitBackgroundClip = '';
                 annPreview.style.borderColor = '';
@@ -217,7 +217,7 @@ export const SettingsModule = {
                 msgPreview.style.borderColor = '';
             } else if (msgColor === 'purple') {
                 msgPreview.style.background = '';
-                msgPreview.style.backgroundColor = '#A724FF';
+                msgPreview.style.backgroundColor = '#C084FC';
                 msgPreview.style.backgroundClip = '';
                 msgPreview.style.webkitBackgroundClip = '';
                 msgPreview.style.borderColor = '';
@@ -283,7 +283,7 @@ export const SettingsModule = {
                 chatPreview.style.borderColor = '';
             } else if (chatColor === 'purple') {
                 chatPreview.style.background = '';
-                chatPreview.style.backgroundColor = '#A724FF';
+                chatPreview.style.backgroundColor = '#C084FC';
                 chatPreview.style.backgroundClip = '';
                 chatPreview.style.webkitBackgroundClip = '';
                 chatPreview.style.borderColor = '';
@@ -354,7 +354,7 @@ export const SettingsModule = {
                 otherMsgPreview.style.borderColor = '';
             } else if (otherMsgColor === 'purple') {
                 otherMsgPreview.style.background = '';
-                otherMsgPreview.style.backgroundColor = '#A724FF';
+                otherMsgPreview.style.backgroundColor = '#C084FC';
                 otherMsgPreview.style.backgroundClip = '';
                 otherMsgPreview.style.webkitBackgroundClip = '';
                 otherMsgPreview.style.borderColor = '';
@@ -533,7 +533,7 @@ export const SettingsModule = {
                                     <button onclick="selectAnnColor('purple', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Purple</span>
-                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#C084FC]"></div>
                                     </button>
                                     <button onclick="selectAnnColor('custom', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
@@ -597,7 +597,7 @@ export const SettingsModule = {
                                     <button onclick="selectMsgColor('purple', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Purple</span>
-                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#C084FC]"></div>
                                     </button>
                                     <button onclick="selectMsgColor('custom', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
@@ -661,7 +661,7 @@ export const SettingsModule = {
                                     <button onclick="selectChatColor('purple', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Purple</span>
-                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#C084FC]"></div>
                                     </button>
                                     <button onclick="selectChatColor('custom', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
@@ -730,7 +730,7 @@ export const SettingsModule = {
                                     <button onclick="selectOtherMsgColor('purple', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <span>Purple</span>
-                                        <div class="w-3 h-3 rounded-full bg-[#A724FF]"></div>
+                                        <div class="w-3 h-3 rounded-full bg-[#C084FC]"></div>
                                     </button>
                                     <button onclick="selectOtherMsgColor('custom', event)"
                                         class="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between">
@@ -1203,7 +1203,7 @@ window.handleAnnColorPickerLightInput = (val, e) => {
 window.handleAnnColorPickerLightChange = (val, e) => {
     if (e) e.stopPropagation();
     localStorage.setItem('annCustomColorLightHex', val);
-    const darkHex = localStorage.getItem('annCustomColorDarkHex') || '#A724FF';
+    const darkHex = localStorage.getItem('annCustomColorDarkHex') || '#C084FC';
     window.applyAnnColor('custom', val, darkHex);
     SettingsModule.updateSettingsLabels();
 };

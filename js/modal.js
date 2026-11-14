@@ -70,6 +70,17 @@ export const ModalModule = {
     _inject() {
         if (!document.getElementById('customModal')) {
             document.body.insertAdjacentHTML('beforeend', MODAL_HTML);
+            const modal = document.getElementById('customModal');
+            if (modal) {
+                const currentMsg = localStorage.getItem('msgAccentColor') || 'blue';
+                modal.classList.add('msg-theme-' + currentMsg);
+                if (currentMsg === 'custom') {
+                    const lightHex = localStorage.getItem('msgCustomColorLightHex') || '#007AFF';
+                    const darkHex = localStorage.getItem('msgCustomColorDarkHex') || '#0A84FF';
+                    modal.style.setProperty('--msg-accent-color', lightHex);
+                    modal.style.setProperty('--msg-accent-color-dark', darkHex);
+                }
+            }
         }
     },
 
